@@ -1,0 +1,13 @@
+{
+  "args_summary": "write_file(path=res://scenes/orbit_view.tscn)",
+  "files": [
+    {
+      "backup": "res://addons/godot_mcp/cache/undo/entry_000027/files/scenes/orbit_view.tscn",
+      "kind": "snapshot",
+      "path": "res://scenes/orbit_view.tscn"
+    }
+  ],
+  "id": "000027",
+  "timestamp": 1791105009.0,
+  "tool": "write_file"
+}

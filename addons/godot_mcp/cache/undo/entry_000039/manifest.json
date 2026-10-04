@@ -1,0 +1,13 @@
+{
+  "args_summary": "instance_scene(scene_path=res://scenes/orbit_view.tscn, node_name=OrbitControls)",
+  "files": [
+    {
+      "backup": "res://addons/godot_mcp/cache/undo/entry_000039/files/scenes/orbit_view.tscn",
+      "kind": "snapshot",
+      "path": "res://scenes/orbit_view.tscn"
+    }
+  ],
+  "id": "000039",
+  "timestamp": 1791110272.0,
+  "tool": "instance_scene"
+}

@@ -1,0 +1,19 @@
+[gd_scene format=3 uid="uid://cc3nnw3m1ppxm"]
+
+[ext_resource type="Script" uid="uid://41iuwqg2xtuc" path="res://scripts/rotating_cube.gd" id="1_o5qli"]
+
+[node name="Main" type="Node3D" unique_id=1361111268]
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=2106165198]
+transform = Transform3D(1, 0, 0, 0, 0.8479985, 0.52999866, 0, -0.52999866, 0.8479985, 0, 5, 8)
+current = true
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1418433610]
+transform = Transform3D(0.7071069, -0.49999982, 0.49999997, 0, 0.7071069, 0.70710665, -0.70710665, -0.49999997, 0.5000002, 0, 0, 0)
+shadow_enabled = true
+
+[node name="Floor" type="MeshInstance3D" parent="." unique_id=1658761541]
+
+[node name="Cube" type="MeshInstance3D" parent="." unique_id=1160632742]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+script = ExtResource("1_o5qli")

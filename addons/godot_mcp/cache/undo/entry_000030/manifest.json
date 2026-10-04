@@ -1,0 +1,12 @@
+{
+  "args_summary": "write_file(path=res://scenes/iss_cupola.tscn)",
+  "files": [
+    {
+      "kind": "created",
+      "path": "res://scenes/iss_cupola.tscn"
+    }
+  ],
+  "id": "000030",
+  "timestamp": 1791105569.0,
+  "tool": "write_file"
+}

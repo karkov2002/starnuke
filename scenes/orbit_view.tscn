@@ -1,0 +1,86 @@
+[gd_scene format=3 uid="uid://pfaxai0nlbgo"]
+
+[ext_resource type="Material" path="res://materials/earth_surface.tres" id="2_h5pva"]
+[ext_resource type="Script" uid="uid://y8fbvg7s250d" path="res://scripts/station_camera.gd" id="2_jnr3p"]
+[ext_resource type="Script" uid="uid://c4cmra3a5pna7" path="res://scripts/earth_detail_tiles.gd" id="4_3kqp2"]
+[ext_resource type="Material" path="res://materials/atmosphere.tres" id="4_lqujx"]
+[ext_resource type="Environment" uid="uid://4sxmnw5qdcy4" path="res://materials/space_environment.tres" id="5_env"]
+[ext_resource type="Material" path="res://materials/cloud_volume.tres" id="6_0pmab"]
+[ext_resource type="PackedScene" path="res://scenes/iss_cupola.tscn" id="7_0pmab"]
+[ext_resource type="Script" uid="uid://nmhxi1tug17e" path="res://scripts/orbit.gd" id="8_3kqp2"]
+[ext_resource type="Material" path="res://materials/atmosphere_ground.tres" id="8_pecem"]
+[ext_resource type="PackedScene" uid="uid://dknqs7e8wshht" path="res://scenes/ui/orbit_controls.tscn" id="10_e78ee"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_dokek"]
+radius = 637.1
+height = 1274.2
+radial_segments = 256
+rings = 128
+
+[sub_resource type="SphereMesh" id="SphereMesh_7jfs0"]
+radius = 638.4
+height = 1276.8
+radial_segments = 256
+rings = 128
+
+[sub_resource type="SphereMesh" id="SphereMesh_3kqp2"]
+radius = 664.0
+height = 1328.0
+radial_segments = 256
+rings = 128
+
+[sub_resource type="SphereMesh" id="SphereMesh_pecem"]
+radius = 638.7
+height = 1277.4
+radial_segments = 256
+rings = 128
+
+[node name="OrbitView" type="Node3D" unique_id=2050616671]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=207221406]
+environment = ExtResource("5_env")
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=529905280]
+transform = Transform3D(-0.44931895, -0.77831745, 0.43855938, 0, 0.49090374, 0.8712138, -0.8933714, 0.39145282, -0.22057237, 0, 0, 0)
+light_color = Color(1, 0.97, 0.92, 1)
+light_energy = 2.0
+shadow_enabled = true
+directional_shadow_max_distance = 15.0
+
+[node name="Camera" type="Camera3D" parent="." unique_id=1589073739]
+transform = Transform3D(1, 0, 0, 0, 0.92718387, 0.37460658, 0, -0.37460658, 0.92718387, 0, -0.51, 0.283)
+current = true
+far = 3000.0
+script = ExtResource("2_jnr3p")
+
+[node name="Station" parent="." unique_id=241936533 instance=ExtResource("7_0pmab")]
+transform = Transform3D(1, 0, 0, 0, 0.8660253, -0.49999997, 0, 0.49999997, 0.8660253, 0, 0, 0)
+
+[node name="Earth" type="Node3D" parent="." unique_id=1088308413]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -586.4, -338.6)
+
+[node name="Surface" type="MeshInstance3D" parent="Earth" unique_id=1960419863]
+material_override = ExtResource("2_h5pva")
+cast_shadow = 0
+mesh = SubResource("SphereMesh_dokek")
+script = ExtResource("4_3kqp2")
+
+[node name="CloudLayer" type="MeshInstance3D" parent="Earth" unique_id=1416907069]
+material_override = ExtResource("6_0pmab")
+cast_shadow = 0
+mesh = SubResource("SphereMesh_7jfs0")
+
+[node name="AtmosphereSky" type="MeshInstance3D" parent="Earth" unique_id=2081510248]
+material_override = ExtResource("4_lqujx")
+cast_shadow = 0
+mesh = SubResource("SphereMesh_3kqp2")
+
+[node name="AtmosphereGround" type="MeshInstance3D" parent="Earth" unique_id=1806862606]
+material_override = ExtResource("8_pecem")
+cast_shadow = 0
+mesh = SubResource("SphereMesh_pecem")
+
+[node name="Orbit" type="Node" parent="." unique_id=219774249]
+script = ExtResource("8_3kqp2")
+
+[node name="OrbitControls" parent="." unique_id=1118273847 instance=ExtResource("10_e78ee")]

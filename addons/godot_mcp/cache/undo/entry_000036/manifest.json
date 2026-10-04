@@ -1,0 +1,13 @@
+{
+  "args_summary": "batch_execute",
+  "files": [
+    {
+      "backup": "res://addons/godot_mcp/cache/undo/entry_000036/files/scenes/orbit_view.tscn",
+      "kind": "snapshot",
+      "path": "res://scenes/orbit_view.tscn"
+    }
+  ],
+  "id": "000036",
+  "timestamp": 1791108818.0,
+  "tool": "batch_execute"
+}

@@ -1,0 +1,246 @@
+# starnuke
+
+POC Godot 4.7 : vue depuis une station spatiale en orbite basse (~400 km), depuis la Cupola de l'ISS.
+Jeu « d'ambiance » : la priorité est une vue de la Terre la plus réaliste possible.
+
+## Lancer
+
+Ouvrir le projet dans Godot 4.7 puis F5 (scène principale : `res://scenes/orbit_view.tscn`).
+Les tuiles haute résolution (`assets/earth_tiles/`, `assets/earth_night_tiles/`) doivent avoir été générées (voir plus bas).
+
+## Contrôles
+
+| Action | Contrôle |
+|---|---|
+| Orienter la vue | Maintenir le **clic droit** et déplacer la souris (tangage limité à ±80°) |
+| Curseur | Libre le reste du temps (clic gauche sur le panneau de contrôle) |
+| Altitude | Curseur du panneau, **200 à 800 km** (clic, glisser ou molette) |
+| Inclinaison de l'orbite | Curseur du panneau, **0 à 70°**, bornée par la latitude courante (voir ci-dessous) |
+| Vitesse du temps | Boutons **Pause, x1, x2, x4, x8, x16** |
+| Redémarrer | Boutons **Restart by day** / **Restart by night** : temps remis à zéro, station au-dessus de l'Europe (Adriatique, 43° N 14° E, phase montante) à **midi** / **minuit** heure solaire locale ; l'altitude est conservée, l'inclinaison relevée à 43° si elle était plus faible |
+
+Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
+L'observateur ne peut pas se déplacer pour l'instant (des contrôles d'orientation de la vue sont prévus).
+
+**Panneau de contrôle** (`scenes/ui/orbit_controls.tscn`, script `scripts/orbit_controls.gd`), en bas au centre.
+Il affiche l'altitude et la période orbitale, l'inclinaison et le point survolé (latitude, longitude), ainsi que
+le temps simulé écoulé. Les curseurs agissent en direct sur le nœud `Orbit`. Hors manipulation, ils affichent les
+valeurs réellement appliquées. Le panneau a une largeur fixe et ne bouge pas quand les valeurs changent.
+
+**Règles de l'orbite appliquées par les contrôles :**
+- changer l'altitude conserve le point survolé et le sens de passage (montant / descendant) ; la période change
+  avec l'altitude ;
+- changer l'inclinaison se fait au point courant (comme un changement de plan orbital). Elle **ne peut pas être
+  inférieure à la latitude actuelle** de la station : une orbite d'inclinaison i ne dépasse jamais ±i de latitude.
+  La valeur demandée est donc remontée à |latitude| si besoin (le curseur se recale). Par exemple, au-dessus de
+  l'Adriatique (43° N), le minimum est 43°.
+- l'accélération du temps agit sur l'orbite, la rotation de la Terre et le soleil (pas sur le vent des nuages).
+
+## Organisation de la scène
+
+- **Station** : instance de `scenes/iss_cupola.tscn`, inspirée de l'ISS. L'unité de la scène est le mètre.
+  - Module type **Node 3 « Tranquility »** : section intérieure 2,1 × 2,1 m, longueur 4,6 m, parois couvertes de
+    racks, deux plafonniers, mains courantes autour du port nadir.
+  - **Cupola** fixée sur le port nadir : dôme hexagonal (Ø ~2,8 m, hauteur ~1,3 m) construit en CSG (`CSGPolygon3D`
+    en mode *spin* à 6 côtés), avec le **hublot central rond de 80 cm** et six fenêtres latérales trapézoïdales
+    séparées par des montants.
+  - Comme sur l'ISS, l'axe de la Cupola pointe vers le nadir (centre de la Terre). La station est inclinée de 30°
+    (`Station.rotation_degrees.x`) pour que l'observateur, qui garde la verticale du monde comme « haut », voie à la
+    fois le hublot central et l'horizon par les fenêtres latérales.
+- **Observateur** (`Camera`, script `scripts/station_camera.gd`) : tête dans la Cupola, à ~1 m du hublot central ;
+  vue initiale inclinée de 22° vers le bas (horizon dans le haut de l'image, Terre dans le reste du champ).
+- **Terre** (`Earth/`) : rendue à l'échelle **1/10 000** (1 unité = 10 km ; rayon 637,1 u) pour éviter les
+  problèmes de précision du tampon de profondeur. La caméra ne se déplaçant pas, la taille angulaire est identique
+  à celle d'une vraie Terre. Sa position et son orientation sont recalculées à chaque image par le nœud `Orbit`.
+  - `Surface` (shader `earth_surface.gdshader` + script `earth_detail_tiles.gd`, voir ci-dessous).
+  - `CloudLayer` (sphère de 638,4 u) : nuages volumétriques procéduraux, voir ci-dessous.
+  - `AtmosphereGround` (638,7 u) et `AtmosphereSky` (664 u) : diffusion atmosphérique physique, voir ci-dessous.
+- **Orbite** (`Orbit`, script `scripts/orbit.gd`) : mécanique orbitale, voir ci-dessous.
+- **Soleil** : `DirectionalLight3D` orientée par `Orbit` (position réelle du soleil, éteinte pendant l'éclipse) ;
+  elle éclaire la Terre et produit le reflet du soleil sur les océans (masque d'eau déduit de la couleur).
+- **Transition jour / nuit** (`shaders/sun_light.gdshaderinc`, partagé par le sol et les nuages) : la lumière du
+  soleil est atténuée par l'air qu'elle traverse. Au-dessus de l'horizon local, on utilise la masse d'air de
+  Kasten-Young. Sous l'horizon, le rayon a frôlé la Terre à l'altitude tangente ht et traversé une colonne d'environ
+  √(2πRH)·e^(−ht/H) (approximation de Chapman). Elle rougit donc puis s'éteint progressivement, sans coupure, et les
+  nuages en altitude gardent la lumière rose-orangée après le coucher du soleil au sol. Le sol a un éclairage
+  personnalisé (`light()` : Lambert + GGX avec cette lumière teintée) et reçoit en plus la lumière diffuse bleutée du
+  ciel (`sky_light_*`), qui persiste au crépuscule jusqu'à ~12° sous l'horizon (`twilight_end`). Les lumières des
+  villes s'allument entre +2° et −7°.
+- **Ciel / rendu** : `materials/space_environment.tres` (panorama étoilé HDR, tonemapping ACES, bloom qui adoucit
+  le limbe). Le ciel est orienté à chaque image par `Orbit` (`Environment.sky_rotation`) : les étoiles sont à leur
+  vraie place et tournent d'un tour par orbite autour de la station, comme vues depuis l'ISS.
+
+### Orbite (`scripts/orbit.gd`)
+
+Orbite **circulaire képlérienne** autour d'une Terre **en rotation** (sidérale, 7,292 × 10⁻⁵ rad/s) :
+- rayon a = 6371 km + altitude ; vitesse angulaire n = √(μ / a³) (μ = 398 600,44 km³/s²) ; période 2π/n
+  (88,4 min à 200 km, 92,4 min à 400 km, 100,7 min à 800 km) ;
+- position dans le repère inertiel équatorial (ECI : x vers le point vernal, z vers le pôle nord céleste) avec
+  i = inclinaison, Ω = ascension droite du nœud ascendant, u = argument de latitude (u = u₀ + n·t) :
+  `r = a·(cosΩ·cos u − sinΩ·sin u·cos i, sinΩ·cos u + cosΩ·sin u·cos i, sin u·sin i)` ;
+- repère terrestre (ECEF) = rotation de −θ autour de z, θ = angle sidéral de Greenwich = θ₀ + ω_terre·t : la
+  trace au sol dérive donc vers l'ouest d'environ 23° de longitude par orbite ;
+- point survolé : latitude = asin(z/|r|), longitude = atan2(y, x) dans l'ECEF.
+
+**Rendu** : la station et la caméra restent fixes dans la scène. À chaque image, le repère orbital local
+(zénith = r̂, direction de vol = v̂) est aligné sur le repère de la station (+Y local = zénith, −Z local = direction
+de vol), et on en déduit l'orientation et la position de la Terre, la direction du soleil et l'orientation du ciel.
+
+**Soleil** : fixe dans le repère inertiel ; ascension droite et déclinaison calculées depuis `day_of_year`
+(196 = mi-juillet, comme les textures ; longitude écliptique ≈ 0 au jour 80, obliquité 23,44°). L'angle sidéral
+initial θ₀ est déduit de `start_local_solar_hour` au point de départ (θ₀ = α_soleil − longitude sub-solaire) : le
+soleil, la Terre et les étoiles sont donc cohérents entre eux (ex. en juillet à 22 h, le couchant est au nord-ouest).
+Jour et nuit alternent naturellement (~35 min de nuit par orbite à 400 km ; l'été aux hautes latitudes, la station
+peut rester au soleil alors que le sol est dans la nuit). `get_sunlight_fraction()` donne l'éclipse par la Terre
+(ombre cylindrique adoucie sur 60 km), qui éteint la lumière du soleil sur la station.
+
+**Ciel étoilé** : la carte NASA est en coordonnées équatoriales (ascension droite 0h au centre, croissante vers la
+gauche, déclinaison +90° en haut). Le panorama Godot lit la direction locale d avec u = atan2(d.x, −d.z)/2π et
+v = acos(d.y)/π, d'où d = (y_ECI, z_ECI, x_ECI). `sky_rotation` reçoit la rotation ciel → monde
+(repère station ← ECEF ← ECI ← ciel). Godot applique son inverse aux directions de vue (vérifié dans
+`servers/rendering/renderer_rd/environment/sky.cpp`).
+
+**Conditions initiales** : `start_latitude_deg`, `start_longitude_deg` et `start_ascending` (43° N, 14° E,
+montante : l'Adriatique). L'orbite est calculée pour y passer (`pass_over`).
+
+**API pour le gameplay** (classe `OrbitSimulation` ; altitude, inclinaison et temps sont reliés au panneau) :
+| Méthode / propriété | Rôle |
+|---|---|
+| `altitude_km` (200–800) | Change l'altitude ; le point survolé et le sens de passage sont conservés. |
+| `inclination_deg` (0–70°) | Change l'inclinaison au point courant (comme une manœuvre de changement de plan) ; bornée à ≥ \|latitude courante\|. |
+| `pass_over(lat, lon, ascending)` | Recalcule Ω et la phase pour être, maintenant, à la verticale de (lat, lon). Exige \|lat\| ≤ inclinaison. |
+| `restart(heure_solaire)` | Temps remis à zéro, station au-dessus du point de départ à l'heure solaire locale donnée (12 = midi, 0 = minuit). Utilisé par les boutons Restart. |
+| `get_subsatellite_point(t)` | Point survolé (lat, lon) à l'instant t. |
+| `predict_ground_track(durée, pas)` | Trace au sol prévue (pour une carte ou le calcul de manœuvres). |
+| `get_period_s()`, `get_orbital_speed_km_s()`, `get_raan_deg()`, `is_ascending()` | Grandeurs orbitales. |
+| `time_scale`, `sim_time_s` | Accélération / temps simulé. |
+
+**Inclinaison maximale (70°) et pôles** : la trace au sol monte jusqu'à la latitude égale à l'inclinaison, et la vue
+porte ~20° plus loin, donc presque jusqu'au pôle à 70°. Aux plus hautes latitudes, la fenêtre de tuiles HD (découpée
+en latitude/longitude) devient étroite : au-delà de ~65° de latitude, le sol loin du nadir peut être un peu moins
+net. Pour survoler les pôles sans perte, il faudrait un découpage en « cube-sphère » (voir plus bas).
+
+### Nuages volumétriques (`shaders/cloud_volume.gdshader`, `shaders/cloud_density.gdshaderinc`)
+
+Couche entre **3 et 10 km** d'altitude, rendue par lancer de rayon (jusqu'à 72 pas) sur la sphère `CloudLayer`.
+- **Où et combien** : nuages **réels** d'une journée d'imagerie satellite (VIIRS NOAA-20, 15 juillet 2023 : ouragan
+  Calvin dans le Pacifique, dépressions en spirale, fronts, bancs de stratocumulus, amas orageux tropicaux…). La
+  couche alpha est calculée par différence avec la Blue Marble sans nuages (`tools/build_cloud_tiles.ps1`). Elle est
+  globale en 16K (`assets/textures/earth_clouds_16k.jpg`) et en tuiles 500 m/px autour de la station
+  (`assets/earth_cloud_tiles/*.webp`, même fenêtre 5 × 5 que le sol). Le niveau de détail lu dépend de la
+  distance, pour éviter le scintillement au loin.
+- **Épaisseur** : la couverture moyenne à grande échelle (~8 km, `cloud_height_lod`) fixe la hauteur du sommet. Un
+  cumulus isolé ou un voile reste bas (~1 km d'épaisseur, `cloud_thin_top`), une masse étendue et dense (front,
+  cyclone, cumulonimbus) monte jusqu'à 10 km.
+- **Forme** : les masses suivent directement la carte (pas de seuillage d'un bruit cellulaire, qui donnait l'aspect
+  « billes de polystyrène »). Les sommets sont bosselés par un bruit fractal doux à deux échelles : ondulation sur
+  50 km (`cloud_top_billow`) et relief « chou-fleur » sur ~8 km (`cloud_top_detail`). Un bruit de Worley
+  (`cloud_detail_noise.tres`) n'effiloche que les bords (couverture partielle, `cloud_edge_erosion`).
+- **Éclairage** : marche vers le soleil (auto-ombrage, loi de Beer + diffusion multiple approchée,
+  `multiple_scattering`), phase double Henyey-Greenstein (liseré lumineux à contre-jour), soleil rougi puis éteint
+  progressivement par l'atmosphère (`sun_light.gdshaderinc`), lumière ambiante bleutée du ciel ; nuages éteints côté
+  nuit.
+- **Ombres au sol** et voilage des lumières des villes : le shader de surface intègre la même densité.
+- **Vent** : `cloud_wind_km_s` fait évoluer lentement le relief des sommets (la carte de couverture, elle, est un
+  instantané fixe).
+Les nuages sont attachés au repère de la Terre (ils tournent avec elle). Réglages principaux dans le matériau
+`materials/cloud_volume.tres` (voir aussi `materials/earth_surface.tres`, qui partage les paramètres de densité).
+
+### Atmosphère (`shaders/atmosphere.gdshader`)
+
+Diffusion simple calculée par lancer de rayon dans la coquille atmosphérique (rayon terrestre 6371 km, épaisseur
+100 km ; calculs en km via `units_to_km = 10`) :
+- **Rayleigh** (hauteur d'échelle 8 km) : bleu du ciel et du limbe ;
+- **Mie** (hauteur d'échelle 1,2 km, g = 0,8) : halo blanchâtre près du sol et autour du soleil ;
+- **Ozone** (couche centrée à 25 km) : absorption qui donne le passage bleu profond → noir.
+La densité décroît exponentiellement avec l'altitude, d'où une transition progressive vers l'espace (plus de
+« couche de verre »). Au-dessus du sol, la même intégration produit la perspective aérienne (voile bleuté vers
+l'horizon) et atténue la lumière du sol. Rendu après les nuages (`render_priority = 1`) en mélange
+prémultiplié, sur deux sphères avec le même shader (`ground_rays`) : `AtmosphereSky` (664 u, faces arrière seulement)
+pour les rayons qui manquent la Terre, et `AtmosphereGround` (638,7 u, juste au-dessus des nuages, faces avant)
+pour ceux qui la touchent. Ainsi l'atmosphère reste correcte même quand la caméra est *dans* la coquille
+atmosphérique (orbite à 200 km), et la station la masque par le simple test de profondeur.
+
+`height_scale = 2.5` étire l'atmosphère verticalement (hauteurs d'échelle et épaisseur × 2,5, coefficients ÷ 2,5) :
+le voile au-dessus du sol garde la même opacité, mais le halo du limbe devient plus épais et plus diffus, comme sur
+les photos de référence (1 = Terre réelle, liseré fin). La sphère `AtmosphereSky` (rayon 664 u) doit contenir
+`6371 + 100 × height_scale` km. Autres réglages : `sun_intensity` (9), `primary_steps` / `light_steps`
+(qualité / coût).
+
+### Texture de la surface : globale + tuiles haute résolution
+
+Trois jeux de données identiquement découpés : **jour** (Blue Marble NG), **nuit** (Black Marble 2016, lumières
+des villes) et **couverture nuageuse** (VIIRS, voir « Nuages volumétriques » ; tuiles en WebP niveaux de gris,
+gardées en L8 en mémoire, ~50 Mo de VRAM).
+- Partout : `assets/textures/earth_bluemarble_16k.jpg` et `earth_night_16k.jpg` (16384 × 8192, ~2,4 km/pixel).
+- Autour du point survolé : tuiles de 5° en **500 m/pixel** (`assets/earth_tiles/rLL_cCC.jpg` et
+  `assets/earth_night_tiles/rLL_cCC.jpg`, 1200 × 1200 px, 72 colonnes × 36 lignes, ligne 0 = 90° N, colonne 0 =
+  180° O). Le script `scripts/earth_detail_tiles.gd` garde une fenêtre de 5 × 5 tuiles (25° × 25°, soit au moins
+  1100 km autour du nadir) dans un `Texture2DArray` par jeu (jour, nuit, nuages), tous avec la même attribution de
+  couches. Il transmet ces tableaux, l'origine de la fenêtre et la table des couches au matériau de surface et à
+  celui des nuages (`extra_material_paths`) ; la logique de lecture est partagée dans
+  `shaders/detail_window.gdshaderinc`. Quand la station change de tuile, il charge les tuiles entrantes en tâche de
+  fond (`WorkerThreadPool`) et les copie dans les couches libérées. Les shaders fondent la fenêtre dans les textures
+  globales sur ses bords. Les tuiles sont gardées non compressées (~430 Mo de VRAM au total, chargement < 2 s) ; l'option
+  `compress_tiles` les compresse en BC1 (VRAM ÷ 8) mais le chargement devient beaucoup plus lent et le
+  compresseur n'existe que dans l'éditeur. Sans tuiles de nuit, seule la texture globale de nuit est utilisée.
+- **Lumières nocturnes** (shader de surface, en émission) : allumées quand le soleil passe sous l'horizon local
+  (`night_sun_high` ≈ +2° → `night_sun_low` ≈ −7°), atténuées sous les nuages (transmittance verticale de la
+  couche nuageuse, `night_cloud_floor`), intensité `night_intensity`. La faible lueur bleutée des terres présente
+  dans le composite NASA (clair de lune, neige) est gardée mais atténuée (`night_land_level`).
+- Les dossiers de tuiles contiennent un `.gdignore` : l'éditeur n'importe pas les ~7800 tuiles (pas de
+  copie dans `.godot/`), le jeu les lit directement avec `FileAccess`. **À prévoir pour un export** : inclure ces
+  fichiers dans le paquet (filtre d'export de fichiers non-ressources ou distribution à côté de l'exécutable).
+- **Pôles** : le découpage latitude/longitude (équirectangulaire) dégénère aux pôles. Les tuiles y deviennent des
+  bandes très étroites, la fenêtre 5 × 5 ne couvre presque plus rien, et le maillage `SphereMesh` pince ses UV.
+  D'où la limite d'inclinaison à 70°. La technique standard pour survoler les pôles sans dégrader la vue est la
+  **cube-sphère** : on projette la Terre sur les 6 faces d'un cube (chaque face découpée en tuiles carrées
+  quasi uniformes), avec un maillage de sphère issu du cube et des coordonnées calculées par pixel à partir de la
+  direction. Il n'y a alors plus de singularité nulle part. Cela demande de reprojeter les tuiles NASA (outil
+  hors-jeu) et d'adapter `earth_detail_tiles.gd` et le shader de surface.
+
+### Génération des tuiles
+
+1. Télécharger les 8 images Blue Marble Next Generation de juillet 2004, variante **sans relief ombré** (le relief
+   ombré « topo.bathy » est figé et éclairé du nord-ouest, irréaliste avec un soleil dynamique, et dessine le fond
+   des mers)
+   (`world.200407.3x21600x21600.{A1,B1,C1,D1,A2,B2,C2,D2}.jpg`, ~350 Mo) depuis
+   `https://eoimages.gsfc.nasa.gov/images/imagerecords/74000/74092/` dans un dossier, renommées `A1.jpg` … `D2.jpg`.
+   Le serveur coupe souvent les gros transferts : reprendre avec `curl -C -` jusqu'à la taille annoncée.
+2. Lancer `tools/build_earth_tiles.ps1 -src <dossier>` (PowerShell, quelques minutes). Il écrit les tuiles et
+   régénère la texture globale 16K à partir de la même source (couleurs identiques entre les deux niveaux).
+   Le script est en .NET car Godot refuse les images de plus de 268 Mpx (les sources en font 466).
+3. Nuit : télécharger `BlackMarble_2016_{A1,B1,C1,D1,A2,B2,C2,D2}.jpg` (~220 Mo) depuis
+   `https://eoimages.gsfc.nasa.gov/images/imagerecords/144000/144898/`, renommées `A1.jpg` … `D2.jpg`, puis lancer
+   `tools/build_earth_tiles.ps1 -src <dossier> -kind night` (même découpage, sorties `assets/earth_night_tiles/`
+   et `assets/textures/earth_night_16k.jpg`).
+4. Nuages (nécessite les tuiles de jour) :
+   - télécharger les 2592 tuiles VIIRS de la journée choisie, même nom et même emprise que les tuiles de jour
+     (`rLL_cCC.jpg`, 5°, 1200 × 1200 px). WMS NASA GIBS
+     `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=VIIRS_NOAA20_CorrectedReflectance_TrueColor&CRS=EPSG:4326&BBOX=<lat_min>,<lon_min>,<lat_max>,<lon_max>&WIDTH=1200&HEIGHT=1200&FORMAT=image/jpeg&TIME=2023-07-15`
+     (~410 Mo, quelques minutes avec 12 requêtes en parallèle) ;
+   - `tools/build_cloud_tiles.ps1 -viirs <dossier>` (PowerShell + routine C# compilée à la volée, ~3 min). Il calcule
+     la couche alpha (différence de luminance avec la Blue Marble, filtre des pixels colorés, suppression du reflet
+     du soleil sur l'océan, repérable car lisse, par l'écart-type local). Là où la journée n'a pas de données (nuit
+     polaire), il prend la carte nuageuse Blue Marble 8K. Il écrit les tuiles JPEG et la texture globale 16K ;
+   - `godot --headless --path . --script res://tools/convert_tiles_webp.gd -- <projet>/assets/earth_cloud_tiles`
+     convertit les tuiles en WebP niveaux de gris (~2 fois plus léger que le JPEG).
+
+## Sources des textures
+
+Toutes issues de la NASA, domaine public (crédit demandé) :
+
+| Fichier | Contenu | Source |
+|---|---|---|
+| `assets/earth_tiles/*.jpg` | Blue Marble Next Generation, juillet 2004, sans relief ombré, 500 m/px (2592 tuiles, ~260 Mo) | NASA Visible Earth / Earth Observatory, image 74092 |
+| `assets/textures/earth_bluemarble_16k.jpg` | Même source réduite à 16384 × 8192 | idem |
+| `assets/earth_night_tiles/*.jpg` | Black Marble 2016 (lumières nocturnes, composite couleur), 500 m/px (2592 tuiles, ~180 Mo) | NASA Earth Observatory, image 144898 |
+| `assets/textures/earth_night_16k.jpg` | Même source réduite à 16384 × 8192 | idem |
+| `assets/earth_cloud_tiles/*.webp` | Couverture nuageuse (alpha) du 15 juillet 2023, déduite de VIIRS NOAA-20 Corrected Reflectance True Color, 500 m/px (2592 tuiles, ~350 Mo) | NASA GIBS / Worldview (données LANCE/VIIRS) |
+| `assets/textures/earth_clouds_16k.jpg` | Même couverture, 16384 × 8192 | idem |
+| `assets/textures/earth_clouds_8k.jpg` | Couverture nuageuse Blue Marble, 8192 × 4096 : utilisée seulement par l'outil, pour combler les zones sans données VIIRS | NASA Visible Earth / Earth Observatory, image 57747 |
+| `assets/textures/starmap_4k.exr` | Deep Star Maps 2020, 4096 × 2048, HDR | NASA Scientific Visualization Studio, animation 4851 |
+
+Limites des nuages réels : c'est un instantané (le temps qu'il fait ne change pas). On voit quelques raccords entre
+passages successifs du satellite (lignes droites dans les champs de nuages), et la banquise arctique est en partie
+comptée comme nuage.

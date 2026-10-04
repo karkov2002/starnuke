@@ -1,0 +1,13 @@
+{
+  "args_summary": "edit_script",
+  "files": [
+    {
+      "backup": "res://addons/godot_mcp/cache/undo/entry_000011/files/scripts/rotating_cube.gd",
+      "kind": "snapshot",
+      "path": "res://scripts/rotating_cube.gd"
+    }
+  ],
+  "id": "000011",
+  "timestamp": 1790505284.0,
+  "tool": "edit_script"
+}

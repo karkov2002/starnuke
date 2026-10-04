@@ -1,0 +1,13 @@
+{
+  "args_summary": "modify_node_property(scene_path=res://scenes/main.tscn, node_path=WorldEnvironment, property_name=environment)",
+  "files": [
+    {
+      "backup": "res://addons/godot_mcp/cache/undo/entry_000022/files/scenes/main.tscn",
+      "kind": "snapshot",
+      "path": "res://scenes/main.tscn"
+    }
+  ],
+  "id": "000022",
+  "timestamp": 1790505807.0,
+  "tool": "modify_node_property"
+}
