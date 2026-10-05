@@ -16,3 +16,4 @@ shader_parameter/cloud_coverage = ExtResource("3")
 shader_parameter/cloud_wind = ExtResource("7_wind")
 shader_parameter/cloud_shape_noise = ExtResource("4")
 shader_parameter/cloud_detail_noise = ExtResource("5")
+shader_parameter/night_intensity = 0.64

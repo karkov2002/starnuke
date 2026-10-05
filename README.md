@@ -18,7 +18,7 @@ Les tuiles haute résolution (`assets/earth_tiles/`, `assets/earth_night_tiles/`
 | Inclinaison de l'orbite | Curseur du panneau, **0 à 70°**, bornée par la latitude courante (voir ci-dessous) |
 | Date et heure (UTC) | Champ **date** (AAAA-MM-JJ, valider par Entrée), boutons **−1 j / +1 j**, curseur de l'**heure** du jour. La station reste au-dessus du même point ; le soleil, les étoiles et les nuages (poussés par le vent) se placent selon la nouvelle heure. Départ : **15 juillet 2035** |
 | Vitesse du temps | Boutons **Pause, x1, x2, x4, x8, x16** |
-| Redémarrer | Boutons **Restart by day** / **Restart by night** : temps remis à zéro, station au-dessus de l'Europe (Adriatique, 43° N 14° E, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 43° si elle était plus faible |
+| Redémarrer | Boutons **Restart by day** / **Restart by night** : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
 L'observateur ne peut pas se déplacer pour l'instant (des contrôles d'orientation de la vue sont prévus).
@@ -34,8 +34,8 @@ valeurs réellement appliquées. Le panneau a une largeur fixe et ne bouge pas q
 - changer l'inclinaison se fait au point courant (comme un changement de plan orbital). Elle **ne peut pas être
   inférieure à la latitude actuelle** de la station : une orbite d'inclinaison i ne dépasse jamais ±i de latitude.
   La valeur demandée est donc remontée à |latitude| si besoin (le curseur se recale). Par exemple, au-dessus de
-  l'Adriatique (43° N), le minimum est 43°.
-- l'accélération du temps agit sur l'orbite, la rotation de la Terre et le soleil (pas sur le vent des nuages).
+  Madrid (40,4° N), le minimum est 40,4°.
+- l'accélération du temps agit sur l'orbite, la rotation de la Terre, le soleil et le déplacement des nuages par le vent (pas sur la lente évolution du relief de leurs sommets).
 
 ## Organisation de la scène
 
@@ -72,13 +72,32 @@ valeurs réellement appliquées. Le panneau a une largeur fixe et ne bouge pas q
   vraie place et tournent d'un tour par orbite autour de la station, comme vues depuis l'ISS.
 - **Disque solaire** (shader de ciel `shaders/space_sky.gdshader`, qui dessine aussi le panorama étoilé) : soleil à
   sa position calculée, de rayon angulaire réel (0,267°), avec assombrissement centre-bord. Sa luminance
-  (`sun_disc_energy`) sature l'image, et le bloom produit l'éblouissement. `Orbit` lui transmet à chaque image la
+  (`sun_disc_energy` = 40 000, proche du maximum du format 16 bits) sature l'image et pilote l'éblouissement et
+  l'exposition (voir ci-dessous). `Orbit` lui transmet à chaque image la
   direction du soleil et la position de l'observateur, dans le repère du ciel. Près du limbe, le disque est atténué
   par la transmittance spectrale de l'atmosphère, avec le même modèle que `atmosphere.gdshader` (paramètres
   partagés dans `shaders/atmosphere_common.gdshaderinc`). Il rougit, s'éteint en passant derrière le limbe, puis la
   Terre le masque. Comme la sphère `AtmosphereSky` atténue déjà le fond de la transmittance moyenne (gris), le ciel
   n'applique que le rapport couleur / moyenne. Depuis la Cupola, tournée vers le nadir, on ne voit le soleil que
   lorsqu'il est assez bas, par les fenêtres latérales (lever et coucher à chaque orbite).
+- **Éblouissement** : glow de l'Environment, en mode additif, sur les 7 niveaux (du plus fin au plus large,
+  poids 0,6 → 0,15), avec un plafond de luminance relevé à 1000 (`glow_hdr_luminance_cap`). Seul le disque solaire
+  (et les reflets les plus intenses) dépasse nettement le seuil : il produit un halo progressif. Comme c'est un
+  effet d'image, ce halo déborde sur les montants des fenêtres, comme dans l'œil ou un objectif. Il disparaît dès que
+  le disque est masqué par la station ou par la Terre.
+- **Exposition automatique** (`materials/camera_attributes.tres`, affecté au `WorldEnvironment`) : Godot ajuste
+  l'exposition d'après la luminance moyenne de l'image HDR (exposition = `auto_exposure_scale` / moyenne).
+  - **Jour** : `auto_exposure_scale` = 0,22 est la luminance moyenne d'une vue de jour typique ; la vue de jour
+    garde donc la même luminosité qu'avant.
+  - **Face au soleil** : le disque visible domine la moyenne, et l'exposition baisse d'environ 5 fois. La Terre
+    s'assombrit et les étoiles s'effacent.
+  - **Nuit** : la moyenne s'effondre et l'exposition remonte, plafonnée à × 2,5
+    (`auto_exposure_min_sensitivity` = 70,4, soit une luminance minimale de 0,088). Au-delà, l'intérieur de la
+    Cupola, éclairé par la seule lumière ambiante, paraissait en plein jour.
+  - **Compensations** : les étoiles (`panorama_energy` = 0,4) et les lumières des villes (`night_intensity` = 0,64)
+    sont divisées par 2,5. La nuit, elles retrouvent leur éclat ; de jour, les étoiles sont à peine visibles,
+    comme sur les photos prises depuis l'ISS.
+  - **Vitesse d'adaptation** : `auto_exposure_speed` = 1.
 
 ### Orbite (`scripts/orbit.gd`)
 
@@ -114,8 +133,8 @@ v = acos(d.y)/π, d'où d = (y_ECI, z_ECI, x_ECI). `sky_rotation` reçoit la rot
 (repère station ← ECEF ← ECI ← ciel). Godot applique son inverse aux directions de vue (vérifié dans
 `servers/rendering/renderer_rd/environment/sky.cpp`).
 
-**Conditions initiales** : `start_latitude_deg`, `start_longitude_deg` et `start_ascending` (43° N, 14° E,
-montante : l'Adriatique). L'orbite est calculée pour y passer (`pass_over`).
+**Conditions initiales** : `start_latitude_deg`, `start_longitude_deg` et `start_ascending` (40,4° N, 3,7° O,
+montante : l'Espagne, au-dessus de Madrid). L'orbite est calculée pour y passer (`pass_over`).
 
 **API pour le gameplay** (classe `OrbitSimulation` ; altitude, inclinaison et temps sont reliés au panneau) :
 | Méthode / propriété | Rôle |
@@ -220,7 +239,8 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
   compresseur n'existe que dans l'éditeur. Sans tuiles de nuit, seule la texture globale de nuit est utilisée.
 - **Lumières nocturnes** (shader de surface, en émission) : allumées quand le soleil passe sous l'horizon local
   (`night_sun_high` ≈ +2° → `night_sun_low` ≈ −7°), atténuées sous les nuages (transmittance verticale de la
-  couche nuageuse, `night_cloud_floor`), intensité `night_intensity`. La faible lueur bleutée des terres présente
+  couche nuageuse, `night_cloud_floor`), intensité `night_intensity` (0,64, compensée par l'exposition
+  automatique, qui remonte l'image de × 2,5 la nuit). La faible lueur bleutée des terres présente
   dans le composite NASA (clair de lune, neige) est gardée mais atténuée (`night_land_level`).
 - Les dossiers de tuiles contiennent un `.gdignore` : l'éditeur n'importe pas les ~7800 tuiles (pas de
   copie dans `.godot/`), le jeu les lit directement avec `FileAccess`. **À prévoir pour un export** : inclure ces

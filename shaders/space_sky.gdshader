@@ -11,15 +11,20 @@
 shader_type sky;
 
 uniform sampler2D panorama : source_color, filter_linear, hint_default_black;
-uniform float panorama_energy = 1.0;
+// Étoiles atténuées : l'exposition automatique (materials/camera_attributes.tres) remonte l'image jusqu'à × 2,5 la
+// nuit, où elles retrouvent leur éclat ; de jour, et surtout face au soleil, elles s'effacent.
+uniform float panorama_energy = 0.4;
 
 uniform vec3 sun_direction = vec3(0.0, 1.0, 0.0); // repère du ciel, vers le soleil
 uniform vec3 observer_km = vec3(0.0, 6771.0, 0.0); // position de l'observateur / centre de la Terre, repère du ciel
 uniform float sun_angular_radius_deg = 0.2666;
 uniform vec3 sun_color : source_color = vec3(1.0, 0.98, 0.95);
 // Luminance du disque (unités HDR de la scène). La vraie valeur (~10⁵ fois le sol éclairé) dépasse le format
-// flottant du rendu : seule compte la saturation et l'énergie transmise au bloom.
-uniform float sun_disc_energy = 2000.0;
+// flottant du rendu (16 bits, max 65504). 40 000 suffit pour que le disque, quand il est visible, domine la
+// luminance moyenne de l'image : l'exposition automatique baisse (Terre plus sombre, étoiles effacées), et le glow
+// (niveaux larges, mode additif) en tire l'éblouissement, par-dessus la station. Masqué par la station ou la Terre,
+// il ne compte plus.
+uniform float sun_disc_energy = 40000.0;
 // Assombrissement centre-bord (loi linéaire I = 1 − u·(1 − μ)), plus marqué dans le bleu.
 uniform vec3 limb_darkening = vec3(0.5, 0.6, 0.75);
 uniform int sun_steps = 24;

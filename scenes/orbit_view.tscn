@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://nmhxi1tug17e" path="res://scripts/orbit.gd" id="8_3kqp2"]
 [ext_resource type="Material" path="res://materials/atmosphere_ground.tres" id="8_pecem"]
 [ext_resource type="PackedScene" uid="uid://dknqs7e8wshht" path="res://scenes/ui/orbit_controls.tscn" id="10_e78ee"]
+[ext_resource type="CameraAttributes" path="res://materials/camera_attributes.tres" id="11_cam"]
 
 [sub_resource type="SphereMesh" id="SphereMesh_dokek"]
 radius = 637.1
@@ -39,6 +40,7 @@ rings = 128
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=207221406]
 environment = ExtResource("5_env")
+camera_attributes = ExtResource("11_cam")
 
 [node name="Sun" type="DirectionalLight3D" parent="." unique_id=529905280]
 transform = Transform3D(-0.44931895, -0.77831745, 0.43855938, 0, 0.49090374, 0.8712138, -0.8933714, 0.39145282, -0.22057237, 0, 0, 0)

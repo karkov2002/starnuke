@@ -39,8 +39,8 @@ const MAX_INCLINATION_DEG := 70.0
 
 @export_group("Conditions initiales")
 ## Point survolé au démarrage (l'orbite est calculée pour y passer).
-@export var start_latitude_deg := 43.0
-@export var start_longitude_deg := 14.0
+@export var start_latitude_deg := 40.4
+@export var start_longitude_deg := -3.7
 ## Station en phase montante (vers le nord) au démarrage.
 @export var start_ascending := true
 ## Date de départ (AAAA-MM-JJ). Le jeu se passe en 2035 ; juillet, comme les textures Blue Marble.
