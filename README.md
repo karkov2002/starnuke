@@ -69,6 +69,15 @@ valeurs réellement appliquées. Le panneau a une largeur fixe et ne bouge pas q
 - **Ciel / rendu** : `materials/space_environment.tres` (panorama étoilé HDR, tonemapping ACES, bloom qui adoucit
   le limbe). Le ciel est orienté à chaque image par `Orbit` (`Environment.sky_rotation`) : les étoiles sont à leur
   vraie place et tournent d'un tour par orbite autour de la station, comme vues depuis l'ISS.
+- **Disque solaire** (shader de ciel `shaders/space_sky.gdshader`, qui dessine aussi le panorama étoilé) : soleil à
+  sa position calculée, de rayon angulaire réel (0,267°), avec assombrissement centre-bord. Sa luminance
+  (`sun_disc_energy`) sature l'image, et le bloom produit l'éblouissement. `Orbit` lui transmet à chaque image la
+  direction du soleil et la position de l'observateur, dans le repère du ciel. Près du limbe, le disque est atténué
+  par la transmittance spectrale de l'atmosphère, avec le même modèle que `atmosphere.gdshader` (paramètres
+  partagés dans `shaders/atmosphere_common.gdshaderinc`). Il rougit, s'éteint en passant derrière le limbe, puis la
+  Terre le masque. Comme la sphère `AtmosphereSky` atténue déjà le fond de la transmittance moyenne (gris), le ciel
+  n'applique que le rapport couleur / moyenne. Depuis la Cupola, tournée vers le nadir, on ne voit le soleil que
+  lorsqu'il est assez bas, par les fenêtres latérales (lever et coucher à chaque orbite).
 
 ### Orbite (`scripts/orbit.gd`)
 
@@ -165,7 +174,9 @@ atmosphérique (orbite à 200 km), et la station la masque par le simple test de
 le voile au-dessus du sol garde la même opacité, mais le halo du limbe devient plus épais et plus diffus, comme sur
 les photos de référence (1 = Terre réelle, liseré fin). La sphère `AtmosphereSky` (rayon 664 u) doit contenir
 `6371 + 100 × height_scale` km. Autres réglages : `sun_intensity` (9), `primary_steps` / `light_steps`
-(qualité / coût).
+(qualité / coût). Le modèle (rayon, coefficients, hauteurs d'échelle, `height_scale`) est dans
+`shaders/atmosphere_common.gdshaderinc`, partagé avec le shader de ciel. Si on change un paramètre dans un matériau,
+il faut le changer aussi dans l'autre.
 
 ### Texture de la surface : globale + tuiles haute résolution
 

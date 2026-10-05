@@ -1,1 +1,3 @@
 .godot/
+# Cache du serveur MCP Godot (captures, instantanés d'annulation)
+addons/godot_mcp/cache/

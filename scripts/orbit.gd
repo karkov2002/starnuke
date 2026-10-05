@@ -306,6 +306,15 @@ func _update_scene() -> void:
 		var eci_to_ecef_basis := Basis(Vector3(cos(theta), -sin(theta), 0), Vector3(sin(theta), cos(theta), 0), Vector3(0, 0, 1))
 		var sky_to_world := (ecef_to_world * eci_to_ecef_basis * sky_to_eci).orthonormalized()
 		_environment.sky_rotation = sky_to_world.get_euler()
+		# Disque solaire du shader de ciel : soleil et observateur exprimés dans le repère du ciel.
+		var sky_material: ShaderMaterial = null
+		if _environment.sky:
+			sky_material = _environment.sky.sky_material as ShaderMaterial
+		if sky_material:
+			var world_to_sky := sky_to_world.transposed()
+			var observer_km := (_observer.global_position - _earth.global_position) / SCENE_UNITS_PER_KM
+			sky_material.set_shader_parameter("sun_direction", world_to_sky * sun_w)
+			sky_material.set_shader_parameter("observer_km", world_to_sky * observer_km)
 
 	for child in _earth.get_children():
 		var geometry := child as GeometryInstance3D

@@ -34,7 +34,7 @@ défaut dans le script). Dans un shader spatial, `hint_depth_texture` s'est rév
 
 - `project.godot` est généré par l'éditeur : préférer les modifications via l'éditeur/MCP (`update_project_settings`) plutôt qu'à la main.
 - Encodage UTF-8 pour tous les fichiers (`.editorconfig`).
-- Le dossier `.godot/` (cache d'import, shader cache) est actuellement versionné alors qu'il est normalement régénéré par
-  l'éditeur ; il n'y a pas de `.gitignore`. Ne pas modifier son contenu manuellement.
+- Non versionnés (`.gitignore`) : `.godot/` (cache d'import, shader cache, régénéré par l'éditeur ; ne pas modifier
+  son contenu manuellement) et `addons/godot_mcp/cache/` (captures d'écran et instantanés d'annulation du MCP).
 - Tout ajout ou modification d'une règle du jeu doit s'accompagner, dans le même travail, de la mise à jour de la
   documentation correspondante (README.md ou document de règles dédié lorsqu'il existera).
