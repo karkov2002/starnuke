@@ -1,17 +1,21 @@
 extends CanvasLayer
 ## Panneau de contrôle de l'orbite, en bas au centre de l'écran : altitude (200–800 km), inclinaison (0–70°),
-## vitesse du temps (pause, x1 à x16) et redémarrage au-dessus de l'Europe à midi / minuit. Les curseurs pilotent
-## le nœud Orbit en direct ; hors manipulation,
+## date et heure UTC (champ date, ±1 jour, curseur d'heure), vitesse du temps (pause, x1 à x16) et redémarrage
+## au-dessus de l'Europe à midi / minuit. Les curseurs pilotent le nœud Orbit en direct ; hors manipulation,
 ## ils affichent les valeurs réellement appliquées (l'inclinaison est bornée par la latitude courante).
 
 const TIME_SCALES := [0.0, 1.0, 2.0, 4.0, 8.0, 16.0]
+const DAY_S := 86400.0
 
 @export var orbit_path: NodePath = ^"../Orbit"
 
 var _orbit: OrbitSimulation
 var _dragging_altitude := false
 var _dragging_inclination := false
+var _dragging_hour := false
 var _time_buttons: Array[Button] = []
+var _date_edit: LineEdit
+var _hour_slider: HSlider
 
 @onready var _panel: PanelContainer = $Panel
 @onready var _altitude_label: Label = $Panel/Row/Altitude/AltitudeLabel
@@ -32,6 +36,7 @@ func _ready() -> void:
 	# Largeurs fixes : le panneau ne doit pas changer de taille quand les valeurs affichées changent.
 	for column: Control in [$Panel/Row/Altitude, $Panel/Row/Inclination]:
 		column.custom_minimum_size.x = 330.0
+	$Panel/Row/Time.custom_minimum_size.x = 380.0
 	for label: Label in [_altitude_label, _inclination_label, _time_label]:
 		label.clip_text = true
 	_time_buttons_box.add_theme_constant_override("separation", 4)
@@ -51,6 +56,8 @@ func _ready() -> void:
 	$Panel/Row/Restart/RestartButtons.add_theme_constant_override("separation", 4)
 	$Panel/Row/Restart/RestartButtons/DayButton.pressed.connect(func() -> void: _orbit.restart(12.0))
 	$Panel/Row/Restart/RestartButtons/NightButton.pressed.connect(func() -> void: _orbit.restart(0.0))
+
+	_build_date_row()
 
 	var group := ButtonGroup.new()
 	for factor: float in TIME_SCALES:
@@ -77,9 +84,87 @@ func _process(_delta: float) -> void:
 	_altitude_label.text = "Altitude : %d km  ·  période %.1f min" % [roundi(_orbit.altitude_km), _orbit.get_period_s() / 60.0]
 	_inclination_label.text = "Inclinaison : %.1f°  ·  %s %s" % [_orbit.inclination_deg,
 			_format_angle(point.x, "N", "S"), _format_angle(point.y, "E", "O")]
-	var t := int(_orbit.sim_time_s)
+
+	var now := _orbit.get_utc_datetime()
+	_time_label.text = "%02d/%02d/%d  %02d:%02d:%02d UTC  ·  %s solaire" % [now.day, now.month, now.year,
+			now.hour, now.minute, now.second, _format_hour(_orbit.get_local_solar_hour(point.y))]
+	if not _date_edit.has_focus():
+		_date_edit.text = "%04d-%02d-%02d" % [now.year, now.month, now.day]
+	if not _dragging_hour:
+		_hour_slider.set_value_no_signal((_orbit.get_utc_unix_s() - _day_start_unix()) / 3600.0)
+
+
+# Ligne date / heure (UTC) : champ date (AAAA-MM-JJ, validé par Entrée), boutons −1 / +1 jour, curseur de l'heure
+# du jour. Changer la date ou l'heure laisse la station au-dessus du même point (voir Orbit.set_utc_unix_s).
+func _build_date_row() -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	$Panel/Row/Time.add_child(row)
+	$Panel/Row/Time.move_child(row, _time_label.get_index() + 1)
+
+	var previous := _make_small_button("−1 j", func() -> void: _shift_time(-DAY_S))
+	_date_edit = LineEdit.new()
+	_date_edit.custom_minimum_size.x = 112.0
+	_date_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_date_edit.max_length = 10
+	_date_edit.focus_mode = Control.FOCUS_CLICK
+	_date_edit.tooltip_text = "Date UTC (AAAA-MM-JJ), valider par Entrée"
+	_date_edit.text_submitted.connect(_on_date_submitted)
+	var next := _make_small_button("+1 j", func() -> void: _shift_time(DAY_S))
+
+	_hour_slider = HSlider.new()
+	_hour_slider.min_value = 0.0
+	_hour_slider.max_value = 24.0
+	_hour_slider.step = 1.0 / 60.0
+	_hour_slider.focus_mode = Control.FOCUS_NONE
+	_hour_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_hour_slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_hour_slider.tooltip_text = "Heure UTC"
+	_hour_slider.value_changed.connect(_on_hour_changed)
+	_hour_slider.drag_started.connect(func() -> void: _dragging_hour = true)
+	_hour_slider.drag_ended.connect(func(_changed: bool) -> void: _dragging_hour = false)
+
+	for control: Control in [previous, _date_edit, next, _hour_slider]:
+		row.add_child(control)
+
+
+func _make_small_button(text: String, action: Callable) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size.x = 44.0
+	button.pressed.connect(action)
+	return button
+
+
+func _shift_time(seconds: float) -> void:
+	_orbit.set_utc_unix_s(_orbit.get_utc_unix_s() + seconds)
+
+
+func _day_start_unix() -> float:
+	return floorf(_orbit.get_utc_unix_s() / DAY_S) * DAY_S
+
+
+func _on_hour_changed(hour: float) -> void:
+	_orbit.set_utc_unix_s(_day_start_unix() + minf(hour * 3600.0, DAY_S - 1.0))
+
+
+func _on_date_submitted(text: String) -> void:
+	_date_edit.release_focus()
+	var date := text.strip_edges()
+	if RegEx.create_from_string("^\\d{4}-\\d{2}-\\d{2}$").search(date) == null:
+		return
+	var day := float(Time.get_unix_time_from_datetime_string(date + "T00:00:00"))
+	# Rejette les dates impossibles (ex. 2035-02-30), que Time accepte en les décalant.
+	if Time.get_date_string_from_unix_time(int(day)) != date:
+		return
+	_orbit.set_utc_unix_s(day + _orbit.get_utc_unix_s() - _day_start_unix())
+
+
+func _format_hour(hour: float) -> String:
+	var minutes := int(hour * 60.0) % 1440
 	@warning_ignore("integer_division")
-	_time_label.text = "Temps  ·  T+%02d:%02d:%02d" % [t / 3600, t / 60 % 60, t % 60]
+	return "%02d:%02d" % [minutes / 60, minutes % 60]
 
 
 func _format_angle(value: float, positive: String, negative: String) -> String:

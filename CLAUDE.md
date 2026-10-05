@@ -9,7 +9,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Arborescence : `scenes/` (dont `scenes/ui/`), `scripts/`, `shaders/`, `materials/` (matériaux et Environment en `.tres`), `assets/textures/`.
 L'architecture (échelle 1/10 000 de la Terre, mécanique orbitale `scripts/orbit.gd`, atmosphère, nuages volumétriques,
 tuiles HD, sources des textures) est décrite dans le README. Toute la scène est placée autour d'une station fixe :
-c'est la Terre que `Orbit` déplace et oriente à chaque image.
+c'est la Terre que `Orbit` déplace et oriente à chaque image. L'horloge est une vraie date UTC (le jeu se passe en
+2035) ; les nuages (instantané VIIRS du 15/07/2023) sont déplacés par le vent réel GFS du même jour
+(`assets/textures/cloud_wind.exr`, généré par `tools/build_wind_field.ps1`).
 
 Les tuiles HD de la Terre (jour `assets/earth_tiles/` ~260 Mo, nuit `assets/earth_night_tiles/` ~180 Mo, nuages
 `assets/earth_cloud_tiles/` ~350 Mo en WebP, `.gdignore`) sont

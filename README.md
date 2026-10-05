@@ -16,15 +16,16 @@ Les tuiles haute résolution (`assets/earth_tiles/`, `assets/earth_night_tiles/`
 | Curseur | Libre le reste du temps (clic gauche sur le panneau de contrôle) |
 | Altitude | Curseur du panneau, **200 à 800 km** (clic, glisser ou molette) |
 | Inclinaison de l'orbite | Curseur du panneau, **0 à 70°**, bornée par la latitude courante (voir ci-dessous) |
+| Date et heure (UTC) | Champ **date** (AAAA-MM-JJ, valider par Entrée), boutons **−1 j / +1 j**, curseur de l'**heure** du jour. La station reste au-dessus du même point ; le soleil, les étoiles et les nuages (poussés par le vent) se placent selon la nouvelle heure. Départ : **15 juillet 2035** |
 | Vitesse du temps | Boutons **Pause, x1, x2, x4, x8, x16** |
-| Redémarrer | Boutons **Restart by day** / **Restart by night** : temps remis à zéro, station au-dessus de l'Europe (Adriatique, 43° N 14° E, phase montante) à **midi** / **minuit** heure solaire locale ; l'altitude est conservée, l'inclinaison relevée à 43° si elle était plus faible |
+| Redémarrer | Boutons **Restart by day** / **Restart by night** : temps remis à zéro, station au-dessus de l'Europe (Adriatique, 43° N 14° E, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 43° si elle était plus faible |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
 L'observateur ne peut pas se déplacer pour l'instant (des contrôles d'orientation de la vue sont prévus).
 
 **Panneau de contrôle** (`scenes/ui/orbit_controls.tscn`, script `scripts/orbit_controls.gd`), en bas au centre.
 Il affiche l'altitude et la période orbitale, l'inclinaison et le point survolé (latitude, longitude), ainsi que
-le temps simulé écoulé. Les curseurs agissent en direct sur le nœud `Orbit`. Hors manipulation, ils affichent les
+la date et l'heure UTC et l'heure solaire locale du point survolé. Les curseurs agissent en direct sur le nœud `Orbit`. Hors manipulation, ils affichent les
 valeurs réellement appliquées. Le panneau a une largeur fixe et ne bouge pas quand les valeurs changent.
 
 **Règles de l'orbite appliquées par les contrôles :**
@@ -95,10 +96,14 @@ Orbite **circulaire képlérienne** autour d'une Terre **en rotation** (sidéral
 (zénith = r̂, direction de vol = v̂) est aligné sur le repère de la station (+Y local = zénith, −Z local = direction
 de vol), et on en déduit l'orientation et la position de la Terre, la direction du soleil et l'orientation du ciel.
 
-**Soleil** : fixe dans le repère inertiel ; ascension droite et déclinaison calculées depuis `day_of_year`
-(196 = mi-juillet, comme les textures ; longitude écliptique ≈ 0 au jour 80, obliquité 23,44°). L'angle sidéral
-initial θ₀ est déduit de `start_local_solar_hour` au point de départ (θ₀ = α_soleil − longitude sub-solaire) : le
-soleil, la Terre et les étoiles sont donc cohérents entre eux (ex. en juillet à 22 h, le couchant est au nord-ouest).
+**Date et heure** : l'horloge est une vraie date UTC (`epoch_unix_s + sim_time_s`). Le jeu se passe en 2035 : départ
+le `start_date` (2035-07-15, juillet comme les textures) à l'heure solaire locale `start_local_solar_hour` (10 h 30)
+au point de départ. L'angle sidéral θ est l'angle de rotation de la Terre (IAU 2000), calculé à partir de la date
+julienne. Le soleil est placé par les formules de l'Astronomical Almanac (longitude moyenne, anomalie, obliquité ;
+précision ~0,01°), et suit donc les saisons, l'équation du temps et son déplacement d'environ 1° par jour. Le
+soleil, la Terre et les étoiles sont cohérents entre eux (ex. en juillet à 22 h, le couchant est au nord-ouest).
+Changer la date ou l'heure (`set_utc_unix_s`) recalcule l'orbite pour que la station reste au-dessus du même point.
+Les textures du sol sont celles de juillet : une date d'hiver garde un sol estival (pas de neige).
 Jour et nuit alternent naturellement (~35 min de nuit par orbite à 400 km ; l'été aux hautes latitudes, la station
 peut rester au soleil alors que le sol est dans la nuit). `get_sunlight_fraction()` donne l'éclipse par la Terre
 (ombre cylindrique adoucie sur 60 km), qui éteint la lumière du soleil sur la station.
@@ -118,7 +123,9 @@ montante : l'Adriatique). L'orbite est calculée pour y passer (`pass_over`).
 | `altitude_km` (200–800) | Change l'altitude ; le point survolé et le sens de passage sont conservés. |
 | `inclination_deg` (0–70°) | Change l'inclinaison au point courant (comme une manœuvre de changement de plan) ; bornée à ≥ \|latitude courante\|. |
 | `pass_over(lat, lon, ascending)` | Recalcule Ω et la phase pour être, maintenant, à la verticale de (lat, lon). Exige \|lat\| ≤ inclinaison. |
-| `restart(heure_solaire)` | Temps remis à zéro, station au-dessus du point de départ à l'heure solaire locale donnée (12 = midi, 0 = minuit). Utilisé par les boutons Restart. |
+| `restart(heure_solaire)` | Temps remis à zéro, station au-dessus du point de départ, le même jour, à l'heure solaire locale donnée (12 = midi, 0 = minuit). Utilisé par les boutons Restart. |
+| `set_utc_unix_s(s)`, `get_utc_unix_s()`, `get_utc_datetime()` | Date et heure UTC (secondes Unix) ; le changement garde la station au-dessus du même point. |
+| `get_local_solar_hour(lon)`, `get_sun_direction_eci()` | Heure solaire vraie à une longitude, direction du soleil. |
 | `get_subsatellite_point(t)` | Point survolé (lat, lon) à l'instant t. |
 | `predict_ground_track(durée, pas)` | Trace au sol prévue (pour une carte ou le calcul de manœuvres). |
 | `get_period_s()`, `get_orbital_speed_km_s()`, `get_raan_deg()`, `is_ascending()` | Grandeurs orbitales. |
@@ -150,8 +157,24 @@ Couche entre **3 et 10 km** d'altitude, rendue par lancer de rayon (jusqu'à 72 
   progressivement par l'atmosphère (`sun_light.gdshaderinc`), lumière ambiante bleutée du ciel ; nuages éteints côté
   nuit.
 - **Ombres au sol** et voilage des lumières des villes : le shader de surface intègre la même densité.
-- **Vent** : `cloud_wind_km_s` fait évoluer lentement le relief des sommets (la carte de couverture, elle, est un
-  instantané fixe).
+- **Déplacement par le vent réel** (advection) : la carte de couverture est un instantané, pris par NOAA-20 vers
+  **13 h 30 heure solaire locale** le 15 juillet 2023. Le vent utilisé est le vent moyen du même jour : modèle
+  GFS de la NOAA, moyenne des niveaux 850/700/500 hPa et des 4 analyses du jour, texture
+  `assets/textures/cloud_wind.exr`, 0,5°. Pour l'heure UTC courante, le shader remonte la trajectoire de l'air
+  (6 pas Runge-Kutta 2) jusqu'à l'heure du passage satellite, et lit la carte (et le bruit du relief) au point de
+  départ. Les nuages dérivent donc avec la vraie circulation : alizés, courants-jets, rotation de l'ouragan Calvin.
+  - Le calcul est fait une fois par rayon de vue (au milieu de la traversée de la couche) et une fois par pixel du
+    sol pour les ombres, puis appliqué à tous les échantillons voisins.
+  - **Règle de répétition journalière** : l'écart à l'heure du passage est ramené dans [−12 h, +12 h]. La météo du
+    15 juillet 2023 se rejoue donc chaque jour : changer de date sans changer d'heure redonne les mêmes nuages, alors
+    que changer l'heure les déplace.
+  - Vers ±12 h (≈ 1 h 30 du matin, heure locale, donc côté nuit), les deux trajectoires sont fondues sur
+    `cloud_advection_blend_h` (1,5 h) pour éviter un saut. Cette règle absorbe aussi le raccord de date de
+    l'imagerie VIIRS.
+  - Les nuages se déplacent mais ne naissent ni ne disparaissent : à ±12 h ils sont étirés par le cisaillement du
+    vent.
+  - Réglages : `cloud_wind_scale` (1 = vent réel), `cloud_snapshot_local_hour` (13,5).
+- **Évolution des sommets** : `cloud_wind_km_s` fait en plus évoluer lentement le relief des sommets (temps réel).
 Les nuages sont attachés au repère de la Terre (ils tournent avec elle). Réglages principaux dans le matériau
 `materials/cloud_volume.tres` (voir aussi `materials/earth_surface.tres`, qui partage les paramètres de densité).
 
@@ -236,10 +259,21 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
      polaire), il prend la carte nuageuse Blue Marble 8K. Il écrit les tuiles JPEG et la texture globale 16K ;
    - `godot --headless --path . --script res://tools/convert_tiles_webp.gd -- <projet>/assets/earth_cloud_tiles`
      convertit les tuiles en WebP niveaux de gris (~2 fois plus léger que le JPEG).
+5. Vent (déplacement des nuages) : `tools/build_wind_field.ps1 [-date 20230715]` (PowerShell + routine C#, ~1 min).
+   - Il lit l'index `.idx` des analyses GFS 0,25° du jour (00, 06, 12, 18 UTC) sur l'archive publique AWS
+     `https://noaa-gfs-bdp-pds.s3.amazonaws.com/gfs.AAAAMMJJ/HH/atmos/gfs.tHHz.pgrb2.0p25.anl`, et ne télécharge
+     que les composantes UGRD/VGRD à 850, 700 et 500 hPa (~24 Mo).
+   - Il décode le GRIB2 lui-même (gabarit 5.3, « complex packing + spatial differencing »), puis fait la moyenne.
+   - Il écrit `assets/textures/cloud_wind.exr` (720 × 360, R = vent vers l'est, G = vers le nord, m/s).
+   - Le service OPeNDAP de la NOAA, plus simple, était hors service ; la réanalyse NCEP (2,5°) aurait été trop
+     grossière pour les cyclones.
+   - L'import Godot de cette texture doit rester **sans perte** (`detect_3d/compress_to=0` dans le `.import`), sinon
+     la compression GPU fausse les vitesses.
+   - Pour une autre journée de nuages, refaire les étapes 4 et 5 avec la même date.
 
 ## Sources des textures
 
-Toutes issues de la NASA, domaine public (crédit demandé) :
+Toutes issues de la NASA ou de la NOAA, domaine public (crédit demandé) :
 
 | Fichier | Contenu | Source |
 |---|---|---|
@@ -251,7 +285,9 @@ Toutes issues de la NASA, domaine public (crédit demandé) :
 | `assets/textures/earth_clouds_16k.jpg` | Même couverture, 16384 × 8192 | idem |
 | `assets/textures/earth_clouds_8k.jpg` | Couverture nuageuse Blue Marble, 8192 × 4096 : utilisée seulement par l'outil, pour combler les zones sans données VIIRS | NASA Visible Earth / Earth Observatory, image 57747 |
 | `assets/textures/starmap_4k.exr` | Deep Star Maps 2020, 4096 × 2048, HDR | NASA Scientific Visualization Studio, animation 4851 |
+| `assets/textures/cloud_wind.exr` | Vent moyen du 15 juillet 2023 (850–500 hPa), 720 × 360 | NOAA, modèle GFS, analyses 0,25° (NOAA Open Data Dissemination, AWS) |
 
-Limites des nuages réels : c'est un instantané (le temps qu'il fait ne change pas). On voit quelques raccords entre
+Limites des nuages réels : c'est un instantané déplacé par le vent (les nuages ne se forment ni ne se dissipent, et
+la journée se répète). On voit quelques raccords entre
 passages successifs du satellite (lignes droites dans les champs de nuages), et la banquise arctique est en partie
 comptée comme nuage.

@@ -77,13 +77,16 @@ void fragment() {
 	float phase = 4.0 * PI * mix(henyey_greenstein(mu, phase_forward), henyey_greenstein(mu, phase_backward),
 			phase_backward_weight);
 
+	// Advection des nuages par le vent, calculée une fois par rayon (au milieu du trajet dans la couche).
+	CloudAdvection adv = cloud_advection(normalize(ro + rd * (0.5 * (t0 + t1))));
+
 	float transmittance = 1.0;
 	vec3 scattered = vec3(0.0);
 	for (int i = 0; i < steps; i++) {
 		vec3 p = ro + rd * (t0 + (float(i) + jitter) * dt);
 		float t = t0 + (float(i) + jitter) * dt;
 		float lod = log2(max(t * pixel_angle / 0.5, 1.0));
-		float density = cloud_density(p, TIME, true, lod);
+		float density = cloud_density(p, TIME, true, lod, adv);
 		if (density <= 0.0) {
 			continue;
 		}
@@ -94,7 +97,7 @@ void fragment() {
 		float tl = 0.0;
 		float s = light_first_step_km;
 		for (int j = 0; j < light_steps; j++) {
-			od += cloud_density(p + l * (tl + 0.5 * s), TIME, false, lod + 1.0) * s;
+			od += cloud_density(p + l * (tl + 0.5 * s), TIME, false, lod + 1.0, adv) * s;
 			tl += s;
 			s *= 2.0;
 		}

@@ -51,7 +51,7 @@ void vertex() {
 }
 
 // Transmittance de la couche nuageuse le long du rayon solaire partant du sol.
-float cloud_shadow(vec3 n, vec3 l) {
+float cloud_shadow(vec3 n, vec3 l, CloudAdvection adv) {
 	float mu = dot(n, l);
 	if (mu <= 0.02) {
 		return 1.0;
@@ -61,7 +61,7 @@ float cloud_shadow(vec3 n, vec3 l) {
 	float od = 0.0;
 	for (int i = 0; i < cloud_shadow_samples; i++) {
 		float h = cloud_bottom_km + (float(i) + 0.5) / float(cloud_shadow_samples) * thickness;
-		od += cloud_density(ground + l * (h / mu), TIME, true, 0.0);
+		od += cloud_density(ground + l * (h / mu), TIME, true, 0.0, adv);
 	}
 	od *= thickness / float(cloud_shadow_samples) / mu;
 	return exp(-cloud_extinction_per_km * od);
@@ -86,7 +86,8 @@ void fragment() {
 	float water = smoothstep(0.015, 0.06, albedo.b - albedo.r) * (1.0 - smoothstep(0.18, 0.3, luma));
 	vec3 n = normalize(local_km);
 	vec3 l = normalize(transpose(mat3(MODEL_MATRIX)) * sun_direction);
-	float shadow = cloud_shadow(n, l);
+	CloudAdvection adv = cloud_advection(n);
+	float shadow = cloud_shadow(n, l, adv);
 	float mu = dot(n, l);
 	v_sun_light = sun_transmittance_at(n * SUN_PLANET_RADIUS_KM, l) * mix(1.0 - cloud_shadow_strength, 1.0, shadow);
 	v_specular = mix(0.25, ocean_specular, water) * shadow;
@@ -103,7 +104,7 @@ void fragment() {
 		float night_luma = dot(night, vec3(0.299, 0.587, 0.114));
 		float lights = smoothstep(night_lights_low, night_lights_high, night_luma);
 		vec3 glow = night * mix(night_land_level, 1.0, lights);
-		float clouds_above = cloud_shadow(n, n);
+		float clouds_above = cloud_shadow(n, n, adv);
 		emission += glow * night_intensity * darkness * mix(night_cloud_floor, 1.0, clouds_above);
 	}
 	EMISSION = emission;

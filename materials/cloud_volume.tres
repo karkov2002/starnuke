@@ -1,13 +1,15 @@
-[gd_resource type="ShaderMaterial" load_steps=5 format=3]
+[gd_resource type="ShaderMaterial" load_steps=6 format=3]
 
 [ext_resource type="Shader" path="res://shaders/cloud_volume.gdshader" id="1"]
 [ext_resource type="Texture2D" path="res://assets/textures/earth_clouds_16k.jpg" id="2"]
 [ext_resource type="NoiseTexture3D" path="res://materials/cloud_shape_noise.tres" id="3"]
 [ext_resource type="NoiseTexture3D" path="res://materials/cloud_detail_noise.tres" id="4"]
+[ext_resource type="Texture2D" uid="uid://ceerywp0ivkxn" path="res://assets/textures/cloud_wind.exr" id="5_wind"]
 
 [resource]
 render_priority = 0
 shader = ExtResource("1")
 shader_parameter/cloud_coverage = ExtResource("2")
+shader_parameter/cloud_wind = ExtResource("5_wind")
 shader_parameter/cloud_shape_noise = ExtResource("3")
 shader_parameter/cloud_detail_noise = ExtResource("4")
