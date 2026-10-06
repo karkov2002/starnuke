@@ -301,7 +301,7 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
 
 Tout le code des explosions est dans `res://nuke/`. Objectif : une animation unique, paramétrée par la puissance
 (10 kt à 50 Mt), vue depuis l'espace. **État actuel : socle de l'effet** (tir, placement, lois d'échelle,
-horloge) et **flash initial** ; les phases suivantes (boule de feu, champignon) restent à faire.
+horloge), **flash initial** et **onde de choc au sol** ; les phases suivantes (boule de feu, champignon) restent à faire.
 
 - **Paramètres** (`nuke/nuke_params.gd`, Resource `NukeParams`) : `yield_kt` (10 à 50 000), `latitude_deg`,
   `longitude_deg`, `wind_direction_deg` (d'où vient le vent, convention météo) et `wind_speed_m_s`,
@@ -370,6 +370,29 @@ horloge) et **flash initial** ; les phases suivantes (boule de feu, champignon) 
     transmittance de l'air, nul si la Terre cache le flash) ; réglages dans le groupe « Éblouissement » du script.
     Le cœur et les branches sont élargis à au moins un pixel (à énergie constante), pour ne pas scintiller quand le
     halo est petit.
+- **Onde de choc au sol** (`nuke/nuke_shock.tscn`, script `nuke/nuke_shock.gd`, enfant `Shock` de l'effet) :
+  anneau orange émissif (choix visuel : en réalité un front de choc n'émet pas de lumière ; depuis l'espace on ne
+  verrait au mieux qu'un anneau de condensation ou de poussière).
+  - Rayon **r(t) = R_max · (1 − exp(−t / τ))**, d'où une décélération naturelle. R_max =
+    `NukeScaling.shock_max_radius_km` (rayon de choc de référence × `SHOCK_VISUAL_SCALE`, 1 par défaut).
+    τ = 1,28 s par km de R_max : le front atteint 90 % de R_max à ~0,34 km/s de moyenne (la vitesse du son), avec
+    une vitesse initiale de ~0,8 km/s.
+  - Durée jusqu'à la disparition, à 98 % de R_max : ~10 s à 10 kt, ~46 s à 1 Mt, ~170 s à 50 Mt (temps physique ;
+    au-delà de 20 s l'horloge accélère ×10).
+  - Avec la progression p = r / R_max :
+    - le front apparaît sur les premiers pourcents de p ;
+    - son épaisseur s'amincit de 5 % à 1,2 % de R_max ;
+    - son intensité décroît en √(1 − p), puis s'efface de p = 0,75 à 0,98, où l'anneau disparaît.
+  - Shader unique et réutilisable (`nuke/shaders/nuke_shock_ring.gdshader`), sur un quad horizontal surélevé de
+    30 m. Paramètres par instance : rayon, demi-côté du quad, largeur du front, intensité ; centre = origine du
+    maillage.
+    - Le front monte nettement côté intérieur et se dégrade vers l'extérieur.
+    - Un second anneau, plus diffus, suit 12 % en retrait.
+    - Les largeurs sont élargies à au moins un pixel, le pic n'étant réduit que de la racine du rapport des
+      largeurs : l'anneau d'un 1 Mt reste visible, et celui d'un 10 kt (2 km de rayon, ~4 px) apparaît comme un
+      petit point orange.
+    - Rendu avant les nuages (`render_priority` −1) : un banc nuageux le voile.
+  - Réglages dans le script : `start_intensity`, `start_width`, `end_width`, `fade_start`, `fade_end`, `lift_km`.
 - **Lumière et effets d'écran du flash** (`nuke/nuke_flash_fx.gd`, nœud `FlashFX` créé par `NukeLauncher`), à
   chaque image, pour les flashs actifs :
   - **sol et nuages** : uniforms `nuke_flash_*` (les 4 flashs les plus intenses) de

@@ -1,0 +1,19 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://nuke/nuke_shock.gd" id="1_shock"]
+[ext_resource type="Shader" path="res://nuke/shaders/nuke_shock_ring.gdshader" id="2_ring"]
+
+[sub_resource type="ShaderMaterial" id="Material_ring"]
+render_priority = -1
+shader = ExtResource("2_ring")
+
+[sub_resource type="PlaneMesh" id="Mesh_ring"]
+material = SubResource("Material_ring")
+size = Vector2(2, 2)
+
+[node name="NukeShock" type="Node3D"]
+script = ExtResource("1_shock")
+
+[node name="Ring" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+mesh = SubResource("Mesh_ring")

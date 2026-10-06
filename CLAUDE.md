@@ -24,7 +24,8 @@ d'images dans `.godot/imported` (fichiers `.import` et cache à supprimer ensuit
 Limites constatées du MCP Godot : il ne persiste pas l'affectation d'une ressource externe à une propriété quelconque
 (ex. `WorldEnvironment.environment`) ni les `@export` de type `NodePath`/`Node` ; ces lignes ont dû être ajoutées
 au `.tscn` puis réécrites via `write_file` (préférer des `@export var x: NodePath = ^"../Noeud"` avec valeur par
-défaut dans le script). Dans un shader spatial, `hint_depth_texture` s'est révélé peu fiable sous D3D12 : l'éviter.
+défaut dans le script). `instance_scene` remplace l'instance de scène déjà présente dans le même parent (il réutilise
+le même identifiant d'`ext_resource`) : pour une deuxième instance, écrire le `.tscn` à la main. Dans un shader spatial, `hint_depth_texture` s'est révélé peu fiable sous D3D12 : l'éviter.
 
 ## Outils
 

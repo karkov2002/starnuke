@@ -20,6 +20,13 @@ const CLOUD_TOP_REF_KM := 10.0
 const CLOUD_TOP_EXP := 0.22
 const CAP_RADIUS_PER_TOP := 0.6
 
+# Onde de choc au sol : rayon r(t) = R_max · (1 − exp(−t / τ)), R_max = rayon de choc de référence × facteur visuel.
+# τ est proportionnel à R_max : le front atteint 90 % de R_max (t = 2,3 τ) à ~0,34 km/s de moyenne, la vitesse du
+# son ; sa vitesse initiale R_max / τ vaut ~0,8 km/s (Mach 2,3). Durée totale (disparition à 98 %) : 3,9 τ, soit
+# ~10 s à 10 kt, ~46 s à 1 Mt, ~170 s à 50 Mt.
+const SHOCK_VISUAL_SCALE := 1.0
+const SHOCK_TAU_S_PER_KM := 1.28
+
 # Flash initial. Puissance thermique au second maximum (Glasstone & Dolan, The Effects of Nuclear Weapons, §7.88,
 # explosion dans l'air) : P_max = 4 · W^0,56 kt/s. Pour 1 Mt : 8·10¹⁴ W, soit ~400 W/m² à 400 km (0,29 soleil) avant
 # l'absorption par l'atmosphère (NukeAtmosphere et nuke/shaders/nuke_flash.gdshaderinc).
@@ -46,6 +53,16 @@ static func fireball_radius_km(yield_kt: float) -> float:
 
 static func shock_radius_km(yield_kt: float) -> float:
 	return SHOCK_REF_KM * pow(_clamp_yield(yield_kt) / REF_YIELD_KT, SHOCK_EXP)
+
+
+## Rayon final de l'anneau de choc affiché (km).
+static func shock_max_radius_km(yield_kt: float) -> float:
+	return SHOCK_VISUAL_SCALE * shock_radius_km(yield_kt)
+
+
+## Constante de temps de l'expansion de l'anneau de choc (s, temps physique).
+static func shock_tau_s(yield_kt: float) -> float:
+	return SHOCK_TAU_S_PER_KM * shock_radius_km(yield_kt)
 
 
 static func cloud_top_km(yield_kt: float) -> float:
