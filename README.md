@@ -301,7 +301,8 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
 
 Tout le code des explosions est dans `res://nuke/`. Objectif : une animation unique, paramétrée par la puissance
 (10 kt à 50 Mt), vue depuis l'espace. **État actuel : socle de l'effet** (tir, placement, lois d'échelle,
-horloge), **flash initial** et **onde de choc au sol** ; les phases suivantes (boule de feu, champignon) restent à faire.
+horloge), **flash initial**, **onde de choc** (condensation, poussière) et **incendies** ; les phases suivantes
+(boule de feu, champignon) restent à faire.
 
 - **Paramètres** (`nuke/nuke_params.gd`, Resource `NukeParams`) : `yield_kt` (10 à 50 000), `latitude_deg`,
   `longitude_deg`, `wind_direction_deg` (d'où vient le vent, convention météo) et `wind_speed_m_s`,
@@ -370,29 +371,56 @@ horloge), **flash initial** et **onde de choc au sol** ; les phases suivantes (b
     transmittance de l'air, nul si la Terre cache le flash) ; réglages dans le groupe « Éblouissement » du script.
     Le cœur et les branches sont élargis à au moins un pixel (à énergie constante), pour ne pas scintiller quand le
     halo est petit.
-- **Onde de choc au sol** (`nuke/nuke_shock.tscn`, script `nuke/nuke_shock.gd`, enfant `Shock` de l'effet) :
-  anneau orange émissif (choix visuel : en réalité un front de choc n'émet pas de lumière ; depuis l'espace on ne
-  verrait au mieux qu'un anneau de condensation ou de poussière).
-  - Rayon **r(t) = R_max · (1 − exp(−t / τ))**, d'où une décélération naturelle. R_max =
-    `NukeScaling.shock_max_radius_km` (rayon de choc de référence × `SHOCK_VISUAL_SCALE`, 1 par défaut).
-    τ = 1,28 s par km de R_max : le front atteint 90 % de R_max à ~0,34 km/s de moyenne (la vitesse du son), avec
-    une vitesse initiale de ~0,8 km/s.
-  - Durée jusqu'à la disparition, à 98 % de R_max : ~10 s à 10 kt, ~46 s à 1 Mt, ~170 s à 50 Mt (temps physique ;
-    au-delà de 20 s l'horloge accélère ×10).
-  - Avec la progression p = r / R_max :
-    - le front apparaît sur les premiers pourcents de p ;
-    - son épaisseur s'amincit de 5 % à 1,2 % de R_max ;
-    - son intensité décroît en √(1 − p), puis s'efface de p = 0,75 à 0,98, où l'anneau disparaît.
-  - Shader unique et réutilisable (`nuke/shaders/nuke_shock_ring.gdshader`), sur un quad horizontal surélevé de
-    30 m. Paramètres par instance : rayon, demi-côté du quad, largeur du front, intensité ; centre = origine du
-    maillage.
-    - Le front monte nettement côté intérieur et se dégrade vers l'extérieur.
-    - Un second anneau, plus diffus, suit 12 % en retrait.
-    - Les largeurs sont élargies à au moins un pixel, le pic n'étant réduit que de la racine du rapport des
-      largeurs : l'anneau d'un 1 Mt reste visible, et celui d'un 10 kt (2 km de rayon, ~4 px) apparaît comme un
-      petit point orange.
-    - Rendu avant les nuages (`render_priority` −1) : un banc nuageux le voile.
-  - Réglages dans le script : `start_intensity`, `start_width`, `end_width`, `fade_start`, `fade_end`, `lift_km`.
+- **Onde de choc** (`nuke/nuke_shock.tscn`, script `nuke/nuke_shock.gd`, enfant `Shock` de l'effet). Le front de
+  choc ne brille que tant qu'il forme la surface de la boule de feu (première fraction de seconde, cf. le creux du
+  double pic du flash). Une fois détaché, il refroidit et devient transparent : à 0,7 bar de surpression, l'air
+  n'est chauffé que d'~50 °C. Ce qui brûle au loin, c'est le rayonnement thermique (voir « Incendies »). Depuis
+  l'espace, on voit donc seulement :
+  - **l'anneau de condensation** (nuage de Wilson) : la détente derrière le front refroidit l'air humide, qui
+    condense un bref instant. Il est blanc, éclairé par le soleil (presque invisible de nuit) et suit le front. Il
+    apparaît à p = 0,03, culmine à 0,12 et s'évapore à 0,5. Le front monte nettement côté intérieur et se dégrade
+    vers l'extérieur ; son épaisseur s'amincit de 5 % à 1,2 % de R_max ;
+  - **la jupe de poussière** autour du point zéro, pour les explosions basses (hauteur < ~2 rayons de boule de
+    feu). Gris-brun (poussière mêlée de fumée), elle est soulevée par le front dès p = 0,05 et s'étend avec lui
+    jusqu'à 60 % de R_max. Elle retombe ensuite lentement (constante de temps 8 τ). Vue en oblique, le voile
+    atmosphérique réduit beaucoup son contraste ; elle ressort mieux près du nadir.
+
+  Rayon du front **r(t) = R_max · (1 − exp(−t / τ))**, avec une progression p = r / R_max :
+  - R_max = `NukeScaling.shock_max_radius_km` (rayon de choc de référence × `SHOCK_VISUAL_SCALE`, 1 par défaut) ;
+  - τ = 1,28 s par km de R_max : le front atteint 90 % de R_max à ~0,34 km/s de moyenne (la vitesse du son), avec
+    une vitesse initiale de ~0,8 km/s ;
+  - le front atteint 98 % de R_max en ~10 s à 10 kt, ~46 s à 1 Mt, ~170 s à 50 Mt (temps physique ; au-delà de
+    20 s, l'horloge accélère ×10).
+
+  Shader unique et réutilisable (`nuke/shaders/nuke_shock_ring.gdshader`) :
+  - un quad horizontal surélevé de 30 m, dont le centre est l'origine du maillage ;
+  - paramètres par instance : rayon, demi-côté du quad, largeur du front, opacités de condensation et de
+    poussière, rayon maximal de la poussière ;
+  - matériau éclairé par les lumières de la scène, sans lumière ambiante, irrégularités par un bruit de valeur ;
+  - largeurs élargies à au moins un pixel ;
+  - rendu avant les nuages (`render_priority` −1) : un banc nuageux le voile.
+
+  Réglages dans le script : groupes « Condensation » et « Poussière », `lift_km`.
+- **Incendies** (`nuke/nuke_fire_fx.gd`, nœud `FireFX` créé par `NukeLauncher` ; `nuke/shaders/nuke_fire.gdshaderinc`,
+  inclus dans `shaders/earth_surface.gdshader`). Ils sont allumés par le flash dans le rayon où l'exposition
+  thermique dépasse ~10 cal/cm² (inflammation des matériaux courants, Glasstone & Dolan ch. VII).
+  - Rayon : 12 km · (W / 1 Mt)^0,41, soit ~1,8 km à 10 kt, 12 km à 1 Mt et ~60 km à 50 Mt
+    (`NukeScaling.fire_radius_km`).
+  - Évolution (`NukeScaling.fire_intensity`) :
+    - 30 % des foyers dès le flash ;
+    - incendie généralisé en ~2 min ;
+    - le rayon s'étend de 15 % en ~30 min ;
+    - extinction progressive sur ~3 h (constante de temps).
+  - Rendu, en émission sur le sol :
+    - la part du sol en feu est forte au centre (l'exposition décroît en 1/d²) ;
+    - seulement sur les terres (masque d'eau du sol) ;
+    - plus forte et plus vive dans les villes (combustible, lu dans l'image des lumières nocturnes) ;
+    - modulée par un motif irrégulier dont l'échelle suit la taille de la zone ;
+    - bord très irrégulier, léger scintillement ;
+    - voilée par les nuages comme les lumières des villes.
+  - Depuis l'orbite (~0,5 km par pixel), on ne voit pas les flammes une à une, mais la lueur moyenne des zones en
+    feu. Elle est faible devant un sol au soleil : les incendies se voient surtout de nuit.
+  - `FireFX` transmet au sol les 8 incendies les plus intenses (position, rayon, intensité).
 - **Lumière et effets d'écran du flash** (`nuke/nuke_flash_fx.gd`, nœud `FlashFX` créé par `NukeLauncher`), à
   chaque image, pour les flashs actifs :
   - **sol et nuages** : uniforms `nuke_flash_*` (les 4 flashs les plus intenses) de

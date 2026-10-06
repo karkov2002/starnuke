@@ -1,22 +1,34 @@
 class_name NukeShock
 extends Node3D
-## Onde de choc au sol (scène nuke/nuke_shock.tscn, enfant d'une NukeEffect ; repère local en km, Y = verticale).
+## Traces visibles de l'onde de choc au sol (scène nuke/nuke_shock.tscn, enfant d'une NukeEffect ; repère local en
+## km, Y = verticale). Le front de choc lui-même est invisible une fois détaché de la boule de feu : on voit l'anneau
+## de condensation (nuage de Wilson) qui le suit brièvement, et la poussière qu'il soulève au sol.
 ##
-## Rayon r(t) = R_max · (1 − exp(−t / τ)) : le front décélère naturellement (NukeScaling.shock_max_radius_km,
+## Rayon du front r(t) = R_max · (1 − exp(−t / τ)) : il décélère naturellement (NukeScaling.shock_max_radius_km,
 ## shock_tau_s). Avec la progression p = r / R_max :
-## - apparition sur les premiers pourcents (le front sort de la boule de feu) ;
-## - épaisseur qui s'amincit de start_width à end_width (part de R_max) ;
-## - intensité qui décroît en sqrt(1 − p), puis fondu de fade_start à fade_end, où l'anneau disparaît.
+## - condensation : apparaît vers condensation_start, culmine à condensation_peak, s'évapore à condensation_end ;
+##   front qui s'amincit de start_width à end_width (part de R_max) ;
+## - poussière : jupe autour du point zéro, soulevée par le front dès dust_start, qui s'étend avec lui jusqu'à
+##   dust_max (part de R_max), reste en place puis retombe (constante de temps dust_fade_tau × τ) ; seulement pour une
+##   explosion basse (hauteur < ~2 rayons de boule de feu).
 ## Dessin : nuke/shaders/nuke_shock_ring.gdshader sur un quad horizontal légèrement surélevé (lift_km).
 
-## Intensité HDR du front au départ.
-@export var start_intensity := 10.0
+@export_group("Condensation")
+@export var condensation_opacity := 0.8
+@export var condensation_start := 0.03
+@export var condensation_peak := 0.12
+@export var condensation_end := 0.5
 ## Épaisseur du front, en part de R_max, au départ et à la fin.
 @export var start_width := 0.05
 @export var end_width := 0.012
-## Fondu de sortie (progression p) ; l'anneau disparaît à fade_end.
-@export var fade_start := 0.75
-@export var fade_end := 0.98
+@export_group("Poussière")
+@export var dust_opacity := 1.0
+@export var dust_start := 0.05
+## Rayon maximal de la jupe de poussière, en part de R_max.
+@export var dust_max := 0.6
+## Durée de retombée de la poussière, en multiples de τ.
+@export var dust_fade_tau := 8.0
+@export_group("")
 ## Hauteur du quad au-dessus du sol (km), contre le z-fighting.
 @export var lift_km := 0.03
 
@@ -43,20 +55,27 @@ func get_progress() -> float:
 func _update() -> void:
 	if _effect == null or _effect.params == null:
 		return
+	var params := _effect.params
+	var tau := NukeScaling.shock_tau_s(params.yield_kt)
+	var t := _effect.get_time_s()
 	var p := get_progress()
-	_ring.visible = p > 0.0 and p < fade_end
+	var condensation := condensation_opacity * smoothstep(condensation_start, condensation_peak, p) \
+			* (1.0 - smoothstep(condensation_peak, condensation_end, p))
+	var low_burst := 1.0 - smoothstep(0.5, 2.0, params.burst_height_km / NukeScaling.fireball_radius_km(params.yield_kt))
+	var dust := dust_opacity * low_burst * smoothstep(dust_start, dust_start + 0.1, p) * exp(-t / (dust_fade_tau * tau))
+	_ring.visible = condensation > 0.002 or dust > 0.002
 	if not _ring.visible:
 		return
-	var r_max := NukeScaling.shock_max_radius_km(_effect.params.yield_kt)
+	var r_max := NukeScaling.shock_max_radius_km(params.yield_kt)
 	var radius := r_max * p
 	var width := r_max * lerpf(start_width, end_width, p)
-	var intensity := start_intensity * sqrt(1.0 - p) * smoothstep(0.0, 0.03, p) \
-			* (1.0 - smoothstep(fade_start, fade_end, p))
-	# Le quad couvre le front, son dégradé extérieur et le second anneau.
+	# Le quad couvre le front et son dégradé extérieur.
 	var extent := radius + 8.0 * width + 0.05
 	_ring.position = Vector3(0.0, lift_km, 0.0)
 	_ring.scale = Vector3(extent, 1.0, extent)
 	_ring.set_instance_shader_parameter("radius_km", radius)
 	_ring.set_instance_shader_parameter("extent_km", extent)
 	_ring.set_instance_shader_parameter("front_width_km", width)
-	_ring.set_instance_shader_parameter("intensity", intensity)
+	_ring.set_instance_shader_parameter("condensation", condensation)
+	_ring.set_instance_shader_parameter("dust", dust)
+	_ring.set_instance_shader_parameter("dust_max_km", r_max * dust_max)

@@ -27,6 +27,19 @@ const CAP_RADIUS_PER_TOP := 0.6
 const SHOCK_VISUAL_SCALE := 1.0
 const SHOCK_TAU_S_PER_KM := 1.28
 
+# Incendies allumés par le flash : rayon où l'exposition thermique dépasse ~10 cal/cm² (inflammation des matériaux
+# courants, Glasstone & Dolan ch. VII ; ~12 km pour 1 Mt avec l'absorption de l'air), ∝ W^0,41 (entre la loi en W^0,5
+# du vide et l'absorption croissante avec la distance) : ~1,8 km à 10 kt, ~60 km à 50 Mt.
+# Évolution : premiers foyers dès le flash (FIRE_FIRST_SHARE), incendie généralisé en ~2 min, extension lente
+# (+FIRE_SPREAD du rayon en ~30 min), extinction en quelques heures.
+const FIRE_RADIUS_1MT_KM := 12.0
+const FIRE_RADIUS_EXP := 0.41
+const FIRE_FIRST_SHARE := 0.3
+const FIRE_GROWTH_S := 120.0
+const FIRE_SPREAD := 0.15
+const FIRE_SPREAD_S := 1800.0
+const FIRE_BURN_S := 10800.0
+
 # Flash initial. Puissance thermique au second maximum (Glasstone & Dolan, The Effects of Nuclear Weapons, §7.88,
 # explosion dans l'air) : P_max = 4 · W^0,56 kt/s. Pour 1 Mt : 8·10¹⁴ W, soit ~400 W/m² à 400 km (0,29 soleil) avant
 # l'absorption par l'atmosphère (NukeAtmosphere et nuke/shaders/nuke_flash.gdshaderinc).
@@ -63,6 +76,20 @@ static func shock_max_radius_km(yield_kt: float) -> float:
 ## Constante de temps de l'expansion de l'anneau de choc (s, temps physique).
 static func shock_tau_s(yield_kt: float) -> float:
 	return SHOCK_TAU_S_PER_KM * shock_radius_km(yield_kt)
+
+
+## Rayon de la zone en feu (km) au temps t (s, physique).
+static func fire_radius_km(yield_kt: float, t: float) -> float:
+	var base := FIRE_RADIUS_1MT_KM * pow(_clamp_yield(yield_kt) / 1000.0, FIRE_RADIUS_EXP)
+	return base * (1.0 + FIRE_SPREAD * (1.0 - exp(-maxf(t, 0.0) / FIRE_SPREAD_S)))
+
+
+## Intensité des incendies (0 à 1) au temps t (s, physique).
+static func fire_intensity(t: float) -> float:
+	if t <= 0.0:
+		return 0.0
+	var growth := FIRE_FIRST_SHARE * smoothstep(0.3, 1.5, t) + (1.0 - FIRE_FIRST_SHARE) * smoothstep(2.0, FIRE_GROWTH_S, t)
+	return growth * exp(-t / FIRE_BURN_S)
 
 
 static func cloud_top_km(yield_kt: float) -> float:

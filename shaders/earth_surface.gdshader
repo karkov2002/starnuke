@@ -17,6 +17,7 @@ render_mode cull_back, ambient_light_disabled;
 #include "res://shaders/cloud_density.gdshaderinc"
 #include "res://shaders/sun_light.gdshaderinc"
 #include "res://nuke/shaders/nuke_flash.gdshaderinc"
+#include "res://nuke/shaders/nuke_fire.gdshaderinc"
 
 uniform sampler2D day_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2DArray detail_tiles : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
@@ -114,6 +115,13 @@ void fragment() {
 	if (nuke_flash_count > 0) {
 		emission += albedo * nuke_flash_color * nuke_flash_ground_gain
 				* nuke_flash_ground(n * CLOUD_PLANET_RADIUS_KM, n, adv);
+	}
+	// Incendies allumés par les explosions (nuke/shaders/nuke_fire.gdshaderinc), voilés par les nuages comme les
+	// lumières des villes.
+	if (nuke_fire_count > 0) {
+		float urban = smoothstep(0.05, 0.3, dot(night, vec3(0.299, 0.587, 0.114)));
+		emission += nuke_fire_emission(n * CLOUD_PLANET_RADIUS_KM, 1.0 - water, urban)
+				* mix(night_cloud_floor, 1.0, cloud_shadow(n, n, adv));
 	}
 	EMISSION = emission;
 }

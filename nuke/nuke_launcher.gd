@@ -32,6 +32,10 @@ func _ready() -> void:
 	add_child(flash_fx)
 	flash_fx.setup(self, get_node_or_null(world_environment_path) as WorldEnvironment, _earth,
 			get_node_or_null(station_path) as Node3D)
+	var fire_fx := NukeFireFX.new()
+	fire_fx.name = "FireFX"
+	add_child(fire_fx)
+	fire_fx.setup(self, _earth)
 
 
 ## Point visé par le centre de la vue : {local (repère de Earth), latitude, longitude} en degrés, ou {} si le
