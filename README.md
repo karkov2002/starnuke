@@ -390,7 +390,7 @@ horloge), **flash initial**, **onde de choc** (condensation, poussière) et **in
   - τ = 1,28 s par km de R_max : le front atteint 90 % de R_max à ~0,34 km/s de moyenne (la vitesse du son), avec
     une vitesse initiale de ~0,8 km/s ;
   - le front atteint 98 % de R_max en ~10 s à 10 kt, ~46 s à 1 Mt, ~170 s à 50 Mt (temps physique ; au-delà de
-    20 s, l'horloge accélère ×10).
+    20 s, l'horloge accélère progressivement, voir « Horloge »).
 
   Shader unique et réutilisable (`nuke/shaders/nuke_shock_ring.gdshader`) :
   - un quad horizontal surélevé de 30 m, dont le centre est l'origine du maillage ;
@@ -447,8 +447,12 @@ horloge), **flash initial**, **onde de choc** (condensation, poussière) et **in
   - `time_s` avance au rythme du temps de l'orbite (**Pause, x2… x16 s'appliquent aussi aux explosions**),
     multiplié par `acceleration` (1 par défaut) ;
   - le temps physique d'une explosion défile en temps réel pendant `realtime_phase_s` (20 s : flash, boule de
-    feu, onde de choc), puis `slow_phase_acceleration` (×10) plus vite (montée et étalement du champignon) ;
-    `to_physical()` / `to_clock()` convertissent.
+    feu, onde de choc). Sa vitesse monte ensuite **progressivement** (smoothstep) sur `ramp_s` (40 s d'horloge)
+    jusqu'à `slow_phase_acceleration` (×10), pour la montée et l'étalement du champignon ;
+  - la rampe évite un saut de vitesse : un effet encore en cours à 20 s ne se met pas à filer d'un coup (l'anneau
+    de condensation d'un 50 Mt s'évapore vers 28 s d'horloge, à ×1,8) ;
+  - repères : 60 s d'horloge = 240 s physiques, 10 min physiques ≈ 1 min 36 s d'horloge, 3 h ≈ 19 min ;
+  - `to_physical()` (intégrale de la vitesse) et `to_clock()` (réciproque, par dichotomie) convertissent.
 - **Tir** (`nuke/nuke_launcher.gd`, nœud `NukeLauncher` de `orbit_view.tscn`, groupe `nuke_launcher`) : rayon partant
   de la caméra par le centre de l'écran, intersecté analytiquement avec la sphère terrestre (6371 km, soit 637,1 u).
   Le point touché est converti dans le repère local du nœud `Earth` (qui tourne avec la planète) et en
