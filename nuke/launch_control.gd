@@ -23,7 +23,7 @@ func _ready() -> void:
 	var group := ButtonGroup.new()
 	for kt: float in NukeLauncher.YIELDS_KT:
 		var choice := Button.new()
-		choice.text = NukeLauncher.format_yield(kt)
+		choice.text = NukeScaling.format_yield(kt)
 		choice.toggle_mode = true
 		choice.button_group = group
 		choice.focus_mode = Control.FOCUS_NONE

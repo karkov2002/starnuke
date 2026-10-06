@@ -1,0 +1,12 @@
+[gd_scene format=3 uid="uid://n5dmdsxvv72q"]
+
+[ext_resource type="Script" uid="uid://dxwaw41p5uowl" path="res://nuke/debug/nuke_debug_panel.gd" id="1_yc4kw"]
+[ext_resource type="PackedScene" uid="uid://pfaxai0nlbgo" path="res://scenes/orbit_view.tscn" id="2_vpjap"]
+
+[node name="NukeDebug" type="Node" unique_id=2040961377]
+
+[node name="DebugPanel" type="CanvasLayer" parent="." unique_id=940954150]
+layer = 2
+script = ExtResource("1_yc4kw")
+
+[node name="OrbitView" parent="." unique_id=2050616671 instance=ExtResource("2_vpjap")]

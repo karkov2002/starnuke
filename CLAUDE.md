@@ -6,7 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 « Star Nuke » — projet de jeu **Godot 4.7** (moteur de rendu Forward Plus, physique 3D Jolt, pilote D3D12 sous Windows).
 État actuel : un POC de vue orbitale. Scène principale `res://scenes/orbit_view.tscn` (Terre + ciel étoilé + instance de `scenes/iss_cupola.tscn`, module Node 3 + Cupola de l'ISS).
-Arborescence : `scenes/` (dont `scenes/ui/`), `scripts/`, `shaders/`, `materials/` (matériaux et Environment en `.tres`), `assets/textures/`.
+Arborescence : `scenes/` (dont `scenes/ui/`), `scripts/`, `shaders/`, `materials/` (matériaux et Environment en `.tres`), `assets/textures/`,
+`nuke/` (tout le code des explosions nucléaires, dont l'autoload `NukeClock` et la scène de debug `nuke/debug/nuke_debug.tscn`).
 L'architecture (échelle 1/10 000 de la Terre, mécanique orbitale `scripts/orbit.gd`, atmosphère, nuages volumétriques,
 tuiles HD, sources des textures) est décrite dans le README. Toute la scène est placée autour d'une station fixe :
 c'est la Terre que `Orbit` déplace et oriente à chaque image. L'horloge est une vraie date UTC (le jeu se passe en

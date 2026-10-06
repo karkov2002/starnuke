@@ -1,22 +1,22 @@
 class_name NukeLauncher
 extends Node
-## Tir d'un missile sur le point de la Terre visé par l'observateur (centre de la vue).
+## Tir d'un missile sur le point de la Terre visé par l'observateur (centre de la vue), ou sur des coordonnées.
 ##
 ## La visée est un rayon partant de la caméra par le centre de l'écran, intersecté avec la sphère terrestre
 ## (rayon réel × SCENE_UNITS_PER_KM). S'il manque la Terre (ciel, limbe), il ne se passe rien. Le point touché est
 ## exprimé dans le repère local du nœud Earth (qui tourne avec la planète, cf. scripts/orbit.gd) et en lat/lon.
-##
-## Pour l'instant l'impact n'est matérialisé que par un marqueur provisoire ; l'explosion viendra le remplacer.
+## Chaque tir crée une NukeEffect (nuke/nuke_effect.tscn), enfant de Earth.
 
-## Émis à chaque tir réussi. local_position : point d'impact dans le repère du nœud Earth (unités de la scène).
-signal detonated(latitude_deg: float, longitude_deg: float, yield_kt: float, local_position: Vector3)
+## Émis à chaque tir réussi.
+signal detonated(effect: NukeEffect)
 
 const GROUP := &"nuke_launcher"
 const YIELDS_KT: Array[float] = [10.0, 100.0, 500.0, 1000.0, 10000.0, 50000.0]
+const EFFECT_SCENE := preload("res://nuke/nuke_effect.tscn")
 
 @export var earth_path: NodePath = ^"../Earth"
-## Durée d'affichage du marqueur provisoire d'impact (s).
-@export var marker_duration_s := 5.0
+## Orbite dont l'horloge des explosions (NukeClock) suit l'accélération du temps.
+@export var orbit_path: NodePath = ^"../Orbit"
 
 var _earth: Node3D
 
@@ -24,6 +24,7 @@ var _earth: Node3D
 func _ready() -> void:
 	add_to_group(GROUP)
 	_earth = get_node(earth_path)
+	NukeClock.orbit = get_node_or_null(orbit_path) as OrbitSimulation
 
 
 ## Point visé par le centre de la vue : {local (repère de Earth), latitude, longitude} en degrés, ou {} si le
@@ -50,40 +51,44 @@ func get_aim() -> Dictionary:
 	return {"local": local, "latitude": lat_lon.x, "longitude": lat_lon.y}
 
 
-## Tire sur le point visé. Retourne false (et ne fait rien) si la vue ne vise pas la Terre.
-func launch(yield_kt: float) -> bool:
+## Tire sur le point visé. Retourne null (et ne fait rien) si la vue ne vise pas la Terre.
+func launch(yield_kt: float) -> NukeEffect:
 	var aim := get_aim()
 	if aim.is_empty():
-		return false
-	_spawn_marker(aim.local)
-	print("NukeLauncher : %s sur %.2f°, %.2f°" % [format_yield(yield_kt), aim.latitude, aim.longitude])
-	detonated.emit(aim.latitude, aim.longitude, yield_kt, aim.local)
-	return true
+		return null
+	return launch_at(aim.latitude, aim.longitude, yield_kt)
 
 
-static func format_yield(yield_kt: float) -> String:
-	return "%d kt" % roundi(yield_kt) if yield_kt < 1000.0 else "%d Mt" % roundi(yield_kt / 1000.0)
+## Tire sur des coordonnées données (degrés).
+func launch_at(latitude_deg: float, longitude_deg: float, yield_kt: float) -> NukeEffect:
+	var params := NukeParams.new()
+	params.yield_kt = clampf(yield_kt, NukeScaling.MIN_YIELD_KT, NukeScaling.MAX_YIELD_KT)
+	params.latitude_deg = latitude_deg
+	params.longitude_deg = longitude_deg
+	params.start_time_s = NukeClock.time_s
+	return fire(params)
 
 
-# Marqueur provisoire : petite sphère rouge lumineuse (3 km de rayon) posée au point d'impact, enfant de Earth pour
-# rester accrochée au sol.
-func _spawn_marker(local: Vector3) -> void:
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.3
-	mesh.height = 0.6
-	mesh.radial_segments = 16
-	mesh.rings = 8
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = Color(6.0, 0.6, 0.2) # HDR : au-dessus du seuil du glow
-	# Transparent et rendu après les nuages et l'atmosphère (qui n'écrivent pas la profondeur) : visible même sous
-	# un banc nuageux, mais toujours masqué par la station (opaque).
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.render_priority = 2
-	mesh.material = material
-	var marker := MeshInstance3D.new()
-	marker.mesh = mesh
-	marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_earth.add_child(marker)
-	marker.position = local
-	get_tree().create_timer(marker_duration_s).timeout.connect(marker.queue_free)
+## Crée l'explosion décrite par params.
+func fire(params: NukeParams) -> NukeEffect:
+	var effect := EFFECT_SCENE.instantiate() as NukeEffect
+	effect.params = params
+	_earth.add_child(effect)
+	print("NukeLauncher : %s sur %.2f°, %.2f°" % [NukeScaling.format_yield(params.yield_kt), params.latitude_deg,
+			params.longitude_deg])
+	detonated.emit(effect)
+	return effect
+
+
+## Explosions en cours (enfants de Earth).
+func get_effects() -> Array[NukeEffect]:
+	var effects: Array[NukeEffect] = []
+	for child in _earth.get_children():
+		if child is NukeEffect:
+			effects.append(child)
+	return effects
+
+
+func clear_effects() -> void:
+	for effect in get_effects():
+		effect.queue_free()

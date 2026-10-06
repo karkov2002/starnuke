@@ -300,25 +300,62 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
 ## Explosions nucléaires (`nuke/`)
 
 Tout le code des explosions est dans `res://nuke/`. Objectif : une animation unique, paramétrée par la puissance
-(10 kt à 50 Mt), vue depuis l'espace. **État actuel : seul le tir existe** ; l'impact est matérialisé par un
-marqueur provisoire.
+(10 kt à 50 Mt), vue depuis l'espace. **État actuel : socle de l'effet** (tir, placement, lois d'échelle,
+horloge) ; l'explosion n'est représentée que par des marqueurs de debug à la taille calculée.
 
+- **Paramètres** (`nuke/nuke_params.gd`, Resource `NukeParams`) : `yield_kt` (10 à 50 000), `latitude_deg`,
+  `longitude_deg`, `wind_direction_deg` (d'où vient le vent, convention météo ; tiré au hasard à la création),
+  `start_time_s` (instant sur l'horloge `NukeClock`), `burst_height_km` (0 = au sol, valeur par défaut).
+- **Lois d'échelle** (`nuke/nuke_scaling.gd`, classe statique `NukeScaling`, coefficients en tête de fichier), W en kt :
+
+  | Grandeur | Formule | 10 kt | 1 Mt | 50 Mt |
+  |---|---|---|---|---|
+  | Rayon de la boule de feu | 0,066 · W^0,4 km | 0,17 km | 1,05 km | 5,0 km |
+  | Rayon de choc de référence | 2 · (W/10)^(1/3) km | 2 km | 9,3 km | 34 km |
+  | Sommet du nuage | 10 · (W/10)^0,22 km | 10 km | 27,5 km | 65 km |
+  | Rayon du chapeau | 0,6 × sommet | 6 km | 16,5 km | 39 km |
+
+  Depuis 400 km, un pixel vaut ~0,5 km au nadir : la boule de feu de 10 kt (0,3 km de diamètre) fait moins d'un
+  pixel ; il faudra une taille apparente minimale (flash, glow) pour les petites puissances.
+- **Effet** (`nuke/nuke_effect.tscn`, script `nuke/nuke_effect.gd`, classe `NukeEffect`) : enfant du nœud `Earth`,
+  placé au point (latitude, longitude) sur la sphère. Repère local : **Y = verticale locale**, X = est, −Z = nord,
+  origine au point d'impact. Le nœud est mis à l'échelle 0,1 (`SCENE_UNITS_PER_KM`) : **ses enfants travaillent
+  directement en km**, avec des coordonnées petites (bonne précision flottante). `get_time_s()` donne le temps
+  physique écoulé depuis l'explosion (`time_override_s` ≥ 0 l'impose, pour rejouer l'effet).
+  - Marqueurs de debug (`DebugMarkers`, `show_debug_markers`) : boule de feu (sphère orange, centrée à la hauteur
+    d'explosion), rayon de choc (anneau jaune au sol), colonne et chapeau du nuage (cyan, au sommet calculé).
+    Rendus après les nuages et l'atmosphère (`render_priority` 2), masqués par la station.
+- **Horloge** (`nuke/nuke_clock.gd`, autoload `NukeClock`), distincte du temps réel :
+  - `time_s` avance au rythme du temps de l'orbite (**Pause, x2… x16 s'appliquent aussi aux explosions**),
+    multiplié par `acceleration` (1 par défaut) ;
+  - le temps physique d'une explosion défile en temps réel pendant `realtime_phase_s` (20 s : flash, boule de
+    feu, onde de choc), puis `slow_phase_acceleration` (×10) plus vite (montée et étalement du champignon) ;
+    `to_physical()` / `to_clock()` convertissent.
 - **Tir** (`nuke/nuke_launcher.gd`, nœud `NukeLauncher` de `orbit_view.tscn`, groupe `nuke_launcher`) : rayon partant
   de la caméra par le centre de l'écran, intersecté analytiquement avec la sphère terrestre (6371 km, soit 637,1 u).
   Le point touché est converti dans le repère local du nœud `Earth` (qui tourne avec la planète) et en
   latitude / longitude (même convention que `Orbit` et les UV de la sphère). Si le rayon manque la Terre, rien ne
   se passe. La station n'est pas prise en compte : viser à travers un montant de la Cupola tire quand même.
   - `get_aim()` : point visé (`local`, `latitude`, `longitude`) ou `{}` ;
-  - `launch(yield_kt)` : tire, émet `detonated(latitude, longitude, yield_kt, local_position)` et retourne `true` ;
-    sans cible, retourne `false` sans rien faire.
-- **Marqueur provisoire** : sphère rouge lumineuse de 3 km de rayon au point d'impact, enfant de `Earth`, effacée
-  au bout de 5 s. Rendue après les nuages et l'atmosphère (`render_priority` 2) pour rester visible sous un banc
-  nuageux, mais masquée par la station.
+  - `launch(yield_kt)` : tire sur le point visé et retourne la `NukeEffect` créée ; sans cible, retourne `null`
+    sans rien faire ;
+  - `launch_at(latitude, longitude, yield_kt)` : tire sur des coordonnées ; `fire(params)` : à partir d'une
+    `NukeParams` ;
+  - signal `detonated(effect)` ; `get_effects()`, `clear_effects()`. Les explosions restent en place (pas encore
+    de fin d'effet).
+  - Au démarrage, il lie `NukeClock` au nœud `Orbit` (`orbit_path`).
 - **Interface** : colonne `Launch` du panneau de contrôle (`nuke/launch_control.gd`) : gros bouton rouge
   (`nuke/big_red_button.gd`, dessiné à la main) et, en dessous, les boutons de puissance. Au clic, le capuchon
   s'enfonce, reste un instant en bas puis remonte avec un léger rebond. Réticule au centre de l'écran
   (`nuke/aim_reticle.gd`) : rouge avec la latitude et la longitude du point visé quand la vue vise la Terre, gris
   sinon.
+- **Scène de debug** (`nuke/debug/nuke_debug.tscn`, à lancer avec F6 ; instancie `orbit_view.tscn` et ajoute le
+  panneau `nuke/debug/nuke_debug_panel.gd` en haut à gauche) :
+  - curseur de puissance en échelle logarithmique (10 kt à 50 Mt), avec les tailles calculées ;
+  - champs latitude / longitude (Madrid par défaut), bouton **Point visé** (recopie le centre de la vue),
+    **Tirer**, **Effacer** ;
+  - scrubber du temps physique (0 à 15 min) : il suit la dernière explosion ; le déplacer (ou cocher **Rejouer**)
+    fige toutes les explosions au temps choisi, décocher rend la main à l'horloge.
 
 ## Sources des textures
 
