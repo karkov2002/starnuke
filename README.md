@@ -19,6 +19,7 @@ Les tuiles haute résolution (`assets/earth_tiles/`, `assets/earth_night_tiles/`
 | Date et heure (UTC) | Champ **date** (AAAA-MM-JJ, valider par Entrée), boutons **−1 j / +1 j**, curseur de l'**heure** du jour. La station reste au-dessus du même point ; le soleil, les étoiles et les nuages (poussés par le vent) se placent selon la nouvelle heure. Départ : **15 juillet 2035** |
 | Vitesse du temps | Boutons **Pause, x1, x2, x4, x8, x16** |
 | Redémarrer | Boutons **Restart by day** / **Restart by night** : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
+| Tir nucléaire | **Gros bouton rouge** à droite du panneau : frappe le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie en dessous (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien. Voir « Explosions nucléaires » |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
 L'observateur ne peut pas se déplacer pour l'instant (des contrôles d'orientation de la vue sont prévus).
@@ -26,7 +27,8 @@ L'observateur ne peut pas se déplacer pour l'instant (des contrôles d'orientat
 **Panneau de contrôle** (`scenes/ui/orbit_controls.tscn`, script `scripts/orbit_controls.gd`), en bas au centre.
 Il affiche l'altitude et la période orbitale, l'inclinaison et le point survolé (latitude, longitude), ainsi que
 la date et l'heure UTC et l'heure solaire locale du point survolé. Les curseurs agissent en direct sur le nœud `Orbit`. Hors manipulation, ils affichent les
-valeurs réellement appliquées. Le panneau a une largeur fixe et ne bouge pas quand les valeurs changent.
+valeurs réellement appliquées. Le panneau a une largeur fixe et ne bouge pas quand les valeurs changent. Sa
+dernière colonne (bouton de tir et puissance) vient de `nuke/`.
 
 **Règles de l'orbite appliquées par les contrôles :**
 - changer l'altitude conserve le point survolé et le sens de passage (montant / descendant) ; la période change
@@ -294,6 +296,29 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
    - L'import Godot de cette texture doit rester **sans perte** (`detect_3d/compress_to=0` dans le `.import`), sinon
      la compression GPU fausse les vitesses.
    - Pour une autre journée de nuages, refaire les étapes 4 et 5 avec la même date.
+
+## Explosions nucléaires (`nuke/`)
+
+Tout le code des explosions est dans `res://nuke/`. Objectif : une animation unique, paramétrée par la puissance
+(10 kt à 50 Mt), vue depuis l'espace. **État actuel : seul le tir existe** ; l'impact est matérialisé par un
+marqueur provisoire.
+
+- **Tir** (`nuke/nuke_launcher.gd`, nœud `NukeLauncher` de `orbit_view.tscn`, groupe `nuke_launcher`) : rayon partant
+  de la caméra par le centre de l'écran, intersecté analytiquement avec la sphère terrestre (6371 km, soit 637,1 u).
+  Le point touché est converti dans le repère local du nœud `Earth` (qui tourne avec la planète) et en
+  latitude / longitude (même convention que `Orbit` et les UV de la sphère). Si le rayon manque la Terre, rien ne
+  se passe. La station n'est pas prise en compte : viser à travers un montant de la Cupola tire quand même.
+  - `get_aim()` : point visé (`local`, `latitude`, `longitude`) ou `{}` ;
+  - `launch(yield_kt)` : tire, émet `detonated(latitude, longitude, yield_kt, local_position)` et retourne `true` ;
+    sans cible, retourne `false` sans rien faire.
+- **Marqueur provisoire** : sphère rouge lumineuse de 3 km de rayon au point d'impact, enfant de `Earth`, effacée
+  au bout de 5 s. Rendue après les nuages et l'atmosphère (`render_priority` 2) pour rester visible sous un banc
+  nuageux, mais masquée par la station.
+- **Interface** : colonne `Launch` du panneau de contrôle (`nuke/launch_control.gd`) : gros bouton rouge
+  (`nuke/big_red_button.gd`, dessiné à la main) et, en dessous, les boutons de puissance. Au clic, le capuchon
+  s'enfonce, reste un instant en bas puis remonte avec un léger rebond. Réticule au centre de l'écran
+  (`nuke/aim_reticle.gd`) : rouge avec la latitude et la longitude du point visé quand la vue vise la Terre, gris
+  sinon.
 
 ## Sources des textures
 

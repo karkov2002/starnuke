@@ -1,9 +1,16 @@
 [gd_scene format=3 uid="uid://dknqs7e8wshht"]
 
 [ext_resource type="Script" uid="uid://cxtldiq7x6qax" path="res://scripts/orbit_controls.gd" id="1_qvv6e"]
+[ext_resource type="Script" uid="uid://ejvpp3njhvna" path="res://nuke/launch_control.gd" id="2_4bsrj"]
+[ext_resource type="Script" uid="uid://bbu4elk27fj2n" path="res://nuke/aim_reticle.gd" id="3_apeyp"]
 
 [node name="OrbitControls" type="CanvasLayer" unique_id=1118273847]
 script = ExtResource("1_qvv6e")
+
+[node name="AimReticle" type="Control" parent="." unique_id=1408601066]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("3_apeyp")
 
 [node name="Panel" type="PanelContainer" parent="." unique_id=2038231508]
 
@@ -69,3 +76,7 @@ text = "Restart by day"
 layout_mode = 2
 focus_mode = 0
 text = "Restart by night"
+
+[node name="Launch" type="VBoxContainer" parent="Panel/Row" unique_id=1494045111]
+layout_mode = 2
+script = ExtResource("2_4bsrj")

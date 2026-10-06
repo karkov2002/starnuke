@@ -10,7 +10,8 @@
 [ext_resource type="Script" uid="uid://nmhxi1tug17e" path="res://scripts/orbit.gd" id="8_3kqp2"]
 [ext_resource type="Material" path="res://materials/atmosphere_ground.tres" id="8_pecem"]
 [ext_resource type="PackedScene" uid="uid://dknqs7e8wshht" path="res://scenes/ui/orbit_controls.tscn" id="10_e78ee"]
-[ext_resource type="CameraAttributes" path="res://materials/camera_attributes.tres" id="11_cam"]
+[ext_resource type="CameraAttributesPractical" path="res://materials/camera_attributes.tres" id="11_cam"]
+[ext_resource type="Script" uid="uid://cuu53raq5g4v5" path="res://nuke/nuke_launcher.gd" id="12_nuam2"]
 
 [sub_resource type="SphereMesh" id="SphereMesh_dokek"]
 radius = 637.1
@@ -86,3 +87,6 @@ mesh = SubResource("SphereMesh_pecem")
 script = ExtResource("8_3kqp2")
 
 [node name="OrbitControls" parent="." unique_id=1118273847 instance=ExtResource("10_e78ee")]
+
+[node name="NukeLauncher" type="Node" parent="." unique_id=1883274914]
+script = ExtResource("12_nuam2")
