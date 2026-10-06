@@ -30,15 +30,18 @@ const SHOCK_TAU_S_PER_KM := 1.28
 # Incendies allumés par le flash : rayon où l'exposition thermique dépasse ~10 cal/cm² (inflammation des matériaux
 # courants, Glasstone & Dolan ch. VII ; ~12 km pour 1 Mt avec l'absorption de l'air), ∝ W^0,41 (entre la loi en W^0,5
 # du vide et l'absorption croissante avec la distance) : ~1,8 km à 10 kt, ~60 km à 50 Mt.
-# Évolution : premiers foyers dès le flash (FIRE_FIRST_SHARE), incendie généralisé en ~2 min, extension lente
-# (+FIRE_SPREAD du rayon en ~30 min), extinction en quelques heures.
+# Évolution, calée sur Hiroshima (tempête de feu formée ~20 min après l'explosion, au maximum vers 2–3 h) : foyers
+# allumés par le flash (FIRE_FIRST_SHARE de l'intensité finale), qui se rejoignent de FIRE_GROWTH_START_S à
+# FIRE_GROWTH_END_S ; extension lente (+FIRE_SPREAD du rayon, constante de temps FIRE_SPREAD_S) ; extinction
+# progressive (constante de temps FIRE_BURN_S). Intensité (0 à 1) : ~0,3 à 20 min, ~0,6 à 1 h, maximum ~0,7 vers 1 h 20.
 const FIRE_RADIUS_1MT_KM := 12.0
 const FIRE_RADIUS_EXP := 0.41
-const FIRE_FIRST_SHARE := 0.3
-const FIRE_GROWTH_S := 120.0
+const FIRE_FIRST_SHARE := 0.25
+const FIRE_GROWTH_START_S := 120.0
+const FIRE_GROWTH_END_S := 5400.0
 const FIRE_SPREAD := 0.15
-const FIRE_SPREAD_S := 1800.0
-const FIRE_BURN_S := 10800.0
+const FIRE_SPREAD_S := 3600.0
+const FIRE_BURN_S := 14400.0
 
 # Flash initial. Puissance thermique au second maximum (Glasstone & Dolan, The Effects of Nuclear Weapons, §7.88,
 # explosion dans l'air) : P_max = 4 · W^0,56 kt/s. Pour 1 Mt : 8·10¹⁴ W, soit ~400 W/m² à 400 km (0,29 soleil) avant
@@ -50,9 +53,13 @@ const FLASH_FLUX_EXP := 0.56
 const KILOTON_J := 4.184e12
 ## Éclairement solaire hors atmosphère (W/m²) : l'unité « soleil » des flux.
 const SOLAR_CONSTANT_W_M2 := 1361.0
-## Durée du flash pour 1 Mt (s, temps physique), et exposant : 10 kt ≈ 1,3 s, 50 Mt ≈ 3 s.
-const FLASH_DURATION_1MT_S := 2.0
-const FLASH_DURATION_EXP := 0.1
+# Durées (Glasstone & Dolan §7.85–7.88) : temps du second maximum thermique t_max = 0,0417 · W^0,44 s (0,12 s à 10 kt,
+# 0,87 s à 1 Mt, 4,9 s à 50 Mt) ; le flash est joué sur FLASH_DURATION_TMAX · t_max (l'essentiel de l'énergie
+# thermique est émis avant 10 t_max). Les courbes de nuke_flash.tscn sont en u = t / (10 t_max) : second maximum à
+# u = 0,1, minimum entre les deux impulsions vers t_min = 0,0025 · W^0,5 s (u ≈ 0,007 à 0,012).
+const FLASH_TMAX_COEF_S := 0.0417
+const FLASH_TMAX_EXP := 0.44
+const FLASH_DURATION_TMAX := 10.0
 # Luminance de la boule de feu : celle du disque solaire (sun_disc_energy de space_sky.gdshader) × le rapport des
 # luminances, plafonnée sous le maximum du format flottant 16 bits du rendu.
 const SUN_DISC_HDR := 40000.0
@@ -88,7 +95,8 @@ static func fire_radius_km(yield_kt: float, t: float) -> float:
 static func fire_intensity(t: float) -> float:
 	if t <= 0.0:
 		return 0.0
-	var growth := FIRE_FIRST_SHARE * smoothstep(0.3, 1.5, t) + (1.0 - FIRE_FIRST_SHARE) * smoothstep(2.0, FIRE_GROWTH_S, t)
+	var growth := FIRE_FIRST_SHARE * smoothstep(0.3, 1.5, t) \
+			+ (1.0 - FIRE_FIRST_SHARE) * smoothstep(FIRE_GROWTH_START_S, FIRE_GROWTH_END_S, t)
 	return growth * exp(-t / FIRE_BURN_S)
 
 
@@ -107,9 +115,14 @@ static func flash_peak_flux_sun(yield_kt: float) -> float:
 	return power_w / (4.0 * PI * distance_m * distance_m) / SOLAR_CONSTANT_W_M2
 
 
-## Durée du flash (s, temps physique).
+## Durée du flash (s, temps physique) : 10 t_max, soit ~1,2 s à 10 kt, ~8,7 s à 1 Mt, ~49 s à 50 Mt.
 static func flash_duration_s(yield_kt: float) -> float:
-	return FLASH_DURATION_1MT_S * pow(_clamp_yield(yield_kt) / 1000.0, FLASH_DURATION_EXP)
+	return FLASH_DURATION_TMAX * flash_tmax_s(yield_kt)
+
+
+## Temps du second maximum thermique (s, physique) : 0,12 s à 10 kt, 0,87 s à 1 Mt, 4,9 s à 50 Mt.
+static func flash_tmax_s(yield_kt: float) -> float:
+	return FLASH_TMAX_COEF_S * pow(_clamp_yield(yield_kt), FLASH_TMAX_EXP)
 
 
 ## Luminance HDR d'une boule de feu de rayon radius_km dont le flux à FLASH_REF_DISTANCE_KM vaut flux_ref (soleils) :

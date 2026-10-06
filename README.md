@@ -326,13 +326,18 @@ horloge), **flash initial**, **onde de choc** (condensation, poussière) et **in
 
   Flash (même fichier) : puissance thermique au second maximum **P = 4 · W^0,56 kt/s** (Glasstone & Dolan,
   *The Effects of Nuclear Weapons*, §7.88), rayonnée dans toutes les directions, en « soleils » (1 361 W/m²) à la
-  distance de référence de 400 km ; durée 2 s · (W / 1 Mt)^0,1. **L'atmosphère absorbe ensuite cette lumière**
-  selon le trajet (voir « Absorption par l'air » ci-dessous).
+  distance de référence de 400 km. **L'atmosphère absorbe ensuite cette lumière** selon le trajet (voir
+  « Absorption par l'air » ci-dessous).
+
+  Durées réelles (même source, §7.85) : second maximum thermique à **t_max = 0,0417 · W^0,44 s** ; le flash est joué
+  sur 10 t_max, durée pendant laquelle l'essentiel de l'énergie thermique est émis. Le minimum entre les deux
+  impulsions tombe à t_min = 0,0025 · W^0,5 s.
 
   | | 10 kt | 1 Mt | 50 Mt |
   |---|---|---|---|
   | Flux au pic à 400 km, sans atmosphère | 0,022 soleil | 0,29 soleil | 2,6 soleils |
-  | Durée du flash | 1,3 s | 2 s | 3 s |
+  | Second maximum t_max | 0,12 s | 0,87 s | 4,9 s |
+  | Durée du flash (10 t_max) | 1,2 s | 8,7 s | 49 s |
 
   Le flux décroît en 1/d² : depuis une orbite à 800 km, le flash paraît 4 fois moins fort qu'à 400 km.
 - **Absorption par l'air** (`nuke/nuke_atmosphere.gd` pour l'observateur, `nuke_air_transmittance()` dans
@@ -354,9 +359,16 @@ horloge), **flash initial**, **onde de choc** (condensation, poussière) et **in
     (cyan, au sommet calculé). Rendus après les nuages et l'atmosphère (`render_priority` 2), masqués par la station.
 - **Flash initial** (`nuke/nuke_flash.tscn`, script `nuke/nuke_flash.gd`, enfant `Flash` de l'effet). En temps
   normalisé u = t / durée du flash, deux courbes `Curve` éditables dans la scène :
-  - `intensity_curve` : part du flux au pic, avec la forme du double pic thermique (bref premier pic à u = 0,006,
-    creux, second maximum à u = 0,1, décroissance jusqu'à 0 à u = 1) ;
-  - `growth_curve` : rayon de la boule de feu, en part du rayon final (5 % → 100 % à u = 0,3).
+  - `intensity_curve` : part du flux au pic, avec la forme de l'impulsion thermique de Glasstone & Dolan :
+    - bref premier pic (u = 0,002), puis minimum vers t_min (u ≈ 0,009) ;
+    - second maximum à t_max (u = 0,1) ;
+    - décroissance : 0,55 à 2 t_max, 0,3 à 3 t_max, 0,12 à 5 t_max, 0,05 à 7 t_max, 0 à 10 t_max ;
+  - `growth_curve` : rayon de la boule de feu, en part du rayon final (5 % au départ, 45 % à t_min, 90 % à t_max,
+    100 % à 3 t_max).
+
+  Les tangentes des courbes valent la pente entre les points voisins (nulles aux extrema), sinon la courbe
+  d'Hermite forme des paliers (l'éclat décroîtrait par marches). Elles sont lues avec `sample()` : la version
+  précalculée (`sample_baked()`, 100 points) effacerait le premier pic.
 
   Il affiche :
   - **la boule de feu** (`nuke/shaders/nuke_fireball_flash.gdshader`) : sphère additive dont la luminance est
@@ -406,11 +418,14 @@ horloge), **flash initial**, **onde de choc** (condensation, poussière) et **in
   thermique dépasse ~10 cal/cm² (inflammation des matériaux courants, Glasstone & Dolan ch. VII).
   - Rayon : 12 km · (W / 1 Mt)^0,41, soit ~1,8 km à 10 kt, 12 km à 1 Mt et ~60 km à 50 Mt
     (`NukeScaling.fire_radius_km`).
-  - Évolution (`NukeScaling.fire_intensity`) :
-    - 30 % des foyers dès le flash ;
-    - incendie généralisé en ~2 min ;
-    - le rayon s'étend de 15 % en ~30 min ;
-    - extinction progressive sur ~3 h (constante de temps).
+  - Évolution (`NukeScaling.fire_intensity`), calée sur Hiroshima (tempête de feu formée ~20 min après
+    l'explosion, au plus fort vers 2–3 h) :
+    - 25 % de l'intensité finale dès le flash (foyers allumés par le rayonnement thermique) ;
+    - les foyers se rejoignent entre 2 min et 1 h 30 ; intensité (0 à 1) : ~0,3 à 20 min, ~0,6 à 1 h, maximum
+      ~0,7 vers 1 h 20 ;
+    - le rayon s'étend de 15 % (constante de temps 1 h) ;
+    - extinction progressive (constante de temps 4 h).
+    - avec l'accélération de l'horloge (×10 après la rampe), 1 h 20 physique ≈ 8 min 30 s à l'écran.
   - Rendu, en émission sur le sol :
     - la part du sol en feu est forte au centre (l'exposition décroît en 1/d²) ;
     - seulement sur les terres (masque d'eau du sol) ;
@@ -438,11 +453,15 @@ horloge), **flash initial**, **onde de choc** (condensation, poussière) et **in
   - **station** : `DirectionalLight3D` dirigée depuis le flash le plus intense (à 400 km la source est à l'infini
     pour une station de 3 m). Énergie = flux reçu × 2 (un soleil), ombres portées des montants. Elle n'éclaire que
     la station : `FlashFX` ajoute le calque 20 à tous ses maillages, et la lumière a ce seul calque dans son masque.
-  - **éblouissement** : avec g = flux reçu / (flux reçu + 0,2), le glow de l'Environment (`glow_intensity` + 2·g,
-    `glow_bloom` + 0,5·g) et le multiplicateur d'exposition de la caméra (× (1 + 2,5·g)) sont relevés, puis rendus
-    à leurs valeurs d'origine. L'exposition automatique réagit ensuite d'elle-même : l'image s'assombrit après le
-    flash puis récupère en quelques secondes. Un 50 Mt sature l'écran ; un 10 kt laisse un éclat net sans
-    saturation.
+  - **éblouissement**, comme un œil : ébloui par la *montée* de la lumière, il s'adapte ensuite même si le flash
+    dure (jusqu'à ~50 s pour 50 Mt) :
+    - l'intensité du glow suit le flux reçu : `glow_intensity` + 2·g, avec g = flux reçu / (flux reçu + 0,2). La
+      source reste éclatante tant qu'elle brille ;
+    - le bloom (`glow_bloom` + 0,5·e) et le multiplicateur d'exposition de la caméra (× (1 + 2,5·e)) suivent
+      l'éblouissement e = excès / (excès + 0,2), l'excès étant le flux reçu au-delà d'un niveau d'adaptation qui
+      le rattrape en 1,5 s (temps réel, `adaptation_s`) ;
+    - tout revient aux valeurs d'origine à la fin du flash, et l'exposition automatique réagit ensuite d'elle-même ;
+    - un 50 Mt sature l'écran à la montée du flash ; un 10 kt laisse un éclat net sans saturation.
 - **Horloge** (`nuke/nuke_clock.gd`, autoload `NukeClock`), distincte du temps réel :
   - `time_s` avance au rythme du temps de l'orbite (**Pause, x2… x16 s'appliquent aussi aux explosions**),
     multiplié par `acceleration` (1 par défaut) ;

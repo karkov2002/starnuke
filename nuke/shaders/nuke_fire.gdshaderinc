@@ -18,8 +18,8 @@ uniform vec3 nuke_fire_pos_km[8];
 uniform float nuke_fire_radius_km[8];
 uniform float nuke_fire_intensity[8];
 uniform vec3 nuke_fire_color : source_color = vec3(1.0, 0.45, 0.12);
-// Luminance HDR d'un sol entièrement en feu.
-uniform float nuke_fire_hdr = 1.2;
+// Luminance HDR d'un sol entièrement en feu, à intensité 1 (l'incendie culmine vers 0,7).
+uniform float nuke_fire_hdr = 1.6;
 // Périodes de la texture de bruit pour le motif des zones en feu (km ; une période contient ~4 taches) ; la grande
 // vaut 1,2 fois le rayon de la zone, plafonnée à nuke_fire_coarse_km.
 uniform float nuke_fire_fine_km = 8.0;

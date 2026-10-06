@@ -7,9 +7,11 @@ extends Node
 ## - une DirectionalLight3D qui n'éclaire que la station (calque STATION_LIGHT_LAYER, ajouté à ses maillages) : à
 ##   400 km la source est à l'infini pour la station. Énergie = flux reçu × énergie d'un soleil (celle du nœud Sun),
 ##   ombres portées (montants de la Cupola) ;
-## - l'éblouissement : glow (intensité, bloom) de l'Environment et multiplicateur d'exposition de la caméra, relevés
-##   selon g = flux / (flux + screen_flux_half), puis rendus à leurs valeurs d'origine quand le flash s'éteint.
-##   L'exposition automatique réagit ensuite d'elle-même (l'image s'assombrit puis récupère).
+## - l'éblouissement : l'intensité du glow suit le flux reçu, g = flux / (flux + screen_flux_half) (la source reste
+##   éclatante tant qu'elle brille) ; le bloom et le multiplicateur d'exposition de la caméra suivent l'excès du flux
+##   sur un niveau d'adaptation qui le rattrape en adaptation_s, comme un œil : l'écran sature à la montée du flash,
+##   puis s'adapte même si le flash dure (jusqu'à ~50 s pour 50 Mt). Tout revient aux valeurs d'origine à la fin ;
+##   l'exposition automatique réagit ensuite d'elle-même.
 
 const MAX_FLASHES := 4
 const STATION_LIGHT_LAYER := 1 << 19
@@ -19,6 +21,8 @@ const STATION_LIGHT_LAYER := 1 << 19
 @export var glow_gain := 2.0
 @export var bloom_gain := 0.5
 @export var exposure_gain := 2.5
+## Temps d'adaptation de l'œil à la lumière du flash (s, temps réel).
+@export var adaptation_s := 1.5
 ## Énergie de la lumière pour un flux de 1 soleil (= light_energy du nœud Sun).
 @export var station_light_energy_per_sun := 2.0
 
@@ -28,6 +32,7 @@ var _camera_attributes: CameraAttributes
 var _base_glow := 0.0
 var _base_bloom := 0.0
 var _base_exposure := 1.0
+var _adapted := 0.0 # flux auquel l'œil s'est adapté (soleils)
 var _materials: Array[ShaderMaterial] = []
 var _light: DirectionalLight3D
 var _was_active := false
@@ -63,7 +68,7 @@ func setup(launcher: NukeLauncher, world_environment: WorldEnvironment, earth: N
 	add_child(_light)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _launcher == null:
 		return
 	var flashes: Array[NukeFlash] = []
@@ -72,6 +77,7 @@ func _process(_delta: float) -> void:
 		if flash and flash.flux_ref > 0.0:
 			flashes.append(flash)
 	if flashes.is_empty() and not _was_active:
+		_adapted = 0.0
 		return
 	_was_active = not flashes.is_empty()
 	flashes.sort_custom(func(a: NukeFlash, b: NukeFlash) -> bool: return a.flux_ref > b.flux_ref)
@@ -109,9 +115,14 @@ func _process(_delta: float) -> void:
 		_light.global_basis = Basis.looking_at(-direction, hint)
 		_light.light_energy = received * station_light_energy_per_sun
 
+	# Glow : suit le flux reçu (la source reste éclatante). Bloom et exposition : suivent l'éblouissement, l'excès du
+	# flux sur le niveau d'adaptation, qui le rattrape en adaptation_s (temps réel, comme un œil).
+	_adapted += (received - _adapted) * (1.0 - exp(-delta / adaptation_s))
+	var excess := maxf(received - _adapted, 0.0)
 	var g := received / (received + screen_flux_half)
+	var dazzle := excess / (excess + screen_flux_half)
 	if _environment:
 		_environment.glow_intensity = _base_glow + glow_gain * g
-		_environment.glow_bloom = _base_bloom + bloom_gain * g
+		_environment.glow_bloom = _base_bloom + bloom_gain * dazzle
 	if _camera_attributes:
-		_camera_attributes.exposure_multiplier = _base_exposure * (1.0 + exposure_gain * g)
+		_camera_attributes.exposure_multiplier = _base_exposure * (1.0 + exposure_gain * dazzle)

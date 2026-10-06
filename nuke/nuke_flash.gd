@@ -2,10 +2,15 @@ class_name NukeFlash
 extends Node3D
 ## Flash initial d'une explosion (scène nuke/nuke_flash.tscn, enfant d'une NukeEffect ; repère local en km).
 ##
-## Sur la durée du flash (NukeScaling.flash_duration_s, ~2 s), en temps normalisé u = t / durée :
-## - intensity_curve : part du flux au pic (NukeScaling.flash_peak_flux_sun) ; forme du double pic thermique
-##   (bref premier pic, creux, second maximum, décroissance) ;
-## - growth_curve : rayon de la boule de feu, en part de NukeScaling.fireball_radius_km.
+## Sur la durée du flash (NukeScaling.flash_duration_s = 10 t_max : ~1,2 s à 10 kt, ~8,7 s à 1 Mt, ~49 s à 50 Mt), en
+## temps normalisé u = t / durée (lues avec sample() : la version précalculée, à 100 points, effacerait le premier
+## pic) :
+## - intensity_curve : part du flux au pic (NukeScaling.flash_peak_flux_sun) ; forme de l'impulsion thermique de
+##   Glasstone & Dolan : bref premier pic (u = 0,002), minimum (u ≈ 0,009, t_min), second maximum à t_max (u = 0,1),
+##   puis 0,55 à 2 t_max, 0,3 à 3 t_max, 0,12 à 5 t_max, 0,05 à 7 t_max ;
+## - growth_curve : rayon de la boule de feu, en part de NukeScaling.fireball_radius_km (45 % à t_min, 90 % à t_max,
+##   100 % à 3 t_max).
+## Tangentes des courbes : pente entre les points voisins (nulle aux extrema), pour éviter les paliers.
 ## Il affiche la boule de feu (sphère additive, luminance physique : flux / angle solide) et l'éblouissement
 ## (billboard, taille et intensité selon le flux reçu par l'observateur). La lumière projetée sur le sol, les nuages
 ## et la station, et les effets d'écran sont gérés globalement par NukeFlashFX, qui lit flux_ref et get_light_position().
@@ -84,8 +89,8 @@ func _update() -> void:
 		_fireball.visible = false
 		_flare.visible = false
 		return
-	flux_ref = NukeScaling.flash_peak_flux_sun(w) * maxf(intensity_curve.sample_baked(u), 0.0)
-	radius_km = NukeScaling.fireball_radius_km(w) * maxf(growth_curve.sample_baked(u), 0.01)
+	flux_ref = NukeScaling.flash_peak_flux_sun(w) * maxf(intensity_curve.sample(u), 0.0)
+	radius_km = NukeScaling.fireball_radius_km(w) * maxf(growth_curve.sample(u), 0.01)
 
 	var camera := get_viewport().get_camera_3d()
 	_fireball.visible = flux_ref > 0.0
