@@ -94,6 +94,10 @@ valeurs réellement appliquées. Le panneau a une largeur fixe et ne bouge pas q
   - **Nuit** : la moyenne s'effondre et l'exposition remonte, plafonnée à × 2,5
     (`auto_exposure_min_sensitivity` = 70,4, soit une luminance minimale de 0,088). Au-delà, l'intérieur de la
     Cupola, éclairé par la seule lumière ambiante, paraissait en plein jour.
+  - **Lumière ambiante** : celle de l'Environment n'éclaire que la station. La surface terrestre l'ignore
+    (`render_mode ambient_light_disabled` dans `earth_surface.gdshader`) : remontée de × 2,5 la nuit, elle
+    rendait les continents visibles. La face nocturne n'a que ses émissions (villes, lueur des terres, ciel au
+    crépuscule).
   - **Compensations** : les étoiles (`panorama_energy` = 0,4) et les lumières des villes (`night_intensity` = 0,64)
     sont divisées par 2,5. La nuit, elles retrouvent leur éclat ; de jour, les étoiles sont à peine visibles,
     comme sur les photos prises depuis l'ISS.

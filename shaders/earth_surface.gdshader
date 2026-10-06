@@ -10,7 +10,9 @@
 //   plus la lumière diffuse du ciel qui persiste au crépuscule (jusqu'à ~12° sous l'horizon).
 // La brume / perspective aérienne est calculée par le shader d'atmosphère.
 shader_type spatial;
-render_mode cull_back;
+// Pas de lumière ambiante de l'Environment (réglée pour l'intérieur de la station) : vue de l'espace, la face
+// nocturne n'est éclairée que par ses propres émissions (villes, lueur du composite NASA, ciel au crépuscule).
+render_mode cull_back, ambient_light_disabled;
 
 #include "res://shaders/cloud_density.gdshaderinc"
 #include "res://shaders/sun_light.gdshaderinc"
