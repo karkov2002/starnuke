@@ -47,7 +47,8 @@ func get_light_position() -> Vector3:
 	return Vector3(0.0, _effect.params.burst_height_km + radius_km * 0.5 + 0.05, 0.0)
 
 
-## Flux reçu (soleils) en un point de la scène (coordonnées globales) : 1/d² en km, nul si la Terre s'interpose.
+## Flux reçu (soleils) en un point de la scène (coordonnées globales) : 1/d² en km × transmittance de l'air sur le
+## trajet (NukeAtmosphere), nul si la Terre s'interpose.
 func received_flux(at: Vector3) -> float:
 	if flux_ref <= 0.0:
 		return 0.0
@@ -65,7 +66,10 @@ func received_flux(at: Vector3) -> float:
 		if t > 0.0 and t < length * 0.9999:
 			return 0.0
 	var distance_km := length / OrbitSimulation.SCENE_UNITS_PER_KM
-	return flux_ref * pow(NukeScaling.FLASH_REF_DISTANCE_KM / distance_km, 2.0)
+	var to_planet_km := earth.global_transform.affine_inverse()
+	var air := NukeAtmosphere.luminance_transmittance(to_planet_km * source / OrbitSimulation.SCENE_UNITS_PER_KM,
+			to_planet_km * at / OrbitSimulation.SCENE_UNITS_PER_KM)
+	return flux_ref * pow(NukeScaling.FLASH_REF_DISTANCE_KM / distance_km, 2.0) * air
 
 
 func _update() -> void:

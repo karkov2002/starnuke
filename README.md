@@ -323,14 +323,26 @@ horloge) et **flash initial** ; les phases suivantes (boule de feu, champignon) 
   Depuis 400 km, un pixel vaut ~0,5 km au nadir : la boule de feu de 10 kt (0,3 km de diamètre) fait moins d'un
   pixel ; c'est l'éblouissement du flash (billboard de taille angulaire minimale) qui la rend visible.
 
-  Flash (même fichier) : flux au pic **∝ W^0,56** (puissance thermique ∝ W / t_max, t_max ∝ W^0,44 d'après
-  Glasstone & Dolan), calé sur ~0,5 soleil à 400 km pour 1 Mt (~1 500 TJ rayonnés en ~1 s) ; durée
-  2 s · (W / 1 Mt)^0,1, soit ~1,3 s à 10 kt et ~3 s à 50 Mt.
+  Flash (même fichier) : puissance thermique au second maximum **P = 4 · W^0,56 kt/s** (Glasstone & Dolan,
+  *The Effects of Nuclear Weapons*, §7.88), rayonnée dans toutes les directions, en « soleils » (1 361 W/m²) à la
+  distance de référence de 400 km ; durée 2 s · (W / 1 Mt)^0,1. **L'atmosphère absorbe ensuite cette lumière**
+  selon le trajet (voir « Absorption par l'air » ci-dessous).
 
   | | 10 kt | 1 Mt | 50 Mt |
   |---|---|---|---|
-  | Flux au pic à 400 km | 0,04 soleil | 0,5 soleil | 4,5 soleils |
+  | Flux au pic à 400 km, sans atmosphère | 0,022 soleil | 0,29 soleil | 2,6 soleils |
   | Durée du flash | 1,3 s | 2 s | 3 s |
+
+  Le flux décroît en 1/d² : depuis une orbite à 800 km, le flash paraît 4 fois moins fort qu'à 400 km.
+- **Absorption par l'air** (`nuke/nuke_atmosphere.gd` pour l'observateur, `nuke_air_transmittance()` dans
+  `nuke/shaders/nuke_flash.gdshaderinc` pour le sol et les nuages ; même calcul) : transmittance par canal (r, v, b)
+  le long du segment source → récepteur. Elle utilise le modèle de la lumière solaire (`shaders/sun_light.gdshaderinc` :
+  Rayleigh, hauteur d'échelle 8 km, et aérosols, 1,2 km), intégré en 8 pas resserrés près de l'extrémité basse.
+  L'effet dépend donc de l'altitude du trajet :
+  - vers l'espace (station), il traverse peu d'air : ~90 % transmis au nadir ;
+  - près du sol (sol et nuages bas lointains), il est fortement atténué et rougi : un nuage à 100 km d'une
+    explosion au sol ne reçoit plus qu'une lueur orangée ;
+  - une explosion en altitude (`burst_height_km`) est moins atténuée qu'au sol.
 - **Effet** (`nuke/nuke_effect.tscn`, script `nuke/nuke_effect.gd`, classe `NukeEffect`) : enfant du nœud `Earth`,
   placé au point (latitude, longitude) sur la sphère. Repère local : **Y = verticale locale**, X = est, −Z = nord,
   origine au point d'impact. Le nœud est mis à l'échelle 0,1 (`SCENE_UNITS_PER_KM`) : **ses enfants travaillent
@@ -351,8 +363,8 @@ horloge) et **flash initial** ; les phases suivantes (boule de feu, champignon) 
     Elle est rendue avant les nuages (`render_priority` −1) : un banc nuageux la voile ;
   - **l'éblouissement** (`nuke/shaders/nuke_flare.gdshader`) : billboard additif (halo, cœur, étoile à 4 branches)
     construit en espace vue et ramené à mi-distance, pour passer devant la Terre et les nuages tout en restant
-    masqué par la station. Taille angulaire et intensité suivent le flux reçu par l'observateur (1/d², nul si la
-    Terre cache le flash) ; réglages dans le groupe « Éblouissement » du script.
+    masqué par la station. Taille angulaire et intensité suivent le flux reçu par l'observateur (1/d² ×
+    transmittance de l'air, nul si la Terre cache le flash) ; réglages dans le groupe « Éblouissement » du script.
 - **Lumière et effets d'écran du flash** (`nuke/nuke_flash_fx.gd`, nœud `FlashFX` créé par `NukeLauncher`), à
   chaque image, pour les flashs actifs :
   - **sol et nuages** : uniforms `nuke_flash_*` (les 4 flashs les plus intenses) de
@@ -360,11 +372,11 @@ horloge) et **flash initial** ; les phases suivantes (boule de feu, champignon) 
     `shaders/cloud_volume.gdshader`. Seul code des explosions hors de `nuke/` : une ligne d'inclusion et un appel
     dans chacun. Les lumières Godot ne conviennent pas ici : le sol a un `light()` propre au soleil, et les nuages
     sont unshaded.
-    - Le **sol** reçoit flux × (400 km / d)² × cos(incidence), en émission (de jour comme de nuit). L'horizon local
-      est respecté (exact sur une sphère), l'ombre des nuages est calculée sur le segment sol → flash
-      (4 échantillons), et une petite part est diffusée par l'air (3 %, portée 60 km).
-    - Les **nuages** reçoivent le même flux, nul si la Terre s'interpose, avec auto-ombrage (marche vers le flash)
-      et diffusion isotrope.
+    - Le **sol** reçoit flux × (400 km / d)² × cos(incidence) × transmittance de l'air, en émission (de jour
+      comme de nuit). L'horizon local est respecté (exact sur une sphère), l'ombre des nuages est calculée sur le
+      segment sol → flash (4 échantillons), et une petite part est diffusée par l'air (3 %, portée 60 km).
+    - Les **nuages** reçoivent le même flux × transmittance de l'air, nul si la Terre s'interpose, avec
+      auto-ombrage (marche vers le flash) et diffusion isotrope.
     - Unité : le « soleil » (le sol reçoit `nuke_flash_ground_gain` = 2, comme la lumière `Sun`). L'éclairement
       est plafonné à 2 000 près de la boule de feu.
   - **station** : `DirectionalLight3D` dirigée depuis le flash le plus intense (à 400 km la source est à l'infini

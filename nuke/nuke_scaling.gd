@@ -20,14 +20,16 @@ const CLOUD_TOP_REF_KM := 10.0
 const CLOUD_TOP_EXP := 0.22
 const CAP_RADIUS_PER_TOP := 0.6
 
-# Flash initial. La puissance thermique au pic varie comme W / t_max, avec t_max ∝ W^0,44 (Glasstone & Dolan,
-# temps du second maximum thermique), d'où un flux ∝ W^0,56. Ordre de grandeur réel : ~1 500 TJ rayonnés en ~1 s
-# pour 1 Mt, soit ~700 W/m² à 400 km, la moitié du soleil.
+# Flash initial. Puissance thermique au second maximum (Glasstone & Dolan, The Effects of Nuclear Weapons, §7.88,
+# explosion dans l'air) : P_max = 4 · W^0,56 kt/s. Pour 1 Mt : 8·10¹⁴ W, soit ~400 W/m² à 400 km (0,29 soleil) avant
+# l'absorption par l'atmosphère (NukeAtmosphere et nuke/shaders/nuke_flash.gdshaderinc).
 ## Distance de référence des flux (km) : l'orbite nominale.
 const FLASH_REF_DISTANCE_KM := 400.0
-## Flux au pic à FLASH_REF_DISTANCE_KM pour 1 Mt, en « soleils » (1 = éclairement solaire hors atmosphère).
-const FLASH_FLUX_1MT_SUN := 0.5
+const FLASH_PEAK_POWER_COEF_KT_S := 4.0
 const FLASH_FLUX_EXP := 0.56
+const KILOTON_J := 4.184e12
+## Éclairement solaire hors atmosphère (W/m²) : l'unité « soleil » des flux.
+const SOLAR_CONSTANT_W_M2 := 1361.0
 ## Durée du flash pour 1 Mt (s, temps physique), et exposant : 10 kt ≈ 1,3 s, 50 Mt ≈ 3 s.
 const FLASH_DURATION_1MT_S := 2.0
 const FLASH_DURATION_EXP := 0.1
@@ -54,9 +56,11 @@ static func cloud_cap_radius_km(yield_kt: float) -> float:
 	return CAP_RADIUS_PER_TOP * cloud_top_km(yield_kt)
 
 
-## Flux au pic du flash à FLASH_REF_DISTANCE_KM (soleils).
+## Flux au pic du flash à FLASH_REF_DISTANCE_KM, sans atmosphère (soleils) : 0,022 à 10 kt, 0,29 à 1 Mt, 2,6 à 50 Mt.
 static func flash_peak_flux_sun(yield_kt: float) -> float:
-	return FLASH_FLUX_1MT_SUN * pow(_clamp_yield(yield_kt) / 1000.0, FLASH_FLUX_EXP)
+	var power_w := FLASH_PEAK_POWER_COEF_KT_S * pow(_clamp_yield(yield_kt), FLASH_FLUX_EXP) * KILOTON_J
+	var distance_m := FLASH_REF_DISTANCE_KM * 1000.0
+	return power_w / (4.0 * PI * distance_m * distance_m) / SOLAR_CONSTANT_W_M2
 
 
 ## Durée du flash (s, temps physique).

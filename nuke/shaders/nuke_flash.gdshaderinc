@@ -1,11 +1,12 @@
 // Lumière des flashs nucléaires, injectée dans le sol (earth_surface.gdshader) et les nuages (cloud_volume.gdshader).
 // Les lumières Godot n'y conviennent pas : le sol a un light() propre au soleil, les nuages sont unshaded.
-// À inclure après cloud_density.gdshaderinc. Les uniforms sont alimentés à chaque image par nuke/nuke_flash_fx.gd ;
-// sans flash actif (nuke_flash_count = 0), les fonctions retournent 0 immédiatement.
+// À inclure après cloud_density.gdshaderinc et sun_light.gdshaderinc. Les uniforms sont alimentés à chaque image par
+// nuke/nuke_flash_fx.gd ; sans flash actif (nuke_flash_count = 0), les fonctions retournent 0 immédiatement.
 //
 // Positions en km dans le repère de la planète. Flux en « soleils » (1 = éclairement solaire) à la distance de
-// référence NUKE_FLASH_REF_KM, décroissant en 1/d². Le sol reçoit flux × cos(incidence) : un point ne voit le flash
-// que s'il est au-dessus de son horizon local (exact sur une sphère), plus une petite part diffusée par l'air.
+// référence NUKE_FLASH_REF_KM, décroissant en 1/d² et absorbé par l'air sur le trajet (nuke_air_transmittance :
+// fort et rougi près du sol, faible en altitude). Le sol reçoit flux × cos(incidence) : un point ne voit le flash que
+// s'il est au-dessus de son horizon local (exact sur une sphère), plus une petite part diffusée par l'air.
 #ifndef NUKE_FLASH_INC
 #define NUKE_FLASH_INC
 
@@ -13,6 +14,7 @@ const int NUKE_MAX_FLASHES = 4;
 const float NUKE_FLASH_REF_KM = 400.0;
 // Plafond de l'éclairement (soleils) près de la boule de feu : reste dans le format flottant 16 bits du rendu.
 const float NUKE_FLASH_MAX = 2000.0;
+const int NUKE_AIR_STEPS = 8;
 
 uniform int nuke_flash_count = 0;
 uniform vec3 nuke_flash_pos_km[4];
@@ -24,10 +26,30 @@ uniform float nuke_flash_sky_range_km = 60.0;
 // Énergie d'un « soleil » sur le sol, comme la DirectionalLight Sun (light_energy = 2).
 uniform float nuke_flash_ground_gain = 2.0;
 
-// Éclairement (soleils) reçu par le sol au point p (normale n) : direct × ombre des nuages (4 échantillons sur le
-// segment sol → flash) + diffusé.
-float nuke_flash_ground(vec3 p, vec3 n, CloudAdvection adv) {
-	float total = 0.0;
+// Transmittance (r, v, b) de l'air entre a et b, avec le modèle de la lumière solaire (sun_light.gdshaderinc) :
+// densités Rayleigh et aérosols intégrées en NUKE_AIR_STEPS pas resserrés près de l'extrémité la plus basse.
+// Même calcul que NukeAtmosphere.transmittance() (nuke/nuke_atmosphere.gd).
+vec3 nuke_air_transmittance(vec3 a, vec3 b) {
+	bool a_low = dot(a, a) <= dot(b, b);
+	vec3 low = a_low ? a : b;
+	vec3 segment = (a_low ? b : a) - low;
+	vec2 column = vec2(0.0);
+	for (int k = 0; k < NUKE_AIR_STEPS; k++) {
+		float t0 = float(k) / float(NUKE_AIR_STEPS);
+		float t1 = float(k + 1) / float(NUKE_AIR_STEPS);
+		t0 *= t0;
+		t1 *= t1;
+		float h = max(length(low + segment * (0.5 * (t0 + t1))) - SUN_PLANET_RADIUS_KM, 0.0);
+		column += vec2(exp(-h / SUN_RAYLEIGH_HEIGHT_KM), exp(-h / SUN_MIE_HEIGHT_KM)) * (t1 - t0);
+	}
+	column *= length(segment);
+	return exp(-(SUN_RAYLEIGH_BETA * column.x + vec3(SUN_MIE_EXTINCTION * column.y)));
+}
+
+// Éclairement (soleils, par canal) reçu par le sol au point p (normale n) : direct × ombre des nuages (4 échantillons
+// sur le segment sol → flash) + diffusé, le tout × transmittance de l'air.
+vec3 nuke_flash_ground(vec3 p, vec3 n, CloudAdvection adv) {
+	vec3 total = vec3(0.0);
 	for (int i = 0; i < NUKE_MAX_FLASHES; i++) {
 		if (i >= nuke_flash_count) {
 			break;
@@ -48,15 +70,16 @@ float nuke_flash_ground(vec3 p, vec3 n, CloudAdvection adv) {
 			}
 			direct *= exp(-cloud_extinction_per_km * od * d / 4.0);
 		}
-		total += e * (direct + sky);
+		total += e * (direct + sky) * nuke_air_transmittance(p, nuke_flash_pos_km[i]);
 	}
-	return min(total, NUKE_FLASH_MAX);
+	return min(total, vec3(NUKE_FLASH_MAX));
 }
 
-// Éclairement (soleils) reçu par un point du volume nuageux : 1/d², nul si la Terre s'interpose, auto-ombrage par une
-// marche vers le flash (pas doublés), même approximation de la diffusion multiple que pour le soleil.
-float nuke_flash_volume(vec3 p, float lod, CloudAdvection adv, float multiple_scattering) {
-	float total = 0.0;
+// Éclairement (soleils, par canal) reçu par un point du volume nuageux : 1/d² × transmittance de l'air, nul si la
+// Terre s'interpose, auto-ombrage par une marche vers le flash (pas doublés), même approximation de la diffusion
+// multiple que pour le soleil.
+vec3 nuke_flash_volume(vec3 p, float lod, CloudAdvection adv, float multiple_scattering) {
+	vec3 total = vec3(0.0);
 	for (int i = 0; i < NUKE_MAX_FLASHES; i++) {
 		if (i >= nuke_flash_count) {
 			break;
@@ -87,9 +110,10 @@ float nuke_flash_volume(vec3 p, float lod, CloudAdvection adv, float multiple_sc
 			s *= 2.0;
 		}
 		float beer = exp(-cloud_extinction_per_km * od);
-		total += e * max(beer, multiple_scattering * exp(-0.25 * cloud_extinction_per_km * od));
+		total += e * max(beer, multiple_scattering * exp(-0.25 * cloud_extinction_per_km * od))
+				* nuke_air_transmittance(p, nuke_flash_pos_km[i]);
 	}
-	return min(total, NUKE_FLASH_MAX);
+	return min(total, vec3(NUKE_FLASH_MAX));
 }
 
 #endif
