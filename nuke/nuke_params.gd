@@ -8,8 +8,10 @@ extends Resource
 @export_range(-90.0, 90.0, 0.01, "suffix:°") var latitude_deg := 0.0
 @export_range(-180.0, 180.0, 0.01, "suffix:°") var longitude_deg := 0.0
 ## Direction d'où vient le vent (convention météo : 0 = vent du nord, 90 = vent d'est). Tirée au hasard à la
-## création.
+## création ; NukeLauncher la remplace par le vent réel GFS au point d'impact (NukeWind).
 @export_range(0.0, 360.0, 0.1, "suffix:°") var wind_direction_deg := 0.0
+## Vitesse du vent (m/s).
+@export_range(0.0, 100.0, 0.1, "suffix:m/s") var wind_speed_m_s := 10.0
 ## Instant de l'explosion sur l'horloge des explosions (NukeClock.time_s).
 @export var start_time_s := 0.0
 ## Hauteur d'explosion (0 = au sol).

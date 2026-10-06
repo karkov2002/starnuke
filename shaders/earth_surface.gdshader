@@ -16,6 +16,7 @@ render_mode cull_back, ambient_light_disabled;
 
 #include "res://shaders/cloud_density.gdshaderinc"
 #include "res://shaders/sun_light.gdshaderinc"
+#include "res://nuke/shaders/nuke_flash.gdshaderinc"
 
 uniform sampler2D day_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2DArray detail_tiles : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
@@ -108,6 +109,11 @@ void fragment() {
 		vec3 glow = night * mix(night_land_level, 1.0, lights);
 		float clouds_above = cloud_shadow(n, n, adv);
 		emission += glow * night_intensity * darkness * mix(night_cloud_floor, 1.0, clouds_above);
+	}
+	// Flashs nucléaires (nuke/shaders/nuke_flash.gdshaderinc) : en émission, de jour comme de nuit.
+	if (nuke_flash_count > 0) {
+		emission += albedo * nuke_flash_color * nuke_flash_ground_gain
+				* nuke_flash_ground(n * CLOUD_PLANET_RADIUS_KM, n, adv);
 	}
 	EMISSION = emission;
 }

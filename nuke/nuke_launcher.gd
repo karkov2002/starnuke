@@ -17,6 +17,8 @@ const EFFECT_SCENE := preload("res://nuke/nuke_effect.tscn")
 @export var earth_path: NodePath = ^"../Earth"
 ## Orbite dont l'horloge des explosions (NukeClock) suit l'accélération du temps.
 @export var orbit_path: NodePath = ^"../Orbit"
+@export var world_environment_path: NodePath = ^"../WorldEnvironment"
+@export var station_path: NodePath = ^"../Station"
 
 var _earth: Node3D
 
@@ -25,6 +27,11 @@ func _ready() -> void:
 	add_to_group(GROUP)
 	_earth = get_node(earth_path)
 	NukeClock.orbit = get_node_or_null(orbit_path) as OrbitSimulation
+	var flash_fx := NukeFlashFX.new()
+	flash_fx.name = "FlashFX"
+	add_child(flash_fx)
+	flash_fx.setup(self, get_node_or_null(world_environment_path) as WorldEnvironment, _earth,
+			get_node_or_null(station_path) as Node3D)
 
 
 ## Point visé par le centre de la vue : {local (repère de Earth), latitude, longitude} en degrés, ou {} si le
@@ -59,13 +66,17 @@ func launch(yield_kt: float) -> NukeEffect:
 	return launch_at(aim.latitude, aim.longitude, yield_kt)
 
 
-## Tire sur des coordonnées données (degrés).
+## Tire sur des coordonnées données (degrés). Le vent est le vent réel GFS du point (NukeWind).
 func launch_at(latitude_deg: float, longitude_deg: float, yield_kt: float) -> NukeEffect:
 	var params := NukeParams.new()
 	params.yield_kt = clampf(yield_kt, NukeScaling.MIN_YIELD_KT, NukeScaling.MAX_YIELD_KT)
 	params.latitude_deg = latitude_deg
 	params.longitude_deg = longitude_deg
 	params.start_time_s = NukeClock.time_s
+	var wind := NukeWind.sample(latitude_deg, longitude_deg)
+	if wind != Vector2.ZERO:
+		params.wind_direction_deg = NukeWind.from_direction_deg(wind)
+		params.wind_speed_m_s = wind.length()
 	return fire(params)
 
 
@@ -74,8 +85,8 @@ func fire(params: NukeParams) -> NukeEffect:
 	var effect := EFFECT_SCENE.instantiate() as NukeEffect
 	effect.params = params
 	_earth.add_child(effect)
-	print("NukeLauncher : %s sur %.2f°, %.2f°" % [NukeScaling.format_yield(params.yield_kt), params.latitude_deg,
-			params.longitude_deg])
+	print("NukeLauncher : %s sur %.2f°, %.2f° (vent du %03d°, %.1f m/s)" % [NukeScaling.format_yield(params.yield_kt),
+			params.latitude_deg, params.longitude_deg, roundi(params.wind_direction_deg), params.wind_speed_m_s])
 	detonated.emit(effect)
 	return effect
 

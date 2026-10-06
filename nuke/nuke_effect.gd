@@ -6,13 +6,18 @@ extends Node3D
 ## X = est, −Z = nord. Le nœud est mis à l'échelle SCENE_UNITS_PER_KM : ses enfants travaillent directement en km,
 ## avec des coordonnées petites (précision flottante), quelle que soit la position de la Terre dans la scène.
 ##
-## Pour l'instant l'effet n'affiche que des marqueurs de debug aux tailles calculées par NukeScaling :
-## boule de feu (orange), rayon de choc de référence (anneau jaune au sol), colonne et chapeau du nuage (cyan).
+## Phases : flash initial (enfant Flash, nuke/nuke_flash.tscn). Marqueurs de debug optionnels (show_debug_markers)
+## aux tailles calculées par NukeScaling : boule de feu (orange), rayon de choc de référence (anneau jaune au sol),
+## colonne et chapeau du nuage (cyan).
 
 const MARKER_RENDER_PRIORITY := 2 # après les nuages (0) et l'atmosphère (1), qui n'écrivent pas la profondeur
 
 @export var params: NukeParams
-@export var show_debug_markers := true
+@export var show_debug_markers := false:
+	set(value):
+		show_debug_markers = value
+		if is_node_ready():
+			_markers.visible = value
 ## Temps physique imposé (s), pour rejouer l'effet (scrubber) ; négatif : temps de l'horloge NukeClock.
 var time_override_s := -1.0
 
@@ -40,6 +45,10 @@ func place() -> void:
 
 
 ## Temps physique (s) écoulé depuis l'explosion.
+func get_flash() -> NukeFlash:
+	return get_node_or_null(^"Flash") as NukeFlash
+
+
 func get_time_s() -> float:
 	if time_override_s >= 0.0:
 		return time_override_s

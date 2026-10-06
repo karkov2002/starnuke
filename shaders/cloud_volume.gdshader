@@ -9,6 +9,7 @@ render_mode blend_premul_alpha, unshaded, cull_back, depth_draw_never, shadows_d
 
 #include "res://shaders/cloud_density.gdshaderinc"
 #include "res://shaders/sun_light.gdshaderinc"
+#include "res://nuke/shaders/nuke_flash.gdshaderinc"
 
 uniform vec3 sun_direction = vec3(0.0, 1.0, 0.0); // espace monde, vers le soleil
 uniform float units_to_km = 10.0;
@@ -108,6 +109,10 @@ void fragment() {
 		float day = smoothstep(-0.15, 0.1, dot(n, l));
 		vec3 sun = sun_transmittance_at(p, l) * sun_intensity * multiple * phase;
 		vec3 ambient = sky_ambient * ambient_intensity * mix(0.45, 1.0, h) * day;
+		// Flashs nucléaires (nuke/shaders/nuke_flash.gdshaderinc), diffusion isotrope.
+		if (nuke_flash_count > 0) {
+			ambient += nuke_flash_color * sun_intensity * nuke_flash_volume(p, lod, adv, multiple_scattering);
+		}
 
 		float sigma = cloud_extinction_per_km * density;
 		float attenuation = exp(-sigma * dt);

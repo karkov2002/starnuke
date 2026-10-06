@@ -4,9 +4,12 @@ extends CanvasLayer
 ## - latitude / longitude de la cible (« Point visé » recopie le centre de la vue), bouton « Tirer » ;
 ## - scrubber du temps physique de la dernière explosion : « Rejouer » fige toutes les explosions au temps du
 ##   curseur (time_override_s), sinon le curseur suit le temps réel de l'effet ;
-## - « Effacer » supprime toutes les explosions.
+## - « Effacer » supprime toutes les explosions ; « Marqueurs » affiche les marqueurs de taille (NukeEffect).
 
 const SCRUB_MAX_S := 900.0
+## Le curseur n'est pas linéaire (t = SCRUB_MAX_S · v⁴) : les 3 premières secondes (flash) occupent un quart de sa
+## course.
+const SCRUB_POWER := 4.0
 
 var _yield_kt := 1000.0
 var _yield_slider: HSlider
@@ -17,6 +20,7 @@ var _lon: SpinBox
 var _scrub: HSlider
 var _scrub_label: Label
 var _replay: CheckBox
+var _markers: CheckBox
 var _last: NukeEffect
 
 
@@ -64,6 +68,11 @@ func _ready() -> void:
 	fire.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(fire)
 	actions.add_child(_make_button("Effacer", _on_clear))
+	_markers = CheckBox.new()
+	_markers.text = "Marqueurs"
+	_markers.focus_mode = Control.FOCUS_NONE
+	_markers.toggled.connect(_on_markers_toggled)
+	actions.add_child(_markers)
 
 	var scrub_row := HBoxContainer.new()
 	scrub_row.add_theme_constant_override("separation", 6)
@@ -76,8 +85,8 @@ func _ready() -> void:
 	_scrub_label = Label.new()
 	scrub_row.add_child(_scrub_label)
 	_scrub = HSlider.new()
-	_scrub.max_value = SCRUB_MAX_S
-	_scrub.step = 0.1
+	_scrub.max_value = 1.0
+	_scrub.step = 0.0
 	_scrub.focus_mode = Control.FOCUS_NONE
 	_scrub.value_changed.connect(func(_v: float) -> void: _apply_override())
 	_scrub.drag_started.connect(func() -> void: _replay.button_pressed = true)
@@ -90,8 +99,8 @@ func _process(_delta: float) -> void:
 	if not is_instance_valid(_last):
 		_last = null
 	if _last and not _replay.button_pressed:
-		_scrub.set_value_no_signal(minf(_last.get_time_s(), SCRUB_MAX_S))
-	_scrub_label.text = "t = %s" % _format_duration(_scrub.value) if _last else "t = —"
+		_scrub.set_value_no_signal(pow(minf(_last.get_time_s() / SCRUB_MAX_S, 1.0), 1.0 / SCRUB_POWER))
+	_scrub_label.text = "t = %s" % _format_duration(_scrub_time()) if _last else "t = —"
 
 
 func _launcher() -> NukeLauncher:
@@ -118,7 +127,15 @@ func _on_fire() -> void:
 	var launcher := _launcher()
 	if launcher:
 		_last = launcher.launch_at(_lat.value, _lon.value, _yield_kt)
+		_last.show_debug_markers = _markers.button_pressed
 		_replay.button_pressed = false
+
+
+func _on_markers_toggled(on: bool) -> void:
+	var launcher := _launcher()
+	if launcher:
+		for effect in launcher.get_effects():
+			effect.show_debug_markers = on
 
 
 func _on_clear() -> void:
@@ -133,7 +150,7 @@ func _apply_override() -> void:
 	if launcher == null:
 		return
 	for effect in launcher.get_effects():
-		effect.time_override_s = _scrub.value if _replay.button_pressed else -1.0
+		effect.time_override_s = _scrub_time() if _replay.button_pressed else -1.0
 
 
 func _make_spin(min_value: float, max_value: float, value: float, prefix: String) -> SpinBox:
@@ -171,3 +188,7 @@ func _make_panel_style() -> StyleBoxFlat:
 	style.set_corner_radius_all(10)
 	style.set_content_margin_all(14)
 	return style
+
+
+func _scrub_time() -> float:
+	return SCRUB_MAX_S * pow(_scrub.value, SCRUB_POWER)

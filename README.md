@@ -301,11 +301,16 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
 
 Tout le code des explosions est dans `res://nuke/`. Objectif : une animation unique, paramétrée par la puissance
 (10 kt à 50 Mt), vue depuis l'espace. **État actuel : socle de l'effet** (tir, placement, lois d'échelle,
-horloge) ; l'explosion n'est représentée que par des marqueurs de debug à la taille calculée.
+horloge) et **flash initial** ; les phases suivantes (boule de feu, champignon) restent à faire.
 
 - **Paramètres** (`nuke/nuke_params.gd`, Resource `NukeParams`) : `yield_kt` (10 à 50 000), `latitude_deg`,
-  `longitude_deg`, `wind_direction_deg` (d'où vient le vent, convention météo ; tiré au hasard à la création),
+  `longitude_deg`, `wind_direction_deg` (d'où vient le vent, convention météo) et `wind_speed_m_s`,
   `start_time_s` (instant sur l'horloge `NukeClock`), `burst_height_km` (0 = au sol, valeur par défaut).
+  - **Vent réel** (`nuke/nuke_wind.gd`) : au tir, le vent est lu au point d'impact dans la même carte que
+    l'advection des nuages (`assets/textures/cloud_wind.exr`, vent GFS moyen du jour à 850/700/500 hPa, ~1,5 à
+    5,5 km d'altitude, interpolation bilinéaire). Le panache dérivera donc comme les nuages. Limite : c'est le vent
+    de la basse et moyenne troposphère, pas celui de la stratosphère où monte le chapeau des fortes puissances.
+    Sans carte, la direction reste tirée au hasard.
 - **Lois d'échelle** (`nuke/nuke_scaling.gd`, classe statique `NukeScaling`, coefficients en tête de fichier), W en kt :
 
   | Grandeur | Formule | 10 kt | 1 Mt | 50 Mt |
@@ -316,15 +321,60 @@ horloge) ; l'explosion n'est représentée que par des marqueurs de debug à la 
   | Rayon du chapeau | 0,6 × sommet | 6 km | 16,5 km | 39 km |
 
   Depuis 400 km, un pixel vaut ~0,5 km au nadir : la boule de feu de 10 kt (0,3 km de diamètre) fait moins d'un
-  pixel ; il faudra une taille apparente minimale (flash, glow) pour les petites puissances.
+  pixel ; c'est l'éblouissement du flash (billboard de taille angulaire minimale) qui la rend visible.
+
+  Flash (même fichier) : flux au pic **∝ W^0,56** (puissance thermique ∝ W / t_max, t_max ∝ W^0,44 d'après
+  Glasstone & Dolan), calé sur ~0,5 soleil à 400 km pour 1 Mt (~1 500 TJ rayonnés en ~1 s) ; durée
+  2 s · (W / 1 Mt)^0,1, soit ~1,3 s à 10 kt et ~3 s à 50 Mt.
+
+  | | 10 kt | 1 Mt | 50 Mt |
+  |---|---|---|---|
+  | Flux au pic à 400 km | 0,04 soleil | 0,5 soleil | 4,5 soleils |
+  | Durée du flash | 1,3 s | 2 s | 3 s |
 - **Effet** (`nuke/nuke_effect.tscn`, script `nuke/nuke_effect.gd`, classe `NukeEffect`) : enfant du nœud `Earth`,
   placé au point (latitude, longitude) sur la sphère. Repère local : **Y = verticale locale**, X = est, −Z = nord,
   origine au point d'impact. Le nœud est mis à l'échelle 0,1 (`SCENE_UNITS_PER_KM`) : **ses enfants travaillent
   directement en km**, avec des coordonnées petites (bonne précision flottante). `get_time_s()` donne le temps
   physique écoulé depuis l'explosion (`time_override_s` ≥ 0 l'impose, pour rejouer l'effet).
-  - Marqueurs de debug (`DebugMarkers`, `show_debug_markers`) : boule de feu (sphère orange, centrée à la hauteur
-    d'explosion), rayon de choc (anneau jaune au sol), colonne et chapeau du nuage (cyan, au sommet calculé).
-    Rendus après les nuages et l'atmosphère (`render_priority` 2), masqués par la station.
+  - Marqueurs de debug (`DebugMarkers`, `show_debug_markers`, désactivés par défaut) : boule de feu (sphère
+    orange, centrée à la hauteur d'explosion), rayon de choc (anneau jaune au sol), colonne et chapeau du nuage
+    (cyan, au sommet calculé). Rendus après les nuages et l'atmosphère (`render_priority` 2), masqués par la station.
+- **Flash initial** (`nuke/nuke_flash.tscn`, script `nuke/nuke_flash.gd`, enfant `Flash` de l'effet). En temps
+  normalisé u = t / durée du flash, deux courbes `Curve` éditables dans la scène :
+  - `intensity_curve` : part du flux au pic, avec la forme du double pic thermique (bref premier pic à u = 0,006,
+    creux, second maximum à u = 0,1, décroissance jusqu'à 0 à u = 1) ;
+  - `growth_curve` : rayon de la boule de feu, en part du rayon final (5 % → 100 % à u = 0,3).
+
+  Il affiche :
+  - **la boule de feu** (`nuke/shaders/nuke_fireball_flash.gdshader`) : sphère additive dont la luminance est
+    physique, flux / angle solide rapportés au soleil (disque solaire = 40 000), plafonnée à 50 000 (format 16 bits).
+    Elle est rendue avant les nuages (`render_priority` −1) : un banc nuageux la voile ;
+  - **l'éblouissement** (`nuke/shaders/nuke_flare.gdshader`) : billboard additif (halo, cœur, étoile à 4 branches)
+    construit en espace vue et ramené à mi-distance, pour passer devant la Terre et les nuages tout en restant
+    masqué par la station. Taille angulaire et intensité suivent le flux reçu par l'observateur (1/d², nul si la
+    Terre cache le flash) ; réglages dans le groupe « Éblouissement » du script.
+- **Lumière et effets d'écran du flash** (`nuke/nuke_flash_fx.gd`, nœud `FlashFX` créé par `NukeLauncher`), à
+  chaque image, pour les flashs actifs :
+  - **sol et nuages** : uniforms `nuke_flash_*` (les 4 flashs les plus intenses) de
+    `nuke/shaders/nuke_flash.gdshaderinc`, inclus dans `shaders/earth_surface.gdshader` et
+    `shaders/cloud_volume.gdshader`. Seul code des explosions hors de `nuke/` : une ligne d'inclusion et un appel
+    dans chacun. Les lumières Godot ne conviennent pas ici : le sol a un `light()` propre au soleil, et les nuages
+    sont unshaded.
+    - Le **sol** reçoit flux × (400 km / d)² × cos(incidence), en émission (de jour comme de nuit). L'horizon local
+      est respecté (exact sur une sphère), l'ombre des nuages est calculée sur le segment sol → flash
+      (4 échantillons), et une petite part est diffusée par l'air (3 %, portée 60 km).
+    - Les **nuages** reçoivent le même flux, nul si la Terre s'interpose, avec auto-ombrage (marche vers le flash)
+      et diffusion isotrope.
+    - Unité : le « soleil » (le sol reçoit `nuke_flash_ground_gain` = 2, comme la lumière `Sun`). L'éclairement
+      est plafonné à 2 000 près de la boule de feu.
+  - **station** : `DirectionalLight3D` dirigée depuis le flash le plus intense (à 400 km la source est à l'infini
+    pour une station de 3 m). Énergie = flux reçu × 2 (un soleil), ombres portées des montants. Elle n'éclaire que
+    la station : `FlashFX` ajoute le calque 20 à tous ses maillages, et la lumière a ce seul calque dans son masque.
+  - **éblouissement** : avec g = flux reçu / (flux reçu + 0,2), le glow de l'Environment (`glow_intensity` + 2·g,
+    `glow_bloom` + 0,5·g) et le multiplicateur d'exposition de la caméra (× (1 + 2,5·g)) sont relevés, puis rendus
+    à leurs valeurs d'origine. L'exposition automatique réagit ensuite d'elle-même : l'image s'assombrit après le
+    flash puis récupère en quelques secondes. Un 50 Mt sature l'écran ; un 10 kt laisse un éclat net sans
+    saturation.
 - **Horloge** (`nuke/nuke_clock.gd`, autoload `NukeClock`), distincte du temps réel :
   - `time_s` avance au rythme du temps de l'orbite (**Pause, x2… x16 s'appliquent aussi aux explosions**),
     multiplié par `acceleration` (1 par défaut) ;
@@ -354,8 +404,10 @@ horloge) ; l'explosion n'est représentée que par des marqueurs de debug à la 
   - curseur de puissance en échelle logarithmique (10 kt à 50 Mt), avec les tailles calculées ;
   - champs latitude / longitude (Madrid par défaut), bouton **Point visé** (recopie le centre de la vue),
     **Tirer**, **Effacer** ;
-  - scrubber du temps physique (0 à 15 min) : il suit la dernière explosion ; le déplacer (ou cocher **Rejouer**)
-    fige toutes les explosions au temps choisi, décocher rend la main à l'horloge.
+  - case **Marqueurs** (marqueurs de taille des explosions) ;
+  - scrubber du temps physique (0 à 15 min, non linéaire : t = 15 min · v⁴, les 3 premières secondes occupent un
+    quart de la course) : il suit la dernière explosion tirée depuis ce panneau ; le déplacer (ou cocher
+    **Rejouer**) fige toutes les explosions au temps choisi, décocher rend la main à l'horloge.
 
 ## Sources des textures
 

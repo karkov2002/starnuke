@@ -1,0 +1,45 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://nuke/nuke_flash.gd" id="1_flash"]
+[ext_resource type="Shader" path="res://nuke/shaders/nuke_fireball_flash.gdshader" id="2_fireball"]
+[ext_resource type="Shader" path="res://nuke/shaders/nuke_flare.gdshader" id="3_flare"]
+
+[sub_resource type="Curve" id="Curve_intensity"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.006, 1), 0.0, 0.0, 0, 0, Vector2(0.03, 0.3), 0.0, 0.0, 0, 0, Vector2(0.1, 1), 0.0, 0.0, 0, 0, Vector2(0.35, 0.35), -1.8, -1.8, 0, 0, Vector2(0.65, 0.07), -0.4, -0.4, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 7
+
+[sub_resource type="Curve" id="Curve_growth"]
+_data = [Vector2(0, 0.05), 0.0, 14.0, 0, 0, Vector2(0.1, 0.85), 1.8, 1.8, 0, 0, Vector2(0.3, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="ShaderMaterial" id="Material_fireball"]
+render_priority = -1
+shader = ExtResource("2_fireball")
+
+[sub_resource type="SphereMesh" id="Mesh_fireball"]
+material = SubResource("Material_fireball")
+radius = 1.0
+height = 2.0
+radial_segments = 32
+rings = 16
+
+[sub_resource type="ShaderMaterial" id="Material_flare"]
+render_priority = 10
+shader = ExtResource("3_flare")
+
+[sub_resource type="QuadMesh" id="Mesh_flare"]
+material = SubResource("Material_flare")
+
+[node name="NukeFlash" type="Node3D"]
+script = ExtResource("1_flash")
+intensity_curve = SubResource("Curve_intensity")
+growth_curve = SubResource("Curve_growth")
+
+[node name="Fireball" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+mesh = SubResource("Mesh_fireball")
+
+[node name="Flare" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+extra_cull_margin = 16384.0
+mesh = SubResource("Mesh_flare")
