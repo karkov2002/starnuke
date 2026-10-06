@@ -360,11 +360,16 @@ horloge) et **flash initial** ; les phases suivantes (boule de feu, champignon) 
   Il affiche :
   - **la boule de feu** (`nuke/shaders/nuke_fireball_flash.gdshader`) : sphère additive dont la luminance est
     physique, flux / angle solide rapportés au soleil (disque solaire = 40 000), plafonnée à 50 000 (format 16 bits).
-    Elle est rendue avant les nuages (`render_priority` −1) : un banc nuageux la voile ;
+    Elle est rendue avant les nuages (`render_priority` −1) : un banc nuageux la voile. Son rayon affiché est d'au
+    moins 1,5 pixel (`min_fireball_pixels`), avec la luminance recalculée sur ce rayon (même flux total) : sinon,
+    pour 10–100 kt, la sphère plus petite qu'un pixel apparaît et disparaît en défilant sous la station, et le flash
+    décroît par saccades ;
   - **l'éblouissement** (`nuke/shaders/nuke_flare.gdshader`) : billboard additif (halo, cœur, étoile à 4 branches)
     construit en espace vue et ramené à mi-distance, pour passer devant la Terre et les nuages tout en restant
     masqué par la station. Taille angulaire et intensité suivent le flux reçu par l'observateur (1/d² ×
     transmittance de l'air, nul si la Terre cache le flash) ; réglages dans le groupe « Éblouissement » du script.
+    Le cœur et les branches sont élargis à au moins un pixel (à énergie constante), pour ne pas scintiller quand le
+    halo est petit.
 - **Lumière et effets d'écran du flash** (`nuke/nuke_flash_fx.gd`, nœud `FlashFX` créé par `NukeLauncher`), à
   chaque image, pour les flashs actifs :
   - **sol et nuages** : uniforms `nuke_flash_*` (les 4 flashs les plus intenses) de

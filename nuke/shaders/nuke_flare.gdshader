@@ -29,13 +29,24 @@ void fragment() {
 	if (r >= 1.0) {
 		discard;
 	}
-	float core = exp(-r * r * 400.0) + 0.3 * exp(-r * r * 40.0);
+	// Taille d'un pixel dans le repère du quad. Pour un petit halo (faibles puissances), le cœur et les branches
+	// deviendraient plus fins qu'un pixel et scintilleraient en se déplaçant : on les élargit à au moins un pixel en
+	// conservant leur énergie (pic × largeur² pour le cœur, pic × largeur pour les branches).
+	float px = length(fwidth(v_p));
+	float core = 0.0;
+	for (int k = 0; k < 2; k++) {
+		float w2 = k == 0 ? 1.0 / 400.0 : 1.0 / 40.0;
+		float wide2 = max(w2, px * px);
+		core += (k == 0 ? 1.0 : 0.3) * exp(-r * r / wide2) * (w2 / wide2);
+	}
 	float halo = 0.08 * exp(-r * 6.0) + 0.015 * exp(-r * 2.0);
 	float spikes = 0.0;
+	float width = 1.0 / spike_width;
+	float wide = max(width, px);
 	for (int i = 0; i < spike_lines; i++) {
 		float a = spike_rotation + PI * float(i) / float(spike_lines);
 		float across = abs(dot(v_p, vec2(-sin(a), cos(a))));
-		spikes += exp(-across * spike_width) * pow(1.0 - r, 3.0);
+		spikes += exp(-across / wide) * (width / wide) * pow(1.0 - r, 3.0);
 	}
 	float value = (core + halo + 0.25 * spikes) * smoothstep(1.0, 0.7, r);
 	ALBEDO = color * flare_intensity * value;

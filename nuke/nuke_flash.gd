@@ -12,6 +12,8 @@ extends Node3D
 
 @export var intensity_curve: Curve
 @export var growth_curve: Curve
+## Rayon minimal affiché de la boule de feu, en pixels (évite le scintillement des boules de feu sous-pixel).
+@export var min_fireball_pixels := 1.5
 @export_group("Éblouissement")
 ## Intensité HDR du cœur pour un flux reçu de 1 soleil.
 @export var flare_gain := 600.0
@@ -85,12 +87,20 @@ func _update() -> void:
 	flux_ref = NukeScaling.flash_peak_flux_sun(w) * maxf(intensity_curve.sample_baked(u), 0.0)
 	radius_km = NukeScaling.fireball_radius_km(w) * maxf(growth_curve.sample_baked(u), 0.01)
 
+	var camera := get_viewport().get_camera_3d()
 	_fireball.visible = flux_ref > 0.0
 	_fireball.position = Vector3(0.0, _effect.params.burst_height_km, 0.0)
-	_fireball.scale = Vector3.ONE * radius_km
-	_fireball.set_instance_shader_parameter("radiance", NukeScaling.fireball_radiance_hdr(flux_ref, radius_km))
+	# Rayon affiché au moins égal à min_fireball_pixels : une sphère plus petite qu'un pixel (10–100 kt depuis 400 km)
+	# apparaît ou disparaît selon qu'elle couvre le centre d'un pixel, et clignote en défilant sous la station. La
+	# luminance est calculée sur le rayon affiché (flux / surface), donc le flux total reste exact.
+	var drawn_km := radius_km
+	if camera:
+		var pixel_rad := 2.0 * tan(deg_to_rad(camera.fov) * 0.5) / get_viewport().get_visible_rect().size.y
+		var distance_km := (_fireball.global_position - camera.global_position).length() / OrbitSimulation.SCENE_UNITS_PER_KM
+		drawn_km = maxf(radius_km, min_fireball_pixels * pixel_rad * distance_km)
+	_fireball.scale = Vector3.ONE * drawn_km
+	_fireball.set_instance_shader_parameter("radiance", NukeScaling.fireball_radiance_hdr(flux_ref, drawn_km))
 
-	var camera := get_viewport().get_camera_3d()
 	var received := received_flux(camera.global_position) if camera else 0.0
 	_flare.visible = received > 1e-4
 	if _flare.visible:
