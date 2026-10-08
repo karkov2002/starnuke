@@ -6,7 +6,8 @@ extends Node3D
 ## X = est, −Z = nord. Le nœud est mis à l'échelle SCENE_UNITS_PER_KM : ses enfants travaillent directement en km,
 ## avec des coordonnées petites (précision flottante), quelle que soit la position de la Terre dans la scène.
 ##
-## Phases : flash initial (enfant Flash, nuke/nuke_flash.tscn). Marqueurs de debug optionnels (show_debug_markers)
+## Phases : flash initial (enfant Flash, nuke/nuke_flash.tscn), onde de choc (Shock, nuke/nuke_shock.tscn), champignon
+## (Mushroom, nuke/nuke_mushroom.tscn). Marqueurs de debug optionnels (show_debug_markers)
 ## aux tailles calculées par NukeScaling : boule de feu (orange), rayon de choc de référence (anneau jaune au sol),
 ## colonne et chapeau du nuage (cyan).
 

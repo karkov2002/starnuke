@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://bfrobiexjbr3k" path="res://nuke/nuke_effect.gd" id="1_0ebd2"]
 [ext_resource type="PackedScene" path="res://nuke/nuke_flash.tscn" id="2_e0wj5"]
 [ext_resource type="PackedScene" path="res://nuke/nuke_shock.tscn" id="3_shock"]
+[ext_resource type="PackedScene" path="res://nuke/nuke_mushroom.tscn" id="4_mushroom"]
 
 [node name="NukeEffect" type="Node3D" unique_id=633172732]
 script = ExtResource("1_0ebd2")
@@ -12,3 +13,5 @@ script = ExtResource("1_0ebd2")
 [node name="Flash" parent="." unique_id=655885028 instance=ExtResource("2_e0wj5")]
 
 [node name="Shock" parent="." unique_id=1433058798 instance=ExtResource("3_shock")]
+
+[node name="Mushroom" parent="." unique_id=1872240519 instance=ExtResource("4_mushroom")]

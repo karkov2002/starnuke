@@ -19,6 +19,12 @@ const SHOCK_EXP := 1.0 / 3.0
 const CLOUD_TOP_REF_KM := 10.0
 const CLOUD_TOP_EXP := 0.22
 const CAP_RADIUS_PER_TOP := 0.6
+# Champignon (NukeMushroom) : ses Curves sont lues en âge normalisé a = t / MUSHROOM_RISE_S (temps physique). Le nuage
+# se stabilise en ~10 min quelle que soit la puissance (Glasstone & Dolan, table 2.12, 1 Mt : 33 % du sommet à 1 min,
+# 51 % à 2 min, 73 % à 4 min), soit ~1 min 36 s d'horloge avec l'accélération des phases lentes (NukeClock).
+const MUSHROOM_RISE_S := 600.0
+# La boule de feu reste lumineuse ~1 min pour 1 Mt (Glasstone & Dolan §2.18), ~70 t_max : 8 s à 10 kt, 6 min à 50 Mt.
+const FIREBALL_GLOW_TMAX := 70.0
 
 # Onde de choc : un seul front r(t) = R_max · (1 − exp(−t / τ)) pour l'anneau de condensation, la poussière au sol
 # et le trou dans la couche nuageuse (nuke/shaders/nuke_clouds.gdshaderinc), qu'il pousse devant lui.
@@ -137,6 +143,12 @@ static func flash_peak_flux_sun(yield_kt: float) -> float:
 ## à 50 Mt (durées réelles : 1,2 s, 8,7 s, 49 s).
 static func flash_duration_s(yield_kt: float) -> float:
 	return FLASH_DURATION_TMAX * flash_tmax_s(yield_kt) * FLASH_TIME_SCALE
+
+
+## Durée pendant laquelle la boule de feu reste lumineuse dans le champignon (s, physique) : 70 t_max réels, soit
+## ~8 s à 10 kt, ~61 s à 1 Mt, ~5 min 40 s à 50 Mt.
+static func fireball_glow_s(yield_kt: float) -> float:
+	return FIREBALL_GLOW_TMAX * flash_tmax_s(yield_kt)
 
 
 ## Temps du second maximum thermique (s, physique) : 0,12 s à 10 kt, 0,87 s à 1 Mt, 4,9 s à 50 Mt.

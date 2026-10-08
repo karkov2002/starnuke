@@ -303,8 +303,8 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
 
 Tout le code des explosions est dans `res://nuke/`. Objectif : une animation unique, paramétrée par la puissance
 (10 kt à 50 Mt), vue depuis l'espace. **État actuel : socle de l'effet** (tir, placement, lois d'échelle,
-horloge), **flash initial**, **onde de choc** (condensation, poussière), **incendies** et **trous dans la couche
-nuageuse** ; les phases suivantes (boule de feu, champignon) restent à faire.
+horloge), **flash initial**, **onde de choc** (condensation, poussière), **incendies**, **trous dans la couche
+nuageuse** et **champignon** (boule de feu comprise).
 
 - **Paramètres** (`nuke/nuke_params.gd`, Resource `NukeParams`) : `yield_kt` (10 à 50 000), `latitude_deg`,
   `longitude_deg`, `wind_direction_deg` (d'où vient le vent, convention météo) et `wind_speed_m_s`,
@@ -452,6 +452,50 @@ nuageuse** ; les phases suivantes (boule de feu, champignon) restent à faire.
   - Depuis l'orbite (~0,5 km par pixel), on ne voit pas les flammes une à une, mais la lueur moyenne des zones en
     feu. Elle est faible devant un sol au soleil : les incendies se voient surtout de nuit.
   - `FireFX` transmet au sol les 8 incendies les plus intenses (position, rayon, intensité).
+- **Champignon** (`nuke/nuke_mushroom.tscn`, script `nuke/nuke_mushroom.gd`, enfant `Mushroom` de l'effet ;
+  shaders `nuke/shaders/nuke_mushroom.gdshader` et `nuke/shaders/nuke_smoke.gdshader`).
+  - **Repère normalisé** : le nœud est mis à l'échelle `cloud_top_km`, tout est exprimé en unités où le sommet
+    final vaut 1 (chapeau final de rayon 0,6). Le même champignon fait 10 km de haut à 10 kt, 27,5 km à 1 Mt et
+    65 km à 50 Mt, particules comprises.
+  - **Maillage de révolution** fixe (48 anneaux × 64 segments). Le profil (méridienne de 48 points : tige au pied et
+    au col évasés, puis chapeau à dessous creusé, bord arrondi et dessus aplati) est recalculé à chaque image et
+    posé par le vertex shader.
+  - **Profil piloté par des Curves** (éditables dans la scène), lues en âge a = t / 600 s physiques
+    (`MUSHROOM_RISE_S`). Le nuage se stabilise en ~10 min quelle que soit la puissance, soit ~1 min 36 s
+    d'horloge avec l'accélération des phases lentes :
+    - `height_curve` : sommet, calé sur Glasstone & Dolan (table 2.12, 1 Mt) : 33 % à 1 min, 51 % à 2 min, 75 % à
+      4 min, 95 % à 7 min ;
+    - `cap_radius_curve` (rayon du chapeau), `cap_aspect_curve` (épaisseur / diamètre ; 1 = sphère),
+      `stem_curve` (rayon de la tige / rayon du chapeau) ;
+    - `erosion_curve` (domaine 0 à 3) : la tige se dissout après la stabilisation.
+  - **Boule de feu** : au départ, le chapeau est une sphère de la taille de la boule de feu du flash, centrée à la
+    hauteur d'explosion. Le flash s'estompe en la révélant, puis elle monte et s'aplatit en chapeau.
+  - **Couleurs selon l'âge** :
+    - lueur interne, au cœur du chapeau, `glow_gradient` × `glow_curve` × `glow_hdr` (200) : blanc, jaune,
+      orange, rouge sombre, éteinte. Elle est lue en g = t / 70 t_max (`NukeScaling.fireball_glow_s` : ~8 s à
+      10 kt, ~1 min à 1 Mt, ~5 min 40 s à 50 Mt ; Glasstone & Dolan §2.18) ;
+    - albédo (`albedo_gradient`) : roux des oxydes d'azote, puis blanc-gris de la condensation.
+  - **Shader** :
+    - relief : bruit 3D (3 octaves) qui déplace les sommets et module l'albédo ; creux et dessous du chapeau
+      assombris ;
+    - éclairage par le soleil seul, en diffus enveloppant, filtré par l'atmosphère au point
+      (`sun_light.gdshaderinc` : rougi au crépuscule, éteint la nuit), plus la lumière du ciel en émission ;
+    - silhouette adoucie par effet fresnel, bords rasants effilochés, érosion de la tige ;
+    - **roulement toroïdal** : dans chaque plan méridien, le bruit du chapeau est lu en coordonnées tournées
+      autour de l'anneau tourbillonnaire (rayon 0,55 × chapeau). Le motif monte au centre, s'écarte au sommet,
+      redescend au bord et rentre par-dessous. Tour en 90 s physiques au début, puis de plus en plus lent
+      (ω = ω0 / (1 + t / 300 s), intégré : rejouable au scrubber). Le bruit de la tige défile vers le haut ;
+    - rendu avant les nuages (`render_priority` −1) avec pré-passe de profondeur : les nuages et l'atmosphère ne
+      le recouvrent pas là où il les dépasse, mais un champignon plus bas que la couche nuageuse (10 kt sous un
+      banc épais) reste caché dessous.
+  - **Particules** (GPUParticles3D créés par le script, bouffées procédurales par bruit, éclairées comme le nuage) :
+    - fumée le long de la tige ;
+    - jupon de condensation : anneaux autour de la tige pendant la montée (a de 0,03 à 0,3) ;
+    - débris et poussière aspirés au pied (explosions basses, a < 0,5).
+
+    Leur vitesse suit celle du temps physique (`speed_scale` : pause et accélération de l'horloge). Elles ne se
+    rejouent pas au scrubber. Pas de *soft particles* : elles liraient la texture de profondeur, peu fiable sous
+    D3D12 dans ce projet ; les bords sont adoucis par la forme. Pas de flipbook (aucun dans le projet).
 - **Nuages** (`nuke/nuke_cloud_fx.gd`, nœud `CloudFX` créé par `NukeLauncher` ; `nuke/shaders/nuke_clouds.gdshaderinc`) :
   l'onde de choc creuse un trou dans la couche nuageuse, qui se referme ensuite.
   - **Branchement** : l'include est appelé par `cloud_density()` (`shaders/cloud_density.gdshaderinc` : une ligne
