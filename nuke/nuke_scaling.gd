@@ -21,11 +21,14 @@ const CLOUD_TOP_EXP := 0.22
 const CAP_RADIUS_PER_TOP := 0.6
 
 # Onde de choc au sol : rayon r(t) = R_max · (1 − exp(−t / τ)), R_max = rayon de choc de référence × facteur visuel.
-# τ est proportionnel à R_max : le front atteint 90 % de R_max (t = 2,3 τ) à ~0,34 km/s de moyenne, la vitesse du
-# son ; sa vitesse initiale R_max / τ vaut ~0,8 km/s (Mach 2,3). Durée totale (disparition à 98 %) : 3,9 τ, soit
-# ~10 s à 10 kt, ~46 s à 1 Mt, ~170 s à 50 Mt.
+# τ est proportionnel à R_max. Valeur réaliste : 1,28 s/km (le front atteint 90 % de R_max, t = 2,3 τ, à ~0,34 km/s
+# de moyenne, la vitesse du son ; vitesse initiale R_max / τ ~0,8 km/s). Entorse au réalisme : l'onde est ralentie de
+# SHOCK_SLOWDOWN, pour que son anneau de condensation (qui s'évapore à ~0,7 τ) survive au flash : 2,8 s à 10 kt,
+# 13 s à 1 Mt, 48 s à 50 Mt. Durée totale (disparition à 98 %) : 3,9 τ, soit ~16 s à 10 kt, ~74 s à 1 Mt, ~270 s à
+# 50 Mt.
 const SHOCK_VISUAL_SCALE := 1.0
 const SHOCK_TAU_S_PER_KM := 1.28
+const SHOCK_SLOWDOWN := 1.6
 
 # Incendies allumés par le flash : rayon où l'exposition thermique dépasse ~10 cal/cm² (inflammation des matériaux
 # courants, Glasstone & Dolan ch. VII ; ~12 km pour 1 Mt avec l'absorption de l'air), ∝ W^0,41 (entre la loi en W^0,5
@@ -55,11 +58,16 @@ const KILOTON_J := 4.184e12
 const SOLAR_CONSTANT_W_M2 := 1361.0
 # Durées (Glasstone & Dolan §7.85–7.88) : temps du second maximum thermique t_max = 0,0417 · W^0,44 s (0,12 s à 10 kt,
 # 0,87 s à 1 Mt, 4,9 s à 50 Mt) ; le flash est joué sur FLASH_DURATION_TMAX · t_max (l'essentiel de l'énergie
-# thermique est émis avant 10 t_max). Les courbes de nuke_flash.tscn sont en u = t / (10 t_max) : second maximum à
+# thermique est émis avant 10 t_max), compressé par FLASH_TIME_SCALE. Les courbes de nuke_flash.tscn sont en
+# u = t / durée jouée (u = 1 ↔ 10 t_max) : second maximum à
 # u = 0,1, minimum entre les deux impulsions vers t_min = 0,0025 · W^0,5 s (u ≈ 0,007 à 0,012).
 const FLASH_TMAX_COEF_S := 0.0417
 const FLASH_TMAX_EXP := 0.44
 const FLASH_DURATION_TMAX := 10.0
+# Entorse au réalisme : le flash est joué en FLASH_TIME_SCALE fois sa durée (même forme d'impulsion). À sa durée
+# réelle, sa traîne et l'éblouissement couvrent toute la vie de l'anneau de condensation de l'onde de choc ; raccourci
+# (et l'onde ralentie, SHOCK_SLOWDOWN), l'anneau reste visible seul après le flash.
+const FLASH_TIME_SCALE := 0.5
 # Luminance de la boule de feu : celle du disque solaire (sun_disc_energy de space_sky.gdshader) × le rapport des
 # luminances, plafonnée sous le maximum du format flottant 16 bits du rendu.
 const SUN_DISC_HDR := 40000.0
@@ -82,7 +90,7 @@ static func shock_max_radius_km(yield_kt: float) -> float:
 
 ## Constante de temps de l'expansion de l'anneau de choc (s, temps physique).
 static func shock_tau_s(yield_kt: float) -> float:
-	return SHOCK_TAU_S_PER_KM * shock_radius_km(yield_kt)
+	return SHOCK_TAU_S_PER_KM * SHOCK_SLOWDOWN * shock_radius_km(yield_kt)
 
 
 ## Rayon de la zone en feu (km) au temps t (s, physique).
@@ -115,9 +123,10 @@ static func flash_peak_flux_sun(yield_kt: float) -> float:
 	return power_w / (4.0 * PI * distance_m * distance_m) / SOLAR_CONSTANT_W_M2
 
 
-## Durée du flash (s, temps physique) : 10 t_max, soit ~1,2 s à 10 kt, ~8,7 s à 1 Mt, ~49 s à 50 Mt.
+## Durée jouée du flash (s, temps physique) : 10 t_max × FLASH_TIME_SCALE, soit ~0,6 s à 10 kt, ~4,4 s à 1 Mt, ~24 s
+## à 50 Mt (durées réelles : 1,2 s, 8,7 s, 49 s).
 static func flash_duration_s(yield_kt: float) -> float:
-	return FLASH_DURATION_TMAX * flash_tmax_s(yield_kt)
+	return FLASH_DURATION_TMAX * flash_tmax_s(yield_kt) * FLASH_TIME_SCALE
 
 
 ## Temps du second maximum thermique (s, physique) : 0,12 s à 10 kt, 0,87 s à 1 Mt, 4,9 s à 50 Mt.

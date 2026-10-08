@@ -2,7 +2,8 @@ class_name NukeFlash
 extends Node3D
 ## Flash initial d'une explosion (scène nuke/nuke_flash.tscn, enfant d'une NukeEffect ; repère local en km).
 ##
-## Sur la durée du flash (NukeScaling.flash_duration_s = 10 t_max : ~1,2 s à 10 kt, ~8,7 s à 1 Mt, ~49 s à 50 Mt), en
+## Sur la durée jouée du flash (NukeScaling.flash_duration_s = 10 t_max compressés par FLASH_TIME_SCALE : ~0,6 s à
+## 10 kt, ~4,4 s à 1 Mt, ~24 s à 50 Mt, pour laisser voir l'anneau de condensation de l'onde de choc), en
 ## temps normalisé u = t / durée (lues avec sample() : la version précalculée, à 100 points, effacerait le premier
 ## pic) :
 ## - intensity_curve : part du flux au pic (NukeScaling.flash_peak_flux_sun) ; forme de l'impulsion thermique de

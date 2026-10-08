@@ -329,15 +329,21 @@ horloge), **flash initial**, **onde de choc** (condensation, poussière) et **in
   distance de référence de 400 km. **L'atmosphère absorbe ensuite cette lumière** selon le trajet (voir
   « Absorption par l'air » ci-dessous).
 
-  Durées réelles (même source, §7.85) : second maximum thermique à **t_max = 0,0417 · W^0,44 s** ; le flash est joué
-  sur 10 t_max, durée pendant laquelle l'essentiel de l'énergie thermique est émis. Le minimum entre les deux
-  impulsions tombe à t_min = 0,0025 · W^0,5 s.
+  Durées réelles (même source, §7.85) : second maximum thermique à **t_max = 0,0417 · W^0,44 s** ; l'essentiel de
+  l'énergie thermique est émis avant 10 t_max. Le minimum entre les deux impulsions tombe à t_min = 0,0025 · W^0,5 s.
+
+  **Entorse au réalisme** : le flash est joué **2 fois plus vite** (`FLASH_TIME_SCALE` = 0,5), avec la même forme
+  d'impulsion, et l'onde de choc est ralentie de 1,6 (voir « Onde de choc »). À leurs vitesses réelles, la traîne du
+  flash et l'éblouissement masquaient toute la vie de l'anneau de condensation (qui s'évapore vers 0,7 τ : 1,8 s à
+  10 kt, 8 s à 1 Mt, 30 s à 50 Mt). Désormais l'anneau survit au flash : il reste visible seul ~2 s à 10 kt, ~9 s à
+  1 Mt, ~24 s à 50 Mt.
 
   | | 10 kt | 1 Mt | 50 Mt |
   |---|---|---|---|
   | Flux au pic à 400 km, sans atmosphère | 0,022 soleil | 0,29 soleil | 2,6 soleils |
-  | Second maximum t_max | 0,12 s | 0,87 s | 4,9 s |
-  | Durée du flash (10 t_max) | 1,2 s | 8,7 s | 49 s |
+  | Second maximum t_max (réel) | 0,12 s | 0,87 s | 4,9 s |
+  | Durée réelle (10 t_max) | 1,2 s | 8,7 s | 49 s |
+  | Durée jouée (× 0,5) | 0,6 s | 4,4 s | 24 s |
 
   Le flux décroît en 1/d² : depuis une orbite à 800 km, le flash paraît 4 fois moins fort qu'à 400 km.
 - **Absorption par l'air** (`nuke/nuke_atmosphere.gd` pour l'observateur, `nuke_air_transmittance()` dans
@@ -358,7 +364,7 @@ horloge), **flash initial**, **onde de choc** (condensation, poussière) et **in
     orange, centrée à la hauteur d'explosion), rayon de choc (anneau jaune au sol), colonne et chapeau du nuage
     (cyan, au sommet calculé). Rendus après les nuages et l'atmosphère (`render_priority` 2), masqués par la station.
 - **Flash initial** (`nuke/nuke_flash.tscn`, script `nuke/nuke_flash.gd`, enfant `Flash` de l'effet). En temps
-  normalisé u = t / durée du flash, deux courbes `Curve` éditables dans la scène :
+  normalisé u = t / durée jouée du flash (u = 1 ↔ 10 t_max réels), deux courbes `Curve` éditables dans la scène :
   - `intensity_curve` : part du flux au pic, avec la forme de l'impulsion thermique de Glasstone & Dolan :
     - bref premier pic (u = 0,002), puis minimum vers t_min (u ≈ 0,009) ;
     - second maximum à t_max (u = 0,1) ;
@@ -399,10 +405,13 @@ horloge), **flash initial**, **onde de choc** (condensation, poussière) et **in
 
   Rayon du front **r(t) = R_max · (1 − exp(−t / τ))**, avec une progression p = r / R_max :
   - R_max = `NukeScaling.shock_max_radius_km` (rayon de choc de référence × `SHOCK_VISUAL_SCALE`, 1 par défaut) ;
-  - τ = 1,28 s par km de R_max : le front atteint 90 % de R_max à ~0,34 km/s de moyenne (la vitesse du son), avec
-    une vitesse initiale de ~0,8 km/s ;
-  - le front atteint 98 % de R_max en ~10 s à 10 kt, ~46 s à 1 Mt, ~170 s à 50 Mt (temps physique ; au-delà de
-    20 s, l'horloge accélère progressivement, voir « Horloge »).
+  - τ = 1,28 s par km de R_max serait la valeur réaliste : le front atteindrait 90 % de R_max à ~0,34 km/s de
+    moyenne (la vitesse du son), avec une vitesse initiale de ~0,8 km/s ;
+  - **entorse au réalisme** : l'onde est ralentie de `SHOCK_SLOWDOWN` = 1,6 (τ = 2,05 s/km : ~0,5 km/s au départ,
+    ~0,2 km/s de moyenne), pour que l'anneau de condensation survive au flash (voir « Flash ») ;
+  - l'anneau s'évapore vers 2,8 s à 10 kt, 13 s à 1 Mt, 48 s à 50 Mt ; le front atteint 98 % de R_max en ~16 s à
+    10 kt, ~74 s à 1 Mt, ~270 s à 50 Mt (temps physique ; au-delà de 20 s, l'horloge accélère progressivement, voir
+    « Horloge »).
 
   Shader unique et réutilisable (`nuke/shaders/nuke_shock_ring.gdshader`) :
   - un quad horizontal surélevé de 30 m, dont le centre est l'origine du maillage ;
@@ -454,7 +463,7 @@ horloge), **flash initial**, **onde de choc** (condensation, poussière) et **in
     pour une station de 3 m). Énergie = flux reçu × 2 (un soleil), ombres portées des montants. Elle n'éclaire que
     la station : `FlashFX` ajoute le calque 20 à tous ses maillages, et la lumière a ce seul calque dans son masque.
   - **éblouissement**, comme un œil : ébloui par la *montée* de la lumière, il s'adapte ensuite même si le flash
-    dure (jusqu'à ~50 s pour 50 Mt) :
+    dure (jusqu'à ~12 s joués pour 50 Mt) :
     - l'intensité du glow suit le flux reçu : `glow_intensity` + 2·g, avec g = flux reçu / (flux reçu + 0,2). La
       source reste éclatante tant qu'elle brille ;
     - le bloom (`glow_bloom` + 0,5·e) et le multiplicateur d'exposition de la caméra (× (1 + 2,5·e)) suivent
@@ -469,7 +478,7 @@ horloge), **flash initial**, **onde de choc** (condensation, poussière) et **in
     feu, onde de choc). Sa vitesse monte ensuite **progressivement** (smoothstep) sur `ramp_s` (40 s d'horloge)
     jusqu'à `slow_phase_acceleration` (×10), pour la montée et l'étalement du champignon ;
   - la rampe évite un saut de vitesse : un effet encore en cours à 20 s ne se met pas à filer d'un coup (l'anneau
-    de condensation d'un 50 Mt s'évapore vers 28 s d'horloge, à ×1,8) ;
+    de condensation d'un 50 Mt s'évapore vers 35 s d'horloge, à ×3,8) ;
   - repères : 60 s d'horloge = 240 s physiques, 10 min physiques ≈ 1 min 36 s d'horloge, 3 h ≈ 19 min ;
   - `to_physical()` (intégrale de la vitesse) et `to_clock()` (réciproque, par dichotomie) convertissent.
 - **Tir** (`nuke/nuke_launcher.gd`, nœud `NukeLauncher` de `orbit_view.tscn`, groupe `nuke_launcher`) : rayon partant

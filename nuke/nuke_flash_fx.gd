@@ -10,7 +10,7 @@ extends Node
 ## - l'éblouissement : l'intensité du glow suit le flux reçu, g = flux / (flux + screen_flux_half) (la source reste
 ##   éclatante tant qu'elle brille) ; le bloom et le multiplicateur d'exposition de la caméra suivent l'excès du flux
 ##   sur un niveau d'adaptation qui le rattrape en adaptation_s, comme un œil : l'écran sature à la montée du flash,
-##   puis s'adapte même si le flash dure (jusqu'à ~50 s pour 50 Mt). Tout revient aux valeurs d'origine à la fin ;
+##   puis s'adapte même si le flash dure (jusqu'à ~24 s joués pour 50 Mt). Tout revient aux valeurs d'origine à la fin ;
 ##   l'exposition automatique réagit ensuite d'elle-même.
 
 const MAX_FLASHES := 4
