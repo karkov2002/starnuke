@@ -453,13 +453,50 @@ nuageuse** et **champignon** (boule de feu comprise).
     feu. Elle est faible devant un sol au soleil : les incendies se voient surtout de nuit.
   - `FireFX` transmet au sol les 8 incendies les plus intenses (position, rayon, intensité).
 - **Champignon** (`nuke/nuke_mushroom.tscn`, script `nuke/nuke_mushroom.gd`, enfant `Mushroom` de l'effet ;
-  shaders `nuke/shaders/nuke_mushroom.gdshader` et `nuke/shaders/nuke_smoke.gdshader`).
+  shaders `nuke/shaders/nuke_mushroom_volume.gdshader`, `nuke/shaders/nuke_mushroom.gdshader` et
+  `nuke/shaders/nuke_smoke.gdshader`).
+  - **Rendu volumétrique** (par défaut, `volumetric`) : lancer de rayon dans un champ de densité, sur une boîte
+    englobante (nœud `Volume`) recalculée à chaque image autour du nuage, de sa dérive et du nuage de base.
+    - Densité : formes analytiques fondues en douceur, érodées par un bruit 3D sur une bande `edge_softness` (bords
+      gazeux) :
+      - chapeau : super-ellipse aplatie (`cap_power` 2,6 : dessus plat, bord arrondi), dessous creusé autour de la
+        tige ;
+      - tige : évasée au pied et sous le chapeau, dissoute avec l'âge ;
+      - nuage de base.
+    - **Asymétrie** : une déformation basse fréquence du domaine (`warp`) et des lobes autour du chapeau (`lobes`),
+      tirés d'une graine propre à chaque explosion (latitude, longitude, puissance), rendent la silhouette
+      irrégulière. S'y ajoute l'inclinaison par le vent.
+    - Éclairage comme les nuages de la couche : marche vers le soleil (5 pas doublés depuis 0,3 km, auto-ombrage,
+      loi de Beer et diffusion multiple approchée), phase double de Henyey-Greenstein, soleil filtré par
+      l'atmosphère, ciel ambiant. La lueur de la boule de feu est émise au cœur du chapeau. Extinction : 1 km⁻¹
+      (`volume_extinction_per_km`).
+    - 64 pas par rayon, décalage d'échantillonnage fixe par pixel (pas de bruit temporel) : pas de scintillement.
+    - Profondeur écrite par le shader : celle du premier point dense (alpha cumulé > 0,35), sinon un point juste
+      au-dessus du sol. Les nuages et l'atmosphère, rendus après, ne le recouvrent que là où ils sont devant lui.
+    - Coût mesuré : ~91 i/s avec un 50 Mt et un 1 Mt à l'écran (contre 120 i/s, plafond de la synchro verticale,
+      sans champignon).
+    - Les sections « Maillage de révolution », « Shader » et le nuage de base `BaseSurge` ci-dessous décrivent le
+      rendu par maillage, conservé pour comparaison (`volumetric = false`) ; formes, Curves, couleurs, roulement et
+      dérive sont partagés.
   - **Repère normalisé** : le nœud est mis à l'échelle `cloud_top_km`, tout est exprimé en unités où le sommet
     final vaut 1 (chapeau final de rayon 0,6). Le même champignon fait 10 km de haut à 10 kt, 27,5 km à 1 Mt et
     65 km à 50 Mt, particules comprises.
-  - **Maillage de révolution** fixe (48 anneaux × 64 segments). Le profil (méridienne de 48 points : tige au pied et
+  - **Maillage de révolution** fixe (96 anneaux × 128 segments). Le profil (méridienne de 48 points : tige au pied et
     au col évasés, puis chapeau à dessous creusé, bord arrondi et dessus aplati) est recalculé à chaque image et
-    posé par le vertex shader.
+    posé par le vertex shader, qui l'interpole entre ses points.
+  - **Dérive au vent** : vent réel GFS du point d'impact (`NukeParams`), le même que pour la dérive du trou dans les
+    nuages. Le nuage est entraîné de v · t ; le déplacement croît avec la hauteur relative au centre du chapeau
+    (puissance `drift_shear` = 1,5). Le pied reste au point zéro, la tige penche, le chapeau part en entier. Les
+    émetteurs de particules suivent. Ordre de grandeur : 15 m/s font 9 km en 10 min et 55 km en 1 h. Limite : c'est
+    le vent de la basse et moyenne troposphère, appliqué aussi au chapeau stratosphérique des fortes puissances.
+  - **Contact avec le sol adouci** : l'opacité du champignon monte depuis 0 au sol jusqu'à 4 % du sommet final
+    (`ground_fade` du shader), avec une limite rongée par le bruit.
+  - **Nuage de base** (`BaseSurge`, explosions basses) : dôme de poussière bas, même shader et même couleur que le
+    champignon.
+    - Il s'étend vers l'extérieur avec l'onde de choc : rayon = 0,8 × front de choc (`surge_shock_ratio`), hauteur
+      = 8 % de ce rayon (`surge_aspect`).
+    - Translucide (`surge_opacity` 0,6), dense au centre, effiloché au bord.
+    - Il s'estompe en même temps que la tige se dissout (même érosion).
   - **Profil piloté par des Curves** (éditables dans la scène), lues en âge a = t / 600 s physiques
     (`MUSHROOM_RISE_S`). Le nuage se stabilise en ~10 min quelle que soit la puissance, soit ~1 min 36 s
     d'horloge avec l'accélération des phases lentes :
@@ -476,8 +513,10 @@ nuageuse** et **champignon** (boule de feu comprise).
       10 kt, ~1 min à 1 Mt, ~5 min 40 s à 50 Mt ; Glasstone & Dolan §2.18) ;
     - albédo (`albedo_gradient`) : roux des oxydes d'azote, puis blanc-gris de la condensation.
   - **Shader** :
-    - relief : bruit 3D (3 octaves) qui déplace les sommets et module l'albédo ; creux et dessous du chapeau
-      assombris ;
+    - relief : bruit 3D (3 octaves) et bourgeons « chou-fleur » (bruit en valeur absolue) qui déplacent les
+      sommets ; au pixel, la normale est perturbée par le gradient des bourgeons (`bump`). Ce détail plus fin que le
+      maillage s'efface quand il devient plus petit qu'un pixel (sinon il crénèle en grains sombres). Creux et
+      dessous du chapeau assombris ;
     - éclairage par le soleil seul, en diffus enveloppant, filtré par l'atmosphère au point
       (`sun_light.gdshaderinc` : rougi au crépuscule, éteint la nuit), plus la lumière du ciel en émission ;
     - silhouette adoucie par effet fresnel, bords rasants effilochés, érosion de la tige ;
@@ -489,7 +528,8 @@ nuageuse** et **champignon** (boule de feu comprise).
       le recouvrent pas là où il les dépasse, mais un champignon plus bas que la couche nuageuse (10 kt sous un
       banc épais) reste caché dessous.
   - **Particules** (GPUParticles3D créés par le script, bouffées procédurales par bruit, éclairées comme le nuage) :
-    - fumée le long de la tige ;
+    - fumée le long de la tige (rendu par maillage seulement : en volumétrique, elle ferait doublon avec la tige du
+      volume) ;
     - jupon de condensation : anneaux autour de la tige pendant la montée (a de 0,03 à 0,3) ;
     - débris et poussière aspirés au pied (explosions basses, a < 0,5).
 

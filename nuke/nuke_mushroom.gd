@@ -6,6 +6,12 @@ extends Node3D
 ## final = 1, chapeau final de rayon CAP_RADIUS_PER_TOP = 0,6). Le même champignon fait 10 km de haut à 10 kt et 65 km
 ## à 50 Mt, particules comprises.
 ##
+## Rendu (volumetric, par défaut) : lancer de rayon dans un champ de densité (nuke/shaders/nuke_mushroom_volume.gdshader,
+## nœud Volume : boîte englobante recalculée à chaque image). Chapeau, tige et nuage de base y sont des formes
+## analytiques fondues en douceur et érodées par un bruit 3D, éclairées comme les nuages (auto-ombrage) : aspect gazeux,
+## sans scintillement. La silhouette est rendue irrégulière par une déformation basse fréquence du domaine, propre à
+## chaque explosion. Sinon, rendu par maillage (Cloud, BaseSurge), conservé pour comparaison.
+##
 ## Profil (méridienne de PROFILE_POINTS points, tige puis chapeau), recalculé à chaque image et posé par le vertex
 ## shader (nuke/shaders/nuke_mushroom.gdshader) sur un maillage de révolution fixe. Les Curves sont lues en âge
 ## normalisé a = t / NukeScaling.MUSHROOM_RISE_S (temps physique ; stabilisation en ~10 min, ~1 min 36 s d'horloge) :
@@ -22,6 +28,15 @@ extends Node3D
 ## Chapeau roulant : angle de roulement autour de l'anneau tourbillonnaire, tour en roll_period_s au début, de plus en
 ## plus lent (ω = ω0 / (1 + t / roll_slowdown_s), intégré analytiquement : rejouable au scrubber).
 ##
+## Dérive au vent (vent réel GFS du point d'impact, NukeParams ; le même que la dérive du trou dans les nuages) : le
+## nuage est entraîné de v · t, le pied restant au point zéro. Le déplacement croît avec la hauteur jusqu'au centre du
+## chapeau (puissance drift_shear) : la tige penche, le chapeau part en entier.
+##
+## Nuage de base (BaseSurge, explosions basses) : dôme de poussière au pied, même shader et même couleur que le
+## champignon, qui s'étend vers l'extérieur avec l'onde de choc (surge_shock_ratio × rayon du front) et s'estompe en
+## même temps que la tige se dissout. Avec le fondu du champignon près du sol (ground_fade du shader), il adoucit le
+## contact entre la tige et le sol.
+##
 ## Particules (GPUParticles3D, nuke/shaders/nuke_smoke.gdshader) : fumée de la tige, jupon de condensation autour de
 ## la tige pendant la montée, débris soulevés au pied (explosions basses). Leur vitesse suit celle du temps physique
 ## (speed_scale = d(temps physique) / d(temps réel) : pause et accélération de l'horloge) ; elles ne se rejouent pas
@@ -29,10 +44,19 @@ extends Node3D
 
 const PROFILE_POINTS := 48
 const STEM_POINTS := 16
-const SEGMENTS := 64
+## Maillage : anneaux (le profil est interpolé entre ses points) × segments autour de l'axe.
+const RINGS := 96
+const SEGMENTS := 128
 const MAX_PARTICLE_SPEED := 20.0
 const SHAPE_NOISE := preload("res://materials/cloud_shape_noise.tres")
 const SMOKE_SHADER := preload("res://nuke/shaders/nuke_smoke.gdshader")
+const VOLUME_SHADER := preload("res://nuke/shaders/nuke_mushroom_volume.gdshader")
+
+## Rendu volumétrique (lancer de rayon dans un champ de densité, nuke/shaders/nuke_mushroom_volume.gdshader) au lieu
+## du maillage de révolution (Cloud, BaseSurge), conservé pour comparaison.
+@export var volumetric := true
+## Coefficient d'extinction du nuage (km⁻¹ ; les nuages de la couche : 1,5).
+@export var volume_extinction_per_km := 1.0
 
 @export_group("Profil")
 @export var height_curve: Curve
@@ -64,6 +88,13 @@ const SMOKE_SHADER := preload("res://nuke/shaders/nuke_smoke.gdshader")
 ## Défilement du bruit de la tige vers le haut (unités normalisées par s physique, ralenti comme le roulement).
 @export var stem_rise_speed := 0.004
 @export var boil_rate := 0.0015
+## Profil vertical de la dérive au vent (exposant de la hauteur relative au centre du chapeau).
+@export var drift_shear := 1.5
+@export_group("Nuage de base")
+## Rayon du dôme : part du rayon courant du front de choc ; hauteur : part de son rayon.
+@export var surge_shock_ratio := 0.8
+@export var surge_aspect := 0.08
+@export var surge_opacity := 0.6
 @export_group("Particules")
 @export var stem_color := Color(0.5, 0.45, 0.4)
 @export var skirt_color := Color(0.92, 0.93, 0.95)
@@ -74,6 +105,10 @@ static var _smoke_mesh: QuadMesh
 
 var _effect: NukeEffect
 var _material: ShaderMaterial
+var _surge_material: ShaderMaterial
+var _surge: MeshInstance3D
+var _volume: MeshInstance3D
+var _volume_material: ShaderMaterial
 var _sun: DirectionalLight3D
 var _last_t := -1.0
 var _stem: GPUParticles3D
@@ -91,6 +126,28 @@ func _ready() -> void:
 	_material = (_cloud.material_override as ShaderMaterial).duplicate() as ShaderMaterial
 	_cloud.material_override = _material
 	_cloud.mesh = _get_mesh()
+	_surge_material = _material.duplicate() as ShaderMaterial
+	_surge_material.set_shader_parameter("stem_fraction", 0.0)
+	_surge = MeshInstance3D.new()
+	_surge.name = "BaseSurge"
+	_surge.mesh = _cloud.mesh
+	_surge.material_override = _surge_material
+	_surge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_surge.extra_cull_margin = _cloud.extra_cull_margin
+	add_child(_surge)
+	_volume_material = ShaderMaterial.new()
+	_volume_material.shader = VOLUME_SHADER
+	_volume_material.render_priority = -1
+	_volume_material.set_shader_parameter("noise_tex", SHAPE_NOISE)
+	var box := BoxMesh.new()
+	box.size = Vector3(2.0, 2.0, 2.0)
+	_volume = MeshInstance3D.new()
+	_volume.name = "Volume"
+	_volume.mesh = box
+	_volume.material_override = _volume_material
+	_volume.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_volume.extra_cull_margin = _cloud.extra_cull_margin
+	add_child(_volume)
 	_stem = _make_particles("Stem", 40, 150.0, stem_color)
 	_skirt = _make_particles("Skirt", 36, 80.0, skirt_color)
 	_debris = _make_particles("Debris", 48, 120.0, debris_color)
@@ -138,6 +195,7 @@ func _update(delta: float) -> void:
 	_material.set_shader_parameter("rise_offset", stem_rise_speed * slow)
 	_material.set_shader_parameter("boil", boil_rate * t)
 	_material.set_shader_parameter("erosion", erosion_curve.sample(minf(a, erosion_curve.max_domain)))
+	_material.set_shader_parameter("ground_fade", 0.04)
 
 	var albedo := albedo_gradient.sample(a1)
 	_material.set_shader_parameter("albedo", Vector3(albedo.r, albedo.g, albedo.b))
@@ -155,8 +213,96 @@ func _update(delta: float) -> void:
 		sun_dir = (earth.global_basis.inverse() * _sun.global_basis.z).normalized()
 		_material.set_shader_parameter("sun_dir_planet", sun_dir)
 
-	_update_particles(delta, t, a, rs, y_neck, h, yb, rf, to_planet, sun_dir, glow)
+	# Dérive au vent : la direction est celle d'où il vient (convention météo), l'air va à l'opposé. Repère local :
+	# X = est, −Z = nord. Unités normalisées (vitesse en km/s rapportée au sommet final).
+	var from := deg_to_rad(params.wind_direction_deg)
+	var drift := Vector3(-sin(from), 0.0, cos(from)) * (params.wind_speed_m_s * 0.001 * t / top_km)
+	var drift_height := maxf(yc, 0.05)
+	_material.set_shader_parameter("drift", drift)
+	_material.set_shader_parameter("drift_height", drift_height)
+	_material.set_shader_parameter("drift_shear", drift_shear)
+
+	var erosion := erosion_curve.sample(minf(a, erosion_curve.max_domain))
+	var surge := _update_surge(t, a, yb, rf, top_km, erosion, albedo, glow, to_planet, sun_dir, drift, drift_height)
+	_cloud.visible = not volumetric
+	_surge.visible = _surge.visible and not volumetric
+	_volume.visible = volumetric
+	if volumetric:
+		var m := _volume_material
+		m.set_shader_parameter("cap_center", yc)
+		m.set_shader_parameter("cap_radius", rc)
+		m.set_shader_parameter("cap_half", 0.5 * hc)
+		m.set_shader_parameter("cap_under", under)
+		m.set_shader_parameter("stem_radius", rs)
+		m.set_shader_parameter("neck_height", y_neck)
+		m.set_shader_parameter("base_flare", base_flare)
+		m.set_shader_parameter("base_flare_height", base_flare_height * h)
+		m.set_shader_parameter("stem_erosion", clampf(erosion, 0.0, 1.0))
+		m.set_shader_parameter("surge_radius", surge.x)
+		m.set_shader_parameter("surge_height", surge.y)
+		m.set_shader_parameter("surge_density", surge.z)
+		m.set_shader_parameter("ring", Vector2(0.55 * rc, yc))
+		m.set_shader_parameter("roll_angle", TAU / roll_period_s * slow)
+		m.set_shader_parameter("rise_offset", stem_rise_speed * slow)
+		m.set_shader_parameter("boil", boil_rate * t)
+		m.set_shader_parameter("drift", drift)
+		m.set_shader_parameter("drift_height", drift_height)
+		m.set_shader_parameter("drift_shear", drift_shear)
+		m.set_shader_parameter("extinction", volume_extinction_per_km * top_km)
+		m.set_shader_parameter("light_first_step", 0.3 / top_km)
+		m.set_shader_parameter("albedo", Vector3(albedo.r, albedo.g, albedo.b))
+		m.set_shader_parameter("glow", Vector3(glow.r, glow.g, glow.b))
+		m.set_shader_parameter("sun_dir_planet", sun_dir)
+		m.set_shader_parameter("sun_dir_local", (to_planet.basis.inverse() * sun_dir).normalized())
+		m.set_shader_parameter("local_to_planet_km", Projection(to_planet))
+		m.set_shader_parameter("local_to_world", Projection(global_transform))
+		m.set_shader_parameter("world_to_local", Projection(global_transform.affine_inverse()))
+		m.set_shader_parameter("seed", Vector3(fposmod(params.latitude_deg * 0.731, 7.0),
+				fposmod(params.longitude_deg * 0.377, 7.0), fposmod(params.yield_kt * 0.0013, 7.0)))
+		# Boîte englobante : chapeau (avec marge pour les lobes et la déformation), nuage de base, dérive.
+		var extent := maxf(maxf(rc * 1.6, surge.x * 1.15), rs * 4.0) + 0.02
+		var box_min := Vector3(minf(drift.x, 0.0) - extent, 0.0, minf(drift.z, 0.0) - extent)
+		var box_max := Vector3(maxf(drift.x, 0.0) + extent, h + 0.6 * hc + 0.02, maxf(drift.z, 0.0) + extent)
+		m.set_shader_parameter("box_min", box_min)
+		m.set_shader_parameter("box_max", box_max)
+		_volume.transform = Transform3D(Basis.from_scale(0.5 * (box_max - box_min)), 0.5 * (box_min + box_max))
+	_update_particles(delta, t, a, rs, y_neck, h, yb, rf, to_planet, sun_dir, glow, drift, drift_height)
 	_last_t = t
+
+
+## Nuage de base : dôme de poussière bas, rayon = surge_shock_ratio × front de choc, même couleur que le champignon,
+## qui s'estompe avec l'érosion de la tige. Seulement pour les explosions basses. Retourne (rayon, hauteur, opacité),
+## nuls sans nuage de base (repris par le rendu volumétrique).
+func _update_surge(t: float, a: float, yb: float, rf: float, top_km: float, erosion: float, albedo: Color,
+		glow: Color, to_planet: Transform3D, sun_dir: Vector3, drift: Vector3, drift_height: float) -> Vector3:
+	var w := _effect.params.yield_kt
+	var radius := surge_shock_ratio * NukeScaling.shock_front_radius_km(w, t) / top_km
+	var fade := surge_opacity * smoothstep(0.0, 0.02, a) * (1.0 - smoothstep(0.0, 0.7, erosion))
+	_surge.visible = yb < 2.0 * rf and radius > 0.002 and fade > 0.005
+	if not _surge.visible:
+		return Vector3.ZERO
+	var height := surge_aspect * radius
+	var points := PackedVector2Array()
+	points.resize(PROFILE_POINTS)
+	for i in PROFILE_POINTS:
+		var phi := PI * 0.5 * float(i) / float(PROFILE_POINTS - 1)
+		points[i] = Vector2(radius * pow(maxf(cos(phi), 0.0), 0.35), height * sin(phi))
+	var m := _surge_material
+	m.set_shader_parameter("profile", points)
+	m.set_shader_parameter("ring", Vector2(0.6 * radius, 0.4 * height))
+	m.set_shader_parameter("roll_angle", -0.5 * _material.get_shader_parameter("roll_angle"))
+	m.set_shader_parameter("boil", _material.get_shader_parameter("boil"))
+	m.set_shader_parameter("opacity", fade)
+	m.set_shader_parameter("ground_fade", height)
+	m.set_shader_parameter("edge_erosion", 0.6)
+	m.set_shader_parameter("albedo", Vector3(albedo.r, albedo.g, albedo.b))
+	m.set_shader_parameter("glow", Vector3(glow.r, glow.g, glow.b) * 0.03)
+	m.set_shader_parameter("local_to_planet_km", Projection(to_planet))
+	m.set_shader_parameter("sun_dir_planet", sun_dir)
+	m.set_shader_parameter("drift", drift)
+	m.set_shader_parameter("drift_height", drift_height)
+	m.set_shader_parameter("drift_shear", drift_shear)
+	return Vector3(radius, height, fade)
 
 
 ## Méridienne : tige (STEM_POINTS points, du sol au col, pied et col évasés) puis chapeau (dessous, bord arrondi,
@@ -183,8 +329,13 @@ func _profile(yc: float, b: float, rc: float, rs: float, y_neck: float, h: float
 	return points
 
 
+## Dérive au vent à la hauteur y (même loi que le vertex shader).
+func _drift_at(y: float, drift: Vector3, drift_height: float) -> Vector3:
+	return drift * pow(clampf(y / maxf(drift_height, 1e-4), 0.0, 1.0), drift_shear)
+
+
 func _update_particles(delta: float, t: float, a: float, rs: float, y_neck: float, h: float, yb: float,
-		rf: float, to_planet: Transform3D, sun_dir: Vector3, glow: Color) -> void:
+		rf: float, to_planet: Transform3D, sun_dir: Vector3, glow: Color, drift: Vector3, drift_height: float) -> void:
 	# Vitesse du temps physique : pause, temps réel, accélération de l'horloge.
 	var speed := 0.0
 	if _last_t >= 0.0 and delta > 0.0:
@@ -199,11 +350,15 @@ func _update_particles(delta: float, t: float, a: float, rs: float, y_neck: floa
 		particles.set_instance_shader_parameter("sun_tint", tint)
 		particles.set_instance_shader_parameter("glow", Vector3(debris_glow.r, debris_glow.g, debris_glow.b))
 
+	# Les émetteurs suivent la dérive au vent à leur hauteur (même loi que le shader).
 	var stem_height := maxf(y_neck, 0.0)
-	_stem.emitting = rs > 0.004 and a < 2.5 and stem_height > 0.02
+	_stem.position = Vector3(0.0, 0.5 * stem_height, 0.0) + _drift_at(0.5 * stem_height, drift, drift_height)
+	_skirt.position = Vector3(0.0, 0.45 * stem_height, 0.0) + _drift_at(0.45 * stem_height, drift, drift_height)
+	# En rendu volumétrique, la tige est déjà dans le volume : sa fumée ferait doublon (taches sombres).
+	_stem.visible = not volumetric
+	_stem.emitting = not volumetric and rs > 0.004 and a < 2.5 and stem_height > 0.02
 	if _stem.emitting:
 		var process := _stem.process_material as ParticleProcessMaterial
-		_stem.position = Vector3(0.0, 0.5 * stem_height, 0.0)
 		process.emission_box_extents = Vector3(rs * 0.7, 0.5 * stem_height, rs * 0.7)
 		process.scale_min = rs * 2.0
 		process.scale_max = rs * 3.2
@@ -214,7 +369,6 @@ func _update_particles(delta: float, t: float, a: float, rs: float, y_neck: floa
 	_skirt.emitting = a > 0.03 and a < 0.3 and rs > 0.004
 	if _skirt.emitting:
 		var process := _skirt.process_material as ParticleProcessMaterial
-		_skirt.position = Vector3(0.0, 0.45 * stem_height, 0.0)
 		process.emission_ring_radius = rs * 2.4
 		process.emission_ring_inner_radius = rs * 1.4
 		process.scale_min = rs * 1.5
@@ -290,8 +444,9 @@ static func _get_smoke_mesh() -> QuadMesh:
 	return _smoke_mesh
 
 
-## Maillage de révolution fixe : PROFILE_POINTS anneaux de SEGMENTS + 1 sommets (UV.x = angle, UV.y = position sur le
-## profil) ; les positions sont posées par le vertex shader. Faces avant dans le sens horaire (convention Godot).
+## Maillage de révolution fixe : RINGS anneaux de SEGMENTS + 1 sommets (UV.x = angle, UV.y = position sur le profil,
+## interpolé entre ses points) ; les positions sont posées par le vertex shader. Faces avant dans le sens horaire
+## (convention Godot).
 static func _get_mesh() -> ArrayMesh:
 	if _mesh:
 		return _mesh
@@ -299,12 +454,12 @@ static func _get_mesh() -> ArrayMesh:
 	var normals := PackedVector3Array()
 	var uvs := PackedVector2Array()
 	var indices := PackedInt32Array()
-	for i in PROFILE_POINTS:
+	for i in RINGS:
 		for j in SEGMENTS + 1:
 			vertices.append(Vector3.ZERO)
 			normals.append(Vector3.UP)
-			uvs.append(Vector2(float(j) / SEGMENTS, float(i) / (PROFILE_POINTS - 1)))
-	for i in PROFILE_POINTS - 1:
+			uvs.append(Vector2(float(j) / SEGMENTS, float(i) / (RINGS - 1)))
+	for i in RINGS - 1:
 		for j in SEGMENTS:
 			var v := i * (SEGMENTS + 1) + j
 			var above := v + SEGMENTS + 1
