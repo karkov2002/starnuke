@@ -3,7 +3,7 @@ extends Node3D
 ## Champignon atomique (scène nuke/nuke_mushroom.tscn, enfant d'une NukeEffect ; repère local en km, Y = verticale).
 ##
 ## Le nœud est mis à l'échelle NukeScaling.cloud_top_km : tout ce qu'il contient est en unités normalisées (sommet
-## final = 1, chapeau final de rayon CAP_RADIUS_PER_TOP = 0,6). Le même champignon fait 10 km de haut à 10 kt et 65 km
+## final = 1, chapeau final de rayon CAP_RADIUS_PER_TOP = 0,6). Le même champignon fait 8 km de haut à 10 kt et 65 km
 ## à 50 Mt, particules comprises.
 ##
 ## Rendu (volumetric, par défaut) : lancer de rayon dans un champ de densité (nuke/shaders/nuke_mushroom_volume.gdshader,
@@ -15,7 +15,7 @@ extends Node3D
 ## Profil (méridienne de PROFILE_POINTS points, tige puis chapeau), recalculé à chaque image et posé par le vertex
 ## shader (nuke/shaders/nuke_mushroom.gdshader) sur un maillage de révolution fixe. Les Curves sont lues en âge
 ## normalisé a = t / NukeScaling.MUSHROOM_RISE_S (temps physique ; stabilisation en ~10 min, ~1 min 36 s d'horloge) :
-## - height_curve : sommet (part du sommet final ; Glasstone & Dolan, table 2.12) ;
+## - height_curve : sommet (part du sommet final ; Glasstone & Dolan 1977, §2.12) ;
 ## - cap_radius_curve : rayon du chapeau (part du rayon final) ; jamais moins que la boule de feu (rayon du flash) ;
 ## - cap_aspect_curve : épaisseur du chapeau / son diamètre (1 = sphère : la boule de feu du début) ;
 ## - stem_curve : rayon de la tige / rayon du chapeau ;
@@ -82,12 +82,14 @@ const VOLUME_SHADER := preload("res://nuke/shaders/nuke_mushroom_volume.gdshader
 ## Luminance HDR de la lueur à g = 0 (le soleil éclaire un nuage blanc à ~1,6).
 @export var glow_hdr := 200.0
 @export_group("Mouvement")
-## Durée d'un tour de l'anneau tourbillonnaire au début (s physiques), et ralentissement.
-@export var roll_period_s := 90.0
+## Durée d'un tour de l'anneau tourbillonnaire au début (s physiques), et ralentissement. 15 min : circulation de
+## quelques dizaines de m/s autour d'un anneau de plusieurs km (avec l'horloge accélérée ×10, ~1 min 30 à l'écran).
+@export var roll_period_s := 900.0
 @export var roll_slowdown_s := 300.0
-## Défilement du bruit de la tige vers le haut (unités normalisées par s physique, ralenti comme le roulement).
-@export var stem_rise_speed := 0.004
-@export var boil_rate := 0.0015
+## Défilement du bruit de la tige vers le haut (unités normalisées par s physique, ralenti comme le roulement) :
+## 0,0015 × sommet, soit ~35 m/s à 1 Mt et ~100 m/s à 50 Mt (courant ascendant de la tige).
+@export var stem_rise_speed := 0.0015
+@export var boil_rate := 0.0003
 ## Profil vertical de la dérive au vent (exposant de la hauteur relative au centre du chapeau).
 @export var drift_shear := 1.5
 @export_group("Nuage de base")

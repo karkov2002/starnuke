@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ##   rayon de la boule de feu  = FIREBALL_COEF_KM · W^FIREBALL_EXP              (1 Mt : ~1,05 km)
 ##   rayon de choc de référence = SHOCK_REF_KM · (W / REF_YIELD_KT)^(1/3)      (similitude de Hopkinson-Cranz)
-##   sommet du nuage            = CLOUD_TOP_REF_KM · (W / REF_YIELD_KT)^CLOUD_TOP_EXP   (50 Mt : ~65 km, Tsar Bomba)
+##   sommet du nuage            = interpolation log-log entre CLOUD_TOP_POINTS (8 km à 10 kt, 22,5 km à 1 Mt, 65 km à 50 Mt)
 ##   rayon du chapeau           = CAP_RADIUS_PER_TOP · sommet du nuage
 
 const MIN_YIELD_KT := 10.0
@@ -16,12 +16,20 @@ const FIREBALL_COEF_KM := 0.066
 const FIREBALL_EXP := 0.4
 const SHOCK_REF_KM := 2.0
 const SHOCK_EXP := 1.0 / 3.0
-const CLOUD_TOP_REF_KM := 10.0
-const CLOUD_TOP_EXP := 0.22
+# Sommet du nuage stabilisé (W en kt, km), interpolé en log-log entre ces points. Les hauteurs réelles varient
+# beaucoup avec la météo et la tropopause (Glasstone & Dolan §2.16) :
+# - 10 kt : 8 km, choix de jeu entre la moyenne américaine de Glasstone & Dolan (19 000 ft, 5,8 km, §2.17) et Nagasaki ;
+# - 20 kt : 11 km (« 7 miles », Glasstone) ; Nagasaki (21 kt) est monté à 45 000 ft (13,7 km) ;
+# - 1 Mt : 22,5 km (« 14 miles », Glasstone) ;
+# - 15 Mt : 40 km (Castle Bravo ; Ivy Mike, 10,4 Mt, ~40 km) ;
+# - 50 Mt : 65 km (Tsar Bomba, 64 à 67 km).
+const CLOUD_TOP_POINTS: Array[Vector2] = [Vector2(10.0, 8.0), Vector2(20.0, 11.0), Vector2(1000.0, 22.5),
+		Vector2(15000.0, 40.0), Vector2(50000.0, 65.0)]
 const CAP_RADIUS_PER_TOP := 0.6
 # Champignon (NukeMushroom) : ses Curves sont lues en âge normalisé a = t / MUSHROOM_RISE_S (temps physique). Le nuage
-# se stabilise en ~10 min quelle que soit la puissance (Glasstone & Dolan, table 2.12, 1 Mt : 33 % du sommet à 1 min,
-# 51 % à 2 min, 73 % à 4 min), soit ~1 min 36 s d'horloge avec l'accélération des phases lentes (NukeClock).
+# se stabilise en ~10 min quelle que soit la puissance (Glasstone & Dolan 1977, §2.12, nuage de 1 Mt montant à
+# 14 miles : 2 miles à 0,3 min, 4 à 0,7 min, 6 à 1,1 min, 10 à 2,5 min, 12 à 3,8 min, soit 14 %, 29 %, 43 %, 71 % et
+# 86 % du sommet), soit ~1 min 36 s d'horloge avec l'accélération des phases lentes (NukeClock).
 const MUSHROOM_RISE_S := 600.0
 # La boule de feu reste lumineuse ~1 min pour 1 Mt (Glasstone & Dolan §2.18), ~70 t_max : 8 s à 10 kt, 6 min à 50 Mt.
 const FIREBALL_GLOW_TMAX := 70.0
@@ -124,8 +132,16 @@ static func fire_intensity(t: float) -> float:
 	return growth * exp(-t / FIRE_BURN_S)
 
 
+## Sommet du nuage stabilisé (km) : interpolation log-log entre CLOUD_TOP_POINTS.
 static func cloud_top_km(yield_kt: float) -> float:
-	return CLOUD_TOP_REF_KM * pow(_clamp_yield(yield_kt) / REF_YIELD_KT, CLOUD_TOP_EXP)
+	var w := _clamp_yield(yield_kt)
+	for i in range(1, CLOUD_TOP_POINTS.size()):
+		var b := CLOUD_TOP_POINTS[i]
+		if w <= b.x or i == CLOUD_TOP_POINTS.size() - 1:
+			var a := CLOUD_TOP_POINTS[i - 1]
+			var f := log(w / a.x) / log(b.x / a.x)
+			return a.y * pow(b.y / a.y, f)
+	return CLOUD_TOP_POINTS[-1].y
 
 
 static func cloud_cap_radius_km(yield_kt: float) -> float:

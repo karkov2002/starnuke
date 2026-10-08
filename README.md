@@ -320,8 +320,22 @@ nuageuse** et **champignon** (boule de feu comprise).
   |---|---|---|---|---|
   | Rayon de la boule de feu | 0,066 · W^0,4 km | 0,17 km | 1,05 km | 5,0 km |
   | Rayon de choc de référence | 2 · (W/10)^(1/3) km | 2 km | 9,3 km | 34 km |
-  | Sommet du nuage | 10 · (W/10)^0,22 km | 10 km | 27,5 km | 65 km |
-  | Rayon du chapeau | 0,6 × sommet | 6 km | 16,5 km | 39 km |
+  | Sommet du nuage | interpolation (voir ci-dessous) | 8 km | 22,5 km | 65 km |
+  | Rayon du chapeau | 0,6 × sommet | 4,8 km | 13,5 km | 39 km |
+
+  Sommet du nuage stabilisé (`CLOUD_TOP_POINTS`, interpolation log-log). Les hauteurs réelles varient beaucoup avec
+  la météo et la tropopause (Glasstone & Dolan §2.16) :
+
+  | Puissance | Sommet | Référence |
+  |---|---|---|
+  | 10 kt | 8 km | choix de jeu, entre l'exemple « typique » de Glasstone & Dolan (19 000 ft, 5,8 km, §2.17) et Nagasaki |
+  | 20 kt | 11 km | « 7 miles » (Glasstone) ; Nagasaki (21 kt) : 45 000 ft (13,7 km) |
+  | 1 Mt | 22,5 km | « 14 miles » (Glasstone) |
+  | 15 Mt | 40 km | Castle Bravo ; Ivy Mike (10,4 Mt) : ~40 km |
+  | 50 Mt | 65 km | Tsar Bomba (64 à 67 km) |
+
+  Un champignon de 10 kt (8 km) reste sous le sommet d'une couche nuageuse épaisse (jusqu'à 10 km) : il n'est visible
+  que par ciel dégagé ou à travers le trou creusé par l'onde de choc.
 
   Depuis 400 km, un pixel vaut ~0,5 km au nadir : la boule de feu de 10 kt (0,3 km de diamètre) fait moins d'un
   pixel ; c'est l'éblouissement du flash (billboard de taille angulaire minimale) qui la rend visible.
@@ -479,7 +493,7 @@ nuageuse** et **champignon** (boule de feu comprise).
       rendu par maillage, conservé pour comparaison (`volumetric = false`) ; formes, Curves, couleurs, roulement et
       dérive sont partagés.
   - **Repère normalisé** : le nœud est mis à l'échelle `cloud_top_km`, tout est exprimé en unités où le sommet
-    final vaut 1 (chapeau final de rayon 0,6). Le même champignon fait 10 km de haut à 10 kt, 27,5 km à 1 Mt et
+    final vaut 1 (chapeau final de rayon 0,6). Le même champignon fait 8 km de haut à 10 kt, 22,5 km à 1 Mt et
     65 km à 50 Mt, particules comprises.
   - **Maillage de révolution** fixe (96 anneaux × 128 segments). Le profil (méridienne de 48 points : tige au pied et
     au col évasés, puis chapeau à dessous creusé, bord arrondi et dessus aplati) est recalculé à chaque image et
@@ -500,8 +514,8 @@ nuageuse** et **champignon** (boule de feu comprise).
   - **Profil piloté par des Curves** (éditables dans la scène), lues en âge a = t / 600 s physiques
     (`MUSHROOM_RISE_S`). Le nuage se stabilise en ~10 min quelle que soit la puissance, soit ~1 min 36 s
     d'horloge avec l'accélération des phases lentes :
-    - `height_curve` : sommet, calé sur Glasstone & Dolan (table 2.12, 1 Mt) : 33 % à 1 min, 51 % à 2 min, 75 % à
-      4 min, 95 % à 7 min ;
+    - `height_curve` : sommet, calé sur la montée d'un nuage de 1 Mt (Glasstone & Dolan 1977, §2.12, sommet final
+      14 miles) : 14 % à 18 s, 29 % à 42 s, 43 % à 1 min 06, 71 % à 2 min 30, 86 % à 3 min 48, 96 % à 6 min ;
     - `cap_radius_curve` (rayon du chapeau), `cap_aspect_curve` (épaisseur / diamètre ; 1 = sphère),
       `stem_curve` (rayon de la tige / rayon du chapeau) ;
     - `erosion_curve` (domaine 0 à 3) : la tige se dissout après la stabilisation.
@@ -522,8 +536,12 @@ nuageuse** et **champignon** (boule de feu comprise).
     - silhouette adoucie par effet fresnel, bords rasants effilochés, érosion de la tige ;
     - **roulement toroïdal** : dans chaque plan méridien, le bruit du chapeau est lu en coordonnées tournées
       autour de l'anneau tourbillonnaire (rayon 0,55 × chapeau). Le motif monte au centre, s'écarte au sommet,
-      redescend au bord et rentre par-dessous. Tour en 90 s physiques au début, puis de plus en plus lent
-      (ω = ω0 / (1 + t / 300 s), intégré : rejouable au scrubber). Le bruit de la tige défile vers le haut ;
+      redescend au bord et rentre par-dessous. Tour en 15 min physiques au début (`roll_period_s` : circulation de
+      quelques dizaines de m/s autour d'un anneau de plusieurs km ; ~1 min 30 à l'écran avec l'horloge à ×10), puis
+      de plus en plus lent (ω = ω0 / (1 + t / 300 s), intégré : rejouable au scrubber). Le bruit de la tige défile
+      vers le haut à ~35 m/s à 1 Mt, ~100 m/s à 50 Mt (`stem_rise_speed` = 0,0015 × sommet par s) ; bouillonnement
+      lent (`boil_rate`). Vus depuis l'orbite, ces mouvements doivent rester à peine perceptibles. Ces réglages valent
+      pour les deux rendus ;
     - rendu avant les nuages (`render_priority` −1) avec pré-passe de profondeur : les nuages et l'atmosphère ne
       le recouvrent pas là où il les dépasse, mais un champignon plus bas que la couche nuageuse (10 kt sous un
       banc épais) reste caché dessous.
