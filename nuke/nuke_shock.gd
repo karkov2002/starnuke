@@ -48,8 +48,8 @@ func _process(_delta: float) -> void:
 
 ## Progression p = r / R_max (0 avant l'explosion).
 func get_progress() -> float:
-	var t := _effect.get_time_s()
-	return 1.0 - exp(-maxf(t, 0.0) / NukeScaling.shock_tau_s(_effect.params.yield_kt))
+	var w := _effect.params.yield_kt
+	return NukeScaling.shock_front_radius_km(w, _effect.get_time_s()) / NukeScaling.shock_max_radius_km(w)
 
 
 func _update() -> void:

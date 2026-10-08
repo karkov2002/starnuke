@@ -20,13 +20,18 @@ const CLOUD_TOP_REF_KM := 10.0
 const CLOUD_TOP_EXP := 0.22
 const CAP_RADIUS_PER_TOP := 0.6
 
-# Onde de choc au sol : rayon r(t) = R_max · (1 − exp(−t / τ)), R_max = rayon de choc de référence × facteur visuel.
-# τ est proportionnel à R_max. Valeur réaliste : 1,28 s/km (le front atteint 90 % de R_max, t = 2,3 τ, à ~0,34 km/s
-# de moyenne, la vitesse du son ; vitesse initiale R_max / τ ~0,8 km/s). Entorse au réalisme : l'onde est ralentie de
-# SHOCK_SLOWDOWN, pour que son anneau de condensation (qui s'évapore à ~0,7 τ) survive au flash : 2,8 s à 10 kt,
-# 13 s à 1 Mt, 48 s à 50 Mt. Durée totale (disparition à 98 %) : 3,9 τ, soit ~16 s à 10 kt, ~74 s à 1 Mt, ~270 s à
-# 50 Mt.
-const SHOCK_VISUAL_SCALE := 1.0
+# Onde de choc : un seul front r(t) = R_max · (1 − exp(−t / τ)) pour l'anneau de condensation, la poussière au sol
+# et le trou dans la couche nuageuse (nuke/shaders/nuke_clouds.gdshaderinc), qu'il pousse devant lui.
+# R_max = SHOCK_VISUAL_SCALE · rayon de choc de référence + SHOCK_VISUAL_MIN_KM : choix visuel, plus grand que le rayon
+# de référence, surtout pour les petites puissances (l'ajout fixe compte davantage) : 6,4 km à 10 kt (référence :
+# 2 km), 15 km à 1 Mt, 45 km à 50 Mt. Un trou plus petit que l'épaisseur de la couche nuageuse (jusqu'à 7 km) n'est
+# qu'un puits sombre vu de biais.
+# τ est proportionnel au rayon de référence. Valeur réaliste : 1,28 s/km (vitesse du son en moyenne). Entorse au
+# réalisme : l'onde est ralentie de SHOCK_SLOWDOWN, pour que son anneau de condensation (qui s'évapore à ~0,7 τ)
+# survive au flash : 2,8 s à 10 kt, 13 s à 1 Mt, 48 s à 50 Mt. Durée totale (98 % de R_max) : 3,9 τ, soit ~16 s à
+# 10 kt, ~74 s à 1 Mt, ~270 s à 50 Mt.
+const SHOCK_VISUAL_SCALE := 1.2
+const SHOCK_VISUAL_MIN_KM := 4.0
 const SHOCK_TAU_S_PER_KM := 1.28
 const SHOCK_SLOWDOWN := 1.6
 
@@ -83,14 +88,19 @@ static func shock_radius_km(yield_kt: float) -> float:
 	return SHOCK_REF_KM * pow(_clamp_yield(yield_kt) / REF_YIELD_KT, SHOCK_EXP)
 
 
-## Rayon final de l'anneau de choc affiché (km).
+## Rayon final du front de choc affiché (km) : anneau de condensation, poussière et trou dans les nuages.
 static func shock_max_radius_km(yield_kt: float) -> float:
-	return SHOCK_VISUAL_SCALE * shock_radius_km(yield_kt)
+	return SHOCK_VISUAL_SCALE * shock_radius_km(yield_kt) + SHOCK_VISUAL_MIN_KM
 
 
-## Constante de temps de l'expansion de l'anneau de choc (s, temps physique).
+## Constante de temps de l'expansion du front de choc (s, temps physique).
 static func shock_tau_s(yield_kt: float) -> float:
 	return SHOCK_TAU_S_PER_KM * SHOCK_SLOWDOWN * shock_radius_km(yield_kt)
+
+
+## Rayon courant du front de choc (km) au temps t (s, physique) : R_max · (1 − exp(−t / τ)).
+static func shock_front_radius_km(yield_kt: float, t: float) -> float:
+	return shock_max_radius_km(yield_kt) * (1.0 - exp(-maxf(t, 0.0) / shock_tau_s(yield_kt)))
 
 
 ## Rayon de la zone en feu (km) au temps t (s, physique).

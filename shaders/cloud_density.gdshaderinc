@@ -54,6 +54,10 @@ const int CLOUD_ADVECTION_STEPS = 6;
 
 const float CLOUD_PLANET_RADIUS_KM = 6371.0;
 
+// Trous creusés par les explosions nucléaires (seul code des explosions dans ce fichier, avec l'appel dans
+// cloud_density) : suivis automatiquement par les ombres au sol, qui lisent la même densité.
+#include "res://nuke/shaders/nuke_clouds.gdshaderinc"
+
 // Déplacement (sur la sphère unité) de la position lue dans l'instantané : d0, et d1 pour l'autre trajectoire,
 // mélangée avec le poids w (0 hors de la transition de ±12 h).
 struct CloudAdvection {
@@ -154,26 +158,31 @@ float cloud_density(vec3 p, float time, bool with_detail, float lod, CloudAdvect
 		return 0.0;
 	}
 	vec3 n = p / r;
-	vec2 coverage = cloud_coverage_at(n, lod, adv);
-	float cov = coverage.x;
+	// Explosions (nuke/shaders/nuke_clouds.gdshaderinc) : trou, nuages poussés (carte lue en read_n), bourrelet.
+	vec3 read_n = n;
+	float rim = 0.0;
+	float keep = nuke_cloud_count > 0 ? nuke_cloud_warp(n, read_n, rim) : 1.0;
+	vec2 coverage = cloud_coverage_at(read_n, lod, adv);
+	float cov = coverage.x * keep;
 	if (cov <= 0.005) {
 		return 0.0;
 	}
 	// Le relief des sommets suit les nuages (bruit lu, lui aussi, à la position advectée).
-	vec3 q = normalize(n + adv.d0) * r + cloud_wind_km_s * time;
+	vec3 q = normalize(read_n + adv.d0) * r + cloud_wind_km_s * time;
 	float billow = textureLod(cloud_shape_noise, q / cloud_shape_period_km, 0.0).r;
 	float bumps = textureLod(cloud_shape_noise, q / cloud_top_detail_period_km + vec3(0.37, 0.11, 0.73), 0.0).r;
 	float extent = coverage.y;
 	float top = mix(cloud_thin_top, 1.0, extent * extent * cov)
-			* (1.0 + cloud_top_billow * (2.0 * billow - 1.0) + cloud_top_detail * (2.0 * bumps - 1.0));
+			* (1.0 + cloud_top_billow * (2.0 * billow - 1.0) + cloud_top_detail * (2.0 * bumps - 1.0))
+			* (1.0 + nuke_cloud_rim_lift * rim);
 	float profile = smoothstep(0.0, 0.06, h) * (1.0 - smoothstep(top * 0.65, top, h));
 	float density = cov * profile;
 	if (density <= 0.0 || !with_detail) {
-		return density;
+		return density * (1.0 + rim);
 	}
 	float detail = textureLod(cloud_detail_noise, q / cloud_detail_period_km, 0.0).r;
 	float erosion = cloud_edge_erosion * (1.0 - cov);
-	return clamp(cloud_remap(density, detail * erosion, 1.0, 0.0, 1.0), 0.0, 1.0);
+	return clamp(cloud_remap(density, detail * erosion, 1.0, 0.0, 1.0), 0.0, 1.0) * (1.0 + rim);
 }
 
 #endif

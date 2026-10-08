@@ -182,6 +182,8 @@ Couche entre **3 et 10 km** d'altitude, rendue par lancer de rayon (jusqu'à 72 
   progressivement par l'atmosphère (`sun_light.gdshaderinc`), lumière ambiante bleutée du ciel ; nuages éteints côté
   nuit.
 - **Ombres au sol** et voilage des lumières des villes : le shader de surface intègre la même densité.
+- **Trous des explosions** : `cloud_density()` appelle `nuke_cloud_warp()` (`nuke/shaders/nuke_clouds.gdshaderinc`,
+  voir « Explosions nucléaires », « Nuages ») ; sans explosion, le test `nuke_cloud_count > 0` évite tout calcul.
 - **Déplacement par le vent réel** (advection) : la carte de couverture est un instantané, pris par NOAA-20 vers
   **13 h 30 heure solaire locale** le 15 juillet 2023. Le vent utilisé est le vent moyen du même jour : modèle
   GFS de la NOAA, moyenne des niveaux 850/700/500 hPa et des 4 analyses du jour, texture
@@ -301,8 +303,8 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
 
 Tout le code des explosions est dans `res://nuke/`. Objectif : une animation unique, paramétrée par la puissance
 (10 kt à 50 Mt), vue depuis l'espace. **État actuel : socle de l'effet** (tir, placement, lois d'échelle,
-horloge), **flash initial**, **onde de choc** (condensation, poussière) et **incendies** ; les phases suivantes
-(boule de feu, champignon) restent à faire.
+horloge), **flash initial**, **onde de choc** (condensation, poussière), **incendies** et **trous dans la couche
+nuageuse** ; les phases suivantes (boule de feu, champignon) restent à faire.
 
 - **Paramètres** (`nuke/nuke_params.gd`, Resource `NukeParams`) : `yield_kt` (10 à 50 000), `latitude_deg`,
   `longitude_deg`, `wind_direction_deg` (d'où vient le vent, convention météo) et `wind_speed_m_s`,
@@ -404,7 +406,12 @@ horloge), **flash initial**, **onde de choc** (condensation, poussière) et **in
     atmosphérique réduit beaucoup son contraste ; elle ressort mieux près du nadir.
 
   Rayon du front **r(t) = R_max · (1 − exp(−t / τ))**, avec une progression p = r / R_max :
-  - R_max = `NukeScaling.shock_max_radius_km` (rayon de choc de référence × `SHOCK_VISUAL_SCALE`, 1 par défaut) ;
+  - R_max = `NukeScaling.shock_max_radius_km` = 1,2 × rayon de choc de référence + 4 km (`SHOCK_VISUAL_SCALE`,
+    `SHOCK_VISUAL_MIN_KM`) : 6,4 km à 10 kt, 15 km à 1 Mt, 45 km à 50 Mt. **Choix visuel** : plus grand que le rayon
+    de référence, surtout pour les petites puissances, pour que le trou creusé dans les nuages se voie (voir
+    « Nuages ») ;
+  - ce front unique porte l'anneau de condensation, soulève la poussière et **pousse les nuages devant lui** : le
+    trou dans la couche nuageuse a exactement le même rayon à chaque instant ;
   - τ = 1,28 s par km de R_max serait la valeur réaliste : le front atteindrait 90 % de R_max à ~0,34 km/s de
     moyenne (la vitesse du son), avec une vitesse initiale de ~0,8 km/s ;
   - **entorse au réalisme** : l'onde est ralentie de `SHOCK_SLOWDOWN` = 1,6 (τ = 2,05 s/km : ~0,5 km/s au départ,
@@ -445,12 +452,54 @@ horloge), **flash initial**, **onde de choc** (condensation, poussière) et **in
   - Depuis l'orbite (~0,5 km par pixel), on ne voit pas les flammes une à une, mais la lueur moyenne des zones en
     feu. Elle est faible devant un sol au soleil : les incendies se voient surtout de nuit.
   - `FireFX` transmet au sol les 8 incendies les plus intenses (position, rayon, intensité).
+- **Nuages** (`nuke/nuke_cloud_fx.gd`, nœud `CloudFX` créé par `NukeLauncher` ; `nuke/shaders/nuke_clouds.gdshaderinc`) :
+  l'onde de choc creuse un trou dans la couche nuageuse, qui se referme ensuite.
+  - **Branchement** : l'include est appelé par `cloud_density()` (`shaders/cloud_density.gdshaderinc` : une ligne
+    d'inclusion, un appel). Toute lecture de la densité est donc modifiée : rendu volumétrique, **ombres portées au
+    sol**, voilage des lumières nocturnes et des incendies, lumière des flashs dans les nuages. Les ombres suivent
+    le trou sans code dédié (vérifié : couche nuageuse masquée, le sol montre un disque éclairé dans la zone
+    ombrée, décalé selon la direction du soleil).
+  - **Trou** : à l'intérieur du rayon courant du front de choc, la densité est supprimée.
+    - Rayon : celui du front qui porte l'anneau de condensation (`NukeScaling.shock_front_radius_km`, voir « Onde
+      de choc ») : le front pousse les nuages devant lui, trou et anneau avancent ensemble.
+    - Rayon final : 6,4 km à 10 kt, 15 km à 1 Mt, 45 km à 50 Mt (agrandi par rapport au rayon de choc de
+      référence : un trou plus étroit que l'épaisseur de la couche, jusqu'à 7 km, ne serait qu'un puits sombre vu de
+      biais).
+    - **Bord flou** : largeur de 18 % du rayon, au moins 0,6 km (`nuke_cloud_edge_soft`, `nuke_cloud_edge_km`),
+      rendue irrégulière par le bruit 3D des nuages (`nuke_cloud_edge_noise`, période 0,3 × rayon). Le sommet des
+      nuages y descend en pente douce.
+  - **Nuages poussés** : la carte est lue plus près du centre, ce qui déplace les nuages radialement vers
+    l'extérieur. Le décalage vaut au plus 12 % du rayon du trou (`nuke_cloud_push`) et décroît en exp(−x / w) au-delà
+    du bord (x : distance au bord ; w = 8 % du rayon, `nuke_cloud_rim_width`). La matière balayée est tassée contre
+    le bord.
+  - **Bourrelet** : densité × (1 + 0,6), sommet relevé de 25 % sur le bord (`nuke_cloud_rim_gain`,
+    `nuke_cloud_rim_lift`), même décroissance.
+  - **Retour des nuages** sur `recovery_s` (export de `CloudFX`, **1 200 s de temps physique** de l'explosion,
+    ≈ 2 min d'horloge après l'accélération) :
+    - chaque point se referme à partir du passage du front, t = −τ · ln(1 − r / R_max) ;
+    - le bord se referme 2 fois plus vite que le centre (`nuke_cloud_edge_fill` = 1) : les nuages regagnent le trou
+      du bord vers le centre ;
+    - décalage et bourrelet s'estompent sur la même durée.
+
+    Vu en jeu : à 10 kt, trou visible dès 3 s, sol visible au fond à 30 s ; à 1 Mt, ~15 km de rayon à 40 s ; à
+    50 Mt, ~40 km à 2 min ; à moitié refermé vers 10 min, disparu vers 20 min.
+  - **Dérive** : le centre du trou suit le vent du point d'impact (`NukeParams`, vent réel GFS), le même champ de
+    vent que l'advection des nuages : le trou part avec la masse d'air.
+  - **Données** : 16 explosions au plus (les plus récentes), deux `vec4` chacune, en tableaux d'uniforms
+    `nuke_cloud_a` / `nuke_cloud_b` :
+    - a = (centre x, y, z en km dans le repère de la planète, rayon courant du trou) ;
+    - b = (rayon final du front R_max, τ, temps physique écoulé, puissance en kt).
+
+    C'est la disposition de deux texels RGBA32F par explosion. Pour passer à une texture de données, seuls
+    `nuke_cloud_event()` (shader) et `NukeCloudFX._upload()` changent. Une explosion sort de la liste quand son trou
+    est refermé (t > `recovery_s` + 4 τ).
+  - Coût : avec 16 trous actifs, la scène reste au plafond de 120 i/s (synchro verticale).
 - **Lumière et effets d'écran du flash** (`nuke/nuke_flash_fx.gd`, nœud `FlashFX` créé par `NukeLauncher`), à
   chaque image, pour les flashs actifs :
   - **sol et nuages** : uniforms `nuke_flash_*` (les 4 flashs les plus intenses) de
     `nuke/shaders/nuke_flash.gdshaderinc`, inclus dans `shaders/earth_surface.gdshader` et
-    `shaders/cloud_volume.gdshader`. Seul code des explosions hors de `nuke/` : une ligne d'inclusion et un appel
-    dans chacun. Les lumières Godot ne conviennent pas ici : le sol a un `light()` propre au soleil, et les nuages
+    `shaders/cloud_volume.gdshader`. Seul code des explosions hors de `nuke/` (avec celui des trous dans les
+    nuages, voir « Nuages ») : une ligne d'inclusion et un appel dans chacun. Les lumières Godot ne conviennent pas ici : le sol a un `light()` propre au soleil, et les nuages
     sont unshaded.
     - Le **sol** reçoit flux × (400 km / d)² × cos(incidence) × transmittance de l'air, en émission (de jour
       comme de nuit). L'horizon local est respecté (exact sur une sphère), l'ombre des nuages est calculée sur le

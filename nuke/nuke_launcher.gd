@@ -36,6 +36,10 @@ func _ready() -> void:
 	fire_fx.name = "FireFX"
 	add_child(fire_fx)
 	fire_fx.setup(self, _earth)
+	var cloud_fx := NukeCloudFX.new()
+	cloud_fx.name = "CloudFX"
+	add_child(cloud_fx)
+	cloud_fx.setup(self, _earth)
 
 
 ## Point visé par le centre de la vue : {local (repère de Earth), latitude, longitude} en degrés, ou {} si le
