@@ -12,6 +12,9 @@ extends Resource
 @export_range(0.0, 360.0, 0.1, "suffix:°") var wind_direction_deg := 0.0
 ## Vitesse du vent (m/s).
 @export_range(0.0, 100.0, 0.1, "suffix:m/s") var wind_speed_m_s := 10.0
+## Profil vertical du vent (vent réel GFS, NukeWind.sample_profile) : Vector3(altitude km, vent vers l'est, vent vers
+## le nord en m/s), d'altitude croissante. Vide : le vent ci-dessus à toutes les altitudes.
+@export var wind_profile := PackedVector3Array()
 ## Instant de l'explosion sur l'horloge des explosions (NukeClock.time_s).
 @export var start_time_s := 0.0
 ## Hauteur d'explosion (0 = au sol).
@@ -20,3 +23,22 @@ extends Resource
 
 func _init() -> void:
 	wind_direction_deg = randf() * 360.0
+
+
+## Vent (m/s, x = vers l'est, y = vers le nord) à l'altitude donnée : interpolé linéairement dans wind_profile,
+## constant sous son premier niveau et au-dessus du dernier.
+func wind_at(height_km: float) -> Vector2:
+	var n := wind_profile.size()
+	if n == 0:
+		var from := deg_to_rad(wind_direction_deg)
+		return -Vector2(sin(from), cos(from)) * wind_speed_m_s
+	var below := wind_profile[0]
+	if height_km <= below.x:
+		return Vector2(below.y, below.z)
+	for i in range(1, n):
+		var above := wind_profile[i]
+		if height_km <= above.x:
+			var f := (height_km - below.x) / maxf(above.x - below.x, 1e-3)
+			return Vector2(lerpf(below.y, above.y, f), lerpf(below.z, above.z, f))
+		below = above
+	return Vector2(below.y, below.z)

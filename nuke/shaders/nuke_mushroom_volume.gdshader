@@ -7,7 +7,9 @@
 // - tige : cylindre évasé au pied et sous le chapeau, qui se dissout avec l'âge (stem_erosion) ;
 // - nuage de base : dôme bas qui s'étend avec l'onde de choc (surge_*).
 // Asymétrie : déformation basse fréquence du domaine (warp, propre à chaque explosion via seed) et dérive au vent
-// (drift, croissante avec la hauteur). Bruit : roulement toroïdal du chapeau (coordonnées méridiennes tournées
+// (nuke_drift.gdshaderinc : profil vertical du vent réel, chaque altitude dans sa direction). Dissipation après la
+// stabilisation : densité × fade (dilution par l'étalement, disparition), trous de plus en plus grands (breakup, bruit
+// basse fréquence). Bruit : roulement toroïdal du chapeau (coordonnées méridiennes tournées
 // autour de l'anneau), défilement de la tige vers le haut, bouillonnement lent.
 // Éclairage comme les nuages (shaders/cloud_volume.gdshader) : marche vers le soleil (auto-ombrage, loi de Beer +
 // diffusion multiple approchée), phase de Henyey-Greenstein, soleil filtré par l'atmosphère (sun_light.gdshaderinc),
@@ -20,6 +22,7 @@ shader_type spatial;
 render_mode blend_premul_alpha, unshaded, cull_back, depth_draw_always, shadows_disabled, fog_disabled;
 
 #include "res://shaders/sun_light.gdshaderinc"
+#include "res://nuke/shaders/nuke_drift.gdshaderinc"
 
 uniform sampler3D noise_tex : filter_linear_mipmap, repeat_enable;
 // Repères : monde → local normalisé, local → monde, local → planète (km).
@@ -48,6 +51,8 @@ uniform float surge_density = 0.6;
 // Asymétrie : amplitude de la déformation du domaine (part de la taille locale), lobes du chapeau, graine.
 uniform float warp = 0.35;
 uniform float lobes = 0.18;
+// Part verticale de la déformation (1 ; réduite quand le chapeau s'étale en couche mince).
+uniform float warp_vertical = 1.0;
 uniform vec3 seed = vec3(0.0);
 // Bruit : anneau tourbillonnaire (rayon, hauteur), roulement, défilement de la tige, bouillonnement.
 uniform vec2 ring = vec2(0.3, 0.8);
@@ -57,11 +62,12 @@ uniform float boil = 0.0;
 uniform float noise_scale = 5.0;
 // Largeur de la zone érodée par le bruit, en part de la forme (bords gazeux).
 uniform float edge_softness = 0.35;
-// Dérive au vent.
-uniform vec3 drift = vec3(0.0);
-uniform float drift_height = 1.0;
-uniform float drift_shear = 1.5;
+// Part du cisaillement du vent appliquée au bruit (la forme le subit en entier).
+uniform float noise_shear = 0.2;
 uniform float ground_fade = 0.04;
+// Dissipation : facteur de densité (1 jusqu'à la stabilisation) et seuil des trous (0 = aucun).
+uniform float fade = 1.0;
+uniform float breakup = 0.0;
 // Extinction (par unité normalisée : extinction en km⁻¹ × sommet en km).
 uniform float extinction = 30.0;
 uniform vec3 albedo : source_color = vec3(0.85);
@@ -101,6 +107,7 @@ float shape(vec3 p, out float stem_weight) {
 	vec3 w = vec3(noise3(p * 0.9 + seed), noise3(p * 0.9 + seed + vec3(0.37, 0.61, 0.13)),
 			noise3(p * 0.9 + seed + vec3(0.71, 0.23, 0.47))) - 0.5;
 	float size = mix(max(stem_radius, 0.02), cap_radius, smoothstep(neck_height * 0.6, cap_center, p.y));
+	w.y *= warp_vertical;
 	p += w * (2.0 * warp * size);
 	float rho = length(p.xz);
 	float angle = atan(p.z, p.x);
@@ -144,24 +151,27 @@ vec3 noise_coords(vec3 p, float stem_weight) {
 	return mix(cap_q, stem_q, stem_weight) * noise_scale + vec3(boil, 0.0, 0.5 * boil) + seed;
 }
 
-// Position sans la dérive au vent (dérive croissante avec la hauteur).
-vec3 undrift(vec3 p) {
-	return p - drift * pow(clamp(p.y / max(drift_height, 1e-4), 0.0, 1.0), drift_shear);
-}
-
 float density(vec3 p, bool detail, out float core) {
-	vec3 q = undrift(p);
+	vec3 shift = nuke_drift(p.y);
+	vec3 q = p - shift;
 	float stem_weight;
 	float s = shape(q, stem_weight);
 	core = 0.0;
 	if (s <= -edge_softness) {
 		return 0.0;
 	}
-	float n = detail ? fbm(noise_coords(q, stem_weight)) : noise3(noise_coords(q, stem_weight) * 0.5);
+	// Bruit : seulement noise_shear du cisaillement autour du centre du chapeau (sinon, étiré sur des dizaines de km,
+	// il se décorrèle d'un pas de la marche à l'autre : grain et stries). La tige garde le sien (elle penche).
+	vec3 qn = q + (1.0 - noise_shear) * (1.0 - stem_weight) * (shift - nuke_drift(cap_center));
+	float n = detail ? fbm(noise_coords(qn, stem_weight)) : noise3(noise_coords(qn, stem_weight) * 0.5);
 	// Bords gazeux : la forme est rongée par le bruit sur une bande de largeur edge_softness.
 	float d = clamp((s + edge_softness * (n - 0.35)) / edge_softness, 0.0, 1.0);
 	d = d * d * (3.0 - 2.0 * d);
-	d *= smoothstep(0.0, ground_fade, q.y);
+	d *= smoothstep(0.0, ground_fade, q.y) * fade;
+	if (breakup > 0.0) {
+		// Le nuage dilué se fragmente en lambeaux : trous à grande échelle, qui grandissent avec breakup.
+		d *= smoothstep(0.5 * breakup, 1.5 * breakup + 1e-3, noise3(qn * 2.0 + seed * 2.3 + vec3(0.0, 0.0, 0.3 * boil)));
+	}
 	core = clamp(s, 0.0, 1.0) * (1.0 - stem_weight);
 	return d;
 }

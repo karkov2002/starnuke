@@ -10,6 +10,12 @@
 # Sortie : assets/textures/cloud_wind.exr, 720 x 360 (0,5°), canaux R = vent vers l'est, G = vent vers le nord, en m/s
 #   (flottants 32 bits). Même convention que les autres cartes : colonne 0 = 180° O, ligne 0 = 90° N, texels centrés.
 #
+# Seconde sortie, le profil vertical du vent (dérive des champignons atomiques, nuke/nuke_wind.gd) :
+#   assets/textures/wind_profile.exr, les niveaux $profileLevels (850 hPa à 0,1 hPa, soit ~1,5 à ~64 km d'altitude)
+#   empilés verticalement, du plus bas au plus haut, chacun sur 360 x 180 texels (1°, mêmes conventions). Canaux :
+#   R = vent vers l'est, G = vent vers le nord (m/s), B = altitude géopotentielle du niveau (HGT, km). Même moyenne
+#   sur les 4 analyses du jour.
+#
 # Le décodage GRIB2 (grille latitude/longitude, compression « complex packing + spatial differencing », gabarit 5.3,
 # celui de GFS) est fait par une routine C# compilée à la volée : aucun outil externe n'est nécessaire.
 #
@@ -17,7 +23,10 @@
 param([string] $date = "20230715")
 $root = Split-Path -Parent $PSScriptRoot
 $outPath = Join-Path $root "assets/textures/cloud_wind.exr"
+$profilePath = Join-Path $root "assets/textures/wind_profile.exr"
 $levelWeights = [ordered]@{ "850 mb" = 0.3; "700 mb" = 0.4; "500 mb" = 0.3 }
+$profileLevels = @("850 mb", "700 mb", "500 mb", "300 mb", "250 mb", "200 mb", "150 mb", "100 mb", "50 mb", "20 mb",
+    "10 mb", "5 mb", "1 mb", "0.1 mb")
 $cycles = @("00", "06", "12", "18")
 
 Add-Type -TypeDefinition @"
@@ -172,10 +181,15 @@ public static class Grib2Wind {
 
     // Écrit un OpenEXR minimal : lignes non compressées, canaux R et G en flottants 32 bits.
     public static void WriteExr(string path, float[] r, float[] g, int w, int h) {
+        WriteExr(path, new[] { "G", "R" }, new[] { g, r }, w, h);
+    }
+
+    // Même chose avec des canaux quelconques, nommés en ordre alphabétique (exigé par le format) : « B », « G », « R ».
+    public static void WriteExr(string path, string[] names, float[][] channels, int w, int h) {
         using (var wr = new BinaryWriter(File.Create(path))) {
             wr.Write(20000630); wr.Write(2);
-            Str(wr, "channels"); Str(wr, "chlist"); wr.Write(2 * (2 + 16) + 1);
-            foreach (var name in new[] { "G", "R" }) { Str(wr, name); wr.Write(2); wr.Write(0); wr.Write(1); wr.Write(1); }
+            Str(wr, "channels"); Str(wr, "chlist"); wr.Write(names.Length * (2 + 16) + 1);
+            foreach (var name in names) { Str(wr, name); wr.Write(2); wr.Write(0); wr.Write(1); wr.Write(1); }
             wr.Write((byte)0);
             Str(wr, "compression"); Str(wr, "compression"); wr.Write(1); wr.Write((byte)0);
             Str(wr, "dataWindow"); Str(wr, "box2i"); wr.Write(16); wr.Write(0); wr.Write(0); wr.Write(w - 1); wr.Write(h - 1);
@@ -186,14 +200,25 @@ public static class Grib2Wind {
             Str(wr, "screenWindowWidth"); Str(wr, "float"); wr.Write(4); wr.Write(1.0f);
             wr.Write((byte)0);
             long tableStart = wr.BaseStream.Position;
-            int lineBytes = 8 + w * 4 * 2;
+            int lineBytes = 8 + w * 4 * names.Length;
             for (int y = 0; y < h; y++) wr.Write(tableStart + 8L * h + (long)y * lineBytes);
             for (int y = 0; y < h; y++) {
-                wr.Write(y); wr.Write(w * 4 * 2);
-                for (int x = 0; x < w; x++) wr.Write(g[y * w + x]);
-                for (int x = 0; x < w; x++) wr.Write(r[y * w + x]);
+                wr.Write(y); wr.Write(w * 4 * names.Length);
+                foreach (var c in channels)
+                    for (int x = 0; x < w; x++) wr.Write(c[y * w + x]);
             }
         }
+    }
+
+    // sum[offset + k] += weight * values[k] (boucle trop lente en PowerShell pour les 14 niveaux du profil).
+    public static void Accumulate(double[] sum, float[] values, double weight, int offset) {
+        for (int k = 0; k < values.Length; k++) sum[offset + k] += weight * values[k];
+    }
+
+    public static float[] Scale(double[] sum, double divisor) {
+        var res = new float[sum.Length];
+        for (int k = 0; k < sum.Length; k++) res[k] = (float)(sum[k] / divisor);
+        return res;
     }
 }
 "@
@@ -203,37 +228,60 @@ $height = 360
 $sumU = New-Object 'double[]' ($width * $height)
 $sumV = New-Object 'double[]' ($width * $height)
 $weightTotal = 0.0
+# Profil : niveaux empilés (le plus bas en haut de l'image), 1°.
+$profileWidth = 360
+$profileHeight = 180
+$profileSize = $profileWidth * $profileHeight
+$profileU = New-Object 'double[]' ($profileSize * $profileLevels.Count)
+$profileV = New-Object 'double[]' ($profileSize * $profileLevels.Count)
+$profileZ = New-Object 'double[]' ($profileSize * $profileLevels.Count)
+$levels = @($levelWeights.Keys) + @($profileLevels | Where-Object { -not $levelWeights.Contains($_) })
 foreach ($cycle in $cycles) {
     $url = "https://noaa-gfs-bdp-pds.s3.amazonaws.com/gfs.$date/$cycle/atmos/gfs.t${cycle}z.pgrb2.0p25.anl"
     Write-Host "GFS $date ${cycle}Z"
     [string[]] $index = (New-Object System.Net.WebClient).DownloadString("$url.idx") -split "`n" | Where-Object { $_ }
-    foreach ($level in $levelWeights.Keys) {
+    foreach ($level in $levels) {
+        $profileIndex = [array]::IndexOf($profileLevels, $level)
+        $components = if ($profileIndex -ge 0) { @("UGRD", "VGRD", "HGT") } else { @("UGRD", "VGRD") }
         $fields = @{}
-        foreach ($component in @("UGRD", "VGRD")) {
+        $profileFields = @{}
+        foreach ($component in $components) {
             $i = [array]::FindIndex($index, [Predicate[string]] { param($l) $l -like "*:${component}:${level}:anl*" })
             if ($i -lt 0) { throw "$component $level absent de $url" }
             $first = [long]($index[$i] -split ":")[1]
             $last = [long]($index[$i + 1] -split ":")[1] - 1
             $ni = 0; $nj = 0
             $grid = [Grib2Wind]::Decode([Grib2Wind]::Download($url, $first, $last), [ref]$ni, [ref]$nj)
-            $fields[$component] = [Grib2Wind]::Resample($grid, $ni, $nj, $width, $height)
+            if ($levelWeights.Contains($level) -and $component -ne "HGT") {
+                $fields[$component] = [Grib2Wind]::Resample($grid, $ni, $nj, $width, $height)
+            }
+            if ($profileIndex -ge 0) {
+                $profileFields[$component] = [Grib2Wind]::Resample($grid, $ni, $nj, $profileWidth, $profileHeight)
+            }
         }
-        $weight = $levelWeights[$level]
-        $u = $fields["UGRD"]; $v = $fields["VGRD"]
-        for ($k = 0; $k -lt $u.Length; $k++) {
-            $sumU[$k] += $weight * $u[$k]
-            $sumV[$k] += $weight * $v[$k]
+        if ($levelWeights.Contains($level)) {
+            $weight = $levelWeights[$level]
+            [Grib2Wind]::Accumulate($sumU, $fields["UGRD"], $weight, 0)
+            [Grib2Wind]::Accumulate($sumV, $fields["VGRD"], $weight, 0)
+            $weightTotal += $weight
         }
-        $weightTotal += $weight
+        if ($profileIndex -ge 0) {
+            $offset = $profileIndex * $profileSize
+            [Grib2Wind]::Accumulate($profileU, $profileFields["UGRD"], 1.0, $offset)
+            [Grib2Wind]::Accumulate($profileV, $profileFields["VGRD"], 1.0, $offset)
+            [Grib2Wind]::Accumulate($profileZ, $profileFields["HGT"], 0.001, $offset)
+        }
+        $u = if ($profileIndex -ge 0) { $profileFields["UGRD"] } else { $fields["UGRD"] }
         $max = ($u | Measure-Object -Maximum -Minimum)
         Write-Host ("  {0} : vent est {1:F1} .. {2:F1} m/s" -f $level, $max.Minimum, $max.Maximum)
     }
 }
-$outU = New-Object 'float[]' ($width * $height)
-$outV = New-Object 'float[]' ($width * $height)
-for ($k = 0; $k -lt $outU.Length; $k++) {
-    $outU[$k] = [float]($sumU[$k] / $weightTotal)
-    $outV[$k] = [float]($sumV[$k] / $weightTotal)
-}
+$outU = [Grib2Wind]::Scale($sumU, $weightTotal)
+$outV = [Grib2Wind]::Scale($sumV, $weightTotal)
 [Grib2Wind]::WriteExr($outPath, $outU, $outV, $width, $height)
 Write-Host "Écrit : $outPath"
+$cycleCount = [double] $cycles.Count
+[Grib2Wind]::WriteExr($profilePath, [string[]] @("B", "G", "R"), [float[][]] @([Grib2Wind]::Scale($profileZ, $cycleCount),
+    [Grib2Wind]::Scale($profileV, $cycleCount), [Grib2Wind]::Scale($profileU, $cycleCount)),
+    $profileWidth, $profileHeight * $profileLevels.Count)
+Write-Host "Écrit : $profilePath"

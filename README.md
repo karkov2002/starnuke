@@ -293,10 +293,15 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
      que les composantes UGRD/VGRD à 850, 700 et 500 hPa (~24 Mo).
    - Il décode le GRIB2 lui-même (gabarit 5.3, « complex packing + spatial differencing »), puis fait la moyenne.
    - Il écrit `assets/textures/cloud_wind.exr` (720 × 360, R = vent vers l'est, G = vers le nord, m/s).
+   - Il écrit aussi le **profil vertical** du vent, pour la dérive des champignons atomiques
+     (`assets/textures/wind_profile.exr`) : 14 niveaux de pression (850, 700, 500, 300, 250, 200, 150, 100, 50, 20,
+     10, 5, 1 et 0,1 hPa, soit ~1,5 à ~64 km d'altitude), moyennés sur les 4 analyses du jour et empilés
+     verticalement du plus bas au plus haut, 360 × 180 texels (1°) chacun. Canaux : R = vent vers l'est, G = vers le
+     nord (m/s), B = altitude géopotentielle du niveau (champ HGT, km). Téléchargement : ~150 Mo, quelques minutes.
    - Le service OPeNDAP de la NOAA, plus simple, était hors service ; la réanalyse NCEP (2,5°) aurait été trop
      grossière pour les cyclones.
-   - L'import Godot de cette texture doit rester **sans perte** (`detect_3d/compress_to=0` dans le `.import`), sinon
-     la compression GPU fausse les vitesses.
+   - L'import Godot de ces deux textures doit rester **sans perte** (`detect_3d/compress_to=0` dans le `.import`),
+     sinon la compression GPU fausse les vitesses.
    - Pour une autre journée de nuages, refaire les étapes 4 et 5 avec la même date.
 
 ## Explosions nucléaires (`nuke/`)
@@ -304,16 +309,22 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
 Tout le code des explosions est dans `res://nuke/`. Objectif : une animation unique, paramétrée par la puissance
 (10 kt à 50 Mt), vue depuis l'espace. **État actuel : socle de l'effet** (tir, placement, lois d'échelle,
 horloge), **flash initial**, **onde de choc** (condensation, poussière), **incendies**, **trous dans la couche
-nuageuse** et **champignon** (boule de feu comprise).
+nuageuse** et **champignon** (boule de feu comprise ; dérive selon le profil vertical du vent, dissipation et panache).
 
 - **Paramètres** (`nuke/nuke_params.gd`, Resource `NukeParams`) : `yield_kt` (10 à 50 000), `latitude_deg`,
   `longitude_deg`, `wind_direction_deg` (d'où vient le vent, convention météo) et `wind_speed_m_s`,
   `start_time_s` (instant sur l'horloge `NukeClock`), `burst_height_km` (0 = au sol, valeur par défaut).
   - **Vent réel** (`nuke/nuke_wind.gd`) : au tir, le vent est lu au point d'impact dans la même carte que
     l'advection des nuages (`assets/textures/cloud_wind.exr`, vent GFS moyen du jour à 850/700/500 hPa, ~1,5 à
-    5,5 km d'altitude, interpolation bilinéaire). Le panache dérivera donc comme les nuages. Limite : c'est le vent
-    de la basse et moyenne troposphère, pas celui de la stratosphère où monte le chapeau des fortes puissances.
-    Sans carte, la direction reste tirée au hasard.
+    5,5 km d'altitude, interpolation bilinéaire) : le trou dans la couche nuageuse dérive comme les nuages. Sans
+    carte, la direction reste tirée au hasard.
+  - **Profil vertical** (`wind_profile`, `NukeWind.sample_profile`) : le vent GFS du même jour à 14 altitudes, de
+    ~1,5 à ~64 km (`assets/textures/wind_profile.exr`), interpolé linéairement en altitude par
+    `NukeParams.wind_at()` (constant sous le premier niveau et au-dessus du dernier ; vide : le vent ci-dessus
+    partout). C'est lui qui fait dériver le champignon. Le tir affiche le vent au niveau du chapeau. Exemple, 15 juillet
+    à 42° N : vent de sud-ouest de 12 m/s en bas, 19 m/s à 17 km (courant-jet), vents d'est stratosphériques
+    au-dessus de ~20 km (43 m/s à 49 km) : un 50 Mt part vers l'ouest quand le trou dans les nuages part vers le
+    nord-est.
 - **Lois d'échelle** (`nuke/nuke_scaling.gd`, classe statique `NukeScaling`, coefficients en tête de fichier), W en kt :
 
   | Grandeur | Formule | 10 kt | 1 Mt | 50 Mt |
@@ -498,11 +509,40 @@ nuageuse** et **champignon** (boule de feu comprise).
   - **Maillage de révolution** fixe (96 anneaux × 128 segments). Le profil (méridienne de 48 points : tige au pied et
     au col évasés, puis chapeau à dessous creusé, bord arrondi et dessus aplati) est recalculé à chaque image et
     posé par le vertex shader, qui l'interpole entre ses points.
-  - **Dérive au vent** : vent réel GFS du point d'impact (`NukeParams`), le même que pour la dérive du trou dans les
-    nuages. Le nuage est entraîné de v · t ; le déplacement croît avec la hauteur relative au centre du chapeau
-    (puissance `drift_shear` = 1,5). Le pied reste au point zéro, la tige penche, le chapeau part en entier. Les
-    émetteurs de particules suivent. Ordre de grandeur : 15 m/s font 9 km en 10 min et 55 km en 1 h. Limite : c'est
-    le vent de la basse et moyenne troposphère, appliqué aussi au chapeau stratosphérique des fortes puissances.
+  - **Dérive au vent** (`_update_drift`, `nuke/shaders/nuke_drift.gdshaderinc`) : profil vertical du vent réel GFS
+    au point d'impact (`NukeParams.wind_profile`, voir « Paramètres »). Chaque altitude part avec son propre vent :
+    - le déplacement est calculé en 32 hauteurs (0 à 1,4 sommet final) et interpolé par les shaders (volume,
+      maillage) et pour les émetteurs de particules ;
+    - pendant la montée (10 min), une parcelle garde sa hauteur relative dans le nuage qui monte : son déplacement
+      intègre le vent des altitudes traversées (16 pas). Ensuite, chaque hauteur avance au vent de son altitude ;
+    - le pied reste au point zéro : sous le centre du chapeau, la dérive est multipliée par (y / centre)^`drift_shear`
+      (1,5), la tige penche ;
+    - **cisaillement** : le vent diffère au-dessus et au-dessous du centre du chapeau. Le chapeau s'étire en panache
+      dans le sens du cisaillement (en « stade » : un disque décalé le long d'une direction) et se tord quand la
+      direction change avec l'altitude. Exemple (1 Mt, 42° N, 15 juillet) : courant-jet vers 13 km, vent presque nul
+      vers 21 km, le panache s'étend sur ~80 km en 1 h ;
+    - le bruit fin ne subit que 20 % du cisaillement (`noise_shear`) : étiré sur des dizaines de km, il se
+      décorrélerait d'un pas de la marche à l'autre (grain, stries). La forme le subit en entier.
+  - **Dissipation** (« Le nuage peut rester visible une heure ou plus avant d'être dispersé par les vents dans
+    l'atmosphère environnante, où il se confond avec les nuages naturels », Glasstone & Dolan §2.16). Après la
+    stabilisation (t > 10 min), constantes de `NukeScaling` :
+    - **étalement** par la turbulence : R² = R0² + 4 K (t − 10 min), K = 2·10⁴ m²/s (`CLOUD_SPREAD_K_M2_S`, ordre de
+      grandeur de la diffusivité horizontale aux échelles de 10 à 100 km). Rayon du chapeau : 1 Mt, 13,5 km →
+      ~21 km à 1 h, ~36 km à 4 h ; 10 kt, 4,8 km → ~16 km à 1 h ;
+    - **amincissement** : épaisseur × (R0 / R)^0,5 (`CLOUD_THIN_EXP`), centre du chapeau fixe ;
+    - **dilution** (masse conservée) : densité × (R0 / R)^1,5, soit une épaisseur optique vue de dessus × (R0 / R)² ;
+    - **disparition** (évaporation, dépôt, mélange) : × exp(−(t − 10 min) / τ), τ = 1 h pour un chapeau dans la
+      troposphère, 2 h au-dessus de la tropopause (air sec et stable, pas de précipitations), avec un passage
+      progressif sur ±2 km. Tropopause : 17 km à l'équateur, 9 km aux pôles, en cos² de la latitude
+      (`NukeScaling.tropopause_km`) ;
+    - **fragmentation** : le nuage dilué se déchire en lambeaux (trous de bruit basse fréquence, seuil 0,55 ×
+      (1 − √densité), `breakup` du shader) ; la déformation verticale du domaine est réduite de R0 / R (couche mince) ;
+    - le champignon est masqué sous 1 % de densité : ~2 h après un 10 kt, ~6 h après un 1 Mt (temps physique ;
+      ~12 et ~36 min d'horloge avec l'accélération ×10). Effet visible : à 1 Mt, chapeau net à 30 min, panache
+      étiré à 1 h, voile ténu à 2 h ;
+    - la boîte englobante suit les hauteurs occupées : une fois la tige dissoute, elle ne descend plus jusqu'au sol
+      et ne couvre que la dérive du chapeau (qui peut être à des centaines de km du point zéro) ;
+    - rendu par maillage : opacité × la même densité.
   - **Contact avec le sol adouci** : l'opacité du champignon monte depuis 0 au sol jusqu'à 4 % du sommet final
     (`ground_fade` du shader), avec une limite rongée par le bruit.
   - **Nuage de base** (`BaseSurge`, explosions basses) : dôme de poussière bas, même shader et même couleur que le
@@ -656,8 +696,8 @@ nuageuse** et **champignon** (boule de feu comprise).
   - champs latitude / longitude (Madrid par défaut), bouton **Point visé** (recopie le centre de la vue),
     **Tirer**, **Effacer** ;
   - case **Marqueurs** (marqueurs de taille des explosions) ;
-  - scrubber du temps physique (0 à 15 min, non linéaire : t = 15 min · v⁴, les 3 premières secondes occupent un
-    quart de la course) : il suit la dernière explosion tirée depuis ce panneau ; le déplacer (ou cocher
+  - scrubber du temps physique (0 à 6 h, pour voir la dissipation du champignon ; non linéaire : t = 6 h · v⁵, les
+    3 premières secondes occupent 17 % de la course, les 10 premières minutes la moitié) : il suit la dernière explosion tirée depuis ce panneau ; le déplacer (ou cocher
     **Rejouer**) fige toutes les explosions au temps choisi, décocher rend la main à l'horloge.
 
 ## Sources des textures
@@ -675,6 +715,7 @@ Toutes issues de la NASA ou de la NOAA, domaine public (crédit demandé) :
 | `assets/textures/earth_clouds_8k.jpg` | Couverture nuageuse Blue Marble, 8192 × 4096 : utilisée seulement par l'outil, pour combler les zones sans données VIIRS | NASA Visible Earth / Earth Observatory, image 57747 |
 | `assets/textures/starmap_4k.exr` | Deep Star Maps 2020, 4096 × 2048, HDR | NASA Scientific Visualization Studio, animation 4851 |
 | `assets/textures/cloud_wind.exr` | Vent moyen du 15 juillet 2023 (850–500 hPa), 720 × 360 | NOAA, modèle GFS, analyses 0,25° (NOAA Open Data Dissemination, AWS) |
+| `assets/textures/wind_profile.exr` | Profil vertical du vent du même jour (14 niveaux, 850 à 0,1 hPa) et altitude de chaque niveau, 360 × 180 par niveau (~11 Mo) | idem |
 
 Limites des nuages réels : c'est un instantané déplacé par le vent (les nuages ne se forment ni ne se dissipent, et
 la journée se répète). On voit quelques raccords entre

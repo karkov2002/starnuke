@@ -31,6 +31,29 @@ const CAP_RADIUS_PER_TOP := 0.6
 # 14 miles : 2 miles à 0,3 min, 4 à 0,7 min, 6 à 1,1 min, 10 à 2,5 min, 12 à 3,8 min, soit 14 %, 29 %, 43 %, 71 % et
 # 86 % du sommet), soit ~1 min 36 s d'horloge avec l'accélération des phases lentes (NukeClock).
 const MUSHROOM_RISE_S := 600.0
+# Dissipation, après la stabilisation (t > MUSHROOM_RISE_S). « Le nuage peut rester visible une heure ou plus avant
+# d'être dispersé par les vents dans l'atmosphère environnante, où il se confond avec les nuages naturels » (Glasstone
+# & Dolan §2.16). Modèle :
+# - étalement horizontal par la turbulence : R² = R0² + 4 K (t − t_s), K = CLOUD_SPREAD_K_M2_S (ordre de grandeur de
+#   la diffusivité horizontale aux échelles de 10 à 100 km, 10⁴ à 10⁵ m²/s). 1 Mt : chapeau de 13,5 km de rayon,
+#   ~21 km à 1 h, ~36 km à 4 h ; 10 kt : 4,8 km, ~16 km à 1 h. L'étirement dans le sens du vent vient du cisaillement
+#   (vent différent au-dessus et au-dessous du centre du chapeau, profil GFS) ;
+# - amincissement : épaisseur × (R0 / R)^CLOUD_THIN_EXP (la stratification freine le mélange vertical) ;
+# - masse conservée : densité × (R0 / R)^(2 − CLOUD_THIN_EXP), soit une épaisseur optique vue de dessus × (R0 / R)² ;
+# - disparition (évaporation, dépôt, mélange avec l'air environnant) : × exp(−(t − t_s) / τ), τ = CLOUD_FADE_TROPO_S
+#   pour un chapeau dans la troposphère, CLOUD_FADE_STRATO_S au-dessus de la tropopause (air sec et stable, pas de
+#   précipitations), avec un passage progressif sur ±CLOUD_TROPOPAUSE_BLEND_KM.
+# Le champignon est masqué sous CLOUD_FADE_MIN : ~2 h à 10 kt, ~6 h à 1 Mt (temps physique, ~12 et ~36 min
+# d'horloge avec l'accélération ×10).
+const CLOUD_SPREAD_K_M2_S := 2.0e4
+const CLOUD_THIN_EXP := 0.5
+const CLOUD_FADE_TROPO_S := 3600.0
+const CLOUD_FADE_STRATO_S := 7200.0
+const CLOUD_TROPOPAUSE_BLEND_KM := 2.0
+const CLOUD_FADE_MIN := 0.01
+# Tropopause (km) : ~17 km à l'équateur, ~9 km aux pôles, en cos² de la latitude.
+const TROPOPAUSE_EQUATOR_KM := 17.0
+const TROPOPAUSE_POLE_KM := 9.0
 # La boule de feu reste lumineuse ~1 min pour 1 Mt (Glasstone & Dolan §2.18), ~70 t_max : 8 s à 10 kt, 6 min à 50 Mt.
 const FIREBALL_GLOW_TMAX := 70.0
 
@@ -146,6 +169,27 @@ static func cloud_top_km(yield_kt: float) -> float:
 
 static func cloud_cap_radius_km(yield_kt: float) -> float:
 	return CAP_RADIUS_PER_TOP * cloud_top_km(yield_kt)
+
+
+## Étalement du chapeau stabilisé : R / R0 au temps t (s, physique), 1 avant la stabilisation.
+static func cloud_spread_ratio(yield_kt: float, t: float) -> float:
+	var r0_m := cloud_cap_radius_km(yield_kt) * 1000.0
+	return sqrt(1.0 + 4.0 * CLOUD_SPREAD_K_M2_S * maxf(t - MUSHROOM_RISE_S, 0.0) / (r0_m * r0_m))
+
+
+## Altitude de la tropopause (km) à la latitude donnée.
+static func tropopause_km(latitude_deg: float) -> float:
+	var c := cos(deg_to_rad(latitude_deg))
+	return lerpf(TROPOPAUSE_POLE_KM, TROPOPAUSE_EQUATOR_KM, c * c)
+
+
+## Facteur de densité du nuage (1 jusqu'à la stabilisation) : masse diluée par l'étalement (spread = R / R0) et
+## disparition progressive, plus lente pour un chapeau stratosphérique (centre à cap_center_km).
+static func cloud_fade(t: float, spread: float, cap_center_km: float, latitude_deg: float) -> float:
+	var above := smoothstep(-CLOUD_TROPOPAUSE_BLEND_KM, CLOUD_TROPOPAUSE_BLEND_KM,
+			cap_center_km - tropopause_km(latitude_deg))
+	var tau := lerpf(CLOUD_FADE_TROPO_S, CLOUD_FADE_STRATO_S, above)
+	return pow(spread, CLOUD_THIN_EXP - 2.0) * exp(-maxf(t - MUSHROOM_RISE_S, 0.0) / tau)
 
 
 ## Flux au pic du flash à FLASH_REF_DISTANCE_KM, sans atmosphère (soleils) : 0,022 à 10 kt, 0,29 à 1 Mt, 2,6 à 50 Mt.

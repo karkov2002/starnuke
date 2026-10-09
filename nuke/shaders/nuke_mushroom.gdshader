@@ -9,8 +9,8 @@
 // - Chapeau « roulant » : le bruit y est lu dans des coordonnées tournées, dans chaque plan méridien, autour de
 //   l'anneau tourbillonnaire (ring) : l'air monte au centre, s'écarte au sommet, redescend au bord et rentre
 //   par-dessous. La tige fait défiler son bruit vers le haut (aspiration).
-// - Dérive au vent : déplacement horizontal drift (unités normalisées) × (y / drift_height)^drift_shear, borné à 1 :
-//   pied fixe, tige penchée, chapeau entraîné en entier.
+// - Dérive au vent : déplacement horizontal selon la hauteur (nuke_drift.gdshaderinc, profil du vent réel) :
+//   pied fixe, tige penchée, chapeau entraîné et cisaillé.
 // - Contact avec le sol adouci : opacité nulle au sol, pleine à ground_fade (part du sommet final).
 // - Éclairage : soleil seulement (lumière Sun), diffus enveloppant, teinté et éteint par l'atmosphère au point
 //   (sun_light.gdshaderinc, positions en km dans le repère de la planète) ; lumière du ciel en émission.
@@ -23,6 +23,7 @@ render_mode blend_mix, depth_prepass_alpha, cull_back, shadows_disabled, ambient
 		specular_disabled;
 
 #include "res://shaders/sun_light.gdshaderinc"
+#include "res://nuke/shaders/nuke_drift.gdshaderinc"
 
 const int PROFILE_POINTS = 48;
 
@@ -50,10 +51,6 @@ uniform float glow_core_power = 1.5;
 uniform float erosion = 0.0;
 uniform float edge_erosion = 0.25;
 uniform float opacity = 1.0;
-// Dérive au vent : déplacement du chapeau (unités normalisées), hauteur à partir de laquelle il est entier, profil.
-uniform vec3 drift = vec3(0.0);
-uniform float drift_height = 1.0;
-uniform float drift_shear = 1.5;
 // Hauteur (unités normalisées) sur laquelle l'opacité monte depuis le sol.
 uniform float ground_fade = 0.04;
 // Repère : local (normalisé) → planète (km), et direction du soleil dans le repère de la planète.
@@ -120,7 +117,7 @@ void vertex() {
 	v_size = mix(max(ring.x, 0.02), max(p.x, 0.005), v_stem);
 	VERTEX = pos + nrm * (displacement * v_size * relief(v_noise));
 	v_height = VERTEX.y;
-	VERTEX += drift * pow(clamp(VERTEX.y / max(drift_height, 1e-4), 0.0, 1.0), drift_shear);
+	VERTEX += nuke_drift(VERTEX.y);
 	NORMAL = nrm;
 	v_up = nrm.y;
 	v_planet = (local_to_planet_km * vec4(VERTEX, 1.0)).xyz;

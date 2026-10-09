@@ -6,10 +6,10 @@ extends CanvasLayer
 ##   curseur (time_override_s), sinon le curseur suit le temps réel de l'effet ;
 ## - « Effacer » supprime toutes les explosions ; « Marqueurs » affiche les marqueurs de taille (NukeEffect).
 
-const SCRUB_MAX_S := 900.0
-## Le curseur n'est pas linéaire (t = SCRUB_MAX_S · v⁴) : les 3 premières secondes (flash) occupent un quart de sa
-## course.
-const SCRUB_POWER := 4.0
+const SCRUB_MAX_S := 21600.0
+## Le curseur va jusqu'à 6 h (dissipation du champignon) et n'est pas linéaire (t = SCRUB_MAX_S · v⁵) : les 3 premières
+## secondes (flash) occupent 17 % de sa course, les 10 premières minutes (montée du champignon) la moitié.
+const SCRUB_POWER := 5.0
 
 var _yield_kt := 1000.0
 var _yield_slider: HSlider
@@ -176,8 +176,10 @@ func _make_button(text: String, action: Callable) -> Button:
 func _format_duration(seconds: float) -> String:
 	if seconds < 60.0:
 		return "%.1f s" % seconds
-	@warning_ignore("integer_division")
-	return "%d min %02d s" % [int(seconds) / 60, int(seconds) % 60]
+	var s := int(seconds)
+	if seconds < 3600.0:
+		return "%d min %02d s" % [floori(s / 60.0), s % 60]
+	return "%d h %02d min" % [floori(s / 3600.0), floori(s / 60.0) % 60]
 
 
 func _make_panel_style() -> StyleBoxFlat:

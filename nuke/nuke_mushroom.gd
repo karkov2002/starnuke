@@ -28,9 +28,16 @@ extends Node3D
 ## Chapeau roulant : angle de roulement autour de l'anneau tourbillonnaire, tour en roll_period_s au début, de plus en
 ## plus lent (ω = ω0 / (1 + t / roll_slowdown_s), intégré analytiquement : rejouable au scrubber).
 ##
-## Dérive au vent (vent réel GFS du point d'impact, NukeParams ; le même que la dérive du trou dans les nuages) : le
-## nuage est entraîné de v · t, le pied restant au point zéro. Le déplacement croît avec la hauteur jusqu'au centre du
-## chapeau (puissance drift_shear) : la tige penche, le chapeau part en entier.
+## Dérive au vent (profil vertical du vent réel GFS au point d'impact, NukeParams.wind_profile) : chaque hauteur part
+## avec le vent de son altitude (_update_drift). Pendant la montée, une parcelle garde sa hauteur relative dans le
+## nuage : son déplacement intègre le vent des altitudes traversées. Le pied reste au point zéro (facteur
+## (y / centre du chapeau)^drift_shear sous le chapeau) : la tige penche. Au-dessus et au-dessous du centre du
+## chapeau, le vent diffère (cisaillement) : le chapeau s'étire et se tord dans le sens du vent. Le déplacement est
+## échantillonné en DRIFT_SAMPLES hauteurs et interpolé par les shaders (nuke/shaders/nuke_drift.gdshaderinc).
+##
+## Dissipation (après la stabilisation, NukeScaling.cloud_spread_ratio / cloud_fade) : le chapeau s'étale par la
+## turbulence (rayon), s'amincit, sa densité baisse (masse diluée, puis disparition plus lente au-dessus de la
+## tropopause) et il se fragmente en lambeaux (breakup du shader). Sous CLOUD_FADE_MIN, le champignon est masqué.
 ##
 ## Nuage de base (BaseSurge, explosions basses) : dôme de poussière au pied, même shader et même couleur que le
 ## champignon, qui s'étend vers l'extérieur avec l'onde de choc (surge_shock_ratio × rayon du front) et s'estompe en
@@ -48,6 +55,13 @@ const STEM_POINTS := 16
 const RINGS := 96
 const SEGMENTS := 128
 const MAX_PARTICLE_SPEED := 20.0
+## Profil de dérive : nombre de hauteurs (= taille du tableau drift_profile de nuke_drift.gdshaderinc), hauteur
+## couverte (unités normalisées : au-dessus du chapeau et de sa déformation), pas d'intégration pendant la montée.
+const DRIFT_SAMPLES := 32
+const DRIFT_TOP := 1.4
+const DRIFT_RISE_STEPS := 16
+## Fragmentation du nuage dilué (breakup du shader volumétrique) : BREAKUP_MAX × (1 − √fade).
+const BREAKUP_MAX := 0.55
 const SHAPE_NOISE := preload("res://materials/cloud_shape_noise.tres")
 const SMOKE_SHADER := preload("res://nuke/shaders/nuke_smoke.gdshader")
 const VOLUME_SHADER := preload("res://nuke/shaders/nuke_mushroom_volume.gdshader")
@@ -90,7 +104,7 @@ const VOLUME_SHADER := preload("res://nuke/shaders/nuke_mushroom_volume.gdshader
 ## 0,0015 × sommet, soit ~35 m/s à 1 Mt et ~100 m/s à 50 Mt (courant ascendant de la tige).
 @export var stem_rise_speed := 0.0015
 @export var boil_rate := 0.0003
-## Profil vertical de la dérive au vent (exposant de la hauteur relative au centre du chapeau).
+## Ancrage du pied : sous le centre du chapeau, la dérive est multipliée par (y / centre du chapeau)^drift_shear.
 @export var drift_shear := 1.5
 @export_group("Nuage de base")
 ## Rayon du dôme : part du rayon courant du front de choc ; hauteur : part de son rayon.
@@ -116,6 +130,11 @@ var _last_t := -1.0
 var _stem: GPUParticles3D
 var _skirt: GPUParticles3D
 var _debris: GPUParticles3D
+## Dérive (unités normalisées) aux DRIFT_SAMPLES hauteurs ; vent à ces hauteurs (unités normalisées par s) et
+## déplacement accumulé pendant toute la montée (calculés une fois).
+var _drift := PackedVector3Array()
+var _wind_units := PackedVector3Array()
+var _rise_drift := PackedVector3Array()
 
 @onready var _cloud: MeshInstance3D = $Cloud
 
@@ -189,6 +208,21 @@ func _update(delta: float) -> void:
 	var under := lerpf(1.0, neck_drop, clampf(rs / (0.1 * rc), 0.0, 1.0))
 	var yc := h - 0.5 * hc
 	var y_neck := yc - under * 0.5 * hc
+
+	# Dissipation après la stabilisation : étalement, amincissement (centre du chapeau fixe), dilution, disparition.
+	var spread := NukeScaling.cloud_spread_ratio(w, t)
+	var fade := NukeScaling.cloud_fade(t, spread, yc * top_km, params.latitude_deg)
+	if fade < NukeScaling.CLOUD_FADE_MIN:
+		visible = false
+		_last_t = t
+		return
+	var hc_rise := hc
+	if spread > 1.0:
+		rc *= spread
+		hc /= pow(spread, NukeScaling.CLOUD_THIN_EXP)
+		h = yc + 0.5 * hc
+		y_neck = yc - under * 0.5 * hc
+	_material.set_shader_parameter("opacity", fade)
 	_material.set_shader_parameter("profile", _profile(yc, 0.5 * hc, rc, rs, y_neck, h))
 	_material.set_shader_parameter("stem_fraction", float(STEM_POINTS - 1) / float(PROFILE_POINTS - 1))
 	_material.set_shader_parameter("ring", Vector2(0.55 * rc, yc))
@@ -215,17 +249,27 @@ func _update(delta: float) -> void:
 		sun_dir = (earth.global_basis.inverse() * _sun.global_basis.z).normalized()
 		_material.set_shader_parameter("sun_dir_planet", sun_dir)
 
-	# Dérive au vent : la direction est celle d'où il vient (convention météo), l'air va à l'opposé. Repère local :
-	# X = est, −Z = nord. Unités normalisées (vitesse en km/s rapportée au sommet final).
-	var from := deg_to_rad(params.wind_direction_deg)
-	var drift := Vector3(-sin(from), 0.0, cos(from)) * (params.wind_speed_m_s * 0.001 * t / top_km)
-	var drift_height := maxf(yc, 0.05)
-	_material.set_shader_parameter("drift", drift)
-	_material.set_shader_parameter("drift_height", drift_height)
-	_material.set_shader_parameter("drift_shear", drift_shear)
+	# Dérive au vent (profil vertical), partagée par tous les matériaux du champignon.
+	_update_drift(t, top_km, maxf(yc, 0.05))
+	for m: ShaderMaterial in [_material, _surge_material, _volume_material]:
+		m.set_shader_parameter("drift_profile", _drift)
+		m.set_shader_parameter("drift_top", DRIFT_TOP)
 
 	var erosion := erosion_curve.sample(minf(a, erosion_curve.max_domain))
-	var surge := _update_surge(t, a, yb, rf, top_km, erosion, albedo, glow, to_planet, sun_dir, drift, drift_height)
+	var surge := _update_surge(t, a, yb, rf, top_km, erosion, albedo, glow, to_planet, sun_dir)
+	# Boîte englobante : chapeau, nuage de base, dérive des hauteurs occupées. La densité s'étend jusqu'à ~1,2 fois la
+	# forme (bord rongé par le bruit) ; avec les lobes (+18 %) et la déformation (0,35 × rayon, verticale réduite de
+	# 1 / spread) : ~1,75 fois le rayon du chapeau. Une fois la tige dissoute (et le nuage de base retombé), la boîte ne
+	# descend plus jusqu'au sol : le chapeau peut être à des centaines de km du point zéro.
+	var extent := maxf(maxf(rc * 1.8, surge.x * 1.15), rs * 4.0) + 0.02
+	var y_low := 0.0
+	if erosion >= 0.89 and surge.z <= 0.0:
+		y_low = maxf(yc - 1.25 * under * 0.5 * hc - 0.35 * rc / spread - 0.02, 0.0)
+	var y_high := maxf(h + 0.6 * hc_rise, yc + 1.25 * 0.5 * hc + 0.35 * rc / spread) + 0.02
+	var drift_range := _drift_range(y_low, y_high)
+	var box_min := Vector3(drift_range[0].x - extent, y_low, drift_range[0].z - extent)
+	var box_max := Vector3(drift_range[1].x + extent, y_high, drift_range[1].z + extent)
+	_cloud.custom_aabb = AABB(box_min, box_max - box_min)
 	_cloud.visible = not volumetric
 	_surge.visible = _surge.visible and not volumetric
 	_volume.visible = volumetric
@@ -247,9 +291,9 @@ func _update(delta: float) -> void:
 		m.set_shader_parameter("roll_angle", TAU / roll_period_s * slow)
 		m.set_shader_parameter("rise_offset", stem_rise_speed * slow)
 		m.set_shader_parameter("boil", boil_rate * t)
-		m.set_shader_parameter("drift", drift)
-		m.set_shader_parameter("drift_height", drift_height)
-		m.set_shader_parameter("drift_shear", drift_shear)
+		m.set_shader_parameter("fade", fade)
+		m.set_shader_parameter("breakup", BREAKUP_MAX * (1.0 - sqrt(fade)))
+		m.set_shader_parameter("warp_vertical", 1.0 / spread)
 		m.set_shader_parameter("extinction", volume_extinction_per_km * top_km)
 		m.set_shader_parameter("light_first_step", 0.3 / top_km)
 		m.set_shader_parameter("albedo", Vector3(albedo.r, albedo.g, albedo.b))
@@ -261,22 +305,92 @@ func _update(delta: float) -> void:
 		m.set_shader_parameter("world_to_local", Projection(global_transform.affine_inverse()))
 		m.set_shader_parameter("seed", Vector3(fposmod(params.latitude_deg * 0.731, 7.0),
 				fposmod(params.longitude_deg * 0.377, 7.0), fposmod(params.yield_kt * 0.0013, 7.0)))
-		# Boîte englobante : chapeau (avec marge pour les lobes et la déformation), nuage de base, dérive.
-		var extent := maxf(maxf(rc * 1.6, surge.x * 1.15), rs * 4.0) + 0.02
-		var box_min := Vector3(minf(drift.x, 0.0) - extent, 0.0, minf(drift.z, 0.0) - extent)
-		var box_max := Vector3(maxf(drift.x, 0.0) + extent, h + 0.6 * hc + 0.02, maxf(drift.z, 0.0) + extent)
 		m.set_shader_parameter("box_min", box_min)
 		m.set_shader_parameter("box_max", box_max)
 		_volume.transform = Transform3D(Basis.from_scale(0.5 * (box_max - box_min)), 0.5 * (box_min + box_max))
-	_update_particles(delta, t, a, rs, y_neck, h, yb, rf, to_planet, sun_dir, glow, drift, drift_height)
+	_update_particles(delta, t, a, rs, y_neck, h, yb, rf, to_planet, sun_dir, glow)
 	_last_t = t
+
+
+## Dérive aux DRIFT_SAMPLES hauteurs y_i (unités normalisées, repère local : X = est, −Z = nord) au temps t :
+## déplacement accumulé pendant la montée (_integrate_rise), puis vent de l'altitude × temps écoulé depuis la
+## stabilisation (le nuage ne monte plus). Le pied est ancré : facteur (y / anchor_height)^drift_shear en dessous.
+func _update_drift(t: float, top_km: float, anchor_height: float) -> void:
+	var rise := NukeScaling.MUSHROOM_RISE_S
+	if _wind_units.is_empty():
+		_wind_units.resize(DRIFT_SAMPLES)
+		for i in DRIFT_SAMPLES:
+			_wind_units[i] = _wind_at(_drift_sample_height(i) * top_km, top_km)
+	var rise_part: PackedVector3Array
+	if t < rise:
+		rise_part = _integrate_rise(t, top_km)
+	else:
+		if _rise_drift.is_empty():
+			_rise_drift = _integrate_rise(rise, top_km)
+		rise_part = _rise_drift
+	_drift.resize(DRIFT_SAMPLES)
+	var after := maxf(t - rise, 0.0)
+	for i in DRIFT_SAMPLES:
+		var anchor := pow(clampf(_drift_sample_height(i) / maxf(anchor_height, 1e-4), 0.0, 1.0), drift_shear)
+		_drift[i] = (rise_part[i] + _wind_units[i] * after) * anchor
+
+
+## Déplacement accumulé de 0 à t (≤ MUSHROOM_RISE_S) par la parcelle qui est à la hauteur y_i au temps t. Elle garde
+## sa hauteur relative dans le nuage qui monte : au temps τ, elle était à y_i · h(τ) / h(t) (h : height_curve).
+func _integrate_rise(t: float, top_km: float) -> PackedVector3Array:
+	var rise := NukeScaling.MUSHROOM_RISE_S
+	var h_now := maxf(height_curve.sample(minf(t / rise, 1.0)), 0.02)
+	var dt := t / DRIFT_RISE_STEPS
+	var ratios := PackedFloat32Array()
+	ratios.resize(DRIFT_RISE_STEPS)
+	for k in DRIFT_RISE_STEPS:
+		ratios[k] = maxf(height_curve.sample((k + 0.5) * dt / rise), 0.02) / h_now
+	var result := PackedVector3Array()
+	result.resize(DRIFT_SAMPLES)
+	for i in DRIFT_SAMPLES:
+		var y_km := _drift_sample_height(i) * top_km
+		var d := Vector3.ZERO
+		for k in DRIFT_RISE_STEPS:
+			d += _wind_at(y_km * ratios[k], top_km)
+		result[i] = d * dt
+	return result
+
+
+## Vent à l'altitude donnée, en unités normalisées par seconde physique (repère local : X = est, −Z = nord).
+func _wind_at(height_km: float, top_km: float) -> Vector3:
+	var v := _effect.params.wind_at(height_km)
+	return Vector3(v.x, 0.0, -v.y) * (0.001 / top_km)
+
+
+func _drift_sample_height(i: int) -> float:
+	return DRIFT_TOP * float(i) / float(DRIFT_SAMPLES - 1)
+
+
+## Dérive à la hauteur y (même interpolation que nuke_drift.gdshaderinc).
+func _drift_at(y: float) -> Vector3:
+	var f := clampf(y / DRIFT_TOP, 0.0, 1.0) * (DRIFT_SAMPLES - 1)
+	var i := mini(int(f), DRIFT_SAMPLES - 2)
+	return _drift[i].lerp(_drift[i + 1], f - i)
+
+
+## Dérives extrêmes [min, max] (x et z) entre les hauteurs y_low et y_high, échantillons voisins compris.
+func _drift_range(y_low: float, y_high: float) -> Array[Vector3]:
+	var step := DRIFT_TOP / float(DRIFT_SAMPLES - 1)
+	var low := _drift_at(y_low)
+	var high := low
+	for i in DRIFT_SAMPLES:
+		var y := _drift_sample_height(i)
+		if y >= y_low - step and y <= y_high + step:
+			low = low.min(_drift[i])
+			high = high.max(_drift[i])
+	return [low, high]
 
 
 ## Nuage de base : dôme de poussière bas, rayon = surge_shock_ratio × front de choc, même couleur que le champignon,
 ## qui s'estompe avec l'érosion de la tige. Seulement pour les explosions basses. Retourne (rayon, hauteur, opacité),
 ## nuls sans nuage de base (repris par le rendu volumétrique).
 func _update_surge(t: float, a: float, yb: float, rf: float, top_km: float, erosion: float, albedo: Color,
-		glow: Color, to_planet: Transform3D, sun_dir: Vector3, drift: Vector3, drift_height: float) -> Vector3:
+		glow: Color, to_planet: Transform3D, sun_dir: Vector3) -> Vector3:
 	var w := _effect.params.yield_kt
 	var radius := surge_shock_ratio * NukeScaling.shock_front_radius_km(w, t) / top_km
 	var fade := surge_opacity * smoothstep(0.0, 0.02, a) * (1.0 - smoothstep(0.0, 0.7, erosion))
@@ -301,9 +415,6 @@ func _update_surge(t: float, a: float, yb: float, rf: float, top_km: float, eros
 	m.set_shader_parameter("glow", Vector3(glow.r, glow.g, glow.b) * 0.03)
 	m.set_shader_parameter("local_to_planet_km", Projection(to_planet))
 	m.set_shader_parameter("sun_dir_planet", sun_dir)
-	m.set_shader_parameter("drift", drift)
-	m.set_shader_parameter("drift_height", drift_height)
-	m.set_shader_parameter("drift_shear", drift_shear)
 	return Vector3(radius, height, fade)
 
 
@@ -331,13 +442,8 @@ func _profile(yc: float, b: float, rc: float, rs: float, y_neck: float, h: float
 	return points
 
 
-## Dérive au vent à la hauteur y (même loi que le vertex shader).
-func _drift_at(y: float, drift: Vector3, drift_height: float) -> Vector3:
-	return drift * pow(clampf(y / maxf(drift_height, 1e-4), 0.0, 1.0), drift_shear)
-
-
 func _update_particles(delta: float, t: float, a: float, rs: float, y_neck: float, h: float, yb: float,
-		rf: float, to_planet: Transform3D, sun_dir: Vector3, glow: Color, drift: Vector3, drift_height: float) -> void:
+		rf: float, to_planet: Transform3D, sun_dir: Vector3, glow: Color) -> void:
 	# Vitesse du temps physique : pause, temps réel, accélération de l'horloge.
 	var speed := 0.0
 	if _last_t >= 0.0 and delta > 0.0:
@@ -354,8 +460,8 @@ func _update_particles(delta: float, t: float, a: float, rs: float, y_neck: floa
 
 	# Les émetteurs suivent la dérive au vent à leur hauteur (même loi que le shader).
 	var stem_height := maxf(y_neck, 0.0)
-	_stem.position = Vector3(0.0, 0.5 * stem_height, 0.0) + _drift_at(0.5 * stem_height, drift, drift_height)
-	_skirt.position = Vector3(0.0, 0.45 * stem_height, 0.0) + _drift_at(0.45 * stem_height, drift, drift_height)
+	_stem.position = Vector3(0.0, 0.5 * stem_height, 0.0) + _drift_at(0.5 * stem_height)
+	_skirt.position = Vector3(0.0, 0.45 * stem_height, 0.0) + _drift_at(0.45 * stem_height)
 	# En rendu volumétrique, la tige est déjà dans le volume : sa fumée ferait doublon (taches sombres).
 	_stem.visible = not volumetric
 	_stem.emitting = not volumetric and rs > 0.004 and a < 2.5 and stem_height > 0.02

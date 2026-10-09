@@ -74,7 +74,8 @@ func launch(yield_kt: float) -> NukeEffect:
 	return launch_at(aim.latitude, aim.longitude, yield_kt)
 
 
-## Tire sur des coordonnées données (degrés). Le vent est le vent réel GFS du point (NukeWind).
+## Tire sur des coordonnées données (degrés). Le vent est le vent réel GFS du point (NukeWind) : celui de la couche
+## nuageuse (trou dans les nuages) et le profil vertical (dérive du champignon).
 func launch_at(latitude_deg: float, longitude_deg: float, yield_kt: float) -> NukeEffect:
 	var params := NukeParams.new()
 	params.yield_kt = clampf(yield_kt, NukeScaling.MIN_YIELD_KT, NukeScaling.MAX_YIELD_KT)
@@ -85,6 +86,7 @@ func launch_at(latitude_deg: float, longitude_deg: float, yield_kt: float) -> Nu
 	if wind != Vector2.ZERO:
 		params.wind_direction_deg = NukeWind.from_direction_deg(wind)
 		params.wind_speed_m_s = wind.length()
+	params.wind_profile = NukeWind.sample_profile(latitude_deg, longitude_deg)
 	return fire(params)
 
 
@@ -95,6 +97,12 @@ func fire(params: NukeParams) -> NukeEffect:
 	_earth.add_child(effect)
 	print("NukeLauncher : %s sur %.2f°, %.2f° (vent du %03d°, %.1f m/s)" % [NukeScaling.format_yield(params.yield_kt),
 			params.latitude_deg, params.longitude_deg, roundi(params.wind_direction_deg), params.wind_speed_m_s])
+	if not params.wind_profile.is_empty():
+		# Vent à l'altitude du chapeau stabilisé (~3/4 du sommet).
+		var cap_km := 0.75 * NukeScaling.cloud_top_km(params.yield_kt)
+		var cap_wind := params.wind_at(cap_km)
+		print("  vent à %.0f km (chapeau) : du %03d°, %.1f m/s" % [cap_km, roundi(NukeWind.from_direction_deg(cap_wind)),
+				cap_wind.length()])
 	detonated.emit(effect)
 	return effect
 
