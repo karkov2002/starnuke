@@ -48,13 +48,7 @@ func setup(launcher: NukeLauncher, world_environment: WorldEnvironment, earth: N
 		_base_bloom = _environment.glow_bloom
 	if _camera_attributes:
 		_base_exposure = _camera_attributes.exposure_multiplier
-	for child in earth.get_children():
-		var geometry := child as GeometryInstance3D
-		if geometry and geometry.material_override is ShaderMaterial:
-			var material := geometry.material_override as ShaderMaterial
-			if material.shader and material.shader.get_shader_uniform_list().any(
-					func(u: Dictionary) -> bool: return u.name == "nuke_flash_count"):
-				_materials.append(material)
+	_materials = NukeFXMaterials.find(earth, &"nuke_flash_count")
 	if station:
 		for node in station.find_children("*", "GeometryInstance3D", true, false):
 			(node as GeometryInstance3D).layers |= STATION_LIGHT_LAYER

@@ -7,6 +7,8 @@ extends SceneTree
 
 const PowerPlantsScript := preload("res://scripts/power_plants.gd")
 const CountryMaskScript := preload("res://scripts/country_mask.gd")
+## Recherche du pays d'une centrale côtière : 16 lignes de 1/120° (~15 km).
+const COAST_SEARCH := 16
 
 
 func _init() -> void:
@@ -32,7 +34,8 @@ func _init() -> void:
 		var lat := float(row[col.latitude])
 		var lon := float(row[col.longitude])
 		var mw := float(row[col.capacity_mw])
-		var index := _country_near(mask, lat, lon)
+		# Centrale côtière que le trait de côte au 1:10 M place en mer : pays le plus proche à moins de ~15 km.
+		var index: int = mask.index_near(CountryMaskScript._row_of(lat), lon, COAST_SEARCH)
 		plants.names.append(row[col.name])
 		plants.fuels.append(row[col.primary_fuel])
 		plants.latitudes.append(lat)
@@ -51,23 +54,3 @@ func _init() -> void:
 	print("%d centrales (%d hors pays : en mer ou sur une côte), %.0f GW -> %s (%s)" % [plants.names.size(), at_sea,
 			total / 1000.0, PowerPlantsScript.PATH, error_string(error)])
 	quit(0 if error == OK else 1)
-
-
-## Pays au point ; à défaut (centrale côtière que le trait de côte au 1:10 M place en mer), le plus proche à moins de
-## COAST_SEARCH lignes de 1/120° (~15 km). -1 au large (éoliennes en mer).
-const COAST_SEARCH := 16
-
-
-func _country_near(mask: Resource, lat: float, lon: float) -> int:
-	var row: int = CountryMaskScript._row_of(lat)
-	var step := 1.0 / CountryMaskScript.ROWS_PER_DEGREE
-	for radius in COAST_SEARCH + 1:
-		for dr in range(-radius, radius + 1):
-			for dc in range(-radius, radius + 1):
-				if maxi(absi(dr), absi(dc)) != radius:
-					continue
-				var r := clampi(row + dr, 0, CountryMaskScript.row_count() - 1)
-				var index: int = mask.index_at_row(r, wrapf(lon + dc * step, -180.0, 180.0))
-				if index >= 0:
-					return index
-	return -1

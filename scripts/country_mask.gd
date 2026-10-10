@@ -77,6 +77,23 @@ func index_at_row(row: int, longitude_deg: float) -> int:
 	return _owner_at(row, longitude_deg)
 
 
+## Comme index_at_row, mais si le point tombe « en mer » (le trait de côte au 1:10 M est plus grossier que les données
+## qu'on y rattache : cellules de population littorales, centrales côtières), le pays le plus proche à moins de
+## search lignes de 1/120° (~0,9 km chacune), en parcourant des carrés de plus en plus grands. -1 au large.
+func index_near(row: int, longitude_deg: float, search: int) -> int:
+	var step := 1.0 / ROWS_PER_DEGREE
+	for radius in search + 1:
+		for dr in range(-radius, radius + 1):
+			for dc in range(-radius, radius + 1):
+				if maxi(absi(dr), absi(dc)) != radius:
+					continue # seulement le pourtour du carré : du plus proche au plus éloigné
+				var r := clampi(row + dr, 0, row_count() - 1)
+				var index := _owner_at(r, wrapf(longitude_deg + dc * step, -180.0, 180.0))
+				if index >= 0:
+					return index
+	return -1
+
+
 static func row_count() -> int:
 	return 180 * ROWS_PER_DEGREE
 

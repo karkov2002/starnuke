@@ -83,7 +83,7 @@ static func estimate(params: NukeParams) -> Dictionary:
 			var fractions := _cell_fractions(d, half_diag, dx, dy, km_x * cell_deg, km_y * cell_deg, radii)
 			if fractions.z <= 0.0:
 				continue
-			var owner := cell_country(mask, row, col)
+			var owner := PopulationGrid.cell_country(row, col)
 			var acc: PackedFloat64Array = per_country.get(owner, PackedFloat64Array())
 			if acc.is_empty():
 				acc.resize(3 + 2 * RINGS)
@@ -174,27 +174,6 @@ static func _blast_at(c: Dictionary, arrivals: PackedFloat64Array, t: float) -> 
 	return Vector2(dead, injured)
 
 
-## Pays d'une cellule habitée (indice de CountryMask, -1 : aucun). Le trait de côte des frontières (1:10 M) est plus
-## grossier que la grille de population (~0,9 km) : une cellule littorale habitée peut tomber « en mer ». On prend
-## alors le pays le plus proche, à moins de COAST_SEARCH cellules.
-const COAST_SEARCH := 4
-
-
-static func cell_country(mask: CountryMask, row: int, col: int) -> int:
-	if mask == null:
-		return -1
-	for radius in COAST_SEARCH + 1:
-		for dr in range(-radius, radius + 1):
-			for dc in range(-radius, radius + 1):
-				if maxi(absi(dr), absi(dc)) != radius:
-					continue # seulement le pourtour du carré : du plus proche au plus éloigné
-				var r := clampi(row + dr, 0, PopulationGrid.row_count() - 1)
-				var owner := mask.index_at_row(r, wrapf(PopulationGrid.cell_longitude(col + dc), -180.0, 180.0))
-				if owner >= 0:
-					return owner
-	return -1
-
-
 ## Parts (tuée, blessée, exposée) de la population d'une cellule à la distance d de son centre. Si une limite de
 ## tranche passe à moins d'une demi-diagonale, la cellule est découpée en sous-cellules.
 static func _cell_fractions(d: float, half_diag: float, dx: float, dy: float, w_km: float, h_km: float,
@@ -228,36 +207,3 @@ static func _band_fractions(d: float, radii: PackedFloat64Array) -> Vector3:
 	return Vector3.ZERO
 
 
-## Résumé lisible (console) : totaux et pays touchés.
-static func format_report(result: Dictionary) -> String:
-	var lines: Array[String] = []
-	lines.append("  souffle et chaleur, bilan final (OTA 1979, population 2030) : %s morts, %s blessés, %s personnes à plus de 1 psi"
-			% [format_count(result.killed), format_count(result.injured), format_count(result.exposed)])
-	for c: Dictionary in result.countries:
-		if c.killed + c.injured < 1.0:
-			continue
-		var name: String = c.name_fr
-		if not c.sovereign_fr.is_empty() and c.sovereign_fr != c.name_fr:
-			name += " (%s)" % c.sovereign_fr
-		var share := ""
-		if c.pop_est > 0:
-			var percent: float = 100.0 * c.killed / c.pop_est
-			share = ", < 0,01 % de la population" if percent < 0.01 \
-					else (", %.2f %% de la population" % percent).replace(".", ",")
-		lines.append("    %s : %s morts, %s blessés%s" % [name, format_count(c.killed), format_count(c.injured), share])
-	return "\n".join(lines)
-
-
-## Nombre arrondi à 3 chiffres significatifs, espaces entre milliers (« 1 230 000 »).
-static func format_count(value: float) -> String:
-	var n := int(round(value))
-	if n >= 1000:
-		var magnitude := pow(10.0, floor(log(float(n)) / log(10.0)) - 2.0)
-		n = int(round(n / magnitude) * magnitude)
-	var digits := str(n)
-	var out := ""
-	for i in digits.length():
-		if i > 0 and (digits.length() - i) % 3 == 0:
-			out += " "
-		out += digits[i]
-	return out

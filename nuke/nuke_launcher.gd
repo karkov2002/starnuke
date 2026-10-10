@@ -5,7 +5,9 @@ extends Node
 ## La visée est un rayon partant de la caméra par le centre de l'écran, intersecté avec la sphère terrestre
 ## (rayon réel × SCENE_UNITS_PER_KM). S'il manque la Terre (ciel, limbe), il ne se passe rien. Le point touché est
 ## exprimé dans le repère local du nœud Earth (qui tourne avec la planète, cf. scripts/orbit.gd) et en lat/lon.
-## Chaque tir crée une NukeEffect (nuke/nuke_effect.tscn), enfant de Earth.
+## Chaque tir crée une NukeEffect (nuke/nuke_effect.tscn), enfant de Earth. Le lanceur crée aussi les nœuds qui
+## traitent les explosions en cours : effets globaux (FlashFX, FireFX, CloudFX, BlackoutFX) et bilan (Impact, calculé
+## hors du fil principal : un tir ne coûte que la création de la scène).
 
 ## Émis à chaque tir réussi.
 signal detonated(effect: NukeEffect)
@@ -26,11 +28,12 @@ var _earth: Node3D
 func _ready() -> void:
 	add_to_group(GROUP)
 	_earth = get_node(earth_path)
-	# Masques géographiques chargés en tâche de fond dès le démarrage (~0,5 s pour les pays) : pas d'à-coup au
-	# premier tir (load() attend la fin du chargement s'il n'est pas terminé).
+	# Données chargées en tâche de fond dès le démarrage (~0,5 s pour les pays, ~15 ms pour les cartes de vent) : pas
+	# d'à-coup au premier tir (load() attend la fin du chargement s'il n'est pas terminé).
 	for path in [OceanMask.PATH, CountryMask.PATH, PowerPlants.PATH]:
 		if ResourceLoader.exists(path):
 			ResourceLoader.load_threaded_request(path)
+	WorkerThreadPool.add_task(NukeWind.preload_maps)
 	NukeClock.orbit = get_node_or_null(orbit_path) as OrbitSimulation
 	var flash_fx := NukeFlashFX.new()
 	flash_fx.name = "FlashFX"
@@ -45,10 +48,14 @@ func _ready() -> void:
 	cloud_fx.name = "CloudFX"
 	add_child(cloud_fx)
 	cloud_fx.setup(self, _earth)
-	var blackout_fx := NukeBlackout.new()
+	var blackout_fx := NukeBlackoutFX.new()
 	blackout_fx.name = "BlackoutFX"
 	add_child(blackout_fx)
 	blackout_fx.setup(self, _earth)
+	var impact := NukeImpact.new()
+	impact.name = "Impact"
+	add_child(impact)
+	impact.setup(self)
 
 
 ## Point visé par le centre de la vue : {local (repère de Earth), latitude, longitude} en degrés, ou {} si le
@@ -101,45 +108,14 @@ func launch_at(latitude_deg: float, longitude_deg: float, yield_kt: float) -> Nu
 	return fire(params)
 
 
-## Crée l'explosion décrite par params.
+## Crée l'explosion décrite par params. Son bilan (pertes, réseau électrique, retombées) est calculé par le nœud
+## Impact, à l'écoute de detonated.
 func fire(params: NukeParams) -> NukeEffect:
 	var effect := EFFECT_SCENE.instantiate() as NukeEffect
 	effect.params = params
 	_earth.add_child(effect)
-	var country := params.get_country()
-	var place := " en mer" if params.over_ocean else ""
-	if not country.is_empty():
-		place += " (%s)" % country.name_fr if country.sovereign_fr == country.name_fr \
-				else " (%s, %s)" % [country.name_fr, country.sovereign_fr]
-	print("NukeLauncher : %s sur %.2f°, %.2f°%s (vent du %03d°, %.1f m/s)" % [NukeScaling.format_yield(params.yield_kt),
-			params.latitude_deg, params.longitude_deg, place, roundi(params.wind_direction_deg), params.wind_speed_m_s])
-	if not params.wind_profile.is_empty():
-		# Vent à l'altitude du chapeau stabilisé (~3/4 du sommet).
-		var cap_km := 0.75 * NukeScaling.cloud_top_km(params.yield_kt)
-		var cap_wind := params.wind_at(cap_km)
-		print("  vent à %.0f km (chapeau) : du %03d°, %.1f m/s" % [cap_km, roundi(NukeWind.from_direction_deg(cap_wind)),
-				cap_wind.length()])
-	effect.casualties = NukeCasualties.estimate(params)
-	print(NukeCasualties.format_report(effect.casualties))
-	# Retombées : quelques secondes de calcul pour les fortes puissances, dans un thread (elles n'arrivent au sol
-	# qu'après une demi-heure au moins).
-	if NukeScaling.low_burst(params.yield_kt, params.burst_height_km) > 0.01:
-		effect.fallout_pending = true
-		var radii: PackedFloat64Array = effect.casualties.radii_km
-		WorkerThreadPool.add_task(func() -> void:
-			_on_fallout.call_deferred(effect, NukeFallout.estimate(params, radii)))
-	effect.blackout = NukeBlackout.assess(params)
-	print(NukeBlackout.format_report(effect.blackout))
 	detonated.emit(effect)
 	return effect
-
-
-func _on_fallout(effect: NukeEffect, fallout: Dictionary) -> void:
-	if not is_instance_valid(effect):
-		return
-	effect.fallout = fallout
-	effect.fallout_pending = false
-	print(NukeFallout.format_report(fallout, effect.params))
 
 
 ## Explosions en cours (enfants de Earth).

@@ -18,6 +18,8 @@
 #define NUKE_CLOUDS_INC
 
 const int NUKE_MAX_CLOUD_EVENTS = 16;
+// Masque de toutes les explosions (bit i = explosion i), cf. cloud_density_masked.
+const int NUKE_ALL_EVENTS = 0xFFFF;
 const float NUKE_CLOUD_PLANET_RADIUS_KM = 6371.0;
 
 uniform int nuke_cloud_count = 0;
@@ -70,8 +72,8 @@ NukeCloudEvent nuke_cloud_event(int i) {
 // Déformation de la couche nuageuse au point n (sphère unité, repère de la planète). read_n : position où lire la
 // carte de couverture (déplacée vers les centres). rim : renfort du bourrelet (≥ 0). squeeze : tassement radial de la
 // carte lue (≥ 1), à ajouter en log2 au niveau de mipmap (sinon ses détails, plus fins qu'un pixel, scintillent).
-// Retour : part de densité conservée (0 dans un trou ouvert).
-float nuke_cloud_warp(vec3 n, out vec3 read_n, out float rim, out float squeeze) {
+// mask : explosions prises en compte (bit i = explosion i). Retour : part de densité conservée (0 dans un trou ouvert).
+float nuke_cloud_warp(vec3 n, out vec3 read_n, out float rim, out float squeeze, int mask) {
 	read_n = n;
 	rim = 0.0;
 	squeeze = 1.0;
@@ -80,6 +82,9 @@ float nuke_cloud_warp(vec3 n, out vec3 read_n, out float rim, out float squeeze)
 	for (int i = 0; i < NUKE_MAX_CLOUD_EVENTS; i++) {
 		if (i >= nuke_cloud_count) {
 			break;
+		}
+		if ((mask & (1 << i)) == 0) {
+			continue;
 		}
 		NukeCloudEvent e = nuke_cloud_event(i);
 		float radius = e.radius_km;
@@ -126,6 +131,34 @@ float nuke_cloud_warp(vec3 n, out vec3 read_n, out float rim, out float squeeze)
 		rim += nuke_cloud_rim_gain * fade * exp(-max(x, 0.0) / w) * (1.0 - inside);
 	}
 	return keep;
+}
+
+// Explosions dont la zone d'influence (trou, bourrelet : rayon + 6 w + bord) passe à moins de margin_km du segment
+// [a, b] (km, repère de la planète ; extrémités ramenées à la surface, comme dans nuke_cloud_warp). Calculé une fois par
+// rayon de vue (trajet dans la couche nuageuse ; margin_km couvre la marche vers le soleil) : les échantillons de ce
+// rayon ne testent ensuite que ces explosions. Masque : bit i = explosion i.
+int nuke_cloud_events_near_segment(vec3 a, vec3 b, float margin_km) {
+	int mask = 0;
+	vec3 sa = normalize(a) * NUKE_CLOUD_PLANET_RADIUS_KM;
+	vec3 ab = normalize(b) * NUKE_CLOUD_PLANET_RADIUS_KM - sa;
+	float len2 = max(dot(ab, ab), 1e-6);
+	for (int i = 0; i < NUKE_MAX_CLOUD_EVENTS; i++) {
+		if (i >= nuke_cloud_count) {
+			break;
+		}
+		NukeCloudEvent e = nuke_cloud_event(i);
+		float radius = e.radius_km;
+		if (radius <= 0.0) {
+			continue;
+		}
+		float w = max(nuke_cloud_rim_width * radius, nuke_cloud_edge_km);
+		float reach = radius + 6.0 * w + nuke_cloud_edge_km + margin_km;
+		float h = clamp(dot(e.center_km - sa, ab) / len2, 0.0, 1.0);
+		if (length(sa + ab * h - e.center_km) <= reach) {
+			mask |= 1 << i;
+		}
+	}
+	return mask;
 }
 
 #endif

@@ -13,7 +13,9 @@ Masques géographiques (Natural Earth) : mers et océans (`scripts/ocean_mask.gd
 Population 2030 (GHS-POP, `scripts/population_grid.gd`, `assets/population_2030.bin` ~74 Mo, `tools/build_population.ps1`) :
 pertes humaines des explosions (`nuke/nuke_casualties.gd`, chronologie et retombées WSEG-10 `nuke/nuke_fallout.gd`).
 Centrales électriques (WRI, `scripts/power_plants.gd`, `assets/power_plants.res`, `tools/build_power_plants.gd`) et carte des
-pays pour les shaders (`assets/textures/country_ids.png`, import sans perte) : black-out (`nuke/nuke_blackout.gd`).
+pays pour les shaders (`assets/textures/country_ids.png`, import sans perte) : black-out (`nuke/nuke_grid_impact.gd`, `nuke/nuke_blackout_fx.gd`).
+Organisation du code des explosions (une responsabilité par classe) et banc de performances (`tools/bench/nuke_bench.tscn`) : README,
+« Explosions nucléaires », sections « Organisation du code » et « Performances ».
 L'architecture (échelle 1/10 000 de la Terre, mécanique orbitale `scripts/orbit.gd`, atmosphère, nuages volumétriques,
 tuiles HD, sources des textures) est décrite dans le README. Toute la scène est placée autour d'une station fixe :
 c'est la Terre que `Orbit` déplace et oriente à chaque image. L'horloge est une vraie date UTC (le jeu se passe en

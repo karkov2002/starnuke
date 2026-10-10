@@ -21,14 +21,17 @@ const MARKER_RENDER_PRIORITY := 2 # après les nuages (0) et l'atmosphère (1), 
 			_markers.visible = value
 ## Temps physique imposé (s), pour rejouer l'effet (scrubber) ; négatif : temps de l'horloge NukeClock.
 var time_override_s := -1.0
-## Pertes humaines estimées au tir (NukeCasualties.estimate : totaux et détail par pays) ; {} si non calculées.
+## Bilan de l'explosion, renseigné par NukeImpact (calcul hors du fil principal, quelques ms à quelques secondes
+## après le tir) ; {} tant qu'il manque :
+## - casualties : pertes du souffle et de la chaleur (NukeCasualties.estimate, totaux et détail par pays) ;
+## - grid : réseau électrique (NukeGridImpact.assess : centrales détruites, panne nationale) ;
+## - fallout : retombées radioactives (NukeFallout.estimate) ; {} aussi pour une explosion en altitude.
+## impact_pending (casualties et grid) et fallout_pending : calcul en cours.
 var casualties := {}
-## Retombées radioactives (NukeFallout.estimate, calculées dans un thread après le tir) ; {} en attendant ou pour une
-## explosion en altitude. fallout_pending : calcul en cours.
+var grid := {}
 var fallout := {}
+var impact_pending := false
 var fallout_pending := false
-## Bilan électrique au tir (NukeBlackout.assess : centrales détruites, panne nationale) ; {} si non calculé.
-var blackout := {}
 ## Cache de can_ignite_land() (−1 : pas encore calculé).
 var _ignites_land := -1
 

@@ -23,7 +23,6 @@ extends RefCounted
 
 const MI_PER_KM := 0.621371
 const MPH_PER_M_S := 2.23694
-const KFT_PER_KM := 3.28084
 ## Grandeurs de la population et des doses.
 const R_TO_GY := 0.0087
 const PROTECTION_FACTOR := 3.0
@@ -53,7 +52,7 @@ static func estimate(params: NukeParams, blast_radii: PackedFloat64Array) -> Dic
 	var low := NukeScaling.low_burst(params.yield_kt, params.burst_height_km)
 	if low <= 0.01 or not PopulationGrid.is_available():
 		return {}
-	var w := WSEG10.new(params, low)
+	var w := NukeWSEG10.new(params, low)
 	var times := PackedFloat64Array()
 	for i in TIME_SAMPLES:
 		times.append(0.25 * pow(HORIZON_H / 0.25, float(i) / (TIME_SAMPLES - 1)))
@@ -110,7 +109,7 @@ static func estimate(params: NukeParams, blast_radii: PackedFloat64Array) -> Dic
 			survivors *= 1.0 - NukeCasualties.killed_fraction(Vector2(dx_km, dy_km).length(), blast_radii)
 			if survivors <= 0.0:
 				continue
-			var owner := NukeCasualties.cell_country(mask, row + 1, col + 1)
+			var owner := PopulationGrid.cell_country(row + 1, col + 1)
 			var acc: PackedFloat64Array = per_country.get(owner, PackedFloat64Array())
 			if acc.is_empty():
 				acc.resize(2 * TIME_SAMPLES)
@@ -145,24 +144,6 @@ static func estimate(params: NukeParams, blast_radii: PackedFloat64Array) -> Dic
 	return result
 
 
-## Résumé lisible (console).
-static func format_report(fallout: Dictionary, params: NukeParams) -> String:
-	if fallout.is_empty():
-		return "  retombées : aucune (explosion en altitude)"
-	var last := TIME_SAMPLES - 1
-	var line := "  retombées (WSEG-10, %s) : vent %.0f m/s vers %03d°, zone dangereuse sur %.0f km ; à %d jours : %s morts, %s malades" \
-			% [NukeScaling.format_yield(params.yield_kt), fallout.wind_m_s, posmod(roundi(fallout.direction_deg), 360),
-			fallout.hotline_km, roundi(HORIZON_H / 24.0), NukeCasualties.format_count(fallout.total_dead[last]),
-			NukeCasualties.format_count(fallout.total_sick[last])]
-	for c: Dictionary in fallout.countries.slice(0, 5):
-		var dead: PackedFloat64Array = c.dead
-		var sick: PackedFloat64Array = c.sick
-		if dead[last] >= 1.0 or sick[last] >= 100.0:
-			line += "\n    %s : %s morts, %s malades" % [c.name_fr, NukeCasualties.format_count(dead[last]),
-					NukeCasualties.format_count(sick[last])]
-	return line
-
-
 ## (part morte, part malade) d'une population au temps t_h (heures), pour un débit D₁ (R/h à H+1) et des retombées
 ## arrivées à ta (h).
 static func _effects(d1: float, ta: float, t_h: float) -> Vector2:
@@ -171,8 +152,8 @@ static func _effects(d1: float, ta: float, t_h: float) -> Vector2:
 	var dose := 5.0 * d1 * (pow(ta, -0.2) - pow(t_h, -0.2)) * R_TO_GY / PROTECTION_FACTOR
 	if dose <= 0.01:
 		return Vector2.ZERO
-	var lethal := _normal_cdf(log(dose / LD50_GY) / LETHAL_SIGMA)
-	var sick := _normal_cdf(log(dose / SICK50_GY) / SICK_SIGMA)
+	var lethal := NukeMath.normal_cdf(log(dose / LD50_GY) / LETHAL_SIGMA)
+	var sick := NukeMath.normal_cdf(log(dose / SICK50_GY) / SICK_SIGMA)
 	var dead := lethal * (1.0 - exp(-(t_h - ta) / DEATH_LATENCY_H))
 	return Vector2(dead, maxf(sick - dead, 0.0))
 
@@ -193,108 +174,3 @@ static func at(fallout: Dictionary, country: Dictionary, t: float) -> Vector2:
 	return Vector2(lerpf(dead[i], dead[i + 1], f), lerpf(sick[i], sick[i + 1], f))
 
 
-## Fonction de répartition de la loi normale centrée réduite (Abramowitz & Stegun 7.1.26, erreur < 1,5·10⁻⁷).
-static func _normal_cdf(z: float) -> float:
-	var x := absf(z) / sqrt(2.0)
-	var t := 1.0 / (1.0 + 0.3275911 * x)
-	var erf := 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) \
-			* t * exp(-x * x)
-	return 0.5 * (1.0 + (erf if z >= 0.0 else -erf))
-
-
-## Fonction gamma (approximation de Lanczos, g = 7), pour x > 0.
-static func _gamma(x: float) -> float:
-	const C := [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
-			-176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6,
-			1.5056327351493116e-7]
-	if x < 0.5:
-		return PI / (sin(PI * x) * _gamma(1.0 - x))
-	x -= 1.0
-	var a: float = C[0]
-	var t := x + 7.5
-	for i in range(1, 9):
-		a += C[i] / (x + i)
-	return sqrt(TAU) * pow(t, x + 0.5) * exp(-t) * a
-
-
-## Paramètres WSEG-10 d'une explosion (Hanifen 1980). Unités : miles, mph, kilopieds, heures, mégatonnes.
-class WSEG10:
-	var yield_mt: float
-	var ff: float
-	var wind_mph: float
-	var shear: float # mph par kilopied
-	## Direction vers laquelle va le nuage (vecteur unitaire est, nord).
-	var dir: Vector2
-	var scale: float # part « explosion basse » (0 à 1) appliquée au débit de dose
-	var h_c: float
-	var s0: float
-	var s_h: float
-	var t_c: float
-	var l0: float
-	var s_x: float
-	var l: float
-	var n: float
-	var a1: float
-	var g_norm: float
-
-	func _init(params: NukeParams, low_burst: float) -> void:
-		yield_mt = params.yield_kt / 1000.0
-		ff = 1.0 if params.yield_kt < FISSION_ONLY_KT else FISSION_FRACTION
-		scale = low_burst
-		var ln_y := log(yield_mt)
-		var d := ln_y + 2.42
-		h_c = 44.0 + 6.1 * ln_y - 0.205 * absf(d) * d # hauteur du centre du nuage (kilopieds)
-		s0 = exp(0.7 + ln_y / 3.0 - 3.25 / (4.0 + pow(ln_y + 5.4, 2.0)))
-		s_h = 0.18 * h_c
-		t_c = 1.0573203 * (12.0 * (h_c / 60.0) - 2.5 * pow(h_c / 60.0, 2.0)) * (1.0 - 0.5 * exp(-pow(h_c / 25.0, 2.0)))
-		# Vent effectif : moyenne du profil réel (GFS) entre le sol et le centre du nuage ; cisaillement entre les deux.
-		var h_km := h_c / KFT_PER_KM
-		var mean := Vector2.ZERO
-		for i in 16:
-			mean += params.wind_at((i + 0.5) / 16.0 * h_km)
-		mean /= 16.0
-		wind_mph = maxf(mean.length() * MPH_PER_M_S, 1.0)
-		dir = mean.normalized() if mean.length() > 0.01 else Vector2(1.0, 0.0)
-		var top := params.wind_at(h_km)
-		var bottom := params.wind_at(0.0)
-		shear = (top - bottom).length() * MPH_PER_M_S / maxf(h_c, 1.0)
-		l0 = wind_mph * t_c
-		var s02 := s0 * s0
-		var l02 := l0 * l0
-		var s_x2 := s02 * (l02 + 8.0 * s02) / (l02 + 2.0 * s02)
-		s_x = sqrt(s_x2)
-		l = sqrt(l02 + 2.0 * s_x2)
-		# Exposant de la loi de dépôt. La transcription glasstone y met la fraction de fission, déjà comptée dans le
-		# débit (f_x) : le dépôt s'étalait sur des centaines de km et le débit près du point zéro était 3 à 5 fois sous
-		# les contours idéalisés de Glasstone & Dolan (1 Mt, 15 mph). Avec 1, on retrouve leur ordre de grandeur.
-		n = (l02 + s_x2) / (l02 + 0.5 * s_x2)
-		a1 = 1.0 / (1.0 + 0.001 * h_c * wind_mph / s0)
-		g_norm = 1.0 / (l * NukeFallout._gamma(1.0 + 1.0 / n))
-
-	## Écart-type de la répartition en travers du vent à la distance x sous le vent (miles).
-	func crosswind_sigma(x: float) -> float:
-		var s02 := s0 * s0
-		var k := s_x * t_c * s_h * shear
-		var m := (x + 2.0 * s_x) * l0 * t_c * s_h * shear
-		return sqrt(s02 + 8.0 * absf(x + 2.0 * s_x) * s02 / l + 2.0 * k * k / (l * l) + m * m / pow(l, 4.0))
-
-	## Débit de dose à H+1 (R/h) au point (x sous le vent, y en travers ; miles), activité qui finira par s'y déposer.
-	func dose_rate_h1(x: float, y: float) -> float:
-		var g := exp(-pow(absf(x) / l, n)) * g_norm
-		var phi := NukeFallout._normal_cdf((l0 / l) * (x / (s_x * a1)))
-		var f_x := yield_mt * 2.0e6 * phi * g * ff
-		var s_y := crosswind_sigma(x)
-		var a2 := 1.0 / (1.0 + (0.001 * h_c * wind_mph / s0) * (1.0 - NukeFallout._normal_cdf(2.0 * x / wind_mph)))
-		var f_y := exp(-0.5 * pow(y / (a2 * s_y), 2.0)) / (2.5066282746310002 * s_y)
-		return f_x * f_y * scale
-
-	## Heure moyenne d'arrivée des retombées sur la ligne chaude à x (au moins 0,5 h).
-	func arrival_h(x: float) -> float:
-		var l02 := l0 * l0
-		var s_x2 := s_x * s_x
-		return sqrt(0.25 + l02 * pow(x + 2.0 * s_x, 2.0) * t_c * t_c / (l * l * (l02 + 0.5 * s_x2))
-				+ 2.0 * s_x2 / (l02 + 0.5 * s_x2))
-
-	## Dose finale sous abri (Gy) sur la ligne chaude, ou en (x, y).
-	func final_dose_gy(x: float, y: float) -> float:
-		return 5.0 * dose_rate_h1(x, y) * pow(arrival_h(x), -0.2) * R_TO_GY / PROTECTION_FACTOR

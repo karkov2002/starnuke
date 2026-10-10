@@ -130,8 +130,11 @@ void fragment() {
 	// lumières des villes.
 	if (nuke_fire_count > 0) {
 		float urban = smoothstep(0.05, 0.3, dot(night, vec3(0.299, 0.587, 0.114)));
-		emission += nuke_fire_emission(n * CLOUD_PLANET_RADIUS_KM, 1.0 - water, urban)
-				* mix(night_cloud_floor, 1.0, cloud_shadow(n, n, adv));
+		vec3 fire = nuke_fire_emission(n * CLOUD_PLANET_RADIUS_KM, 1.0 - water, urban);
+		// Voile des nuages (marche coûteuse) seulement là où il y a du feu, pas sur tout le globe.
+		if (fire.r + fire.g + fire.b > 0.0) {
+			emission += fire * mix(night_cloud_floor, 1.0, cloud_shadow(n, n, adv));
+		}
 	}
 	EMISSION = emission;
 }

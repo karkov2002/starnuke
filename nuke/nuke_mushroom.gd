@@ -28,12 +28,8 @@ extends Node3D
 ## Chapeau roulant : angle de roulement autour de l'anneau tourbillonnaire, tour en roll_period_s au début, de plus en
 ## plus lent (ω = ω0 / (1 + t / roll_slowdown_s), intégré analytiquement : rejouable au scrubber).
 ##
-## Dérive au vent (profil vertical du vent réel GFS au point d'impact, NukeParams.wind_profile) : chaque hauteur part
-## avec le vent de son altitude (_update_drift). Pendant la montée, une parcelle garde sa hauteur relative dans le
-## nuage : son déplacement intègre le vent des altitudes traversées. Le pied reste au point zéro (facteur
-## (y / centre du chapeau)^drift_shear sous le chapeau) : la tige penche. Au-dessus et au-dessous du centre du
-## chapeau, le vent diffère (cisaillement) : le chapeau s'étire et se tord dans le sens du vent. Le déplacement est
-## échantillonné en DRIFT_SAMPLES hauteurs et interpolé par les shaders (nuke/shaders/nuke_drift.gdshaderinc).
+## Dérive au vent : NukeMushroomDrift (profil vertical du vent réel GFS, pied ancré, cisaillement : le chapeau s'étire
+## et se tord dans le sens du vent), interpolée par les shaders (nuke/shaders/nuke_drift.gdshaderinc).
 ##
 ## Dissipation (après la stabilisation, NukeScaling.cloud_spread_ratio / cloud_fade) : le chapeau s'étale par la
 ## turbulence (rayon), s'amincit, sa densité baisse (masse diluée, puis disparition plus lente au-dessus de la
@@ -48,26 +44,16 @@ extends Node3D
 ## blanc (steam_albedo), nuage de base d'embruns, débris remplacés par des embruns ; après la stabilisation, il
 ## s'affaisse (NukeScaling.steam_sink) et disparaît en moins d'une heure (NukeScaling.steam_fade).
 ##
-## Particules (GPUParticles3D, nuke/shaders/nuke_smoke.gdshader) : fumée de la tige, jupon de condensation autour de
-## la tige pendant la montée, débris soulevés au pied (explosions basses). Leur vitesse suit celle du temps physique
-## (speed_scale = d(temps physique) / d(temps réel) : pause et accélération de l'horloge) ; elles ne se rejouent pas
-## au scrubber.
+## Particules (fumée de la tige, jupon de condensation, débris au pied) : NukeMushroomParticles.
 
 const PROFILE_POINTS := 48
 const STEM_POINTS := 16
 ## Maillage : anneaux (le profil est interpolé entre ses points) × segments autour de l'axe.
 const RINGS := 96
 const SEGMENTS := 128
-const MAX_PARTICLE_SPEED := 20.0
-## Profil de dérive : nombre de hauteurs (= taille du tableau drift_profile de nuke_drift.gdshaderinc), hauteur
-## couverte (unités normalisées : au-dessus du chapeau et de sa déformation), pas d'intégration pendant la montée.
-const DRIFT_SAMPLES := 32
-const DRIFT_TOP := 1.4
-const DRIFT_RISE_STEPS := 16
 ## Fragmentation du nuage dilué (breakup du shader volumétrique) : BREAKUP_MAX × (1 − √fade).
 const BREAKUP_MAX := 0.55
 const SHAPE_NOISE := preload("res://materials/cloud_shape_noise.tres")
-const SMOKE_SHADER := preload("res://nuke/shaders/nuke_smoke.gdshader")
 const VOLUME_SHADER := preload("res://nuke/shaders/nuke_mushroom_volume.gdshader")
 
 ## Rendu volumétrique (lancer de rayon dans un champ de densité, nuke/shaders/nuke_mushroom_volume.gdshader) au lieu
@@ -130,7 +116,6 @@ const VOLUME_SHADER := preload("res://nuke/shaders/nuke_mushroom_volume.gdshader
 @export var debris_color := Color(0.38, 0.32, 0.27)
 
 static var _mesh: ArrayMesh
-static var _smoke_mesh: QuadMesh
 
 var _effect: NukeEffect
 var _material: ShaderMaterial
@@ -140,14 +125,8 @@ var _volume: MeshInstance3D
 var _volume_material: ShaderMaterial
 var _sun: DirectionalLight3D
 var _last_t := -1.0
-var _stem: GPUParticles3D
-var _skirt: GPUParticles3D
-var _debris: GPUParticles3D
-## Dérive (unités normalisées) aux DRIFT_SAMPLES hauteurs ; vent à ces hauteurs (unités normalisées par s) et
-## déplacement accumulé pendant toute la montée (calculés une fois).
-var _drift := PackedVector3Array()
-var _wind_units := PackedVector3Array()
-var _rise_drift := PackedVector3Array()
+var _drift: NukeMushroomDrift
+var _particles: NukeMushroomParticles
 ## Part « nuage de vapeur » (0 à 1) : explosion basse sur la mer.
 var _steam := 0.0
 
@@ -184,13 +163,13 @@ func _ready() -> void:
 	_volume.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_volume.extra_cull_margin = _cloud.extra_cull_margin
 	add_child(_volume)
-	_stem = _make_particles("Stem", 40, 150.0, stem_color)
-	_skirt = _make_particles("Skirt", 36, 80.0, skirt_color)
-	_debris = _make_particles("Debris", 48, 120.0, debris_color)
-	if _effect and _effect.params and _effect.params.over_ocean:
-		_steam = NukeScaling.low_burst(_effect.params.yield_kt, _effect.params.burst_height_km)
-		# Au pied, des embruns plutôt que des débris.
-		(_debris.process_material as ParticleProcessMaterial).color = debris_color.lerp(skirt_color, _steam)
+	_particles = NukeMushroomParticles.new(self, stem_color, skirt_color, debris_color)
+	if _effect and _effect.params:
+		_drift = NukeMushroomDrift.new(_effect.params, height_curve, drift_shear)
+		if _effect.params.over_ocean:
+			_steam = NukeScaling.low_burst(_effect.params.yield_kt, _effect.params.burst_height_km)
+			# Au pied, des embruns plutôt que des débris.
+			_particles.set_debris_color(debris_color.lerp(skirt_color, _steam))
 	_update(0.0)
 
 
@@ -277,10 +256,10 @@ func _update(delta: float) -> void:
 		_material.set_shader_parameter("sun_dir_planet", sun_dir)
 
 	# Dérive au vent (profil vertical), partagée par tous les matériaux du champignon.
-	_update_drift(t, top_km, maxf(yc, 0.05))
+	_drift.update(t, top_km, maxf(yc, 0.05))
 	for m: ShaderMaterial in [_material, _surge_material, _volume_material]:
-		m.set_shader_parameter("drift_profile", _drift)
-		m.set_shader_parameter("drift_top", DRIFT_TOP)
+		m.set_shader_parameter("drift_profile", _drift.samples)
+		m.set_shader_parameter("drift_top", NukeMushroomDrift.TOP)
 
 	var erosion := erosion_curve.sample(minf(a, erosion_curve.max_domain))
 	var surge := _update_surge(t, a, yb, rf, top_km, erosion, albedo, glow, to_planet, sun_dir)
@@ -293,7 +272,7 @@ func _update(delta: float) -> void:
 	if erosion >= 0.89 and surge.z <= 0.0:
 		y_low = maxf(yc - 1.25 * under * 0.5 * hc - 0.35 * rc / spread - 0.02, 0.0)
 	var y_high := maxf(h + 0.6 * hc_rise, yc + 1.25 * 0.5 * hc + 0.35 * rc / spread) + 0.02
-	var drift_range := _drift_range(y_low, y_high)
+	var drift_range := _drift.extent(y_low, y_high)
 	var box_min := Vector3(drift_range[0].x - extent, y_low, drift_range[0].z - extent)
 	var box_max := Vector3(drift_range[1].x + extent, y_high, drift_range[1].z + extent)
 	_cloud.custom_aabb = AABB(box_min, box_max - box_min)
@@ -335,82 +314,14 @@ func _update(delta: float) -> void:
 		m.set_shader_parameter("box_min", box_min)
 		m.set_shader_parameter("box_max", box_max)
 		_volume.transform = Transform3D(Basis.from_scale(0.5 * (box_max - box_min)), 0.5 * (box_min + box_max))
-	_update_particles(delta, t, a, rs, y_neck, h, yb, rf, to_planet, sun_dir, glow)
+	# Particules : vitesse du temps physique (pause, temps réel, accélération de l'horloge) et lumière du soleil au
+	# milieu du nuage (atmosphère traversée vers le soleil ; nulle de nuit).
+	var speed := (t - _last_t) / delta if _last_t >= 0.0 and delta > 0.0 else 0.0
+	var mid := to_planet * Vector3(0.0, 0.5 * h, 0.0)
+	var tint := NukeAtmosphere.transmittance(mid, mid + sun_dir * 3000.0)
+	tint *= smoothstep(-0.12, 0.05, mid.normalized().dot(sun_dir))
+	_particles.update(speed, a, rs, y_neck, yb, rf, tint, glow, _drift, stem_rise_speed, volumetric)
 	_last_t = t
-
-
-## Dérive aux DRIFT_SAMPLES hauteurs y_i (unités normalisées, repère local : X = est, −Z = nord) au temps t :
-## déplacement accumulé pendant la montée (_integrate_rise), puis vent de l'altitude × temps écoulé depuis la
-## stabilisation (le nuage ne monte plus). Le pied est ancré : facteur (y / anchor_height)^drift_shear en dessous.
-func _update_drift(t: float, top_km: float, anchor_height: float) -> void:
-	var rise := NukeScaling.MUSHROOM_RISE_S
-	if _wind_units.is_empty():
-		_wind_units.resize(DRIFT_SAMPLES)
-		for i in DRIFT_SAMPLES:
-			_wind_units[i] = _wind_at(_drift_sample_height(i) * top_km, top_km)
-	var rise_part: PackedVector3Array
-	if t < rise:
-		rise_part = _integrate_rise(t, top_km)
-	else:
-		if _rise_drift.is_empty():
-			_rise_drift = _integrate_rise(rise, top_km)
-		rise_part = _rise_drift
-	_drift.resize(DRIFT_SAMPLES)
-	var after := maxf(t - rise, 0.0)
-	for i in DRIFT_SAMPLES:
-		var anchor := pow(clampf(_drift_sample_height(i) / maxf(anchor_height, 1e-4), 0.0, 1.0), drift_shear)
-		_drift[i] = (rise_part[i] + _wind_units[i] * after) * anchor
-
-
-## Déplacement accumulé de 0 à t (≤ MUSHROOM_RISE_S) par la parcelle qui est à la hauteur y_i au temps t. Elle garde
-## sa hauteur relative dans le nuage qui monte : au temps τ, elle était à y_i · h(τ) / h(t) (h : height_curve).
-func _integrate_rise(t: float, top_km: float) -> PackedVector3Array:
-	var rise := NukeScaling.MUSHROOM_RISE_S
-	var h_now := maxf(height_curve.sample(minf(t / rise, 1.0)), 0.02)
-	var dt := t / DRIFT_RISE_STEPS
-	var ratios := PackedFloat32Array()
-	ratios.resize(DRIFT_RISE_STEPS)
-	for k in DRIFT_RISE_STEPS:
-		ratios[k] = maxf(height_curve.sample((k + 0.5) * dt / rise), 0.02) / h_now
-	var result := PackedVector3Array()
-	result.resize(DRIFT_SAMPLES)
-	for i in DRIFT_SAMPLES:
-		var y_km := _drift_sample_height(i) * top_km
-		var d := Vector3.ZERO
-		for k in DRIFT_RISE_STEPS:
-			d += _wind_at(y_km * ratios[k], top_km)
-		result[i] = d * dt
-	return result
-
-
-## Vent à l'altitude donnée, en unités normalisées par seconde physique (repère local : X = est, −Z = nord).
-func _wind_at(height_km: float, top_km: float) -> Vector3:
-	var v := _effect.params.wind_at(height_km)
-	return Vector3(v.x, 0.0, -v.y) * (0.001 / top_km)
-
-
-func _drift_sample_height(i: int) -> float:
-	return DRIFT_TOP * float(i) / float(DRIFT_SAMPLES - 1)
-
-
-## Dérive à la hauteur y (même interpolation que nuke_drift.gdshaderinc).
-func _drift_at(y: float) -> Vector3:
-	var f := clampf(y / DRIFT_TOP, 0.0, 1.0) * (DRIFT_SAMPLES - 1)
-	var i := mini(int(f), DRIFT_SAMPLES - 2)
-	return _drift[i].lerp(_drift[i + 1], f - i)
-
-
-## Dérives extrêmes [min, max] (x et z) entre les hauteurs y_low et y_high, échantillons voisins compris.
-func _drift_range(y_low: float, y_high: float) -> Array[Vector3]:
-	var step := DRIFT_TOP / float(DRIFT_SAMPLES - 1)
-	var low := _drift_at(y_low)
-	var high := low
-	for i in DRIFT_SAMPLES:
-		var y := _drift_sample_height(i)
-		if y >= y_low - step and y <= y_high + step:
-			low = low.min(_drift[i])
-			high = high.max(_drift[i])
-	return [low, high]
 
 
 ## Nuage de base : dôme de poussière bas, rayon = surge_shock_ratio × front de choc, même couleur que le champignon,
@@ -467,116 +378,6 @@ func _profile(yc: float, b: float, rc: float, rs: float, y_neck: float, h: float
 		else:
 			points[STEM_POINTS + k] = Vector2(rc * pow(c, cap_top_exponent), yc + b * sin(phi))
 	return points
-
-
-func _update_particles(delta: float, t: float, a: float, rs: float, y_neck: float, h: float, yb: float,
-		rf: float, to_planet: Transform3D, sun_dir: Vector3, glow: Color) -> void:
-	# Vitesse du temps physique : pause, temps réel, accélération de l'horloge.
-	var speed := 0.0
-	if _last_t >= 0.0 and delta > 0.0:
-		speed = clampf((t - _last_t) / delta, 0.0, MAX_PARTICLE_SPEED)
-	# Lumière du soleil au milieu du nuage (atmosphère traversée vers le soleil ; nulle de nuit).
-	var mid := to_planet * Vector3(0.0, 0.5 * h, 0.0)
-	var tint := NukeAtmosphere.transmittance(mid, mid + sun_dir * 3000.0)
-	tint *= smoothstep(-0.12, 0.05, mid.normalized().dot(sun_dir))
-	var debris_glow := glow * 0.02
-	for particles in [_stem, _skirt, _debris]:
-		particles.speed_scale = speed
-		particles.set_instance_shader_parameter("sun_tint", tint)
-		particles.set_instance_shader_parameter("glow", Vector3(debris_glow.r, debris_glow.g, debris_glow.b))
-
-	# Les émetteurs suivent la dérive au vent à leur hauteur (même loi que le shader).
-	var stem_height := maxf(y_neck, 0.0)
-	_stem.position = Vector3(0.0, 0.5 * stem_height, 0.0) + _drift_at(0.5 * stem_height)
-	_skirt.position = Vector3(0.0, 0.45 * stem_height, 0.0) + _drift_at(0.45 * stem_height)
-	# En rendu volumétrique, la tige est déjà dans le volume : sa fumée ferait doublon (taches sombres).
-	_stem.visible = not volumetric
-	_stem.emitting = not volumetric and rs > 0.004 and a < 2.5 and stem_height > 0.02
-	if _stem.emitting:
-		var process := _stem.process_material as ParticleProcessMaterial
-		process.emission_box_extents = Vector3(rs * 0.7, 0.5 * stem_height, rs * 0.7)
-		process.scale_min = rs * 2.0
-		process.scale_max = rs * 3.2
-		process.initial_velocity_min = stem_rise_speed * 0.3
-		process.initial_velocity_max = stem_rise_speed * 0.8
-
-	# Jupon de condensation : anneaux autour de la tige pendant la traversée des couches humides.
-	_skirt.emitting = a > 0.03 and a < 0.3 and rs > 0.004
-	if _skirt.emitting:
-		var process := _skirt.process_material as ParticleProcessMaterial
-		process.emission_ring_radius = rs * 2.4
-		process.emission_ring_inner_radius = rs * 1.4
-		process.scale_min = rs * 1.5
-		process.scale_max = rs * 2.6
-
-	# Débris et poussière aspirés au pied (explosions basses).
-	_debris.emitting = a < 0.5 and yb < 2.0 * rf
-	if _debris.emitting:
-		var process := _debris.process_material as ParticleProcessMaterial
-		process.emission_ring_radius = maxf(rs * 3.0, 0.02)
-		process.emission_ring_inner_radius = 0.0
-		process.scale_min = maxf(rs, 0.01) * 1.5
-		process.scale_max = maxf(rs, 0.01) * 2.5
-
-
-func _make_particles(node_name: String, amount: int, lifetime: float, color: Color) -> GPUParticles3D:
-	var process := ParticleProcessMaterial.new()
-	process.gravity = Vector3.ZERO
-	process.direction = Vector3.UP
-	process.spread = 20.0
-	process.angle_min = -180.0
-	process.angle_max = 180.0
-	process.color = color
-	var ramp := Gradient.new()
-	ramp.offsets = PackedFloat32Array([0.0, 0.15, 0.7, 1.0])
-	ramp.colors = PackedColorArray([Color(1, 1, 1, 0), Color(1, 1, 1, 0.9), Color(1, 1, 1, 0.7), Color(1, 1, 1, 0)])
-	var ramp_texture := GradientTexture1D.new()
-	ramp_texture.gradient = ramp
-	process.color_ramp = ramp_texture
-	match node_name:
-		"Stem":
-			process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-		"Skirt":
-			process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
-			process.emission_ring_axis = Vector3.UP
-			process.emission_ring_height = 0.01
-			process.radial_velocity_min = 0.0002
-			process.radial_velocity_max = 0.0006
-			process.spread = 5.0
-			process.initial_velocity_min = 0.0
-			process.initial_velocity_max = 0.0002
-		"Debris":
-			process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
-			process.emission_ring_axis = Vector3.UP
-			process.emission_ring_height = 0.005
-			process.radial_velocity_min = -0.0008
-			process.radial_velocity_max = -0.0002
-			process.initial_velocity_min = 0.0015
-			process.initial_velocity_max = 0.004
-	var particles := GPUParticles3D.new()
-	particles.name = node_name
-	particles.amount = amount
-	particles.lifetime = lifetime
-	particles.local_coords = true
-	particles.process_material = process
-	particles.draw_order = GPUParticles3D.DRAW_ORDER_VIEW_DEPTH
-	particles.visibility_aabb = AABB(Vector3(-1.5, -0.3, -1.5), Vector3(3.0, 1.8, 3.0))
-	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	particles.draw_pass_1 = _get_smoke_mesh()
-	particles.emitting = false
-	add_child(particles)
-	return particles
-
-
-static func _get_smoke_mesh() -> QuadMesh:
-	if _smoke_mesh == null:
-		var material := ShaderMaterial.new()
-		material.shader = SMOKE_SHADER
-		material.render_priority = -1
-		material.set_shader_parameter("noise_tex", SHAPE_NOISE)
-		_smoke_mesh = QuadMesh.new()
-		_smoke_mesh.material = material
-	return _smoke_mesh
 
 
 ## Maillage de révolution fixe : RINGS anneaux de SEGMENTS + 1 sommets (UV.x = angle, UV.y = position sur le profil,

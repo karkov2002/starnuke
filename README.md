@@ -36,7 +36,7 @@ dernière colonne (bouton de tir et puissance) vient de `nuke/`.
 quand il n'y a plus d'explosion (« Effacer » du panneau de debug).
 - Résumé : nombre d'explosions, total des morts et des blessés **à l'instant présent** (au temps de chaque
   explosion : flash, onde de choc, décès des blessés, retombées ; voir « Pertes humaines »), puis la projection à
-  60 jours (bilan final du souffle et de la chaleur + retombées), avec « retombées : calcul en cours… » tant que
+  60 jours (bilan final du souffle et de la chaleur + retombées), avec « bilan : calcul en cours… » tant que
   leur calcul tourne.
 - Liste défilante (260 px) des pays touchés, cumulés sur toutes les explosions et triés par morts décroissants
   (à égalité, par nombre d'explosions). Colonnes :
@@ -51,7 +51,7 @@ quand il n'y a plus d'explosion (« Effacer » du panneau de debug).
   bornée à l'écran ; une fois posée, elle garde sa place, même après « Effacer ». Bouton **—** / **+** : replier
   / déplier.
 - Rafraîchie deux fois par seconde (`NukeCasualties.snapshot` sur `NukeEffect.casualties`, `NukeEffect.fallout`,
-  `NukeEffect.blackout`, sans recalcul) : les chiffres montent sous les yeux. Les lignes sont mises à jour sur place
+  `NukeEffect.grid`, via `NukeTally`, sans recalcul) : les chiffres montent sous les yeux. Les lignes sont mises à jour sur place
   et ne sont recréées que si l'ordre des pays change (infobulles et défilement stables). Avec le scrubber du panneau
   de debug, elle suit le temps rejoué.
 
@@ -207,7 +207,7 @@ Couche entre **3 et 10 km** d'altitude, rendue par lancer de rayon (jusqu'à 72 
   progressivement par l'atmosphère (`sun_light.gdshaderinc`), lumière ambiante bleutée du ciel ; nuages éteints côté
   nuit.
 - **Ombres au sol** et voilage des lumières des villes : le shader de surface intègre la même densité.
-- **Trous des explosions** : `cloud_density()` appelle `nuke_cloud_warp()` (`nuke/shaders/nuke_clouds.gdshaderinc`,
+- **Trous des explosions** : `cloud_density_masked()` (et `cloud_density()`, qui prend toutes les explosions) appelle `nuke_cloud_warp()` pour les explosions de son masque (`nuke/shaders/nuke_clouds.gdshaderinc`,
   voir « Explosions nucléaires », « Nuages ») ; sans explosion, le test `nuke_cloud_count > 0` évite tout calcul.
 - **Déplacement par le vent réel** (advection) : la carte de couverture est un instantané, pris par NOAA-20 vers
   **13 h 30 heure solaire locale** le 15 juillet 2023. Le vent utilisé est le vent moyen du même jour : modèle
@@ -365,6 +365,62 @@ nuageuse**, **champignon** (boule de feu comprise ; dérive selon le profil vert
 et **explosions sur la mer** (pas d'incendie au large, nuage de vapeur d'eau qui retombe vite) ; le **pays touché**
 et les **pertes humaines** (par pays, selon la densité de population) sont calculés au tir ; **black-out électrique**
 de nuit (zone détruite, panne régionale en cascade, panne nationale si une grosse centrale est détruite).
+
+### Organisation du code
+
+Une responsabilité par classe (principe « S » de SOLID). Trois familles :
+
+| Rôle | Classes (fichiers dans `nuke/` sauf mention) |
+|---|---|
+| **Tir** | `NukeLauncher` (visée, création de l'explosion, liste des explosions ; crée les nœuds ci-dessous), `NukeParams` (paramètres d'un tir), `NukeEffect` (une explosion : placement, temps, résultats du bilan), `NukeClock` (horloge) |
+| **Rendu d'une explosion** (enfants de `NukeEffect`) | `NukeFlash`, `NukeShock`, `NukeMushroom` (forme, volume, couleurs) avec `NukeMushroomDrift` (dérive au vent) et `NukeMushroomParticles` (particules) |
+| **Rendu global** (nœuds créés par le lanceur, alimentent les shaders du globe) | `NukeFlashFX`, `NukeFireFX`, `NukeCloudFX`, `NukeBlackoutFX` ; `NukeFXMaterials` (recherche des matériaux qui déclarent un uniform) |
+| **Modèles** (calcul pur, sans nœud, utilisables depuis un thread) | `NukeScaling` (lois d'échelle, surpression de Brode), `NukeCasualties` (pertes du souffle et de la chaleur, chronologie), `NukeFallout` (doses et pertes des retombées) avec `NukeWSEG10` (champ de retombées) et `NukeMath`, `NukeGridImpact` (centrales détruites, panne nationale), `NukeAtmosphere`, `NukeWind` |
+| **Bilan** | `NukeImpact` (nœud `Impact` : calcule le bilan d'un tir dans un thread et l'écrit en console), `NukeTally` (cumul par pays, à l'instant présent), `NukeReportText` (textes et nombres), `NukeReportPanel` (fenêtre, affichage seulement) avec `DraggableWindow` (`scripts/ui/`, fenêtre déplaçable réutilisable) |
+| **Données géographiques** (`scripts/`) | `OceanMask`, `CountryMask` (dont `index_near` : pays le plus proche d'un point côtier), `PopulationGrid` (dont `cell_country`), `PowerPlants` |
+
+Un tir ne fait que créer la scène de l'explosion (~1 ms) : tout le bilan (pertes, réseau électrique, retombées) est
+calculé par `NukeImpact` dans un `WorkerThreadPool`, puis remis à l'explosion dans le fil principal ; la console est
+écrite depuis ce thread.
+
+### Performances
+
+Banc de mesure : `tools/bench/nuke_bench.tscn` (`godot --path . res://tools/bench/nuke_bench.tscn -- <résultats.txt>`).
+Il charge la scène principale, coupe la synchro verticale, fige l'orbite, tire 0 à 16 explosions de 1 Mt dans le
+champ de vision (graine fixe), et mesure le temps CPU par image (moyen et pire), le temps GPU (RenderingServer), la
+durée des tirs et la pire image qui suit, puis 4 × 50 Mt, puis la part GPU de chaque effet (en le coupant). **Ne rien
+faire tourner d'autre pendant la mesure** (une partie lancée depuis l'éditeur partage le GPU et fausse tout).
+
+Mesures (RTX 5080, 1920 × 1080, 2026-10-10), avant et après la refactorisation et les optimisations :
+
+| | Avant | Après |
+|---|---|---|
+| 16 tirs enchaînés : durée des appels | 996 ms | 20 ms |
+| Pire image après ces 16 tirs | 257 ms | 5 ms |
+| 0 explosion : temps par image | 4,2 ms (235 im/s) | 4,3 ms (235 im/s) |
+| 16 × 1 Mt à 60 s | 8,6 ms (116 im/s) | 6,2 ms (162 im/s) |
+| 16 × 1 Mt à 30 min | 7,3 ms (137 im/s) | 7,2 ms (139 im/s) |
+| GPU des trous dans les nuages (16 × 1 Mt) | 2,65 ms | 0,17 ms |
+| GPU des incendies (16 × 1 Mt) | 0,21 ms | 0,03 ms |
+
+Le jeu est limité par le GPU (temps CPU ≈ temps GPU). Ce qui a été corrigé :
+- **à-coups au tir** (la vraie cause des ralentissements ressentis) : chaque `print()` coûte 6 à 9 ms (sortie de
+  l'éditeur) et un tir en écrivait 6 à 8 ; le calcul des pertes prenait 4 à 40 ms et les cartes de vent étaient
+  chargées au premier tir. Désormais tout le bilan et la console sont dans un thread (`NukeImpact`) et les cartes
+  de vent sont préchargées au démarrage (`NukeWind.preload_maps`). Seul le tout premier tir de la partie coûte
+  ~17 ms (première création de la scène de l'explosion) ;
+- **trous dans les nuages** : chaque échantillon de nuage (marche de rayon et marche vers le soleil) testait toutes
+  les explosions. Le shader des nuages calcule maintenant une fois par rayon la liste des explosions dont la zone
+  d'influence croise son trajet (`nuke_cloud_events_near_segment`, masque de bits) et n'évalue qu'elles
+  (`cloud_density_masked`) ;
+- **incendies** : le voile des nuages sur les feux (une marche de nuages par pixel du sol) était calculé sur tout le
+  globe dès qu'un feu existait ; il ne l'est plus que là où il y a du feu ;
+- **dérive des champignons** (CPU) : pendant les 10 min de montée, 512 interpolations du profil de vent par
+  champignon et par image ; le vent est maintenant lu dans une table précalculée (`NukeMushroomDrift`).
+
+Coût restant (16 × 1 Mt à 60 s, GPU) : champignons volumétriques 1,5 ms, anneaux d'onde de choc 0,6 ms. Essayé sans
+gain mesurable, donc abandonné : un pas adaptatif pour la marche de rayon du champignon (les rayons traversent
+surtout des volumes hauts, où 64 pas restent nécessaires).
 
 - **Paramètres** (`nuke/nuke_params.gd`, Resource `NukeParams`) : `yield_kt` (10 à 50 000), `latitude_deg`,
   `longitude_deg`, `wind_direction_deg` (d'où vient le vent, convention météo) et `wind_speed_m_s`,
@@ -576,7 +632,7 @@ de nuit (zone détruite, panne régionale en cascade, panne nationale si une gro
   - **Maillage de révolution** fixe (96 anneaux × 128 segments). Le profil (méridienne de 48 points : tige au pied et
     au col évasés, puis chapeau à dessous creusé, bord arrondi et dessus aplati) est recalculé à chaque image et
     posé par le vertex shader, qui l'interpole entre ses points.
-  - **Dérive au vent** (`_update_drift`, `nuke/shaders/nuke_drift.gdshaderinc`) : profil vertical du vent réel GFS
+  - **Dérive au vent** (`nuke/nuke_mushroom_drift.gd`, classe `NukeMushroomDrift` ; `nuke/shaders/nuke_drift.gdshaderinc`) : profil vertical du vent réel GFS
     au point d'impact (`NukeParams.wind_profile`, voir « Paramètres »). Chaque altitude part avec son propre vent :
     - le déplacement est calculé en 32 hauteurs (0 à 1,4 sommet final) et interpolé par les shaders (volume,
       maillage) et pour les émetteurs de particules ;
@@ -661,7 +717,7 @@ de nuit (zone détruite, panne régionale en cascade, panne nationale si une gro
     Leur vitesse suit celle du temps physique (`speed_scale` : pause et accélération de l'horloge). Elles ne se
     rejouent pas au scrubber. Pas de *soft particles* : elles liraient la texture de profondeur, peu fiable sous
     D3D12 dans ce projet ; les bords sont adoucis par la forme. Pas de flipbook (aucun dans le projet).
-- **Black-out électrique** (règle de jeu ; `nuke/nuke_blackout.gd`, classe `NukeBlackout`, nœud `BlackoutFX` créé par
+- **Black-out électrique** (règle de jeu ; `nuke/nuke_grid_impact.gd`, classe `NukeGridImpact` ; `nuke/nuke_blackout_fx.gd`, classe `NukeBlackoutFX`, nœud `BlackoutFX` créé par
   `NukeLauncher` ; `nuke/shaders/nuke_blackout.gdshaderinc`, inclus dans `shaders/earth_surface.gdshader` ; lois et
   durées dans `NukeScaling`, constantes `BLACKOUT_*`). Seules les lumières des villes s'éteignent : **de jour, rien
   ne se voit** ; au crépuscule, les villes s'allument autour d'une zone qui reste noire (la panne multiplie
@@ -675,7 +731,7 @@ de nuit (zone détruite, panne régionale en cascade, panne nationale si une gro
      (R · (1 − exp(−t / 15 s))), par plaques d'une vingtaine de km (quartiers, communes : bruit fixe). Les plaques se
      rallument une à une, du bord (après 1 h) vers le centre (24 h), ±30 % selon la plaque. Repère : la panne du
      nord-est des États-Unis (14 août 2003) a été réparée en 1 à 2 jours.
-  3. **Panne nationale** : au tir, `NukeBlackout.assess()` cherche les centrales détruites (rayon de 5 psi,
+  3. **Panne nationale** : au tir, `NukeGridImpact.assess()` (dans le thread de `NukeImpact`) cherche les centrales détruites (rayon de 5 psi,
      `BLACKOUT_PLANT_PSI`) dans la Global Power Plant Database (`scripts/power_plants.gd`, classe `PowerPlants`,
      `assets/power_plants.res`). Si elles représentent au moins 10 % de la capacité du pays
      (`BLACKOUT_NATIONAL_SHARE`), tout le pays s'éteint, à ses frontières (carte `assets/textures/country_ids.png`
@@ -699,8 +755,8 @@ de nuit (zone détruite, panne régionale en cascade, panne nationale si une gro
     réseaux interconnectés (une panne qui déborde sur les pays voisins) et l'impulsion électromagnétique d'une
     explosion en haute altitude ne sont pas simulés.
 - **Pertes humaines** (`nuke/nuke_casualties.gd`, classe `NukeCasualties` ; `nuke/nuke_fallout.gd`, classe
-  `NukeFallout` ; règle de jeu). Au tir, `NukeLauncher` calcule le bilan final du souffle et de la chaleur
-  (`NukeEffect.casualties`) et lance le calcul des retombées dans un thread (`NukeEffect.fallout`). Les pertes
+  `NukeFallout` ; règle de jeu). Au tir, le nœud `Impact` (`NukeImpact`) calcule hors du fil principal le bilan final du souffle et de la chaleur
+  (`NukeEffect.casualties`), puis les retombées (`NukeEffect.fallout`). Les pertes
   s'affichent **en temps réel** dans la fenêtre « Bilan des explosions » (voir « Contrôles ») et le bilan en
   console, par pays :
   ```

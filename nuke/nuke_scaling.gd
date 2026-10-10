@@ -105,7 +105,7 @@ const STEAM_FADE_S := 600.0
 # mer ; précision ~10 %. Résultat en psi (1 psi = 6,895 kPa).
 const KILOFEET_PER_KM := 3.28084
 
-# Black-out électrique (NukeBlackout, nuke/shaders/nuke_blackout.gdshaderinc ; visible seulement de nuit, sur les
+# Black-out électrique (NukeGridImpact, NukeBlackoutFX, nuke/shaders/nuke_blackout.gdshaderinc ; visible de nuit, sur les
 # lumières des villes). Trois couches :
 # - zone détruite, éteinte pour de bon : rayon de BLACKOUT_DESTROYED_PSI (réseau de distribution, postes, bâtiments) ;
 # - panne régionale en cascade : disque de rayon BLACKOUT_REGION_1MT_KM · (W / 1 Mt)^(1/3) (~26 km à 10 kt, 120 km à

@@ -150,8 +150,10 @@ vec2 cloud_coverage_at(vec3 n, float lod, CloudAdvection adv) {
 	return smoothstep(vec2(cloud_coverage_low), vec2(cloud_coverage_high), c);
 }
 
-// with_detail = false pour les marches vers le soleil (moins coûteux).
-float cloud_density(vec3 p, float time, bool with_detail, float lod, CloudAdvection adv) {
+// with_detail = false pour les marches vers le soleil (moins coûteux). nuke_mask : explosions à prendre en compte (bit i
+// = explosion i ; NUKE_ALL_EVENTS : toutes). Un rayon de vue calcule son masque une fois (nuke_cloud_events_near_segment)
+// au lieu de tester toutes les explosions à chaque échantillon.
+float cloud_density_masked(vec3 p, float time, bool with_detail, float lod, CloudAdvection adv, int nuke_mask) {
 	float r = length(p);
 	float h = (r - CLOUD_PLANET_RADIUS_KM - cloud_bottom_km) / (cloud_top_km - cloud_bottom_km);
 	if (h <= 0.0 || h >= 1.0) {
@@ -162,7 +164,7 @@ float cloud_density(vec3 p, float time, bool with_detail, float lod, CloudAdvect
 	vec3 read_n = n;
 	float rim = 0.0;
 	float squeeze = 1.0;
-	float keep = nuke_cloud_count > 0 ? nuke_cloud_warp(n, read_n, rim, squeeze) : 1.0;
+	float keep = nuke_cloud_count > 0 && nuke_mask != 0 ? nuke_cloud_warp(n, read_n, rim, squeeze, nuke_mask) : 1.0;
 	vec2 coverage = cloud_coverage_at(read_n, lod + log2(squeeze), adv);
 	float cov = coverage.x * keep;
 	if (cov <= 0.005) {
@@ -184,6 +186,11 @@ float cloud_density(vec3 p, float time, bool with_detail, float lod, CloudAdvect
 	float detail = textureLod(cloud_detail_noise, q / cloud_detail_period_km, 0.0).r;
 	float erosion = cloud_edge_erosion * (1.0 - cov);
 	return clamp(cloud_remap(density, detail * erosion, 1.0, 0.0, 1.0), 0.0, 1.0) * (1.0 + rim);
+}
+
+// Densité en tenant compte de toutes les explosions (ombres au sol, lumière des flashs).
+float cloud_density(vec3 p, float time, bool with_detail, float lod, CloudAdvection adv) {
+	return cloud_density_masked(p, time, with_detail, lod, adv, NUKE_ALL_EVENTS);
 }
 
 #endif

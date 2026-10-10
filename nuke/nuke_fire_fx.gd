@@ -15,13 +15,7 @@ var _was_active := false
 
 func setup(launcher: NukeLauncher, earth: Node3D) -> void:
 	_launcher = launcher
-	for child in earth.get_children():
-		var geometry := child as GeometryInstance3D
-		if geometry and geometry.material_override is ShaderMaterial:
-			var material := geometry.material_override as ShaderMaterial
-			if material.shader and material.shader.get_shader_uniform_list().any(
-					func(u: Dictionary) -> bool: return u.name == "nuke_fire_count"):
-				_materials.append(material)
+	_materials = NukeFXMaterials.find(earth, &"nuke_fire_count")
 
 
 func _process(_delta: float) -> void:

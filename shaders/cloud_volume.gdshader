@@ -80,6 +80,11 @@ void fragment() {
 
 	// Advection des nuages par le vent, calculée une fois par rayon (au milieu du trajet dans la couche).
 	CloudAdvection adv = cloud_advection(normalize(ro + rd * (0.5 * (t0 + t1))));
+	// Explosions qui touchent ce rayon (trous dans les nuages) : tri fait une fois ; la marche vers le soleil s'écarte
+	// d'au plus ~10 km de l'échantillon (5 pas doublés depuis light_first_step_km).
+	float light_reach_km = light_first_step_km * (pow(2.0, float(light_steps)) - 1.0);
+	int nuke_mask = nuke_cloud_count > 0
+			? nuke_cloud_events_near_segment(ro + rd * t0, ro + rd * t1, light_reach_km + 1.0) : 0;
 
 	float transmittance = 1.0;
 	vec3 scattered = vec3(0.0);
@@ -87,7 +92,7 @@ void fragment() {
 		vec3 p = ro + rd * (t0 + (float(i) + jitter) * dt);
 		float t = t0 + (float(i) + jitter) * dt;
 		float lod = log2(max(t * pixel_angle / 0.5, 1.0));
-		float density = cloud_density(p, TIME, true, lod, adv);
+		float density = cloud_density_masked(p, TIME, true, lod, adv, nuke_mask);
 		if (density <= 0.0) {
 			continue;
 		}
@@ -98,7 +103,7 @@ void fragment() {
 		float tl = 0.0;
 		float s = light_first_step_km;
 		for (int j = 0; j < light_steps; j++) {
-			od += cloud_density(p + l * (tl + 0.5 * s), TIME, false, lod + 1.0, adv) * s;
+			od += cloud_density_masked(p + l * (tl + 0.5 * s), TIME, false, lod + 1.0, adv, nuke_mask) * s;
 			tl += s;
 			s *= 2.0;
 		}

@@ -74,6 +74,17 @@ static func cell_population(row: int, col: int) -> float:
 	return q * q
 
 
+## Pays d'une cellule (indice de CountryMask, -1 : aucun), mêmes lignes de latitude. Le trait de côte des frontières
+## (1:10 M) est plus grossier que la grille : une cellule littorale habitée peut tomber « en mer », on prend alors le
+## pays le plus proche à moins de COAST_SEARCH cellules (CountryMask.index_near). Sûr depuis un autre thread.
+const COAST_SEARCH := 4
+
+
+static func cell_country(row: int, col: int) -> int:
+	var mask := CountryMask.get_mask()
+	return mask.index_near(row, cell_longitude(col), COAST_SEARCH) if mask else -1
+
+
 ## Population totale de la grille (somme des tuiles, avant quantification).
 static func world_population() -> float:
 	_mutex.lock()

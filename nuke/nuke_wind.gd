@@ -16,6 +16,15 @@ static var _image: Image
 static var _profile: Image
 
 
+## Charge les deux cartes (sinon elles le sont au premier appel : ~15 ms d'à-coup au premier tir). Appelée dans un
+## thread au démarrage par NukeLauncher.
+static func preload_maps() -> void:
+	if _image == null:
+		_image = _load(WIND_TEXTURE)
+	if _profile == null:
+		_profile = _load(PROFILE_TEXTURE)
+
+
 ## Vent (m/s, x = vers l'est, y = vers le nord) à la latitude / longitude données, interpolé. Vector2.ZERO si la carte
 ## manque.
 static func sample(latitude_deg: float, longitude_deg: float) -> Vector2:
