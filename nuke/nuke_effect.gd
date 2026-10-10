@@ -23,6 +23,10 @@ const MARKER_RENDER_PRIORITY := 2 # après les nuages (0) et l'atmosphère (1), 
 var time_override_s := -1.0
 ## Pertes humaines estimées au tir (NukeCasualties.estimate : totaux et détail par pays) ; {} si non calculées.
 var casualties := {}
+## Retombées radioactives (NukeFallout.estimate, calculées dans un thread après le tir) ; {} en attendant ou pour une
+## explosion en altitude. fallout_pending : calcul en cours.
+var fallout := {}
+var fallout_pending := false
 ## Bilan électrique au tir (NukeBlackout.assess : centrales détruites, panne nationale) ; {} si non calculé.
 var blackout := {}
 ## Cache de can_ignite_land() (−1 : pas encore calculé).

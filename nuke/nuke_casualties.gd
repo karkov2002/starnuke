@@ -1,6 +1,6 @@
 class_name NukeCasualties
 extends RefCounted
-## Pertes humaines immédiates d'une explosion (souffle, chaleur et rayonnement initial confondus), par pays.
+## Pertes humaines d'une explosion, par pays, et leur évolution dans le temps (snapshot).
 ##
 ## Modèle de l'Office of Technology Assessment du Congrès américain (*The Effects of Nuclear War*, 1979, ch. II),
 ## tiré des pertes d'Hiroshima : la part de tués et de blessés ne dépend que de la surpression de crête au sol, par
@@ -10,7 +10,10 @@ extends RefCounted
 ##
 ## Les cellules coupées par une limite de tranche sont découpées en SUBCELLS x SUBCELLS sous-cellules (population
 ## répartie uniformément), sinon une explosion de 10 kt (5 psi à ~1 km) serait mal résolue.
-## Non comptés : retombées radioactives (jours, selon le vent), tempête de feu, effets à long terme.
+## Chronologie (snapshot, constantes PHASE_*) : une part des morts tombe au flash, une autre au passage de l'onde de
+## choc (NukeScaling.shock_arrival_s, anneaux de RINGS distances par pays), le reste meurt de ses blessures dans les
+## heures suivantes. Les retombées radioactives (jours) viennent de NukeFallout, calculé à part.
+## Non comptés : tempête de feu, effets à long terme.
 
 ## Tranches de surpression (psi minimale) : part tuée, part blessée (OTA 1979).
 const BANDS: Array[Dictionary] = [
@@ -20,23 +23,37 @@ const BANDS: Array[Dictionary] = [
 	{"psi": 1.0, "killed": 0.0, "injured": 0.25},
 ]
 const SUBCELLS := 4
+## Anneaux de distance (part du rayon de 1 psi) pour dater l'arrivée de l'onde de choc.
+const RINGS := 24
+## Chronologie des morts du souffle et de la chaleur (part du total OTA) : au flash (brûlures mortelles, rayonnement
+## initial), au passage de l'onde de choc, puis morts différées (grands brûlés, blessés graves, victimes ensevelies),
+## comptées d'abord parmi les blessés, en exp(−t / PHASE_DELAYED_TAU_S).
+const PHASE_FLASH := 0.3
+const PHASE_SHOCK := 0.5
+const PHASE_DELAYED := 0.2
+const PHASE_DELAYED_TAU_S := 21600.0
 const KM_PER_DEGREE := 111.195
 
 
-## Estimation pour une explosion. Retour : {killed, injured, exposed (population au-dessus de 1 psi), radii_km
-## (rayon de chaque tranche, même ordre que BANDS), countries : [{code, name_fr, sovereign_fr, killed, injured,
-## exposed, pop_est}] trié par tués décroissants}. Sûr depuis un autre thread (lectures seules).
+## Estimation pour une explosion (bilan final du souffle et de la chaleur). Retour : {killed, injured, exposed
+## (population au-dessus de 1 psi), radii_km (rayon de chaque tranche, même ordre que BANDS), ring_arrival_s (arrivée de
+## l'onde de choc au milieu de chaque anneau), countries : [{code, name_fr, sovereign_fr, killed, injured, exposed,
+## pop_est, ring_killed, ring_injured (par anneau)}] trié par tués décroissants}. Sûr depuis un autre thread (lectures seules).
 static func estimate(params: NukeParams) -> Dictionary:
 	var radii := PackedFloat64Array()
 	for band in BANDS:
 		radii.append(NukeScaling.overpressure_range_km(params.yield_kt, band.psi, params.burst_height_km))
-	var result := {"killed": 0.0, "injured": 0.0, "exposed": 0.0, "radii_km": radii, "countries": []}
 	var reach := radii[radii.size() - 1]
+	var arrivals := PackedFloat64Array()
+	for i in RINGS:
+		arrivals.append(NukeScaling.shock_arrival_s(params.yield_kt, (i + 0.5) / RINGS * reach))
+	var result := {"killed": 0.0, "injured": 0.0, "exposed": 0.0, "radii_km": radii, "ring_arrival_s": arrivals,
+			"countries": []}
 	if reach <= 0.0 or not PopulationGrid.is_available():
 		return result
 
 	var mask := CountryMask.get_mask()
-	var per_country := {} # indice du pays (-1 : aucun) -> [tués, blessés, exposés]
+	var per_country := {} # indice du pays (-1 : aucun) -> [tués, blessés, exposés, tués par anneau…, blessés par anneau…]
 	var lat0 := params.latitude_deg
 	var lon0 := params.longitude_deg
 	var cell_deg := 1.0 / PopulationGrid.CELLS_PER_DEGREE
@@ -66,11 +83,16 @@ static func estimate(params: NukeParams) -> Dictionary:
 			var fractions := _cell_fractions(d, half_diag, dx, dy, km_x * cell_deg, km_y * cell_deg, radii)
 			if fractions.z <= 0.0:
 				continue
-			var owner := _cell_country(mask, row, col)
-			var acc: PackedFloat64Array = per_country.get(owner, PackedFloat64Array([0.0, 0.0, 0.0]))
+			var owner := cell_country(mask, row, col)
+			var acc: PackedFloat64Array = per_country.get(owner, PackedFloat64Array())
+			if acc.is_empty():
+				acc.resize(3 + 2 * RINGS)
+			var ring := mini(int(d / reach * RINGS), RINGS - 1)
 			acc[0] += pop * fractions.x
 			acc[1] += pop * fractions.y
 			acc[2] += pop * fractions.z
+			acc[3 + ring] += pop * fractions.x
+			acc[3 + RINGS + ring] += pop * fractions.y
 			per_country[owner] = acc
 
 	var countries: Array[Dictionary] = []
@@ -80,7 +102,8 @@ static func estimate(params: NukeParams) -> Dictionary:
 		result.injured += acc[1]
 		result.exposed += acc[2]
 		var entry := {"code": "", "name_fr": "(hors pays)", "sovereign_fr": "", "pop_est": 0,
-				"killed": acc[0], "injured": acc[1], "exposed": acc[2]}
+				"killed": acc[0], "injured": acc[1], "exposed": acc[2], "ring_killed": acc.slice(3, 3 + RINGS),
+				"ring_injured": acc.slice(3 + RINGS)}
 		if owner >= 0:
 			var c: Dictionary = mask.countries[owner]
 			entry.code = c.code
@@ -93,13 +116,71 @@ static func estimate(params: NukeParams) -> Dictionary:
 	return result
 
 
+## Bilan au temps t (s, physique, depuis l'explosion) : souffle et chaleur (estimate, selon la chronologie PHASE_*)
+## plus retombées (NukeFallout.estimate, {} tant qu'elles ne sont pas calculées). Retour : {killed, injured,
+## final_killed (projection : bilan final du souffle + retombées à NukeFallout.HORIZON_H), countries : [{code, name_fr,
+## sovereign_fr, pop_est, killed, injured}] (pays présents dans l'un ou l'autre bilan)}.
+static func snapshot(casualties: Dictionary, fallout: Dictionary, t: float) -> Dictionary:
+	var by_code := {}
+	var result := {"killed": 0.0, "injured": 0.0, "final_killed": 0.0, "countries": []}
+	if not casualties.is_empty():
+		var arrivals: PackedFloat64Array = casualties.ring_arrival_s
+		for c: Dictionary in casualties.countries:
+			var entry := _snapshot_entry(by_code, c)
+			var blast := _blast_at(c, arrivals, t)
+			entry.killed += blast.x
+			entry.injured += blast.y
+			result.final_killed += c.killed
+	if not fallout.is_empty():
+		for c: Dictionary in fallout.countries:
+			var entry := _snapshot_entry(by_code, c)
+			var rad := NukeFallout.at(fallout, c, t)
+			entry.killed += rad.x
+			entry.injured += rad.y
+			var dead: PackedFloat64Array = c.dead
+			result.final_killed += dead[dead.size() - 1]
+	for code: String in by_code:
+		var entry: Dictionary = by_code[code]
+		result.killed += entry.killed
+		result.injured += entry.injured
+		result.countries.append(entry)
+	return result
+
+
+static func _snapshot_entry(by_code: Dictionary, c: Dictionary) -> Dictionary:
+	var code: String = c.code
+	if not by_code.has(code):
+		by_code[code] = {"code": code, "name_fr": c.name_fr, "sovereign_fr": c.sovereign_fr, "pop_est": c.pop_est,
+				"killed": 0.0, "injured": 0.0}
+	return by_code[code]
+
+
+## (morts, blessés) du souffle et de la chaleur pour un pays au temps t : au flash, au passage du front dans chaque
+## anneau, puis les morts différées (les blessés qui ne survivront pas).
+static func _blast_at(c: Dictionary, arrivals: PackedFloat64Array, t: float) -> Vector2:
+	if t <= 0.0:
+		return Vector2.ZERO
+	var ring_killed: PackedFloat64Array = c.ring_killed
+	var ring_injured: PackedFloat64Array = c.ring_injured
+	var dead := PHASE_FLASH * float(c.killed)
+	var injured := 0.0
+	for i in ring_killed.size():
+		var since := t - arrivals[i]
+		if since < 0.0:
+			continue
+		var dying := exp(-since / PHASE_DELAYED_TAU_S)
+		dead += ring_killed[i] * (PHASE_SHOCK + PHASE_DELAYED * (1.0 - dying))
+		injured += ring_injured[i] + ring_killed[i] * PHASE_DELAYED * dying
+	return Vector2(dead, injured)
+
+
 ## Pays d'une cellule habitée (indice de CountryMask, -1 : aucun). Le trait de côte des frontières (1:10 M) est plus
 ## grossier que la grille de population (~0,9 km) : une cellule littorale habitée peut tomber « en mer ». On prend
 ## alors le pays le plus proche, à moins de COAST_SEARCH cellules.
 const COAST_SEARCH := 4
 
 
-static func _cell_country(mask: CountryMask, row: int, col: int) -> int:
+static func cell_country(mask: CountryMask, row: int, col: int) -> int:
 	if mask == null:
 		return -1
 	for radius in COAST_SEARCH + 1:
@@ -134,6 +215,11 @@ static func _cell_fractions(d: float, half_diag: float, dx: float, dy: float, w_
 	return sum / float(SUBCELLS * SUBCELLS)
 
 
+## Part de la population tuée par le souffle et la chaleur à la distance d (pour ne pas irradier des morts).
+static func killed_fraction(d: float, radii: PackedFloat64Array) -> float:
+	return _band_fractions(d, radii).x
+
+
 ## (part tuée, part blessée, 1 si exposé à au moins 1 psi) à la distance d.
 static func _band_fractions(d: float, radii: PackedFloat64Array) -> Vector3:
 	for i in BANDS.size():
@@ -145,7 +231,7 @@ static func _band_fractions(d: float, radii: PackedFloat64Array) -> Vector3:
 ## Résumé lisible (console) : totaux et pays touchés.
 static func format_report(result: Dictionary) -> String:
 	var lines: Array[String] = []
-	lines.append("  pertes immédiates (OTA 1979, population 2030) : %s morts, %s blessés, %s personnes à plus de 1 psi"
+	lines.append("  souffle et chaleur, bilan final (OTA 1979, population 2030) : %s morts, %s blessés, %s personnes à plus de 1 psi"
 			% [format_count(result.killed), format_count(result.injured), format_count(result.exposed)])
 	for c: Dictionary in result.countries:
 		if c.killed + c.injured < 1.0:

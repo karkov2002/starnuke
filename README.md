@@ -34,7 +34,10 @@ dernière colonne (bouton de tir et puissance) vient de `nuke/`.
 **Fenêtre « Bilan des explosions »** (nœud `NukeReport` de `scenes/orbit_view.tscn`, script
 `nuke/nuke_report_panel.gd`, construite en code). Elle apparaît au premier tir, en haut à droite, et disparaît
 quand il n'y a plus d'explosion (« Effacer » du panneau de debug).
-- Résumé : nombre d'explosions, total des morts et des blessés.
+- Résumé : nombre d'explosions, total des morts et des blessés **à l'instant présent** (au temps de chaque
+  explosion : flash, onde de choc, décès des blessés, retombées ; voir « Pertes humaines »), puis la projection à
+  60 jours (bilan final du souffle et de la chaleur + retombées), avec « retombées : calcul en cours… » tant que
+  leur calcul tourne.
 - Liste défilante (260 px) des pays touchés, cumulés sur toutes les explosions et triés par morts décroissants
   (à égalité, par nombre d'explosions). Colonnes :
   - **Expl.** : nombre d'explosions dont le point zéro est sur le territoire du pays (« — » pour un pays touché
@@ -47,8 +50,10 @@ quand il n'y a plus d'explosion (« Effacer » du panneau de debug).
 - Fenêtre déplaçable comme sous Windows : clic gauche maintenu sur la barre de titre (curseur « déplacer »),
   bornée à l'écran ; une fois posée, elle garde sa place, même après « Effacer ». Bouton **—** / **+** : replier
   / déplier.
-- Mise à jour à chaque tir (et au plus deux fois par seconde si la liste des explosions change), sans
-  recalcul : elle lit `NukeEffect.casualties` et `NukeEffect.blackout`.
+- Rafraîchie deux fois par seconde (`NukeCasualties.snapshot` sur `NukeEffect.casualties`, `NukeEffect.fallout`,
+  `NukeEffect.blackout`, sans recalcul) : les chiffres montent sous les yeux. Les lignes sont mises à jour sur place
+  et ne sont recréées que si l'ordre des pays change (infobulles et défilement stables). Avec le scrubber du panneau
+  de debug, elle suit le temps rejoué.
 
 **Règles de l'orbite appliquées par les contrôles :**
 - changer l'altitude conserve le point survolé et le sens de passage (montant / descendant) ; la période change
@@ -693,12 +698,14 @@ de nuit (zone détruite, panne régionale en cascade, panne nationale si une gro
   - Limites : la base recense ~70 % de la capacité mondiale (surtout les grosses centrales, qui comptent ici) ; les
     réseaux interconnectés (une panne qui déborde sur les pays voisins) et l'impulsion électromagnétique d'une
     explosion en haute altitude ne sont pas simulés.
-- **Pertes humaines** (`nuke/nuke_casualties.gd`, classe `NukeCasualties` ; règle de jeu) : au tir, `NukeLauncher`
-  calcule les pertes immédiates (`NukeEffect.casualties`). Elles s'affichent dans la fenêtre « Bilan des explosions »
-  (voir ci-dessous) et en console, par pays :
+- **Pertes humaines** (`nuke/nuke_casualties.gd`, classe `NukeCasualties` ; `nuke/nuke_fallout.gd`, classe
+  `NukeFallout` ; règle de jeu). Au tir, `NukeLauncher` calcule le bilan final du souffle et de la chaleur
+  (`NukeEffect.casualties`) et lance le calcul des retombées dans un thread (`NukeEffect.fallout`). Les pertes
+  s'affichent **en temps réel** dans la fenêtre « Bilan des explosions » (voir « Contrôles ») et le bilan en
+  console, par pays :
   ```
   NukeLauncher : 1 Mt sur 47.56°, 7.59° (Suisse) (…)
-    pertes immédiates (OTA 1979, population 2030) : 222 000 morts, 161 000 blessés, 604 000 personnes à plus de 1 psi
+    souffle et chaleur, bilan final (OTA 1979, population 2030) : 222 000 morts, 161 000 blessés, 604 000 personnes à plus de 1 psi
       Suisse : 200 000 morts, 94 400 blessés, 2,33 % de la population
       Allemagne : 14 100 morts, 47 600 blessés, 0,02 % de la population
       France : 8 110 morts, 19 200 blessés, 0,01 % de la population
@@ -734,9 +741,47 @@ de nuit (zone détruite, panne régionale en cascade, panne nationale si une gro
   - Coût : 5 à 35 ms par tir (10 kt à 50 Mt).
   - Exemples (au sol sauf mention) : Hiroshima 2030 (15 kt à 580 m), ~42 000 morts ; Paris (1 Mt), ~1,3 million
     de morts ; New York (50 Mt), ~6 millions ; Sahara ou pleine mer, aucun.
-  - **Non comptés** : retombées radioactives (jours, selon le vent), tempête de feu (le modèle de surpression la
-    sous-estime pour les fortes puissances, critique de Postol), effets à long terme. Le modèle de l'OTA vaut pour
-    une ville de faible hauteur ; il est discutable pour les tours modernes.
+  - **Chronologie** (`NukeCasualties.snapshot`, constantes `PHASE_*`), du bilan OTA de chaque pays :
+    1. **flash** (dès l'explosion) : 30 % des morts (brûlures mortelles, rayonnement initial) ;
+    2. **onde de choc** : 50 % des morts et tous les blessés, au passage du front à leur distance (24 anneaux par
+       pays ; `NukeScaling.shock_arrival_s`, celui du front affiché, puis la vitesse du son au-delà) : quelques
+       secondes à une minute ;
+    3. **décès différés** : les 20 % restants (grands brûlés, blessés graves, victimes ensevelies), comptés d'abord
+       parmi les blessés, meurent en exp(−t / 6 h).
+    Exemple (Paris, 1 Mt au sol) : 403 000 morts à 0,1 s, 828 000 à 5 s, 1,07 million à 40 s, 1,18 million à 3 h,
+    1,41 million à 10 jours avec les retombées ; projection à 60 jours : 1,49 million.
+  - **Retombées radioactives** (`NukeFallout`, seulement pour une explosion basse, `NukeScaling.low_burst`) :
+    - champ de retombées **WSEG-10** (Weapons Systems Evaluation Group, 1959 ; documentation de Hanifen, 1980) :
+      nuage stabilisé déporté par le vent, dépôt le long d'une « ligne chaude » sous le vent, répartition
+      gaussienne en travers, correction au vent arrière. Il donne en chaque point le débit de dose à H+1 (R/h) et
+      l'heure d'arrivée des retombées ;
+    - vent : le profil réel GFS au point d'impact, moyenné entre le sol et le centre du nuage (13 km à 1 Mt) ;
+      cisaillement entre les deux ;
+    - fraction de fission : 1 sous 50 kt (armes à fission), 0,5 au-delà ;
+    - transcription d'après le paquet *glasstone* (MIT), avec trois corrections : hauteur du nuage en mégatonnes et
+      vent en miles par heure (comme chez Hanifen), et l'exposant de la loi de dépôt calculé sans la fraction de
+      fission (déjà comptée dans le débit), sinon le débit près du point zéro était 3 à 5 fois sous les contours
+      idéalisés de Glasstone & Dolan. Vérification (1 Mt de fission, vent de 15 mph) : ~1 500 R/h à 20 miles sous le
+      vent, ~1 000 R/h vers 45 miles, ~440 R/h à 100 miles, du même ordre que ces contours ;
+    - dose : débit en t^−1,2 (loi de Way-Wigner), intégré depuis l'arrivée des retombées, divisé par un facteur de
+      protection moyen des bâtiments de 3 (pas d'évacuation) ;
+    - effets (irradiation aiguë, sans soins, Glasstone & Dolan ch. XII) : mort selon une loi log-normale de dose
+      médiane 4,5 Gy (écart-type 0,3 en logarithme), mal des rayons au-dessus de ~1,5 Gy (compté avec les blessés) ;
+      les morts surviennent avec un délai (constante de 6 jours), les malades qui en mourront passent des blessés
+      aux morts ;
+    - les personnes déjà tuées par le souffle ne sont pas comptées deux fois ; population par blocs de 3 × 3
+      cellules (~2,8 km : le champ est lisse) ; chronologie précalculée en 48 instants (0,25 h à 60 jours) puis
+      interpolée ;
+    - coût : ~50 ms à 1 Mt, ~4 s à 50 Mt (thread) ; console : vent, longueur de la zone dangereuse, morts et malades
+      à 60 jours par pays ;
+    - exemples (morts à 60 jours) : Kansas City 1 Mt, ~40 000 (en plus de 64 000 pour le souffle) ; Paris 1 Mt
+      (vent de 32 m/s vers le nord-est), ~143 000 ; Paris 50 Mt, ~15 millions jusqu'en Allemagne, en Belgique et aux
+      Pays-Bas.
+    - Avec l'horloge, ces jours passent lentement : 1 jour physique ≈ 2 h 24 d'horloge à ×10 (et moins avec les
+      vitesses x2 à x16 du panneau).
+  - **Non comptés** : tempête de feu (le modèle de surpression la sous-estime pour les fortes puissances, critique
+    de Postol), effets à long terme (cancers), contamination de l'eau et des aliments, évacuation et soins. Le
+    modèle de l'OTA vaut pour une ville de faible hauteur ; il est discutable pour les tours modernes.
 - **Pays touché** (`scripts/country_mask.gd`, classe `CountryMask`, données `assets/country_mask.res`) : au tir,
   `NukeLauncher` renseigne `NukeParams.country_code` (code ADM0_A3) avec `CountryMask.country_at(latitude,
   longitude)` ; `NukeParams.get_country()` rend la fiche du pays, vide en mer. La console affiche le pays, et l'État
@@ -937,7 +982,10 @@ Les paragraphes (§) sont ceux des ouvrages ; entre parenthèses, les fichiers d
     lueur de la boule de feu (§2.18), explosions à la surface de l'eau (§2.50 et suivants) ;
   - ch. III : lois d'échelle de l'onde de choc en racine cubique de la puissance (similitude de Hopkinson-Cranz) ;
   - ch. VII : impulsion thermique (§7.85 à §7.88 : t_max, t_min, puissance au second maximum), seuils
-    d'inflammation (~10 cal/cm²), incendies et tempête de feu de Hiroshima.
+    d'inflammation (~10 cal/cm²), incendies et tempête de feu de Hiroshima ;
+  - ch. IX : retombées locales, décroissance du débit de dose en t^−1,2, contours idéalisés de débit de dose
+    (vérification de `NukeFallout`), protection offerte par les bâtiments ;
+  - ch. XII : effets de l'irradiation aiguë sur l'homme (dose létale médiane de l'ordre de 4,5 Gy sans soins).
 - Adamsky, V. et Smirnov, Y. (1994). « Moscow's Biggest Bomb: the 50-Megaton Test of October 1961 ». *Cold War
   International History Project Bulletin*, n° 4, Woodrow Wilson International Center for Scholars. Hauteur du
   nuage de la Tsar Bomba (64 à 67 km).
@@ -952,6 +1000,11 @@ Les paragraphes (§) sont ceux des ouvrages ; entre parenthèses, les fichiers d
 - Brode, H. L. (1986). *Airblast From Nuclear Bursts — Analytic Approximations*. Pacific-Sierra Research
   Corporation, p. 60–71. Surpression de crête au sol (`NukeScaling.overpressure_psi`), transcrite du paquet Python
   open source *glasstone* (GOFAI, licence MIT, https://github.com/GOFAI/glasstone).
+- Hanifen, D. W. (1980). *Documentation and Analysis of the WSEG-10 Fallout Prediction Model*. Thèse, Air Force
+  Institute of Technology. Modèle de retombées WSEG-10 (Weapons Systems Evaluation Group, 1959) de `NukeFallout`,
+  transcrit d'après le paquet *glasstone* (fichier `fallout.py`).
+- Way, K. et Wigner, E. P. (1948). « The Rate of Decay of Fission Products ». *Physical Review*, 73, p. 1318.
+  Décroissance du débit de dose des retombées en t^−1,2 (reprise par Glasstone & Dolan, ch. IX).
 - Postol, T. A. (1986). « Possible fatalities from superfires following nuclear attacks in or near urban areas ».
   In *The Medical Implications of Nuclear War*, National Academy Press. Critique du modèle de surpression (non
   retenue : limite documentée).

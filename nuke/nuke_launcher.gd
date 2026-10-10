@@ -121,10 +121,25 @@ func fire(params: NukeParams) -> NukeEffect:
 				cap_wind.length()])
 	effect.casualties = NukeCasualties.estimate(params)
 	print(NukeCasualties.format_report(effect.casualties))
+	# Retombées : quelques secondes de calcul pour les fortes puissances, dans un thread (elles n'arrivent au sol
+	# qu'après une demi-heure au moins).
+	if NukeScaling.low_burst(params.yield_kt, params.burst_height_km) > 0.01:
+		effect.fallout_pending = true
+		var radii: PackedFloat64Array = effect.casualties.radii_km
+		WorkerThreadPool.add_task(func() -> void:
+			_on_fallout.call_deferred(effect, NukeFallout.estimate(params, radii)))
 	effect.blackout = NukeBlackout.assess(params)
 	print(NukeBlackout.format_report(effect.blackout))
 	detonated.emit(effect)
 	return effect
+
+
+func _on_fallout(effect: NukeEffect, fallout: Dictionary) -> void:
+	if not is_instance_valid(effect):
+		return
+	effect.fallout = fallout
+	effect.fallout_pending = false
+	print(NukeFallout.format_report(fallout, effect.params))
 
 
 ## Explosions en cours (enfants de Earth).

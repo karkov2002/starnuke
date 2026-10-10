@@ -1,7 +1,9 @@
 extends CanvasLayer
 ## Bilan des explosions (nœud NukeReport de scenes/orbit_view.tscn) : fenêtre déplaçable par sa barre de titre,
-## comme sous Windows, avec la liste défilante des pays touchés et de leurs pertes (NukeEffect.casualties,
-## NukeCasualties), cumulées sur toutes les explosions en cours. Pays sous black-out national (NukeEffect.blackout)
+## comme sous Windows, avec la liste défilante des pays touchés et de leurs pertes cumulées sur toutes les explosions
+## en cours, **à l'instant présent** (NukeCasualties.snapshot au temps de chaque explosion : flash, onde de choc,
+## décès des blessés, puis retombées radioactives sur plusieurs jours, NukeFallout), rafraîchies toutes les REFRESH_S,
+## et la projection finale. Pays sous black-out national (NukeEffect.blackout)
 ## signalés. La fenêtre apparaît au premier tir et disparaît quand il n'y a plus d'explosion (« Effacer » du panneau
 ## de debug) ; le bouton « — » de la barre de titre la replie.
 
@@ -26,6 +28,7 @@ var _launcher: NukeLauncher
 var _window: PanelContainer
 var _title_bar: PanelContainer
 var _summary: Label
+var _projection: Label
 var _body: VBoxContainer
 var _rows: GridContainer
 var _collapse: Button
@@ -33,6 +36,10 @@ var _dragging := false
 var _placed := false
 var _signature := ""
 var _refresh_left := 0.0
+## Lignes affichées (codes des pays, dans l'ordre) et leurs étiquettes : mises à jour sur place tant que l'ordre ne
+## change pas (pas de reconstruction à chaque rafraîchissement : les infobulles et le défilement restent stables).
+var _row_order: Array[String] = []
+var _row_labels := {}
 
 
 func _ready() -> void:
@@ -49,16 +56,17 @@ func _process(delta: float) -> void:
 		return
 	_refresh_left = REFRESH_S
 	var effects := _launcher.get_effects()
-	# Ne reconstruire la liste que si les explosions ont changé.
+	# Les pertes évoluent avec le temps de chaque explosion : rafraîchissement continu ; la signature (liste des
+	# explosions) ne sert qu'à afficher ou masquer la fenêtre.
 	var ids: Array[String] = []
 	for effect in effects:
 		ids.append(str(effect.get_instance_id()))
 	var signature := ",".join(ids)
-	if signature == _signature:
-		return
-	_signature = signature
-	_window.visible = not effects.is_empty()
-	_fill(effects)
+	if signature != _signature:
+		_signature = signature
+		_window.visible = not effects.is_empty()
+	if _window.visible:
+		_fill(effects)
 	# Position de départ au premier affichage seulement : ensuite, la fenêtre reste où on l'a posée.
 	if not _placed and _window.visible:
 		_placed = true
@@ -109,6 +117,10 @@ func _build() -> void:
 	body_margin.add_child(_body)
 	_summary = Label.new()
 	_body.add_child(_summary)
+	_projection = Label.new()
+	_projection.add_theme_font_size_override("font_size", 13)
+	_projection.add_theme_color_override("font_color", Color(0.75, 0.8, 0.88))
+	_body.add_child(_projection)
 
 	var header := _make_grid()
 	for column_def: Dictionary in COLUMNS:
@@ -137,12 +149,15 @@ func _build() -> void:
 	_body.add_child(note)
 
 
-## Cumul par pays sur toutes les explosions, trié par morts décroissants. Colonne « Expl. » : explosions dont le
-## point zéro est sur le territoire du pays (une explosion frontalière fait aussi des victimes chez le voisin).
+## Cumul par pays sur toutes les explosions, à l'instant présent, trié par morts décroissants. Colonne « Expl. » :
+## explosions dont le point zéro est sur le territoire du pays (une explosion frontalière fait aussi des victimes chez
+## le voisin).
 func _fill(effects: Array[NukeEffect]) -> void:
 	var by_country := {} # code du pays -> {label, killed, injured, explosions, pop_est, blackout}
 	var killed := 0.0
 	var injured := 0.0
+	var final_killed := 0.0
+	var pending := 0
 	var mask := CountryMask.get_mask()
 	for effect in effects:
 		var ground_zero := effect.params.get_country()
@@ -150,11 +165,13 @@ func _fill(effects: Array[NukeEffect]) -> void:
 			_entry(by_country, ground_zero).explosions += 1
 		if not effect.blackout.is_empty() and effect.blackout.national >= 0 and mask:
 			_entry(by_country, mask.countries[effect.blackout.national]).blackout = true
-		if effect.casualties.is_empty():
-			continue
-		killed += effect.casualties.killed
-		injured += effect.casualties.injured
-		for c: Dictionary in effect.casualties.countries:
+		if effect.fallout_pending:
+			pending += 1
+		var now := NukeCasualties.snapshot(effect.casualties, effect.fallout, effect.get_time_s())
+		killed += now.killed
+		injured += now.injured
+		final_killed += now.final_killed
+		for c: Dictionary in now.countries:
 			var entry := _entry(by_country, c)
 			entry.killed += c.killed
 			entry.injured += c.injured
@@ -162,18 +179,22 @@ func _fill(effects: Array[NukeEffect]) -> void:
 	var count := effects.size()
 	_summary.text = "%d explosion%s · %s morts · %s blessés" % [count, "s" if count > 1 else "",
 			NukeCasualties.format_count(killed), NukeCasualties.format_count(injured)]
-	for child in _rows.get_children():
-		child.queue_free()
-	var codes := by_country.keys()
+	_projection.text = "Projection à %d jours : %s morts%s" % [roundi(NukeFallout.HORIZON_H / 24.0),
+			NukeCasualties.format_count(final_killed), " (retombées : calcul en cours…)" if pending > 0 else ""]
+
+	var codes: Array[String] = []
+	for code: String in by_country:
+		var entry: Dictionary = by_country[code]
+		if entry.killed + entry.injured >= 1.0 or entry.blackout or entry.explosions > 0:
+			codes.append(code)
 	codes.sort_custom(func(a: String, b: String) -> bool:
 		return by_country[a].killed > by_country[b].killed if by_country[a].killed != by_country[b].killed \
 				else by_country[a].explosions > by_country[b].explosions)
-	var shown := 0
-	for code: String in codes:
+	if codes != _row_order:
+		_rebuild_rows(codes)
+	for code in codes:
 		var entry: Dictionary = by_country[code]
-		if entry.killed + entry.injured < 1.0 and not entry.blackout and entry.explosions == 0:
-			continue
-		shown += 1
+		var labels: Array = _row_labels[code]
 		var share := "—"
 		if entry.pop_est > 0:
 			var percent: float = 100.0 * entry.killed / entry.pop_est
@@ -181,18 +202,35 @@ func _fill(effects: Array[NukeEffect]) -> void:
 				share = "0 %"
 			else:
 				share = "< 0,01 %" if percent < 0.01 else ("%.2f %%" % percent).replace(".", ",")
-		var name_cell := _make_cell(entry.label + ("  ⚡" if entry.blackout else ""), COLUMNS[0].width,
+		labels[0].text = entry.label + ("  ⚡" if entry.blackout else "")
+		labels[0].add_theme_color_override("font_color",
 				Color(1.0, 0.85, 0.5) if entry.blackout else Color(0.92, 0.94, 0.97))
-		name_cell.tooltip_text = "Black-out national : une centrale majeure a été détruite." if entry.blackout else ""
-		name_cell.mouse_filter = Control.MOUSE_FILTER_PASS
-		_rows.add_child(name_cell)
-		_rows.add_child(_make_cell(str(entry.explosions) if entry.explosions > 0 else "—", COLUMNS[1].width,
-				Color(0.95, 0.95, 1.0)))
-		_rows.add_child(_make_cell(NukeCasualties.format_count(entry.killed), COLUMNS[2].width, Color(1.0, 0.55, 0.5)))
-		_rows.add_child(_make_cell(NukeCasualties.format_count(entry.injured), COLUMNS[3].width, Color(0.95, 0.8, 0.55)))
-		_rows.add_child(_make_cell(share, COLUMNS[4].width, Color(0.8, 0.85, 0.9)))
-	if shown == 0:
+		labels[0].tooltip_text = "Black-out national : une centrale majeure a été détruite." if entry.blackout else ""
+		labels[1].text = str(entry.explosions) if entry.explosions > 0 else "—"
+		labels[2].text = NukeCasualties.format_count(entry.killed)
+		labels[3].text = NukeCasualties.format_count(entry.injured)
+		labels[4].text = share
+
+
+## Recrée les lignes (une par pays, dans l'ordre donné) ; leurs textes sont posés par _fill.
+func _rebuild_rows(codes: Array[String]) -> void:
+	for child in _rows.get_children():
+		child.queue_free()
+	_row_labels.clear()
+	_row_order = codes.duplicate()
+	if codes.is_empty():
 		_rows.add_child(_make_cell("Aucun pays touché", COLUMNS[0].width, Color(0.7, 0.75, 0.8)))
+	var colors := [Color(0.92, 0.94, 0.97), Color(0.95, 0.95, 1.0), Color(1.0, 0.55, 0.5), Color(0.95, 0.8, 0.55),
+			Color(0.8, 0.85, 0.9)]
+	for code in codes:
+		var labels := []
+		for i in COLUMNS.size():
+			var cell := _make_cell("", COLUMNS[i].width, colors[i])
+			if i == 0:
+				cell.mouse_filter = Control.MOUSE_FILTER_PASS
+			_rows.add_child(cell)
+			labels.append(cell)
+		_row_labels[code] = labels
 	_window.reset_size.call_deferred()
 
 

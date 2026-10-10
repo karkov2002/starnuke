@@ -207,6 +207,22 @@ static func overpressure_range_km(yield_kt: float, psi: float, burst_height_km :
 	return lo
 
 
+## Temps physique (s) d'arrivée de l'onde de choc à la distance r_km : celui du front affiché (anneau de condensation,
+## trou dans les nuages : shock_front_radius_km, ralenti de SHOCK_SLOWDOWN), pour que les pertes du souffle
+## apparaissent quand on voit passer le front. Au-delà de 98 % de son rayon final (le front n'y arrive
+## qu'asymptotiquement), l'onde continue à la vitesse du son.
+const SOUND_SPEED_KM_S := 0.34
+
+
+static func shock_arrival_s(yield_kt: float, r_km: float) -> float:
+	var r_max := shock_max_radius_km(yield_kt)
+	var tau := shock_tau_s(yield_kt)
+	var r_end := 0.98 * r_max
+	if r_km <= r_end:
+		return -tau * log(1.0 - r_km / r_max)
+	return -tau * log(1.0 - r_end / r_max) + (r_km - r_end) / SOUND_SPEED_KM_S
+
+
 ## Rayon de la zone dont l'éclairage est détruit pour de bon (km).
 static func blackout_destroyed_km(yield_kt: float, burst_height_km := 0.0) -> float:
 	return overpressure_range_km(yield_kt, BLACKOUT_DESTROYED_PSI, burst_height_km)

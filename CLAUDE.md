@@ -11,7 +11,7 @@ Arborescence : `scenes/` (dont `scenes/ui/`), `scripts/`, `shaders/`, `materials
 Masques géographiques (Natural Earth) : mers et océans (`scripts/ocean_mask.gd`, `assets/ocean_mask.res`) et pays
 (`scripts/country_mask.gd`, `assets/country_mask.res`), générés par `tools/build_ocean_mask.gd` et `tools/build_country_mask.gd`.
 Population 2030 (GHS-POP, `scripts/population_grid.gd`, `assets/population_2030.bin` ~74 Mo, `tools/build_population.ps1`) :
-pertes humaines des explosions (`nuke/nuke_casualties.gd`).
+pertes humaines des explosions (`nuke/nuke_casualties.gd`, chronologie et retombées WSEG-10 `nuke/nuke_fallout.gd`).
 Centrales électriques (WRI, `scripts/power_plants.gd`, `assets/power_plants.res`, `tools/build_power_plants.gd`) et carte des
 pays pour les shaders (`assets/textures/country_ids.png`, import sans perte) : black-out (`nuke/nuke_blackout.gd`).
 L'architecture (échelle 1/10 000 de la Terre, mécanique orbitale `scripts/orbit.gd`, atmosphère, nuages volumétriques,
