@@ -22,6 +22,13 @@ extends Resource
 ## Point zéro sur une mer ou un océan (masque OceanMask, renseigné par NukeLauncher) : pas d'incendie au large, nuage
 ## de vapeur d'eau qui retombe vite, embruns au lieu de poussière.
 @export var over_ocean := false
+## Pays du point zéro (code ADM0_A3 de CountryMask, renseigné par NukeLauncher ; vide en mer).
+@export var country_code := ""
+
+
+## Fiche du pays du point zéro (CountryMask), ou {} en mer.
+func get_country() -> Dictionary:
+	return CountryMask.country_at(latitude_deg, longitude_deg) if not country_code.is_empty() else {}
 
 
 func _init() -> void:

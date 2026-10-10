@@ -98,6 +98,37 @@ const STEAM_SINK := 0.35
 const STEAM_SINK_S := 900.0
 const STEAM_FADE_S := 600.0
 
+# Surpression de crête au sol (pertes humaines, NukeCasualties) : équation de Brode, H. L. Brode, *Airblast From
+# Nuclear Bursts — Analytic Approximations*, Pacific-Sierra Research Corporation, 1986, p. 60–71 (transcription du
+# paquet Python « glasstone », licence MIT). Explosion de 1 kt, distances en milliers de pieds, mise à l'échelle en
+# racine cubique de la puissance ; hauteur d'explosion quelconque, surface idéale, pression ambiante du niveau de la
+# mer ; précision ~10 %. Résultat en psi (1 psi = 6,895 kPa).
+const KILOFEET_PER_KM := 3.28084
+
+# Black-out électrique (NukeBlackout, nuke/shaders/nuke_blackout.gdshaderinc ; visible seulement de nuit, sur les
+# lumières des villes). Trois couches :
+# - zone détruite, éteinte pour de bon : rayon de BLACKOUT_DESTROYED_PSI (réseau de distribution, postes, bâtiments) ;
+# - panne régionale en cascade : disque de rayon BLACKOUT_REGION_1MT_KM · (W / 1 Mt)^(1/3) (~26 km à 10 kt, 120 km à
+#   1 Mt, ~440 km à 50 Mt ; choix de jeu, au moins 2 fois la zone détruite), qui s'éteint du centre vers le bord
+#   (front R · (1 − exp(−t / BLACKOUT_CASCADE_TAU_S))) puis se rallume par plaques, du bord (après
+#   BLACKOUT_RESTORE_START_S) vers le centre (BLACKOUT_RESTORE_END_S) ; la panne de 2003 dans le nord-est des
+#   États-Unis a été réparée en 1 à 2 jours ;
+# - panne nationale : si les centrales détruites (dans le rayon de BLACKOUT_PLANT_PSI, Global Power Plant Database)
+#   représentent au moins BLACKOUT_NATIONAL_SHARE de la capacité du pays, tout le pays s'éteint en
+#   BLACKOUT_NATIONAL_OFF_S (effondrement de la fréquence), puis se rallume par plaques entre
+#   BLACKOUT_NATIONAL_RESTORE_START_S et BLACKOUT_NATIONAL_RESTORE_END_S. Repère : panne de la péninsule ibérique du
+#   28 avril 2025, Espagne et Portugal éteints en quelques secondes, courant rétabli en ~10 h.
+const BLACKOUT_DESTROYED_PSI := 2.0
+const BLACKOUT_REGION_1MT_KM := 120.0
+const BLACKOUT_CASCADE_TAU_S := 15.0
+const BLACKOUT_RESTORE_START_S := 3600.0
+const BLACKOUT_RESTORE_END_S := 86400.0
+const BLACKOUT_PLANT_PSI := 5.0
+const BLACKOUT_NATIONAL_SHARE := 0.10
+const BLACKOUT_NATIONAL_OFF_S := 30.0
+const BLACKOUT_NATIONAL_RESTORE_START_S := 7200.0
+const BLACKOUT_NATIONAL_RESTORE_END_S := 43200.0
+
 # Flash initial. Puissance thermique au second maximum (Glasstone & Dolan, The Effects of Nuclear Weapons, §7.88,
 # explosion dans l'air) : P_max = 4 · W^0,56 kt/s. Pour 1 Mt : 8·10¹⁴ W, soit ~400 W/m² à 400 km (0,29 soleil) avant
 # l'absorption par l'atmosphère (NukeAtmosphere et nuke/shaders/nuke_flash.gdshaderinc).
@@ -133,6 +164,58 @@ static func fireball_radius_km(yield_kt: float) -> float:
 
 static func shock_radius_km(yield_kt: float) -> float:
 	return SHOCK_REF_KM * pow(_clamp_yield(yield_kt) / REF_YIELD_KT, SHOCK_EXP)
+
+
+## Surpression de crête au sol (psi) à la distance ground_range_km du point zéro (équation de Brode).
+static func overpressure_psi(yield_kt: float, ground_range_km: float, burst_height_km := 0.0) -> float:
+	var cube := pow(_clamp_yield(yield_kt), 1.0 / 3.0)
+	var ground := maxf(ground_range_km * KILOFEET_PER_KM, 1e-4)
+	var height := maxf(burst_height_km, 0.0) * KILOFEET_PER_KM
+	var z := height / ground
+	var y := height / cube
+	var x := ground / cube
+	var r := sqrt(x * x + y * y)
+	var a := 1.22 - 3.908 * z * z / (1.0 + 810.2 * pow(z, 5.0))
+	var b := 2.321 + 6.195 * pow(z, 18.0) / (1.0 + 1.113 * pow(z, 18.0)) \
+			- 0.03831 * pow(z, 17.0) / (1.0 + 0.02415 * pow(z, 17.0)) + 0.6692 / (1.0 + 4164.0 * pow(z, 8.0))
+	var c := 4.153 - 1.149 * pow(z, 18.0) / (1.0 + 1.641 * pow(z, 18.0)) - 1.1 / (1.0 + 2.771 * pow(z, 2.5))
+	var d := -4.166 + 25.76 * pow(z, 1.75) / (1.0 + 1.382 * pow(z, 18.0)) + 8.257 * z / (1.0 + 3.219 * z)
+	var e := 1.0 - 0.004642 * pow(z, 18.0) / (1.0 + 0.003886 * pow(z, 18.0))
+	var f := 0.6096 + 2.879 * pow(z, 9.25) / (1.0 + 2.359 * pow(z, 14.5)) - 17.5 * z * z / (1.0 + 71.66 * pow(z, 3.0))
+	var g := 1.83 + 5.361 * z * z / (1.0 + 0.3139 * pow(z, 6.0))
+	var h := 8.808 * pow(z, 1.5) / (1.0 + 154.5 * pow(z, 3.5)) - (0.2905 + 64.67 * pow(z, 5.0)) / (1.0 + 441.5 * pow(z, 5.0)) \
+			- 1.389 * z / (1.0 + 49.03 * pow(z, 5.0)) \
+			+ 1.094 * r * r / ((781.2 - 123.4 * r + 37.98 * pow(r, 1.5) + r * r) * (1.0 + 2.0 * y))
+	var j := 0.000629 * pow(y, 4.0) / (3.493e-9 + pow(y, 4.0)) - 2.67 * y * y / (1.0 + 1e7 * pow(y, 4.3))
+	var k := 5.18 + 0.2803 * pow(y, 3.5) / (3.788e-6 + pow(y, 4.0))
+	return 10.47 / pow(r, a) + b / pow(r, c) + d * e / (1.0 + f * pow(r, g)) + h + j / pow(r, k)
+
+
+## Distance au sol (km) jusqu'à laquelle la surpression atteint au moins psi (0 si elle n'est atteinte nulle part).
+## Recherche dichotomique en échelle logarithmique, depuis le plus loin.
+static func overpressure_range_km(yield_kt: float, psi: float, burst_height_km := 0.0) -> float:
+	var lo := 0.01
+	var hi := 2000.0
+	if overpressure_psi(yield_kt, lo, burst_height_km) < psi:
+		return 0.0
+	for i in 60:
+		var mid := sqrt(lo * hi)
+		if overpressure_psi(yield_kt, mid, burst_height_km) >= psi:
+			lo = mid
+		else:
+			hi = mid
+	return lo
+
+
+## Rayon de la zone dont l'éclairage est détruit pour de bon (km).
+static func blackout_destroyed_km(yield_kt: float, burst_height_km := 0.0) -> float:
+	return overpressure_range_km(yield_kt, BLACKOUT_DESTROYED_PSI, burst_height_km)
+
+
+## Rayon de la panne régionale en cascade (km).
+static func blackout_region_km(yield_kt: float, burst_height_km := 0.0) -> float:
+	return maxf(BLACKOUT_REGION_1MT_KM * pow(_clamp_yield(yield_kt) / 1000.0, 1.0 / 3.0),
+			2.0 * blackout_destroyed_km(yield_kt, burst_height_km))
 
 
 ## Part « explosion basse » (1 au sol, 0 au-dessus de ~2 rayons de boule de feu) : poussière ou embruns soulevés,

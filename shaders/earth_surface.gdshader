@@ -18,6 +18,7 @@ render_mode cull_back, ambient_light_disabled;
 #include "res://shaders/sun_light.gdshaderinc"
 #include "res://nuke/shaders/nuke_flash.gdshaderinc"
 #include "res://nuke/shaders/nuke_fire.gdshaderinc"
+#include "res://nuke/shaders/nuke_blackout.gdshaderinc"
 
 uniform sampler2D day_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2DArray detail_tiles : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
@@ -108,6 +109,15 @@ void fragment() {
 		float night_luma = dot(night, vec3(0.299, 0.587, 0.114));
 		float lights = smoothstep(night_lights_low, night_lights_high, night_luma);
 		vec3 glow = night * mix(night_land_level, 1.0, lights);
+		// Black-out des explosions (nuke/shaders/nuke_blackout.gdshaderinc) : une ville éteinte retombe à la lueur
+		// naturelle des terres alentour (gris bleuté du clair de lune, luminance de la campagne non éclairée),
+		// pas à une version atténuée d'elle-même (l'orange des lampes au sodium resterait en tache brune). Rien de
+		// visible de jour (darkness = 0).
+		if (nuke_blackout_count > 0 || nuke_blackout_country_count > 0) {
+			float off = nuke_blackout_darkness(n * CLOUD_PLANET_RADIUS_KM, n);
+			vec3 unlit = nuke_blackout_land_tint * (night_land_level * min(night_luma, nuke_blackout_unlit_luma));
+			glow = mix(glow, unlit, off);
+		}
 		float clouds_above = cloud_shadow(n, n, adv);
 		emission += glow * night_intensity * darkness * mix(night_cloud_floor, 1.0, clouds_above);
 	}

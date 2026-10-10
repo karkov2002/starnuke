@@ -308,6 +308,28 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
      `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_ocean.geojson` ;
    - `godot --headless --path . --script res://tools/build_ocean_mask.gd -- <ne_10m_ocean.geojson>` (~1 s). Il écrit
      `assets/ocean_mask.res` (ressource `OceanMask`, ~2,4 Mo).
+7. Masque des pays (voir « Pays touché ») :
+   - télécharger la couche « admin 0 countries » de Natural Earth 1:10 M en GeoJSON (~13 Mo) :
+     `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_0_countries.geojson` ;
+   - `godot --headless --path . --script res://tools/build_country_mask.gd -- <ne_10m_admin_0_countries.geojson>`
+     (~1 s). Il écrit `assets/country_mask.res` (ressource `CountryMask`, ~3 Mo).
+8. Population (voir « Pertes humaines ») :
+   - télécharger GHS-POP R2023A, époque 2030, 30 secondes d'arc, WGS84 (~460 Mo, à décompresser : seul le `.tif` sert) :
+     `https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_POP_GLOBE_R2023A/GHS_POP_E2030_GLOBE_R2023A_4326_30ss/V1-0/` ;
+   - `tools/build_population.ps1 -src <GHS_POP_E2030_GLOBE_R2023A_4326_30ss_V1_0.tif>` (PowerShell + routine C#,
+     ~30 s). Il décode le GeoTIFF (BigTIFF, flottants 64 bits, LZW, décodeur intégré) et écrit
+     `assets/population_2030.bin` (~74 Mo, format décrit en tête de l'outil). Il affiche la population mondiale :
+     8 546 141 387 en 2030 (projection de l'ONU : ~8,5 milliards).
+   - Le `.bin` n'est pas importé par l'éditeur (extension inconnue, pas de `.gdignore` nécessaire) ; le jeu le lit
+     avec `FileAccess`. **À prévoir pour un export** : l'inclure dans le paquet, comme les tuiles.
+9. Centrales électriques (voir « Black-out électrique » ; nécessite le masque des pays, étape 7) :
+   - télécharger la Global Power Plant Database v1.3 du WRI (~4 Mo, décompresser `global_power_plant_database.csv`) :
+     `https://wri-dataportal-prod.s3.amazonaws.com/manual/global_power_plant_database_v_1_3.zip` ;
+   - `godot --headless --path . --script res://tools/build_power_plants.gd -- <global_power_plant_database.csv>`
+     (~1 s). Il écrit `assets/power_plants.res` (ressource `PowerPlants`, ~0,7 Mo) : 34 936 centrales, 5 693 GW.
+   - La carte des pays pour les shaders (`assets/textures/country_ids.png`, 8192 × 4096, ~0,4 Mo) est écrite par
+     l'outil des pays (étape 7). Son import doit rester **sans perte et sans mipmaps** (`compress/mode=0`,
+     `mipmaps/generate=false`, `detect_3d/compress_to=0` dans le `.import`) : les pixels sont des numéros de pays.
 
 ## Explosions nucléaires (`nuke/`)
 
@@ -315,12 +337,15 @@ Tout le code des explosions est dans `res://nuke/`. Objectif : une animation uni
 (10 kt à 50 Mt), vue depuis l'espace. **État actuel : socle de l'effet** (tir, placement, lois d'échelle,
 horloge), **flash initial**, **onde de choc** (condensation, poussière), **incendies**, **trous dans la couche
 nuageuse**, **champignon** (boule de feu comprise ; dérive selon le profil vertical du vent, dissipation et panache)
-et **explosions sur la mer** (pas d'incendie au large, nuage de vapeur d'eau qui retombe vite).
+et **explosions sur la mer** (pas d'incendie au large, nuage de vapeur d'eau qui retombe vite) ; le **pays touché**
+et les **pertes humaines** (par pays, selon la densité de population) sont calculés au tir ; **black-out électrique**
+de nuit (zone détruite, panne régionale en cascade, panne nationale si une grosse centrale est détruite).
 
 - **Paramètres** (`nuke/nuke_params.gd`, Resource `NukeParams`) : `yield_kt` (10 à 50 000), `latitude_deg`,
   `longitude_deg`, `wind_direction_deg` (d'où vient le vent, convention météo) et `wind_speed_m_s`,
   `start_time_s` (instant sur l'horloge `NukeClock`), `burst_height_km` (0 = au sol, valeur par défaut),
-  `over_ocean` (point zéro sur une mer ou un océan, renseigné au tir, voir « Explosions sur la mer »).
+  `over_ocean` (point zéro sur une mer ou un océan, renseigné au tir, voir « Explosions sur la mer »),
+  `country_code` (pays du point zéro, renseigné au tir, voir « Pays touché »).
   - **Vent réel** (`nuke/nuke_wind.gd`) : au tir, le vent est lu au point d'impact dans la même carte que
     l'advection des nuages (`assets/textures/cloud_wind.exr`, vent GFS moyen du jour à 850/700/500 hPa, ~1,5 à
     5,5 km d'altitude, interpolation bilinéaire) : le trou dans la couche nuageuse dérive comme les nuages. Sans
@@ -611,6 +636,107 @@ et **explosions sur la mer** (pas d'incendie au large, nuage de vapeur d'eau qui
     Leur vitesse suit celle du temps physique (`speed_scale` : pause et accélération de l'horloge). Elles ne se
     rejouent pas au scrubber. Pas de *soft particles* : elles liraient la texture de profondeur, peu fiable sous
     D3D12 dans ce projet ; les bords sont adoucis par la forme. Pas de flipbook (aucun dans le projet).
+- **Black-out électrique** (règle de jeu ; `nuke/nuke_blackout.gd`, classe `NukeBlackout`, nœud `BlackoutFX` créé par
+  `NukeLauncher` ; `nuke/shaders/nuke_blackout.gdshaderinc`, inclus dans `shaders/earth_surface.gdshader` ; lois et
+  durées dans `NukeScaling`, constantes `BLACKOUT_*`). Seules les lumières des villes s'éteignent : **de jour, rien
+  ne se voit** ; au crépuscule, les villes s'allument autour d'une zone qui reste noire (la panne multiplie
+  l'allumage progressif des lumières, du soleil à +2° jusqu'à −7° sous l'horizon) ; à l'aube tout s'éteint
+  ensemble. Une ville éteinte retombe à la lueur de la campagne non éclairée (quasi noire, gris bleuté), pas à une
+  version atténuée d'elle-même. Les incendies restent visibles dans le noir. Trois couches :
+  1. **Zone détruite** : rayon de 2 psi (`BLACKOUT_DESTROYED_PSI` : réseau, postes, bâtiments ; 1,8 km à 10 kt,
+     8,5 km à 1 Mt, 31 km à 50 Mt), éteinte dès l'explosion et pour de bon, bord irrégulier.
+  2. **Panne régionale en cascade** : disque de 120 km · (W / 1 Mt)^(1/3) (`BLACKOUT_REGION_1MT_KM` : ~26 km à
+     10 kt, ~440 km à 50 Mt ; au moins 2 fois la zone détruite). Le front de la panne avance du centre vers le bord
+     (R · (1 − exp(−t / 15 s))), par plaques d'une vingtaine de km (quartiers, communes : bruit fixe). Les plaques se
+     rallument une à une, du bord (après 1 h) vers le centre (24 h), ±30 % selon la plaque. Repère : la panne du
+     nord-est des États-Unis (14 août 2003) a été réparée en 1 à 2 jours.
+  3. **Panne nationale** : au tir, `NukeBlackout.assess()` cherche les centrales détruites (rayon de 5 psi,
+     `BLACKOUT_PLANT_PSI`) dans la Global Power Plant Database (`scripts/power_plants.gd`, classe `PowerPlants`,
+     `assets/power_plants.res`). Si elles représentent au moins 10 % de la capacité du pays
+     (`BLACKOUT_NATIONAL_SHARE`), tout le pays s'éteint, à ses frontières (carte `assets/textures/country_ids.png`
+     lue par le shader), par plaques en 5 à 30 s (effondrement de la fréquence), puis se rallume par plaques entre
+     2 h et 12 h. Repère : la panne de la péninsule ibérique du 28 avril 2025 (Espagne et Portugal éteints en
+     quelques secondes, courant rétabli en une dizaine d'heures). Le pays retenu est celui du point zéro (en mer :
+     celui qui perd le plus de capacité).
+  - Console :
+    ```
+      réseau électrique : 2 centrale(s) détruite(s), 2923 MW : DOEL 4 (Nuclear, 2910 MW), Loghidden City (Solar, 13 MW)
+        Belgique perd 23,0 % de sa capacité (12693 MW) : black-out national
+    ```
+    Exemples de centrales qui déclenchent seules une panne nationale : Doel (Belgique, 23 %), Paks (Hongrie, 30 %),
+    Kozloduy (Bulgarie, 22 %), Guri (Venezuela, 28 %). La France (111 GW recensés), l'Espagne (78 GW) ou le Japon
+    (215 GW) ne s'éteignent pas pour une seule centrale.
+  - Les plaques basculent sur une fenêtre de temps (5 % de la date, au moins 2 s) : pas de clignotement. Le motif
+    des plaques est fixe (centré sur l'explosion, ou en coordonnées planétaires à échelle constante pour un pays).
+  - Mesures : 1 Mt sur Anvers, de nuit : Belgique noire à 10 min, encore largement noire à 4 h, rallumée par
+    plaques à 20 h ; à 30 h, seule la zone détruite reste noire.
+  - Limites : la base recense ~70 % de la capacité mondiale (surtout les grosses centrales, qui comptent ici) ; les
+    réseaux interconnectés (une panne qui déborde sur les pays voisins) et l'impulsion électromagnétique d'une
+    explosion en haute altitude ne sont pas simulés.
+- **Pertes humaines** (`nuke/nuke_casualties.gd`, classe `NukeCasualties` ; règle de jeu) : au tir, `NukeLauncher`
+  calcule les pertes immédiates (`NukeEffect.casualties`) et les affiche en console, par pays :
+  ```
+  NukeLauncher : 1 Mt sur 47.56°, 7.59° (Suisse) (…)
+    pertes immédiates (OTA 1979, population 2030) : 222 000 morts, 161 000 blessés, 604 000 personnes à plus de 1 psi
+      Suisse : 200 000 morts, 94 400 blessés, 2,33 % de la population
+      Allemagne : 14 100 morts, 47 600 blessés, 0,02 % de la population
+      France : 8 110 morts, 19 200 blessés, 0,01 % de la population
+  ```
+  - **Modèle** : celui de l'Office of Technology Assessment (*The Effects of Nuclear War*, 1979, ch. II), tiré des
+    pertes d'Hiroshima. Souffle, chaleur et rayonnement initial confondus, la part de tués et de blessés ne dépend
+    que de la surpression de crête au sol :
+
+    | Surpression | Tués | Blessés |
+    |---|---|---|
+    | > 12 psi | 98 % | 2 % |
+    | 5 à 12 psi | 50 % | 40 % |
+    | 2 à 5 psi | 5 % | 45 % |
+    | 1 à 2 psi | 0 | 25 % |
+
+  - **Surpression** : équation de Brode (1986, `NukeScaling.overpressure_psi`, précision ~10 %), selon la puissance,
+    la distance et la hauteur d'explosion ; `NukeScaling.overpressure_range_km` en donne les rayons (recherche
+    dichotomique). Vérifications : 1 Mt au sol, 5 psi à 4,65 km et 1 psi à 14,3 km ; Hiroshima (15 kt à 580 m),
+    5 psi à 1,6 km.
+
+    | Au sol | 12 psi | 5 psi | 2 psi | 1 psi |
+    |---|---|---|---|---|
+    | 10 kt | 0,6 km | 1,0 km | 1,8 km | 3,1 km |
+    | 1 Mt | 2,85 km | 4,65 km | 8,5 km | 14,3 km |
+    | 50 Mt | 10,5 km | 17,1 km | 31,5 km | 52,5 km |
+
+  - **Population** : grille GHS-POP 2030 (`scripts/population_grid.gd`, classe `PopulationGrid`, données
+    `assets/population_2030.bin`), ~0,9 km par cellule. Fichier découpé en tuiles de 5° : seules celles qui touchent
+    la zone sont lues (cache de 24 tuiles). Cellules quantifiées sur 16 bits (habitants = (q / 64)²). Une cellule
+    coupée par la limite d'une tranche est découpée en 4 × 4 sous-cellules.
+  - **Pays de chaque cellule** : `CountryMask` (mêmes lignes de latitude). Une cellule littorale habitée que le
+    trait de côte au 1:10 M place en mer est rattachée au pays le plus proche (jusqu'à 4 cellules).
+  - Coût : 5 à 35 ms par tir (10 kt à 50 Mt).
+  - Exemples (au sol sauf mention) : Hiroshima 2030 (15 kt à 580 m), ~42 000 morts ; Paris (1 Mt), ~1,3 million
+    de morts ; New York (50 Mt), ~6 millions ; Sahara ou pleine mer, aucun.
+  - **Non comptés** : retombées radioactives (jours, selon le vent), tempête de feu (le modèle de surpression la
+    sous-estime pour les fortes puissances, critique de Postol), effets à long terme. Le modèle de l'OTA vaut pour
+    une ville de faible hauteur ; il est discutable pour les tours modernes.
+- **Pays touché** (`scripts/country_mask.gd`, classe `CountryMask`, données `assets/country_mask.res`) : au tir,
+  `NukeLauncher` renseigne `NukeParams.country_code` (code ADM0_A3) avec `CountryMask.country_at(latitude,
+  longitude)` ; `NukeParams.get_country()` rend la fiche du pays, vide en mer. La console affiche le pays, et l'État
+  souverain pour un territoire dépendant (« Gibraltar, Royaume-Uni »).
+  - Données : frontières Natural Earth 1:10 M (couche « admin 0 countries », 258 pays et territoires). Ce sont les
+    frontières **de fait** : la Crimée compte pour la Russie, le Sahara occidental pour le Maroc, Taïwan comme
+    pays. Natural Earth publie aussi des variantes selon le point de vue d'un pays, dont la France
+    (`ne_10m_admin_0_countries_fra.geojson`, même outil).
+  - Fiche de chaque pays : `code`, `iso_a2`, `name_fr`, `name_en`, `sovereign_code`, `sovereign` et `sovereign_fr`
+    (État dont il dépend), `type`, `continent`, population estimée (`pop_est`, `pop_year`, 2019 en général), PIB en
+    millions de dollars (`gdp_md`, `gdp_year`), `income_group`.
+  - Stockage comme `OceanMask` : 120 lignes de latitude par degré (~0,9 km) ; pour chaque ligne, les longitudes
+    exactes où elle franchit une frontière ou une côte, et le pays situé à l'est de chacune. Recherche dichotomique.
+    Précision : celle des frontières (quelques centaines de mètres) en longitude, ~0,5 km en latitude. Vérifié :
+    Strasbourg / Kehl, Genève / Annemasse, Lille / Tournai, La Línea / Gibraltar, Monaco, Saint-Marin, Andorre,
+    Hong Kong (Chine), Groenland (Danemark), Fidji et Tchoukotka (antiméridien), mer et Caspienne (aucun pays).
+    Limite : un territoire plus petit qu'une ligne peut être manqué (Vatican, enclaves de Baarle-Hertog).
+  - `CountryMask.countries_within(latitude, longitude, rayon_km)` : pays présents dans un disque, du plus proche au
+    plus éloigné (Bâle, 30 km : Allemagne, France, Suisse ; détroit de Béring, 60 km : Russie, États-Unis).
+  - Chargement : ~0,5 s, lancé en tâche de fond par `NukeLauncher` au démarrage (`OceanMask` aussi) : pas d'à-coup au
+    premier tir. Sans le fichier, aucun pays n'est détecté.
 - **Explosions sur la mer** (règles de jeu) :
   - **Détection** (`scripts/ocean_mask.gd`, classe `OceanMask`, données `assets/ocean_mask.res`) : au tir,
     `NukeLauncher` demande `OceanMask.is_ocean(latitude, longitude)` et renseigne `NukeParams.over_ocean` (la console
@@ -751,7 +877,8 @@ et **explosions sur la mer** (pas d'incendie au large, nuage de vapeur d'eau qui
 
 ## Sources des textures
 
-Toutes issues de la NASA, de la NOAA ou de Natural Earth, domaine public (crédit demandé) :
+Issues de la NASA, de la NOAA ou de Natural Earth (domaine public, crédit demandé), du WRI (centrales, CC BY 4.0) et du JRC de la Commission
+européenne (population, CC BY 4.0) :
 
 | Fichier | Contenu | Source |
 |---|---|---|
@@ -766,6 +893,10 @@ Toutes issues de la NASA, de la NOAA ou de Natural Earth, domaine public (crédi
 | `assets/textures/cloud_wind.exr` | Vent moyen du 15 juillet 2023 (850–500 hPa), 720 × 360 | NOAA, modèle GFS, analyses 0,25° (NOAA Open Data Dissemination, AWS) |
 | `assets/textures/wind_profile.exr` | Profil vertical du vent du même jour (14 niveaux, 850 à 0,1 hPa) et altitude de chaque niveau, 360 × 180 par niveau (~11 Mo) | idem |
 | `assets/ocean_mask.res` | Masque mers et océans (croisements du trait de côte par ligne de latitude, ~2,4 Mo) | Natural Earth 1:10 M, couche « ocean » (domaine public) |
+| `assets/power_plants.res` | 34 936 centrales électriques (position, puissance, combustible, pays) et capacité de chaque pays (~0,7 Mo) | Global Power Plant Database v1.3, World Resources Institute (CC BY 4.0 ; modifié : pays recalculé sur les frontières Natural Earth) |
+| `assets/textures/country_ids.png` | Carte des pays (numéro + 1 sur 16 bits), 8192 × 4096 | dérivée de Natural Earth 1:10 M, « admin 0 countries » |
+| `assets/population_2030.bin` | Habitants par cellule de 1/120° en 2030 (projection), tuiles de 5° compressées (~74 Mo) | GHS-POP R2023A, JRC / Commission européenne (CC BY 4.0 ; modifié : recalage, quantification) |
+| `assets/country_mask.res` | Masque des pays (changements de pays par ligne de latitude) et fiches des 258 pays et territoires (~3 Mo) | Natural Earth 1:10 M, couche « admin 0 countries » (domaine public) |
 
 Limites des nuages réels : c'est un instantané déplacé par le vent (les nuages ne se forment ni ne se dissipent, et
 la journée se répète). On voit quelques raccords entre
@@ -792,6 +923,31 @@ Les paragraphes (§) sont ceux des ouvrages ; entre parenthèses, les fichiers d
 - Hawthorne, H. A. (dir.) (1979). *Compilation of Local Fallout Data from Test Detonations 1945–1962 Extracted from
   DASA 1251*, DNA 1251-1-EX et 1251-2-EX. Defense Nuclear Agency. Nuages des essais Ivy Mike et Castle Bravo
   (~40 km).
+- U.S. Congress, Office of Technology Assessment (1979). *The Effects of Nuclear War*, OTA-NS-89, Washington, U.S.
+  Government Printing Office. Ch. II : pertes en fonction de la surpression, tirées d'Hiroshima (`NukeCasualties`).
+  Table des tranches recoupée dans « Inaccurate Prediction of Nuclear Weapons Effects and Possible Adverse
+  Influences on Nuclear Terrorism Preparedness », *Homeland Security Affairs*, article 97
+  (https://www.hsaj.org/articles/97), qui en discute aussi les limites.
+- Brode, H. L. (1986). *Airblast From Nuclear Bursts — Analytic Approximations*. Pacific-Sierra Research
+  Corporation, p. 60–71. Surpression de crête au sol (`NukeScaling.overpressure_psi`), transcrite du paquet Python
+  open source *glasstone* (GOFAI, licence MIT, https://github.com/GOFAI/glasstone).
+- Postol, T. A. (1986). « Possible fatalities from superfires following nuclear attacks in or near urban areas ».
+  In *The Medical Implications of Nuclear War*, National Academy Press. Critique du modèle de surpression (non
+  retenue : limite documentée).
+
+### Réseaux électriques
+
+- Global Energy Observatory, Google, KTH Royal Institute of Technology in Stockholm, Enipedia, World Resources
+  Institute (2019). *Global Power Plant Database*, v1.3 (2021). Licence CC BY 4.0. Publié sur Resource Watch et
+  Google Earth Engine. Centrales et capacités par pays (`assets/power_plants.res`).
+- Byers, L., Friedrich, J., Hennig, R., Kressig, A., Li, X., McCormick, C. et Malaguzzi Valeri, L. (2018). *A Global
+  Database of Power Plants*. World Resources Institute, document technique joint à la base.
+- U.S.-Canada Power System Outage Task Force (2004). *Final Report on the August 14, 2003 Blackout in the United
+  States and Canada: Causes and Recommendations*. Durées de rétablissement d'une panne en cascade (panne
+  régionale).
+- Panne de la péninsule ibérique du 28 avril 2025 : rapports d'ENTSO-E (Réseau européen des gestionnaires de réseau
+  de transport d'électricité) et de Red Eléctrica. Effondrement national en quelques secondes, rétablissement en une
+  dizaine d'heures (panne nationale).
 
 ### Atmosphère, nuages et éclairage
 
@@ -835,3 +991,10 @@ Les paragraphes (§) sont ceux des ouvrages ; entre parenthèses, les fichiers d
 - Organisation météorologique mondiale. *Manual on Codes* (OMM-n° 306), vol. I.2, format GRIB2 (gabarit 5.3). Décodage
   des fichiers GFS (`tools/build_wind_field.ps1`).
 - Natural Earth. *1:10m Physical Vectors – Ocean* (domaine public). Masque mers et océans (`assets/ocean_mask.res`).
+- Schiavina, M., Freire, S., Carioli, A. et MacManus, K. (2023). *GHS-POP R2023A – GHS population grid multitemporal
+  (1975–2030)*. Commission européenne, Centre commun de recherche (JRC), doi:10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE.
+  Licence CC BY 4.0, © Union européenne 1995-2026. Époque 2030, 30 secondes d'arc. **Modifié** : recalé sur une
+  grille alignée sur 1/120° (décalage < 0,05 cellule), quantifié sur 16 bits et découpé en tuiles
+  (`assets/population_2030.bin`, `tools/build_population.ps1`).
+- Natural Earth. *1:10m Cultural Vectors – Admin 0 – Countries*, version 5 (domaine public). Frontières de fait,
+  population estimée et PIB des pays (`assets/country_mask.res`).

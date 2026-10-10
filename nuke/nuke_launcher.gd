@@ -26,6 +26,11 @@ var _earth: Node3D
 func _ready() -> void:
 	add_to_group(GROUP)
 	_earth = get_node(earth_path)
+	# Masques géographiques chargés en tâche de fond dès le démarrage (~0,5 s pour les pays) : pas d'à-coup au
+	# premier tir (load() attend la fin du chargement s'il n'est pas terminé).
+	for path in [OceanMask.PATH, CountryMask.PATH, PowerPlants.PATH]:
+		if ResourceLoader.exists(path):
+			ResourceLoader.load_threaded_request(path)
 	NukeClock.orbit = get_node_or_null(orbit_path) as OrbitSimulation
 	var flash_fx := NukeFlashFX.new()
 	flash_fx.name = "FlashFX"
@@ -40,6 +45,10 @@ func _ready() -> void:
 	cloud_fx.name = "CloudFX"
 	add_child(cloud_fx)
 	cloud_fx.setup(self, _earth)
+	var blackout_fx := NukeBlackout.new()
+	blackout_fx.name = "BlackoutFX"
+	add_child(blackout_fx)
+	blackout_fx.setup(self, _earth)
 
 
 ## Point visé par le centre de la vue : {local (repère de Earth), latitude, longitude} en degrés, ou {} si le
@@ -88,6 +97,7 @@ func launch_at(latitude_deg: float, longitude_deg: float, yield_kt: float) -> Nu
 		params.wind_speed_m_s = wind.length()
 	params.wind_profile = NukeWind.sample_profile(latitude_deg, longitude_deg)
 	params.over_ocean = OceanMask.is_ocean(latitude_deg, longitude_deg)
+	params.country_code = CountryMask.country_at(latitude_deg, longitude_deg).get("code", "")
 	return fire(params)
 
 
@@ -96,15 +106,23 @@ func fire(params: NukeParams) -> NukeEffect:
 	var effect := EFFECT_SCENE.instantiate() as NukeEffect
 	effect.params = params
 	_earth.add_child(effect)
+	var country := params.get_country()
+	var place := " en mer" if params.over_ocean else ""
+	if not country.is_empty():
+		place += " (%s)" % country.name_fr if country.sovereign_fr == country.name_fr \
+				else " (%s, %s)" % [country.name_fr, country.sovereign_fr]
 	print("NukeLauncher : %s sur %.2f°, %.2f°%s (vent du %03d°, %.1f m/s)" % [NukeScaling.format_yield(params.yield_kt),
-			params.latitude_deg, params.longitude_deg, " en mer" if params.over_ocean else "",
-			roundi(params.wind_direction_deg), params.wind_speed_m_s])
+			params.latitude_deg, params.longitude_deg, place, roundi(params.wind_direction_deg), params.wind_speed_m_s])
 	if not params.wind_profile.is_empty():
 		# Vent à l'altitude du chapeau stabilisé (~3/4 du sommet).
 		var cap_km := 0.75 * NukeScaling.cloud_top_km(params.yield_kt)
 		var cap_wind := params.wind_at(cap_km)
 		print("  vent à %.0f km (chapeau) : du %03d°, %.1f m/s" % [cap_km, roundi(NukeWind.from_direction_deg(cap_wind)),
 				cap_wind.length()])
+	effect.casualties = NukeCasualties.estimate(params)
+	print(NukeCasualties.format_report(effect.casualties))
+	effect.blackout = NukeBlackout.assess(params)
+	print(NukeBlackout.format_report(effect.blackout))
 	detonated.emit(effect)
 	return effect
 

@@ -1,0 +1,177 @@
+class_name NukeCasualties
+extends RefCounted
+## Pertes humaines immédiates d'une explosion (souffle, chaleur et rayonnement initial confondus), par pays.
+##
+## Modèle de l'Office of Technology Assessment du Congrès américain (*The Effects of Nuclear War*, 1979, ch. II),
+## tiré des pertes d'Hiroshima : la part de tués et de blessés ne dépend que de la surpression de crête au sol, par
+## tranches (BANDS). Surpression : équation de Brode (NukeScaling.overpressure_psi), selon la puissance et la hauteur
+## d'explosion. Population : grille GHS-POP 2030 (PopulationGrid, cellules de ~0,9 km). Pays de chaque cellule :
+## CountryMask (mêmes lignes de latitude).
+##
+## Les cellules coupées par une limite de tranche sont découpées en SUBCELLS x SUBCELLS sous-cellules (population
+## répartie uniformément), sinon une explosion de 10 kt (5 psi à ~1 km) serait mal résolue.
+## Non comptés : retombées radioactives (jours, selon le vent), tempête de feu, effets à long terme.
+
+## Tranches de surpression (psi minimale) : part tuée, part blessée (OTA 1979).
+const BANDS: Array[Dictionary] = [
+	{"psi": 12.0, "killed": 0.98, "injured": 0.02},
+	{"psi": 5.0, "killed": 0.50, "injured": 0.40},
+	{"psi": 2.0, "killed": 0.05, "injured": 0.45},
+	{"psi": 1.0, "killed": 0.0, "injured": 0.25},
+]
+const SUBCELLS := 4
+const KM_PER_DEGREE := 111.195
+
+
+## Estimation pour une explosion. Retour : {killed, injured, exposed (population au-dessus de 1 psi), radii_km
+## (rayon de chaque tranche, même ordre que BANDS), countries : [{code, name_fr, sovereign_fr, killed, injured,
+## exposed, pop_est}] trié par tués décroissants}. Sûr depuis un autre thread (lectures seules).
+static func estimate(params: NukeParams) -> Dictionary:
+	var radii := PackedFloat64Array()
+	for band in BANDS:
+		radii.append(NukeScaling.overpressure_range_km(params.yield_kt, band.psi, params.burst_height_km))
+	var result := {"killed": 0.0, "injured": 0.0, "exposed": 0.0, "radii_km": radii, "countries": []}
+	var reach := radii[radii.size() - 1]
+	if reach <= 0.0 or not PopulationGrid.is_available():
+		return result
+
+	var mask := CountryMask.get_mask()
+	var per_country := {} # indice du pays (-1 : aucun) -> [tués, blessés, exposés]
+	var lat0 := params.latitude_deg
+	var lon0 := params.longitude_deg
+	var cell_deg := 1.0 / PopulationGrid.CELLS_PER_DEGREE
+	var first_row := PopulationGrid.row_of(minf(lat0 + reach / KM_PER_DEGREE, 90.0))
+	var last_row := PopulationGrid.row_of(maxf(lat0 - reach / KM_PER_DEGREE, -90.0))
+	for row in range(first_row, last_row + 1):
+		var lat := PopulationGrid.cell_latitude(row)
+		var km_x := KM_PER_DEGREE * maxf(cos(deg_to_rad(lat)), 1e-3)
+		var km_y := KM_PER_DEGREE
+		var dy := (lat - lat0) * km_y
+		if absf(dy) > reach + km_y * cell_deg:
+			continue
+		var half_cols := int(ceil(minf(reach / km_x, 180.0) * PopulationGrid.CELLS_PER_DEGREE)) + 1
+		var center_col := PopulationGrid.col_of(lon0)
+		# Demi-diagonale d'une cellule (km) : au-delà de cette marge d'une limite, la cellule est entière dans sa tranche.
+		var half_diag := 0.5 * Vector2(km_x * cell_deg, km_y * cell_deg).length()
+		for k in range(-half_cols, half_cols + 1):
+			var col := center_col + k
+			var lon := PopulationGrid.cell_longitude(col)
+			var dx := wrapf(lon - lon0, -180.0, 180.0) * km_x
+			var d := Vector2(dx, dy).length()
+			if d > reach + half_diag:
+				continue
+			var pop := PopulationGrid.cell_population(row, col)
+			if pop <= 0.0:
+				continue
+			var fractions := _cell_fractions(d, half_diag, dx, dy, km_x * cell_deg, km_y * cell_deg, radii)
+			if fractions.z <= 0.0:
+				continue
+			var owner := _cell_country(mask, row, col)
+			var acc: PackedFloat64Array = per_country.get(owner, PackedFloat64Array([0.0, 0.0, 0.0]))
+			acc[0] += pop * fractions.x
+			acc[1] += pop * fractions.y
+			acc[2] += pop * fractions.z
+			per_country[owner] = acc
+
+	var countries: Array[Dictionary] = []
+	for owner: int in per_country:
+		var acc: PackedFloat64Array = per_country[owner]
+		result.killed += acc[0]
+		result.injured += acc[1]
+		result.exposed += acc[2]
+		var entry := {"code": "", "name_fr": "(hors pays)", "sovereign_fr": "", "pop_est": 0,
+				"killed": acc[0], "injured": acc[1], "exposed": acc[2]}
+		if owner >= 0:
+			var c: Dictionary = mask.countries[owner]
+			entry.code = c.code
+			entry.name_fr = c.name_fr
+			entry.sovereign_fr = c.sovereign_fr
+			entry.pop_est = c.pop_est
+		countries.append(entry)
+	countries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.killed > b.killed)
+	result.countries = countries
+	return result
+
+
+## Pays d'une cellule habitée (indice de CountryMask, -1 : aucun). Le trait de côte des frontières (1:10 M) est plus
+## grossier que la grille de population (~0,9 km) : une cellule littorale habitée peut tomber « en mer ». On prend
+## alors le pays le plus proche, à moins de COAST_SEARCH cellules.
+const COAST_SEARCH := 4
+
+
+static func _cell_country(mask: CountryMask, row: int, col: int) -> int:
+	if mask == null:
+		return -1
+	for radius in COAST_SEARCH + 1:
+		for dr in range(-radius, radius + 1):
+			for dc in range(-radius, radius + 1):
+				if maxi(absi(dr), absi(dc)) != radius:
+					continue # seulement le pourtour du carré : du plus proche au plus éloigné
+				var r := clampi(row + dr, 0, PopulationGrid.row_count() - 1)
+				var owner := mask.index_at_row(r, wrapf(PopulationGrid.cell_longitude(col + dc), -180.0, 180.0))
+				if owner >= 0:
+					return owner
+	return -1
+
+
+## Parts (tuée, blessée, exposée) de la population d'une cellule à la distance d de son centre. Si une limite de
+## tranche passe à moins d'une demi-diagonale, la cellule est découpée en sous-cellules.
+static func _cell_fractions(d: float, half_diag: float, dx: float, dy: float, w_km: float, h_km: float,
+		radii: PackedFloat64Array) -> Vector3:
+	var straddles := false
+	for r in radii:
+		if absf(d - r) < half_diag:
+			straddles = true
+			break
+	if not straddles:
+		return _band_fractions(d, radii)
+	var sum := Vector3.ZERO
+	for i in SUBCELLS:
+		for j in SUBCELLS:
+			var sx := dx + ((i + 0.5) / SUBCELLS - 0.5) * w_km
+			var sy := dy + ((j + 0.5) / SUBCELLS - 0.5) * h_km
+			sum += _band_fractions(Vector2(sx, sy).length(), radii)
+	return sum / float(SUBCELLS * SUBCELLS)
+
+
+## (part tuée, part blessée, 1 si exposé à au moins 1 psi) à la distance d.
+static func _band_fractions(d: float, radii: PackedFloat64Array) -> Vector3:
+	for i in BANDS.size():
+		if d <= radii[i]:
+			return Vector3(BANDS[i].killed, BANDS[i].injured, 1.0)
+	return Vector3.ZERO
+
+
+## Résumé lisible (console) : totaux et pays touchés.
+static func format_report(result: Dictionary) -> String:
+	var lines: Array[String] = []
+	lines.append("  pertes immédiates (OTA 1979, population 2030) : %s morts, %s blessés, %s personnes à plus de 1 psi"
+			% [_format_count(result.killed), _format_count(result.injured), _format_count(result.exposed)])
+	for c: Dictionary in result.countries:
+		if c.killed + c.injured < 1.0:
+			continue
+		var name: String = c.name_fr
+		if not c.sovereign_fr.is_empty() and c.sovereign_fr != c.name_fr:
+			name += " (%s)" % c.sovereign_fr
+		var share := ""
+		if c.pop_est > 0:
+			var percent: float = 100.0 * c.killed / c.pop_est
+			share = ", < 0,01 % de la population" if percent < 0.01 \
+					else (", %.2f %% de la population" % percent).replace(".", ",")
+		lines.append("    %s : %s morts, %s blessés%s" % [name, _format_count(c.killed), _format_count(c.injured), share])
+	return "\n".join(lines)
+
+
+## Nombre arrondi à 3 chiffres significatifs, espaces entre milliers (« 1 230 000 »).
+static func _format_count(value: float) -> String:
+	var n := int(round(value))
+	if n >= 1000:
+		var magnitude := pow(10.0, floor(log(float(n)) / log(10.0)) - 2.0)
+		n = int(round(n / magnitude) * magnitude)
+	var digits := str(n)
+	var out := ""
+	for i in digits.length():
+		if i > 0 and (digits.length() - i) % 3 == 0:
+			out += " "
+		out += digits[i]
+	return out

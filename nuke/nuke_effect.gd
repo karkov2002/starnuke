@@ -21,6 +21,10 @@ const MARKER_RENDER_PRIORITY := 2 # après les nuages (0) et l'atmosphère (1), 
 			_markers.visible = value
 ## Temps physique imposé (s), pour rejouer l'effet (scrubber) ; négatif : temps de l'horloge NukeClock.
 var time_override_s := -1.0
+## Pertes humaines estimées au tir (NukeCasualties.estimate : totaux et détail par pays) ; {} si non calculées.
+var casualties := {}
+## Bilan électrique au tir (NukeBlackout.assess : centrales détruites, panne nationale) ; {} si non calculé.
+var blackout := {}
 ## Cache de can_ignite_land() (−1 : pas encore calculé).
 var _ignites_land := -1
 
