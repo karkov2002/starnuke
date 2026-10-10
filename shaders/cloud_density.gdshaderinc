@@ -161,8 +161,9 @@ float cloud_density(vec3 p, float time, bool with_detail, float lod, CloudAdvect
 	// Explosions (nuke/shaders/nuke_clouds.gdshaderinc) : trou, nuages poussés (carte lue en read_n), bourrelet.
 	vec3 read_n = n;
 	float rim = 0.0;
-	float keep = nuke_cloud_count > 0 ? nuke_cloud_warp(n, read_n, rim) : 1.0;
-	vec2 coverage = cloud_coverage_at(read_n, lod, adv);
+	float squeeze = 1.0;
+	float keep = nuke_cloud_count > 0 ? nuke_cloud_warp(n, read_n, rim, squeeze) : 1.0;
+	vec2 coverage = cloud_coverage_at(read_n, lod + log2(squeeze), adv);
 	float cov = coverage.x * keep;
 	if (cov <= 0.005) {
 		return 0.0;

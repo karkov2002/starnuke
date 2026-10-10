@@ -506,8 +506,15 @@ et **explosions sur la mer** (pas d'incendie au large, nuage de vapeur d'eau qui
       l'atmosphère, ciel ambiant. La lueur de la boule de feu est émise au cœur du chapeau. Extinction : 1 km⁻¹
       (`volume_extinction_per_km`).
     - 64 pas par rayon, décalage d'échantillonnage fixe par pixel (pas de bruit temporel) : pas de scintillement.
-    - Profondeur écrite par le shader : celle du premier point dense (alpha cumulé > 0,35), sinon un point juste
-      au-dessus du sol. Les nuages et l'atmosphère, rendus après, ne le recouvrent que là où ils sont devant lui.
+    - Profondeur écrite par le shader : là où le pixel est presque opaque (alpha total > 0,8, `depth_alpha`), celle
+      du premier point dense (alpha cumulé > 0,35, `depth_first`), sinon un point juste au-dessus du sol. Les nuages
+      et l'atmosphère, rendus après, ne le recouvrent que là où ils sont devant lui : c'est cette profondeur qui rend
+      le champignon visible au-dessus d'un banc nuageux. Un panache ténu (alpha < 0,8) est donc caché par les nuages
+      qu'il survole, mais reste visible au-dessus d'un sol dégagé. Avec l'ancien seuil (0,35 sur l'alpha cumulé), le
+      bord d'un panache qui s'étiole au-dessus des nuages scintillait : chaque pixel y basculait entre « panache sur
+      le sol, nuages masqués » (gris) et « nuages » (blanc), selon le décalage d'échantillonnage. À 0,8, les deux
+      aspects sont proches (mesure : 302 pixels changeant brutalement en 2 s de temps physique à 1 h 30 d'un 10 Mt,
+      contre 2).
     - Coût mesuré : ~91 i/s avec un 50 Mt et un 1 Mt à l'écran (contre 120 i/s, plafond de la synchro verticale,
       sans champignon).
     - Les sections « Maillage de révolution », « Shader » et le nuage de base `BaseSurge` ci-dessous décrivent le
@@ -641,17 +648,26 @@ et **explosions sur la mer** (pas d'incendie au large, nuage de vapeur d'eau qui
       référence : un trou plus étroit que l'épaisseur de la couche, jusqu'à 7 km, ne serait qu'un puits sombre vu de
       biais).
     - **Bord flou** : largeur de 18 % du rayon, au moins 0,6 km (`nuke_cloud_edge_soft`, `nuke_cloud_edge_km`),
-      rendue irrégulière par le bruit 3D des nuages (`nuke_cloud_edge_noise`, période 0,3 × rayon). Le sommet des
-      nuages y descend en pente douce.
+      rendue irrégulière par le bruit 3D des nuages (`nuke_cloud_edge_noise`, période 0,3 × rayon **final**). Le
+      sommet des nuages y descend en pente douce. Le motif est lu en coordonnées centrées sur l'explosion, à
+      l'échelle du rayon final : il est fixe. (Il était lu à l'échelle du rayon courant et en coordonnées
+      planétaires, à ~6 371 km de l'origine : pendant l'expansion, la moindre variation du rayon le décalait de
+      plusieurs périodes, et le bord grouillait à chaque image. Mesure à 50 Mt, 2 min, deux images à 0,5 s
+      d'écart : 9 532 pixels changeant brutalement avant, 0 après.)
   - **Nuages poussés** : la carte est lue plus près du centre, ce qui déplace les nuages radialement vers
     l'extérieur. Le décalage vaut au plus 12 % du rayon du trou (`nuke_cloud_push`) et décroît en exp(−x / w) au-delà
     du bord (x : distance au bord ; w = 8 % du rayon, `nuke_cloud_rim_width`). La matière balayée est tassée contre
-    le bord.
+    le bord : la carte y est lue jusqu'à 2,5 fois plus serrée. Le niveau de mipmap de la carte est relevé d'autant
+    (log2 du tassement, sortie `squeeze` de `nuke_cloud_warp`), sinon ses détails deviennent plus fins qu'un pixel
+    et scintillent.
   - **Bourrelet** : densité × (1 + 0,6), sommet relevé de 25 % sur le bord (`nuke_cloud_rim_gain`,
     `nuke_cloud_rim_lift`), même décroissance.
   - **Retour des nuages** sur `recovery_s` (export de `CloudFX`, **1 200 s de temps physique** de l'explosion,
     ≈ 2 min d'horloge après l'accélération) :
-    - chaque point se referme à partir du passage du front, t = −τ · ln(1 − r / R_max) ;
+    - chaque point se referme à partir du passage du front, t = −τ · ln(1 − r / R_max), plafonné à celui de
+      0,98 R_max (~3,9 τ) : le front n'atteint R_max qu'asymptotiquement, et sans ce plafond un anneau très fin
+      restait ouvert au bord jusqu'à la fin (plus fin qu'un pixel, il scintillait, puis disparaissait d'un coup) ;
+    - tout est refermé au plus tard à `recovery_s` + 4 τ, quand `CloudFX` retire l'événement (pas de saut) ;
     - le bord se referme 2 fois plus vite que le centre (`nuke_cloud_edge_fill` = 1) : les nuages regagnent le trou
       du bord vers le centre ;
     - décalage et bourrelet s'estompent sur la même durée.
@@ -755,3 +771,67 @@ Limites des nuages réels : c'est un instantané déplacé par le vent (les nuag
 la journée se répète). On voit quelques raccords entre
 passages successifs du satellite (lignes droites dans les champs de nuages), et la banquise arctique est en partie
 comptée comme nuage.
+
+## Bibliographie
+
+Ouvrages, articles et jeux de données dont sont tirés les calculs, les modèles de rendu et les images du projet.
+Les paragraphes (§) sont ceux des ouvrages ; entre parenthèses, les fichiers du projet qui s'en servent.
+
+### Effets des explosions nucléaires
+
+- Glasstone, S. et Dolan, P. J. (1977). *The Effects of Nuclear Weapons*, 3ᵉ édition. U.S. Department of Defense et
+  U.S. Department of Energy, Washington, U.S. Government Printing Office. Source principale de `nuke/` :
+  - ch. II : montée du nuage (§2.12), hauteurs du nuage stabilisé et dissipation (§2.16, §2.17), durée de la
+    lueur de la boule de feu (§2.18), explosions à la surface de l'eau (§2.50 et suivants) ;
+  - ch. III : lois d'échelle de l'onde de choc en racine cubique de la puissance (similitude de Hopkinson-Cranz) ;
+  - ch. VII : impulsion thermique (§7.85 à §7.88 : t_max, t_min, puissance au second maximum), seuils
+    d'inflammation (~10 cal/cm²), incendies et tempête de feu de Hiroshima.
+- Adamsky, V. et Smirnov, Y. (1994). « Moscow's Biggest Bomb: the 50-Megaton Test of October 1961 ». *Cold War
+  International History Project Bulletin*, n° 4, Woodrow Wilson International Center for Scholars. Hauteur du
+  nuage de la Tsar Bomba (64 à 67 km).
+- Hawthorne, H. A. (dir.) (1979). *Compilation of Local Fallout Data from Test Detonations 1945–1962 Extracted from
+  DASA 1251*, DNA 1251-1-EX et 1251-2-EX. Defense Nuclear Agency. Nuages des essais Ivy Mike et Castle Bravo
+  (~40 km).
+
+### Atmosphère, nuages et éclairage
+
+- Bruneton, É. et Neyret, F. (2008). « Precomputed Atmospheric Scattering ». *Computer Graphics Forum*, 27(4)
+  (EGSR 2008). Modèle de diffusion Rayleigh + Mie à densités exponentielles.
+- Hillaire, S. (2020). « A Scalable and Production Ready Sky and Atmosphere Rendering Technique ». *Computer
+  Graphics Forum*, 39(4) (EGSR 2020). Coefficients de diffusion Rayleigh, Mie et d'absorption de l'ozone
+  (`shaders/atmosphere_common.gdshaderinc`, `shaders/sun_light.gdshaderinc`, `nuke/nuke_atmosphere.gd`).
+- Henyey, L. G. et Greenstein, J. L. (1941). « Diffuse radiation in the Galaxy ». *The Astrophysical Journal*,
+  93, p. 70–83. Fonction de phase des nuages et du champignon.
+- Wrenninge, M., Kulla, C. et Lundqvist, V. (2013). « Oz: The Great and Volumetric ». *ACM SIGGRAPH 2013 Talks*.
+  Approximation de la diffusion multiple (somme d'octaves d'extinction atténuée) dans les nuages et le champignon.
+- Loi de Beer-Lambert : atténuation exponentielle de la lumière dans les nuages, le champignon et l'air.
+
+### Orbite et astronomie
+
+- U.S. Naval Observatory et HM Nautical Almanac Office. *The Astronomical Almanac*, section C, « Low-precision
+  formulas for the Sun ». Position du soleil (`scripts/orbit.gd`, précision ~0,01°).
+- Capitaine, N., Guinot, B. et McCarthy, D. D. (2000). « Definition of the Celestial Ephemeris Origin and of UT1 in
+  the International Celestial Reference Frame ». *Astronomy & Astrophysics*, 355, p. 398–405. Angle de rotation de
+  la Terre (IAU 2000).
+- Petit, G. et Luzum, B. (dir.) (2010). *IERS Conventions (2010)*, IERS Technical Note n° 36. Repères céleste et
+  terrestre, vitesse de rotation sidérale.
+- National Imagery and Mapping Agency (2000). *Department of Defense World Geodetic System 1984*, TR8350.2,
+  3ᵉ édition. Constante gravitationnelle géocentrique μ = 398 600,4418 km³/s².
+
+### Images satellites et données géographiques
+
+- Stöckli, R., Vermote, E., Saleous, N., Simmon, R. et Herring, D. (2005). *The Blue Marble Next Generation – A true
+  color Earth dataset including seasonal dynamics from MODIS*. NASA Earth Observatory. Texture de jour (juillet
+  2004, Visible Earth image 74092).
+- Román, M. O. et al. (2018). « NASA's Black Marble nighttime lights product suite ». *Remote Sensing of
+  Environment*, 210, p. 113–143. Lumières nocturnes (composite Black Marble 2016, Visible Earth image 144898).
+- NASA EOSDIS, Global Imagery Browse Services (GIBS) et Worldview. *VIIRS NOAA-20 Corrected Reflectance (True
+  Color)*, 15 juillet 2023, données LANCE. Couverture nuageuse.
+- NASA Visible Earth (2002). *Blue Marble: Clouds*, image 57747. Nuages des zones sans données VIIRS.
+- NASA Goddard Scientific Visualization Studio (2020). *Deep Star Maps 2020*, animation 4851 (catalogues Hipparcos-2,
+  Tycho-2 et Gaia DR2). Ciel étoilé.
+- NOAA National Centers for Environmental Prediction. *Global Forecast System (GFS)*, analyses 0,25° du 15 juillet
+  2023, NOAA Open Data Dissemination (AWS). Vent des nuages et profil vertical du vent des champignons.
+- Organisation météorologique mondiale. *Manual on Codes* (OMM-n° 306), vol. I.2, format GRIB2 (gabarit 5.3). Décodage
+  des fichiers GFS (`tools/build_wind_field.ps1`).
+- Natural Earth. *1:10m Physical Vectors – Ocean* (domaine public). Masque mers et océans (`assets/ocean_mask.res`).

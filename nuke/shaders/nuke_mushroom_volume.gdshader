@@ -15,9 +15,11 @@
 // diffusion multiple approchée), phase de Henyey-Greenstein, soleil filtré par l'atmosphère (sun_light.gdshaderinc),
 // ciel ambiant ; lueur de la boule de feu émise au cœur du chapeau.
 // Décalage d'échantillonnage fixe par pixel (pas de bruit temporel) : pas de scintillement.
-// Profondeur : celle du premier point dense (alpha cumulé > depth_alpha) ; ailleurs, un point juste au-dessus du sol
-// (derrière la couche nuageuse). Les nuages et l'atmosphère, rendus après, le recouvrent seulement là où ils sont
-// devant lui.
+// Profondeur : là où le pixel est presque opaque (alpha total > depth_alpha), celle du premier point dense (alpha
+// cumulé > depth_first) ; ailleurs, un point juste au-dessus du sol (derrière la couche nuageuse). Les nuages et
+// l'atmosphère, rendus après, le recouvrent seulement là où ils sont devant lui. Un seuil bas (0,35) faisait
+// scintiller le bord d'un panache ténu au-dessus des nuages : chaque pixel y basculait entre « panache sur le sol,
+// nuages masqués » (gris) et « nuages » (blanc). Au-dessus de 0,8, les deux aspects sont proches.
 shader_type spatial;
 render_mode blend_premul_alpha, unshaded, cull_back, depth_draw_always, shadows_disabled, fog_disabled;
 
@@ -86,7 +88,10 @@ uniform int max_steps = 64;
 uniform int light_steps = 5;
 // Premier pas de la marche vers le soleil (unités normalisées ; 0,3 km comme les nuages, fourni par le script).
 uniform float light_first_step = 0.01;
-uniform float depth_alpha = 0.35;
+// Le volume écrit sa profondeur (et masque donc les nuages derrière lui) seulement là où son opacité totale dépasse
+// depth_alpha ; la profondeur est celle du point où l'opacité cumulée atteint depth_first.
+uniform float depth_alpha = 0.8;
+uniform float depth_first = 0.35;
 
 float noise3(vec3 p) {
 	return texture(noise_tex, p).r;
@@ -246,7 +251,7 @@ void fragment() {
 		vec3 light = albedo * (sun * multiple * phase + ambient) + glow * core * core;
 		scattered += transmittance * light * (1.0 - attenuation);
 		transmittance *= attenuation;
-		if (depth_t < 0.0 && 1.0 - transmittance > depth_alpha) {
+		if (depth_t < 0.0 && 1.0 - transmittance > depth_first) {
 			depth_t = t;
 		}
 		if (transmittance < 0.01) {
@@ -258,8 +263,9 @@ void fragment() {
 	}
 	ALBEDO = scattered;
 	ALPHA = 1.0 - transmittance;
-	// Profondeur : premier point dense, sinon juste au-dessus du sol (derrière les nuages, devant le sol).
-	if (depth_t < 0.0) {
+	// Profondeur : premier point dense si le pixel est presque opaque, sinon juste au-dessus du sol (derrière les
+	// nuages, devant le sol).
+	if (depth_t < 0.0 || ALPHA < depth_alpha) {
 		depth_t = rd.y < 0.0 ? max((0.01 - ro.y) / rd.y, t0) : t1;
 	}
 	vec3 p_world = (local_to_world * vec4(ro + rd * depth_t, 1.0)).xyz;
