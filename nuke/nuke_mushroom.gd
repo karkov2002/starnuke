@@ -44,6 +44,10 @@ extends Node3D
 ## même temps que la tige se dissout. Avec le fondu du champignon près du sol (ground_fade du shader), il adoucit le
 ## contact entre la tige et le sol.
 ##
+## Explosion basse sur la mer (NukeParams.over_ocean) : nuage de vapeur d'eau. Chapeau plus rond (steam_aspect) et
+## blanc (steam_albedo), nuage de base d'embruns, débris remplacés par des embruns ; après la stabilisation, il
+## s'affaisse (NukeScaling.steam_sink) et disparaît en moins d'une heure (NukeScaling.steam_fade).
+##
 ## Particules (GPUParticles3D, nuke/shaders/nuke_smoke.gdshader) : fumée de la tige, jupon de condensation autour de
 ## la tige pendant la montée, débris soulevés au pied (explosions basses). Leur vitesse suit celle du temps physique
 ## (speed_scale = d(temps physique) / d(temps réel) : pause et accélération de l'horloge) ; elles ne se rejouent pas
@@ -111,6 +115,15 @@ const VOLUME_SHADER := preload("res://nuke/shaders/nuke_mushroom_volume.gdshader
 @export var surge_shock_ratio := 0.8
 @export var surge_aspect := 0.08
 @export var surge_opacity := 0.6
+@export_group("Explosion sur la mer")
+## Nuage de vapeur d'eau (NukeParams.over_ocean, explosion basse) : chapeau plus rond (épaisseur / diamètre d'au
+## moins steam_aspect), blanchi vers steam_albedo, nuage de base d'embruns plus large et plus dense. Affaissement et
+## disparition : NukeScaling.steam_sink / steam_fade.
+@export var steam_aspect := 0.75
+@export var steam_albedo := Color(0.93, 0.94, 0.96)
+@export var steam_whiteness := 0.85
+@export var steam_surge_ratio := 1.0
+@export var steam_surge_opacity := 0.85
 @export_group("Particules")
 @export var stem_color := Color(0.5, 0.45, 0.4)
 @export var skirt_color := Color(0.92, 0.93, 0.95)
@@ -135,6 +148,8 @@ var _debris: GPUParticles3D
 var _drift := PackedVector3Array()
 var _wind_units := PackedVector3Array()
 var _rise_drift := PackedVector3Array()
+## Part « nuage de vapeur » (0 à 1) : explosion basse sur la mer.
+var _steam := 0.0
 
 @onready var _cloud: MeshInstance3D = $Cloud
 
@@ -172,6 +187,10 @@ func _ready() -> void:
 	_stem = _make_particles("Stem", 40, 150.0, stem_color)
 	_skirt = _make_particles("Skirt", 36, 80.0, skirt_color)
 	_debris = _make_particles("Debris", 48, 120.0, debris_color)
+	if _effect and _effect.params and _effect.params.over_ocean:
+		_steam = NukeScaling.low_burst(_effect.params.yield_kt, _effect.params.burst_height_km)
+		# Au pied, des embruns plutôt que des débris.
+		(_debris.process_material as ParticleProcessMaterial).color = debris_color.lerp(skirt_color, _steam)
 	_update(0.0)
 
 
@@ -202,16 +221,24 @@ func _update(delta: float) -> void:
 	var rf := fireball_km / top_km
 	var yb := params.burst_height_km / top_km
 	var rc := maxf(rf, cap_radius_curve.sample(a1) * NukeScaling.CAP_RADIUS_PER_TOP)
-	var hc := 2.0 * rc * cap_aspect_curve.sample(a1)
+	var aspect := cap_aspect_curve.sample(a1)
+	var hc := 2.0 * rc * lerpf(aspect, maxf(aspect, steam_aspect), _steam)
 	var h := maxf(yb + 0.5 * hc, height_curve.sample(a1))
 	var rs := stem_curve.sample(a1) * rc
 	var under := lerpf(1.0, neck_drop, clampf(rs / (0.1 * rc), 0.0, 1.0))
 	var yc := h - 0.5 * hc
 	var y_neck := yc - under * 0.5 * hc
+	# Nuage de vapeur (explosion sur la mer) : après la stabilisation, l'eau retombe en pluie, le nuage s'affaisse.
+	if _steam > 0.0:
+		yc *= lerpf(1.0, NukeScaling.steam_sink(t), _steam)
+		h = yc + 0.5 * hc
+		y_neck = yc - under * 0.5 * hc
 
-	# Dissipation après la stabilisation : étalement, amincissement (centre du chapeau fixe), dilution, disparition.
+	# Dissipation après la stabilisation : étalement, amincissement (centre du chapeau fixe), dilution, disparition
+	# (bien plus rapide pour le nuage de vapeur).
 	var spread := NukeScaling.cloud_spread_ratio(w, t)
-	var fade := NukeScaling.cloud_fade(t, spread, yc * top_km, params.latitude_deg)
+	var fade := NukeScaling.cloud_fade(t, spread, yc * top_km, params.latitude_deg) \
+			* lerpf(1.0, NukeScaling.steam_fade(t), _steam)
 	if fade < NukeScaling.CLOUD_FADE_MIN:
 		visible = false
 		_last_t = t
@@ -233,7 +260,7 @@ func _update(delta: float) -> void:
 	_material.set_shader_parameter("erosion", erosion_curve.sample(minf(a, erosion_curve.max_domain)))
 	_material.set_shader_parameter("ground_fade", 0.04)
 
-	var albedo := albedo_gradient.sample(a1)
+	var albedo := albedo_gradient.sample(a1).lerp(steam_albedo, _steam * steam_whiteness)
 	_material.set_shader_parameter("albedo", Vector3(albedo.r, albedo.g, albedo.b))
 	var g := minf(t / NukeScaling.fireball_glow_s(w), 1.0)
 	var glow := glow_gradient.sample(g) * (glow_hdr * maxf(glow_curve.sample(g), 0.0))
@@ -392,8 +419,8 @@ func _drift_range(y_low: float, y_high: float) -> Array[Vector3]:
 func _update_surge(t: float, a: float, yb: float, rf: float, top_km: float, erosion: float, albedo: Color,
 		glow: Color, to_planet: Transform3D, sun_dir: Vector3) -> Vector3:
 	var w := _effect.params.yield_kt
-	var radius := surge_shock_ratio * NukeScaling.shock_front_radius_km(w, t) / top_km
-	var fade := surge_opacity * smoothstep(0.0, 0.02, a) * (1.0 - smoothstep(0.0, 0.7, erosion))
+	var radius := lerpf(surge_shock_ratio, steam_surge_ratio, _steam) * NukeScaling.shock_front_radius_km(w, t) / top_km
+	var fade := lerpf(surge_opacity, steam_surge_opacity, _steam) * smoothstep(0.0, 0.02, a) * (1.0 - smoothstep(0.0, 0.7, erosion))
 	_surge.visible = yb < 2.0 * rf and radius > 0.002 and fade > 0.005
 	if not _surge.visible:
 		return Vector3.ZERO

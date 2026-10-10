@@ -10,7 +10,8 @@ extends Node3D
 ##   front qui s'amincit de start_width à end_width (part de R_max) ;
 ## - poussière : jupe autour du point zéro, soulevée par le front dès dust_start, qui s'étend avec lui jusqu'à
 ##   dust_max (part de R_max), reste en place puis retombe (constante de temps dust_fade_tau × τ) ; seulement pour une
-##   explosion basse (hauteur < ~2 rayons de boule de feu).
+##   explosion basse (hauteur < ~2 rayons de boule de feu). Sur la mer (NukeParams.over_ocean), ce sont des embruns
+##   (eau pulvérisée) : même jupe, blanche.
 ## Dessin : nuke/shaders/nuke_shock_ring.gdshader sur un quad horizontal légèrement surélevé (lift_km).
 
 @export_group("Condensation")
@@ -61,7 +62,7 @@ func _update() -> void:
 	var p := get_progress()
 	var condensation := condensation_opacity * smoothstep(condensation_start, condensation_peak, p) \
 			* (1.0 - smoothstep(condensation_peak, condensation_end, p))
-	var low_burst := 1.0 - smoothstep(0.5, 2.0, params.burst_height_km / NukeScaling.fireball_radius_km(params.yield_kt))
+	var low_burst := NukeScaling.low_burst(params.yield_kt, params.burst_height_km)
 	var dust := dust_opacity * low_burst * smoothstep(dust_start, dust_start + 0.1, p) * exp(-t / (dust_fade_tau * tau))
 	_ring.visible = condensation > 0.002 or dust > 0.002
 	if not _ring.visible:
@@ -78,4 +79,5 @@ func _update() -> void:
 	_ring.set_instance_shader_parameter("front_width_km", width)
 	_ring.set_instance_shader_parameter("condensation", condensation)
 	_ring.set_instance_shader_parameter("dust", dust)
+	_ring.set_instance_shader_parameter("spray", 1.0 if params.over_ocean else 0.0)
 	_ring.set_instance_shader_parameter("dust_max_km", r_max * dust_max)

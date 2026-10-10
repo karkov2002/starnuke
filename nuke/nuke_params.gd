@@ -19,6 +19,9 @@ extends Resource
 @export var start_time_s := 0.0
 ## Hauteur d'explosion (0 = au sol).
 @export_range(0.0, 50.0, 0.01, "suffix:km") var burst_height_km := 0.0
+## Point zéro sur une mer ou un océan (masque OceanMask, renseigné par NukeLauncher) : pas d'incendie au large, nuage
+## de vapeur d'eau qui retombe vite, embruns au lieu de poussière.
+@export var over_ocean := false
 
 
 func _init() -> void:

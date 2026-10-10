@@ -88,6 +88,16 @@ const FIRE_SPREAD := 0.15
 const FIRE_SPREAD_S := 3600.0
 const FIRE_BURN_S := 14400.0
 
+# Explosion basse sur une mer ou un océan (NukeParams.over_ocean, masque OceanMask) : la boule de feu vaporise une
+# grande masse d'eau (Glasstone & Dolan §2.50 et suivants), le nuage est une grosse boule de vapeur condensée, blanche,
+# chargée d'eau. Après la stabilisation (t_s = MUSHROOM_RISE_S), l'eau retombe en pluie : le nuage s'affaisse
+# (hauteurs × 1 − STEAM_SINK · (1 − exp(−(t − t_s) / STEAM_SINK_S))) et disparaît vite (densité ×
+# exp(−(t − t_s) / STEAM_FADE_S), en plus de la dissipation ordinaire) : masqué moins d'une heure après l'explosion
+# (temps physique, ~5 min d'horloge), contre plusieurs heures sur terre.
+const STEAM_SINK := 0.35
+const STEAM_SINK_S := 900.0
+const STEAM_FADE_S := 600.0
+
 # Flash initial. Puissance thermique au second maximum (Glasstone & Dolan, The Effects of Nuclear Weapons, §7.88,
 # explosion dans l'air) : P_max = 4 · W^0,56 kt/s. Pour 1 Mt : 8·10¹⁴ W, soit ~400 W/m² à 400 km (0,29 soleil) avant
 # l'absorption par l'atmosphère (NukeAtmosphere et nuke/shaders/nuke_flash.gdshaderinc).
@@ -123,6 +133,22 @@ static func fireball_radius_km(yield_kt: float) -> float:
 
 static func shock_radius_km(yield_kt: float) -> float:
 	return SHOCK_REF_KM * pow(_clamp_yield(yield_kt) / REF_YIELD_KT, SHOCK_EXP)
+
+
+## Part « explosion basse » (1 au sol, 0 au-dessus de ~2 rayons de boule de feu) : poussière ou embruns soulevés,
+## nuage de base, vapeur d'eau.
+static func low_burst(yield_kt: float, burst_height_km: float) -> float:
+	return 1.0 - smoothstep(0.5, 2.0, burst_height_km / fireball_radius_km(yield_kt))
+
+
+## Affaissement du nuage de vapeur d'une explosion sur la mer : facteur des hauteurs au temps t (s, physique).
+static func steam_sink(t: float) -> float:
+	return 1.0 - STEAM_SINK * (1.0 - exp(-maxf(t - MUSHROOM_RISE_S, 0.0) / STEAM_SINK_S))
+
+
+## Disparition du nuage de vapeur (pluie) : facteur de densité au temps t (s, physique), 1 jusqu'à la stabilisation.
+static func steam_fade(t: float) -> float:
+	return exp(-maxf(t - MUSHROOM_RISE_S, 0.0) / STEAM_FADE_S)
 
 
 ## Rayon final du front de choc affiché (km) : anneau de condensation, poussière et trou dans les nuages.

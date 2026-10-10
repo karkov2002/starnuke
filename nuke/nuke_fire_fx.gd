@@ -3,7 +3,8 @@ extends Node
 ## Incendies des explosions, créé par NukeLauncher. À chaque image, il calcule pour chaque NukeEffect le rayon et
 ## l'intensité de la zone en feu (NukeScaling.fire_radius_km, fire_intensity) et alimente les uniforms nuke_fire_*
 ## des matériaux de la Terre qui les déclarent (sol, cf. nuke/shaders/nuke_fire.gdshaderinc) : les MAX_FIRES
-## incendies les plus intenses.
+## incendies les plus intenses. Une explosion au large, sans terre à portée (NukeEffect.can_ignite_land), n'en allume
+## aucun ; près d'une côte, le shader ne fait brûler que les terres.
 
 const MAX_FIRES := 8
 
@@ -28,6 +29,8 @@ func _process(_delta: float) -> void:
 		return
 	var fires: Array[Dictionary] = []
 	for effect in _launcher.get_effects():
+		if not effect.can_ignite_land():
+			continue
 		var t := effect.get_time_s()
 		var intensity := NukeScaling.fire_intensity(t)
 		if intensity > 0.001:

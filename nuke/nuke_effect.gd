@@ -21,6 +21,8 @@ const MARKER_RENDER_PRIORITY := 2 # après les nuages (0) et l'atmosphère (1), 
 			_markers.visible = value
 ## Temps physique imposé (s), pour rejouer l'effet (scrubber) ; négatif : temps de l'horloge NukeClock.
 var time_override_s := -1.0
+## Cache de can_ignite_land() (−1 : pas encore calculé).
+var _ignites_land := -1
 
 @onready var _markers: Node3D = $DebugMarkers
 
@@ -54,6 +56,16 @@ func get_time_s() -> float:
 	if time_override_s >= 0.0:
 		return time_override_s
 	return NukeClock.physical_time(params.start_time_s)
+
+
+## Le flash peut-il allumer des incendies ? Faux pour une explosion en mer sans aucune terre dans le rayon des
+## incendies (OceanMask) ; près d'une côte, seules les terres brûlent (masque d'eau du shader de sol).
+func can_ignite_land() -> bool:
+	if _ignites_land < 0:
+		var reach := NukeScaling.fire_radius_km(params.yield_kt, INF)
+		_ignites_land = 1 if not params.over_ocean \
+				or OceanMask.has_land_within(params.latitude_deg, params.longitude_deg, reach) else 0
+	return _ignites_land == 1
 
 
 func _build_debug_markers() -> void:

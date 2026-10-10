@@ -4,6 +4,7 @@
 //   un bref instant. Blanc, il suit le front (montée nette côté intérieur, dégradé vers l'extérieur) ;
 // - la poussière soulevée au sol (explosions basses) : jupe gris-brun autour du point zéro, qui s'étend avec le
 //   front jusqu'à dust_max_km puis persiste.
+//   Sur la mer (instance spray = 1), c'est de l'eau pulvérisée : jupe blanche.
 // Matériau éclairé par les lumières de la scène (soleil : blanc de jour, presque invisible de nuit), sans lumière
 // ambiante. Réutilisable : centre = origine du maillage ; par instance le rayon du front, sa largeur, les opacités.
 // Les largeurs sont élargies à au moins un pixel (fwidth) : un anneau fin ou lointain ne scintille pas.
@@ -21,6 +22,9 @@ instance uniform float dust = 0.0;
 uniform vec3 condensation_color : source_color = vec3(0.93, 0.94, 0.96);
 // Poussière mêlée de fumée : gris-brun, plus sombre que la plupart des sols.
 uniform vec3 dust_color : source_color = vec3(0.24, 0.21, 0.19);
+// Embruns (explosion sur la mer) : eau pulvérisée, blanche ; part donnée par instance (spray, 0 à 1).
+uniform vec3 spray_color : source_color = vec3(0.88, 0.9, 0.93);
+instance uniform float spray = 0.0;
 // Largeur du côté intérieur du front de condensation, en part de sa largeur (dégradé) extérieure.
 uniform float inner_ratio = 0.35;
 // Rayon de la jupe de poussière : celui du front, plafonné à dust_max_km (instance), bord adouci sur dust_edge.
@@ -71,6 +75,6 @@ void fragment() {
 	float a_dust = clamp(skirt * dust * irregular, 0.0, 1.0);
 
 	ALPHA = 1.0 - (1.0 - a_cond) * (1.0 - a_dust);
-	ALBEDO = mix(dust_color, condensation_color, a_cond / max(a_cond + a_dust, 1e-4));
+	ALBEDO = mix(mix(dust_color, spray_color, spray), condensation_color, a_cond / max(a_cond + a_dust, 1e-4));
 	ROUGHNESS = 1.0;
 }

@@ -303,17 +303,24 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
    - L'import Godot de ces deux textures doit rester **sans perte** (`detect_3d/compress_to=0` dans le `.import`),
      sinon la compression GPU fausse les vitesses.
    - Pour une autre journée de nuages, refaire les étapes 4 et 5 avec la même date.
+6. Masque mers et océans (explosions sur la mer, voir « Explosions sur la mer ») :
+   - télécharger la couche « ocean » de Natural Earth 1:10 M en GeoJSON (~10 Mo) :
+     `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_ocean.geojson` ;
+   - `godot --headless --path . --script res://tools/build_ocean_mask.gd -- <ne_10m_ocean.geojson>` (~1 s). Il écrit
+     `assets/ocean_mask.res` (ressource `OceanMask`, ~2,4 Mo).
 
 ## Explosions nucléaires (`nuke/`)
 
 Tout le code des explosions est dans `res://nuke/`. Objectif : une animation unique, paramétrée par la puissance
 (10 kt à 50 Mt), vue depuis l'espace. **État actuel : socle de l'effet** (tir, placement, lois d'échelle,
 horloge), **flash initial**, **onde de choc** (condensation, poussière), **incendies**, **trous dans la couche
-nuageuse** et **champignon** (boule de feu comprise ; dérive selon le profil vertical du vent, dissipation et panache).
+nuageuse**, **champignon** (boule de feu comprise ; dérive selon le profil vertical du vent, dissipation et panache)
+et **explosions sur la mer** (pas d'incendie au large, nuage de vapeur d'eau qui retombe vite).
 
 - **Paramètres** (`nuke/nuke_params.gd`, Resource `NukeParams`) : `yield_kt` (10 à 50 000), `latitude_deg`,
   `longitude_deg`, `wind_direction_deg` (d'où vient le vent, convention météo) et `wind_speed_m_s`,
-  `start_time_s` (instant sur l'horloge `NukeClock`), `burst_height_km` (0 = au sol, valeur par défaut).
+  `start_time_s` (instant sur l'horloge `NukeClock`), `burst_height_km` (0 = au sol, valeur par défaut),
+  `over_ocean` (point zéro sur une mer ou un océan, renseigné au tir, voir « Explosions sur la mer »).
   - **Vent réel** (`nuke/nuke_wind.gd`) : au tir, le vent est lu au point d'impact dans la même carte que
     l'advection des nuages (`assets/textures/cloud_wind.exr`, vent GFS moyen du jour à 850/700/500 hPa, ~1,5 à
     5,5 km d'altitude, interpolation bilinéaire) : le trou dans la couche nuageuse dérive comme les nuages. Sans
@@ -428,7 +435,8 @@ nuageuse** et **champignon** (boule de feu comprise ; dérive selon le profil ve
   - **la jupe de poussière** autour du point zéro, pour les explosions basses (hauteur < ~2 rayons de boule de
     feu). Gris-brun (poussière mêlée de fumée), elle est soulevée par le front dès p = 0,05 et s'étend avec lui
     jusqu'à 60 % de R_max. Elle retombe ensuite lentement (constante de temps 8 τ). Vue en oblique, le voile
-    atmosphérique réduit beaucoup son contraste ; elle ressort mieux près du nadir.
+    atmosphérique réduit beaucoup son contraste ; elle ressort mieux près du nadir. Sur la mer, ce sont des
+    **embruns** (eau pulvérisée) : même jupe, blanche (`spray` du shader).
 
   Rayon du front **r(t) = R_max · (1 − exp(−t / τ))**, avec une progression p = r / R_max :
   - R_max = `NukeScaling.shock_max_radius_km` = 1,2 × rayon de choc de référence + 4 km (`SHOCK_VISUAL_SCALE`,
@@ -469,7 +477,9 @@ nuageuse** et **champignon** (boule de feu comprise ; dérive selon le profil ve
     - avec l'accélération de l'horloge (×10 après la rampe), 1 h 20 physique ≈ 8 min 30 s à l'écran.
   - Rendu, en émission sur le sol :
     - la part du sol en feu est forte au centre (l'exposition décroît en 1/d²) ;
-    - seulement sur les terres (masque d'eau du sol) ;
+    - seulement sur les terres (masque d'eau du sol) : **une mer ou un océan ne brûle pas**. Une explosion en mer
+      sans aucune terre dans le rayon des incendies (`OceanMask.has_land_within`, `NukeEffect.can_ignite_land`)
+      n'allume rien ; près d'une côte, le flash enflamme les terres à portée ;
     - plus forte et plus vive dans les villes (combustible, lu dans l'image des lumières nocturnes) ;
     - modulée par un motif irrégulier dont l'échelle suit la taille de la zone ;
     - bord très irrégulier, léger scintillement ;
@@ -594,6 +604,29 @@ nuageuse** et **champignon** (boule de feu comprise ; dérive selon le profil ve
     Leur vitesse suit celle du temps physique (`speed_scale` : pause et accélération de l'horloge). Elles ne se
     rejouent pas au scrubber. Pas de *soft particles* : elles liraient la texture de profondeur, peu fiable sous
     D3D12 dans ce projet ; les bords sont adoucis par la forme. Pas de flipbook (aucun dans le projet).
+- **Explosions sur la mer** (règles de jeu) :
+  - **Détection** (`scripts/ocean_mask.gd`, classe `OceanMask`, données `assets/ocean_mask.res`) : au tir,
+    `NukeLauncher` demande `OceanMask.is_ocean(latitude, longitude)` et renseigne `NukeParams.over_ocean` (la console
+    affiche « en mer »). Le masque vient du trait de côte Natural Earth 1:10 M (couche « ocean » : océans et mers
+    reliées, la Caspienne comprise ; les lacs comptent comme de la terre). Il est stocké par lignes de latitude
+    (120 par degré, ~0,9 km) : pour chaque ligne, les longitudes exactes où elle croise la côte ; un point est en mer
+    si un nombre impair de croisements est à sa gauche. Précision : celle du trait de côte (quelques centaines de
+    mètres) en longitude, ~0,5 km en latitude. Vérifié sur l'Atlantique, la Méditerranée, la Manche, la Baltique, la
+    rade de Marseille (mer) et Paris, le Léman, le lac Michigan, l'Antarctique (terre), antiméridien compris. Coût :
+    chargement ~60 ms au premier tir, puis une recherche dichotomique. Sans le fichier, tout est terre.
+  - **Pas d'incendie sur l'eau** : voir « Incendies ». Au large (aucune terre à portée du flash), aucun feu.
+  - **Nuage de vapeur d'eau** (explosion basse, même critère que la poussière ; `NukeScaling.low_burst`) : la boule
+    de feu vaporise une grande masse d'eau (Glasstone & Dolan §2.50 et suivants). Dans `NukeMushroom` (groupe
+    « Explosion sur la mer ») :
+    - nuage blanc de vapeur condensée (`steam_albedo`, 85 % de `steam_whiteness`), chapeau en grosse boule
+      (épaisseur / diamètre d'au moins `steam_aspect` = 0,75 au lieu de 0,42) ;
+    - nuage de base d'embruns plus large (rayon = front de choc) et plus dense (0,85) ; au pied, des embruns blancs
+      au lieu des débris ; jupe d'embruns blanche sous l'onde de choc ;
+    - même montée que sur terre (stabilisation en 10 min), puis **l'eau retombe** : le nuage s'affaisse (hauteurs ×
+      1 − 0,35 · (1 − exp(−(t − 10 min) / 15 min)), `NukeScaling.STEAM_SINK`, `STEAM_SINK_S`) et **disparaît vite**
+      (densité × exp(−(t − 10 min) / 10 min), `STEAM_FADE_S`, en plus de la dissipation ordinaire). À 1 Mt : boule
+      dense à 20 min, voile ténu à 35 min, masqué vers 50 min (temps physique, ~5 min d'horloge), contre ~6 h sur
+      terre.
 - **Nuages** (`nuke/nuke_cloud_fx.gd`, nœud `CloudFX` créé par `NukeLauncher` ; `nuke/shaders/nuke_clouds.gdshaderinc`) :
   l'onde de choc creuse un trou dans la couche nuageuse, qui se referme ensuite.
   - **Branchement** : l'include est appelé par `cloud_density()` (`shaders/cloud_density.gdshaderinc` : une ligne
@@ -702,7 +735,7 @@ nuageuse** et **champignon** (boule de feu comprise ; dérive selon le profil ve
 
 ## Sources des textures
 
-Toutes issues de la NASA ou de la NOAA, domaine public (crédit demandé) :
+Toutes issues de la NASA, de la NOAA ou de Natural Earth, domaine public (crédit demandé) :
 
 | Fichier | Contenu | Source |
 |---|---|---|
@@ -716,6 +749,7 @@ Toutes issues de la NASA ou de la NOAA, domaine public (crédit demandé) :
 | `assets/textures/starmap_4k.exr` | Deep Star Maps 2020, 4096 × 2048, HDR | NASA Scientific Visualization Studio, animation 4851 |
 | `assets/textures/cloud_wind.exr` | Vent moyen du 15 juillet 2023 (850–500 hPa), 720 × 360 | NOAA, modèle GFS, analyses 0,25° (NOAA Open Data Dissemination, AWS) |
 | `assets/textures/wind_profile.exr` | Profil vertical du vent du même jour (14 niveaux, 850 à 0,1 hPa) et altitude de chaque niveau, 360 × 180 par niveau (~11 Mo) | idem |
+| `assets/ocean_mask.res` | Masque mers et océans (croisements du trait de côte par ligne de latitude, ~2,4 Mo) | Natural Earth 1:10 M, couche « ocean » (domaine public) |
 
 Limites des nuages réels : c'est un instantané déplacé par le vent (les nuages ne se forment ni ne se dissipent, et
 la journée se répète). On voit quelques raccords entre

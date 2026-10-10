@@ -87,6 +87,7 @@ func launch_at(latitude_deg: float, longitude_deg: float, yield_kt: float) -> Nu
 		params.wind_direction_deg = NukeWind.from_direction_deg(wind)
 		params.wind_speed_m_s = wind.length()
 	params.wind_profile = NukeWind.sample_profile(latitude_deg, longitude_deg)
+	params.over_ocean = OceanMask.is_ocean(latitude_deg, longitude_deg)
 	return fire(params)
 
 
@@ -95,8 +96,9 @@ func fire(params: NukeParams) -> NukeEffect:
 	var effect := EFFECT_SCENE.instantiate() as NukeEffect
 	effect.params = params
 	_earth.add_child(effect)
-	print("NukeLauncher : %s sur %.2f°, %.2f° (vent du %03d°, %.1f m/s)" % [NukeScaling.format_yield(params.yield_kt),
-			params.latitude_deg, params.longitude_deg, roundi(params.wind_direction_deg), params.wind_speed_m_s])
+	print("NukeLauncher : %s sur %.2f°, %.2f°%s (vent du %03d°, %.1f m/s)" % [NukeScaling.format_yield(params.yield_kt),
+			params.latitude_deg, params.longitude_deg, " en mer" if params.over_ocean else "",
+			roundi(params.wind_direction_deg), params.wind_speed_m_s])
 	if not params.wind_profile.is_empty():
 		# Vent à l'altitude du chapeau stabilisé (~3/4 du sommet).
 		var cap_km := 0.75 * NukeScaling.cloud_top_km(params.yield_kt)
