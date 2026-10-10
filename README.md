@@ -20,6 +20,7 @@ Les tuiles haute résolution (`assets/earth_tiles/`, `assets/earth_night_tiles/`
 | Vitesse du temps | Boutons **Pause, x1, x2, x4, x8, x16** |
 | Redémarrer | Boutons **Restart by day** / **Restart by night** : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
 | Tir nucléaire | **Gros bouton rouge** à droite du panneau : frappe le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie en dessous (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien. Voir « Explosions nucléaires » |
+| Bilan des explosions | Fenêtre **« Bilan des explosions »**, ouverte au premier tir (en haut à droite) : pays touchés et pertes, cumulées sur toutes les explosions. **Glisser sa barre de titre** (clic gauche maintenu) pour la déplacer ; bouton **—** / **+** pour la replier ; molette ou barre de défilement pour parcourir la liste |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
 L'observateur ne peut pas se déplacer pour l'instant (des contrôles d'orientation de la vue sont prévus).
@@ -29,6 +30,25 @@ Il affiche l'altitude et la période orbitale, l'inclinaison et le point survol�
 la date et l'heure UTC et l'heure solaire locale du point survolé. Les curseurs agissent en direct sur le nœud `Orbit`. Hors manipulation, ils affichent les
 valeurs réellement appliquées. Le panneau a une largeur fixe et ne bouge pas quand les valeurs changent. Sa
 dernière colonne (bouton de tir et puissance) vient de `nuke/`.
+
+**Fenêtre « Bilan des explosions »** (nœud `NukeReport` de `scenes/orbit_view.tscn`, script
+`nuke/nuke_report_panel.gd`, construite en code). Elle apparaît au premier tir, en haut à droite, et disparaît
+quand il n'y a plus d'explosion (« Effacer » du panneau de debug).
+- Résumé : nombre d'explosions, total des morts et des blessés.
+- Liste défilante (260 px) des pays touchés, cumulés sur toutes les explosions et triés par morts décroissants
+  (à égalité, par nombre d'explosions). Colonnes :
+  - **Expl.** : nombre d'explosions dont le point zéro est sur le territoire du pays (« — » pour un pays touché
+    seulement par une explosion voisine : l'Allemagne après un tir sur Bâle) ;
+  - **Morts**, **Blessés** ;
+  - **Population** : part de la population du pays tuée (« 0 % » sans mort).
+  Un territoire dépendant est suivi de son État souverain. Un pays sous black-out national est en jaune, marqué ⚡
+  (infobulle), même sans perte humaine ; un pays visé sans perte (désert) apparaît aussi. Les lignes sont
+  regroupées par code de pays (`CountryMask`).
+- Fenêtre déplaçable comme sous Windows : clic gauche maintenu sur la barre de titre (curseur « déplacer »),
+  bornée à l'écran ; une fois posée, elle garde sa place, même après « Effacer ». Bouton **—** / **+** : replier
+  / déplier.
+- Mise à jour à chaque tir (et au plus deux fois par seconde si la liste des explosions change), sans
+  recalcul : elle lit `NukeEffect.casualties` et `NukeEffect.blackout`.
 
 **Règles de l'orbite appliquées par les contrôles :**
 - changer l'altitude conserve le point survolé et le sens de passage (montant / descendant) ; la période change
@@ -674,7 +694,8 @@ de nuit (zone détruite, panne régionale en cascade, panne nationale si une gro
     réseaux interconnectés (une panne qui déborde sur les pays voisins) et l'impulsion électromagnétique d'une
     explosion en haute altitude ne sont pas simulés.
 - **Pertes humaines** (`nuke/nuke_casualties.gd`, classe `NukeCasualties` ; règle de jeu) : au tir, `NukeLauncher`
-  calcule les pertes immédiates (`NukeEffect.casualties`) et les affiche en console, par pays :
+  calcule les pertes immédiates (`NukeEffect.casualties`). Elles s'affichent dans la fenêtre « Bilan des explosions »
+  (voir ci-dessous) et en console, par pays :
   ```
   NukeLauncher : 1 Mt sur 47.56°, 7.59° (Suisse) (…)
     pertes immédiates (OTA 1979, population 2030) : 222 000 morts, 161 000 blessés, 604 000 personnes à plus de 1 psi

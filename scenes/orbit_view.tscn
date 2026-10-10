@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://dknqs7e8wshht" path="res://scenes/ui/orbit_controls.tscn" id="10_e78ee"]
 [ext_resource type="CameraAttributesPractical" path="res://materials/camera_attributes.tres" id="11_cam"]
 [ext_resource type="Script" uid="uid://cuu53raq5g4v5" path="res://nuke/nuke_launcher.gd" id="12_nuam2"]
+[ext_resource type="Script" uid="uid://cufsohnqhvy1c" path="res://nuke/nuke_report_panel.gd" id="13_tq5ei"]
 
 [sub_resource type="SphereMesh" id="SphereMesh_dokek"]
 radius = 637.1
@@ -90,3 +91,6 @@ script = ExtResource("8_3kqp2")
 
 [node name="NukeLauncher" type="Node" parent="." unique_id=1883274914]
 script = ExtResource("12_nuam2")
+
+[node name="NukeReport" type="CanvasLayer" parent="." unique_id=491561246]
+script = ExtResource("13_tq5ei")

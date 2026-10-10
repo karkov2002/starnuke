@@ -146,7 +146,7 @@ static func _band_fractions(d: float, radii: PackedFloat64Array) -> Vector3:
 static func format_report(result: Dictionary) -> String:
 	var lines: Array[String] = []
 	lines.append("  pertes immédiates (OTA 1979, population 2030) : %s morts, %s blessés, %s personnes à plus de 1 psi"
-			% [_format_count(result.killed), _format_count(result.injured), _format_count(result.exposed)])
+			% [format_count(result.killed), format_count(result.injured), format_count(result.exposed)])
 	for c: Dictionary in result.countries:
 		if c.killed + c.injured < 1.0:
 			continue
@@ -158,12 +158,12 @@ static func format_report(result: Dictionary) -> String:
 			var percent: float = 100.0 * c.killed / c.pop_est
 			share = ", < 0,01 % de la population" if percent < 0.01 \
 					else (", %.2f %% de la population" % percent).replace(".", ",")
-		lines.append("    %s : %s morts, %s blessés%s" % [name, _format_count(c.killed), _format_count(c.injured), share])
+		lines.append("    %s : %s morts, %s blessés%s" % [name, format_count(c.killed), format_count(c.injured), share])
 	return "\n".join(lines)
 
 
 ## Nombre arrondi à 3 chiffres significatifs, espaces entre milliers (« 1 230 000 »).
-static func _format_count(value: float) -> String:
+static func format_count(value: float) -> String:
 	var n := int(round(value))
 	if n >= 1000:
 		var magnitude := pow(10.0, floor(log(float(n)) / log(10.0)) - 2.0)

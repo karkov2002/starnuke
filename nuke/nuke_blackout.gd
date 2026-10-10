@@ -67,8 +67,8 @@ static func format_report(result: Dictionary) -> String:
 			", ".join(names), "…" if plants.size() > 3 else ""]
 	if result.country_index >= 0 and result.country_capacity_mw > 0.0:
 		var mask := CountryMask.get_mask()
-		var name: String = mask.countries[result.country_index].name_fr
-		line += "\n    %s perd %s %% de sa capacité (%d MW)" % [name, ("%.1f" % (100.0 * result.share)).replace(".", ","),
+		var country_name: String = mask.countries[result.country_index].name_fr
+		line += "\n    %s perd %s %% de sa capacité (%d MW)" % [country_name, ("%.1f" % (100.0 * result.share)).replace(".", ","),
 				roundi(result.country_capacity_mw)]
 		if result.national >= 0:
 			line += " : black-out national"
