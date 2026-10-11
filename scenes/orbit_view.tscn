@@ -56,7 +56,7 @@ shadow_enabled = true
 directional_shadow_max_distance = 60.0
 
 [node name="Observer" type="CharacterBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.35, -4.2, -11.6)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4.2, -11.6)
 motion_mode = 1
 script = ExtResource("14_obs")
 

@@ -298,12 +298,15 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
 - **Observateur** : corps `Observer` (`CharacterBody3D`, script `scripts/observer.gd`, déplacement en mode
   « flottant », sphère de collision de 0,3 m) portant la caméra `Observer/Camera` (script
   `scripts/station_camera.gd`, orientation). Départ 1 m sous le repère `Point_Vue_Cupola` du modèle, la tête au
-  ras des vitres et décalée de 35 cm sur le côté ((0,35, −4,2, −11,6) dans la scène ; plus haut, la paroi de la
-  cupola masque l'horizon), vue initiale **dans l'axe de la trajectoire** (la station vole selon son avant : le sol
-  défile du haut vers le bas de l'écran, à la rotation de la Terre près, ~4°), plongeant de 24° sous l'horizon de
-  la station : l'horizon terrestre (~20° sous l'horizontale à 400 km) est visible, et le centre de l'écran
-  (réticule de tir) tombe sur la Terre à travers la vitre avant ; le décalage de la tête écarte du centre le
-  montant avant de la cupola hexagonale (sinon il masquerait la cible et la fin du vol du missile). `Orbit` place la Terre par rapport à la
+  ras des vitres ((0, −4,2, −11,6) dans la scène ; plus haut, la paroi de la cupola masque l'horizon), vue initiale
+  **dans l'axe de la trajectoire** (la station vole selon son avant : le sol défile du haut vers le bas de l'écran,
+  à la rotation de la Terre près, ~4°), plongeant de 24° sous l'horizon de la station : l'horizon terrestre (~20°
+  sous l'horizontale à 400 km) est visible, et le centre de l'écran (réticule de tir) tombe sur la Terre au milieu
+  de la vitre avant.
+- **Cupola tournée de 30°** autour de son axe vertical (centre (11,6 ; 0) du modèle), dans la scène héritée
+  `scenes/station_spatiale.tscn` : `Commande_Cupola` (structure et barreaux) et `Commande_Cupola_Vitres`, avec
+  leurs collisions. Dans le modèle, un barreau de l'hexagone pointait droit devant et masquait la vue avant ; une
+  face est maintenant face à l'avant. `Orbit` place la Terre par rapport à la
   caméra (`observer_path`).
 - **Collisions de la station** (`Station._add_interior_collisions`) : les parois générées à l'import (« -col »,
   formes concaves) bloquent des deux côtés (`backface_collision`, sinon on traverse la coque de l'intérieur) ; les

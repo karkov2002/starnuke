@@ -8,3 +8,9 @@
 script = ExtResource("2_script")
 
 [node name="MissileExhaust" parent="Missile_Balistique_1_12/Point_Tuyere_1_12" instance=ExtResource("3_exhaust")]
+
+[node name="Commande_Cupola" parent="."]
+transform = Transform3D(0.8660254, 0, 0.5, 0, 1, 0, -0.5, 0, 0.8660254, 1.5540847, 0, 5.8)
+
+[node name="Commande_Cupola_Vitres" parent="."]
+transform = Transform3D(0.8660254, 0, 0.5, 0, 1, 0, -0.5, 0, 0.8660254, 1.5540847, 0, 5.8)
