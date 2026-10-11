@@ -4,13 +4,15 @@ extends HBoxContainer
 ##
 ## Tir : on choisit un tube (vert) puis on appuie sur le bouton rouge. Le point visé (centre de la vue, cf.
 ## NukeLauncher.get_aim) et la puissance sont figés à l'appui ; le missile du tube sort par l'animation de lancement
-## (Station.launch_missile), le tube passe au gris (vide), puis l'explosion a lieu flight_delay_s après que le missile
-## a quitté la station (Station.missile_released). Rien ne se passe sans tube choisi, ni si la vue ne vise pas la
-## Terre (le missile reste dans son tube). 48 missiles en tout, un par tube : un tube vide ne se recharge pas.
+## (Station.launch_missile), le tube passe au gris (vide). À la fin de l'animation (Station.missile_released), le
+## missile vole vers le point visé (MissileFlight, flight_time_s de temps de jeu) et l'explosion a lieu à son arrivée.
+## Rien ne se passe sans tube choisi, ni si la vue ne vise pas la Terre (le missile reste dans son tube). 48 missiles en
+## tout, un par tube : un tube vide ne se recharge pas.
 
 @export var default_yield_kt := 1000.0
-## Délai entre la sortie du missile et l'explosion (s) : provisoire, en attendant une durée de vol réaliste.
-@export var flight_delay_s := 10.0
+## Durée du vol entre la fin de l'animation de lancement et l'explosion (s, temps de jeu) : provisoire, en attendant
+## une durée de vol réaliste.
+@export var flight_time_s := 10.0
 
 var _yield_kt := 1000.0
 var _silos: SiloPanel
@@ -71,17 +73,21 @@ func _on_fire() -> void:
 	var aim := launcher.get_aim()
 	if aim.is_empty() or not _station.launch_missile(key.x, key.y):
 		return
-	_pending[key] = {"latitude": aim.latitude, "longitude": aim.longitude, "yield_kt": _yield_kt}
+	_pending[key] = {"latitude": aim.latitude, "longitude": aim.longitude, "local": aim.local, "yield_kt": _yield_kt}
 	_silos.mark_empty(key)
 
 
-func _on_missile_released(silo: int, tube: int, _world_transform: Transform3D) -> void:
+func _on_missile_released(silo: int, tube: int, missile: Node3D, velocity: Vector3) -> void:
 	var key := Vector2i(silo, tube)
-	if not _pending.has(key):
+	var launcher := get_tree().get_first_node_in_group(NukeLauncher.GROUP) as NukeLauncher
+	if not _pending.has(key) or launcher == null:
+		missile.queue_free()
 		return
 	var shot: Dictionary = _pending[key]
 	_pending.erase(key)
-	await get_tree().create_timer(flight_delay_s).timeout
-	var launcher := get_tree().get_first_node_in_group(NukeLauncher.GROUP) as NukeLauncher
-	if launcher:
-		launcher.launch_at(shot.latitude, shot.longitude, shot.yield_kt)
+	var flight := MissileFlight.new()
+	flight.name = "MissileFlight_%d_%02d" % [silo, tube]
+	flight.flight_time_s = flight_time_s
+	get_tree().current_scene.add_child(flight)
+	flight.setup(missile, velocity, _station, launcher.get_earth(), shot.local, NukeScaling.DEFAULT_BURST_HEIGHT_KM)
+	flight.arrived.connect(func() -> void: launcher.launch_at(shot.latitude, shot.longitude, shot.yield_kt))

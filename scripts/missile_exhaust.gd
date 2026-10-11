@@ -15,6 +15,15 @@ extends Node3D
 ## Allumage : échelle du parent Point_Tuyere (0 = éteint, 1 = allumé), animée par Lancement_Missile ; l'effet hérite
 ## de cette échelle (il naît à la taille zéro). Direction du jet : à l'opposé du déplacement du missile (repli : +Y du
 ## parent, opposé à la pointe du missile), quelle que soit l'orientation du repère dans Blender.
+## En vol (enter_flight, appelé par MissileFlight quand le missile quitte l'animation Blender) : la direction du jet est
+## imposée (jet_direction, à l'opposé de la pointe), le panache passe en coordonnées locales (il suit le missile et
+## rétrécit avec lui quand le rendu le rapproche à l'échelle, cf. scripts/missile_flight.gd) et la lumière est
+## atténuée par light_scale (distance réelle).
+
+## Direction du jet (monde) imposée en vol ; nulle : d'après le déplacement.
+var jet_direction := Vector3.ZERO
+## Facteur de la lumière (0 à 1), réglé en vol selon la distance réelle du missile.
+var light_scale := 1.0
 
 @export var core_length := 2.6
 @export var core_nozzle_radius := 0.32
@@ -34,6 +43,7 @@ extends Node3D
 var _core: MeshInstance3D
 var _core_material: ShaderMaterial
 var _particles: GPUParticles3D
+var _flight_particles: GPUParticles3D
 var _particle_material: ShaderMaterial
 var _light: OmniLight3D
 var _last_position := Vector3.ZERO
@@ -51,8 +61,10 @@ func _process(delta: float) -> void:
 	var parent := get_parent() as Node3D
 	var level := parent.scale.x if parent else 1.0
 	var on := level > 0.02
-	_particles.emitting = on
-	_light.visible = on
+	_particles.emitting = on and _flight_particles == null
+	if _flight_particles:
+		_flight_particles.emitting = on
+	_light.visible = on and light_scale > 0.01
 	if not on:
 		_has_last = false
 		return
@@ -61,22 +73,35 @@ func _process(delta: float) -> void:
 	_time += delta
 	# Vacillement : deux sinus incommensurables + bruit, comme la combustion irrégulière d'un bloc de propergol.
 	var wobble := 1.0 + flicker * (0.5 * sin(_time * 37.0) + 0.3 * sin(_time * 91.0 + 1.3) + 0.2 * (randf() * 2.0 - 1.0))
-	_light.light_energy = light_energy * level * wobble
+	_light.light_energy = light_energy * level * wobble * light_scale
 	_core_material.set_shader_parameter("intensity", clampf(wobble, 0.5, 1.5))
 	_particle_material.set_shader_parameter("intensity", clampf(level, 0.0, 1.0))
 
 
-## Jet à l'opposé du déplacement du missile (dans le repère du parent, pour garder son échelle).
+## Le missile quitte l'animation Blender : panache attaché au missile (coordonnées locales) à la place du panache en
+## coordonnées du monde, qui s'éteint de lui-même (durée de vie des particules) : pas de saut visible.
+func enter_flight() -> void:
+	if _flight_particles:
+		return
+	_flight_particles = _particles.duplicate() as GPUParticles3D
+	_flight_particles.name = "FlightPlume"
+	_flight_particles.local_coords = true
+	add_child(_flight_particles)
+
+
+## Jet à l'opposé du déplacement du missile, ou selon jet_direction (dans le repère du parent, pour garder son échelle).
 func _orient(delta: float) -> void:
 	var position_now := global_position
-	if _has_last and delta > 0.0:
+	var direction := jet_direction
+	if direction.is_zero_approx() and _has_last and delta > 0.0:
 		var velocity := (position_now - _last_position) / delta
-		var parent := get_parent() as Node3D
-		if parent and velocity.length() > min_speed_for_direction \
-				and absf(parent.global_basis.determinant()) > 1e-9:
-			var local_dir := parent.global_basis.orthonormalized().inverse() * (-velocity.normalized())
-			if not local_dir.is_zero_approx():
-				quaternion = Quaternion(Vector3.UP, local_dir.normalized())
+		if velocity.length() > min_speed_for_direction:
+			direction = -velocity
+	var parent := get_parent() as Node3D
+	if not direction.is_zero_approx() and parent and absf(parent.global_basis.determinant()) > 1e-15:
+		var local_dir := parent.global_basis.orthonormalized().inverse() * direction.normalized()
+		if not local_dir.is_zero_approx():
+			quaternion = Quaternion(Vector3.UP, local_dir.normalized())
 	_last_position = position_now
 	_has_last = true
 

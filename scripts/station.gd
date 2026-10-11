@@ -15,8 +15,8 @@ extends Node3D
 ##
 ## Missiles : un seul est modélisé (Missile_Balistique_1_12, tube 1_12). Pour un autre tube, il est copié et placé à
 ## l'identique par rapport au Point_Lancement du tube ; le lancement rejoue l'animation Lancement_Missile : ouverture
-## de la trappe, descente, allumage de la tuyère (Point_Tuyere : échelle 0 = éteint, 1 = allumé), puis disparition
-## (échelle 0, ~30 m sous la station) : missile_released signale le relais vers le système de frappe.
+## de la trappe, descente, allumage de la tuyère (Point_Tuyere : échelle 0 = éteint, 1 = allumé), jusqu'à ~30 m sous
+## la station ; missile_released passe alors le missile au vol vers la cible (scripts/missile_flight.gd).
 ##
 ## Chaleur (préparation d'une jauge) : heat (0 à 1) monte quand les radiateurs sont repliés (mode furtif : pas de
 ## rayonnement infrarouge) et redescend quand ils sont déployés, en proportion des radiateurs déployés.
@@ -25,8 +25,10 @@ signal hatch_changed(id: String, open: bool)
 signal silo_door_changed(silo: int, tube: int, open: bool)
 signal radiator_changed(id: String, deployed: bool)
 signal missile_ignited(silo: int, tube: int)
-## Le missile quitte la scène (relais vers la frappe) : position et orientation (monde) à ce moment.
-signal missile_released(silo: int, tube: int, world_transform: Transform3D)
+## Fin de l'animation Blender (ligne droite, ~30 m sous la station) : le récepteur prend en charge le missile (nœud,
+## avec sa propulsion allumée) et sa vitesse (monde, m/s) pour la suite du vol (scripts/missile_flight.gd), et le
+## libère ensuite. Sans récepteur connecté, la station le masque.
+signal missile_released(silo: int, tube: int, missile: Node3D, velocity: Vector3)
 signal heat_changed(heat: float)
 
 ## Groupe de la station (pour la retrouver depuis l'interface).
@@ -306,8 +308,8 @@ func launch_missile(silo: int, tube: int) -> bool:
 	var model_hinge_track := _track_for(anim, "Charniere_Trappe_Silo_%d_%02d" % [MODEL_SILO, MODEL_TUBE])
 	var model_hinge_end: Quaternion = anim.track_get_key_value(model_hinge_track,
 			anim.track_get_key_count(model_hinge_track) - 1) if model_hinge_track >= 0 else Quaternion.IDENTITY
-	var release_time := _release_time(anim, scale_track)
-	var state := {"ignited": false, "released": false}
+	var release_time := _handoff_time(anim, scale_track)
+	var state := {"ignited": false}
 	var was_open: bool = door.is_open
 	var step := func(t: float) -> void:
 		# Trappe du tube : même ouverture que la trappe modèle dans l'animation, transposée sur ses angles.
@@ -323,18 +325,23 @@ func launch_missile(silo: int, tube: int) -> bool:
 			if not state.ignited and nozzle.scale.x > 0.01:
 				state.ignited = true
 				missile_ignited.emit(silo, tube)
-		if not state.released and t >= release_time:
-			state.released = true
-			missile_released.emit(silo, tube, missile.global_transform)
 	var tween := create_tween()
 	tween.tween_method(step, 0.0, release_time, release_time)
 	tween.tween_callback(func() -> void:
 		door.is_open = true
 		if not was_open:
 			silo_door_changed.emit(silo, tube, true)
-		missile.visible = false
-		if missile != template:
-			missile.queue_free())
+		# Vitesse de sortie (monde) : dérivée de la piste de position de l'animation, transposée sur le tube.
+		var dt := minf(0.05, release_time)
+		var model_velocity := (anim.position_track_interpolate(position_track, release_time)
+				- anim.position_track_interpolate(position_track, release_time - dt)) / maxf(dt, 1e-3)
+		var velocity := global_basis * (tube_frame.basis * model_velocity)
+		if missile_released.get_connections().is_empty():
+			missile.visible = false
+			if missile != template:
+				missile.queue_free()
+		else:
+			missile_released.emit(silo, tube, missile, velocity))
 	return true
 
 
@@ -657,12 +664,15 @@ func _track_for(anim: Animation, node_path: String, type := -1) -> int:
 	return -1
 
 
-## Instant où le missile disparaît (échelle nulle) dans Lancement_Missile : le relais vers la frappe.
-func _release_time(anim: Animation, scale_track: int) -> float:
+## Instant du relais vers le vol (MissileFlight) dans Lancement_Missile : la dernière clé à pleine échelle avant que
+## le missile ne s'annule (fin de la ligne droite Blender, ~30 m sous la station), pour ne jamais le voir rétrécir.
+func _handoff_time(anim: Animation, scale_track: int) -> float:
 	if scale_track < 0:
 		return anim.length
 	for k in anim.track_get_key_count(scale_track):
 		if (anim.track_get_key_value(scale_track, k) as Vector3).x < 1e-3:
+			if k > 0 and (anim.track_get_key_value(scale_track, k - 1) as Vector3).x > 0.999:
+				return anim.track_get_key_time(scale_track, k - 1)
 			return anim.track_get_key_time(scale_track, k)
 	return anim.length
 

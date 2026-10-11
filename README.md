@@ -96,7 +96,7 @@ permet de piloter le jeu exporté.
 | Vitesse du temps | Boutons **Pause, x1, x2, x4, x8, x16** |
 | Redémarrer | Boutons **By day** / **By night** (« De jour » / « De nuit » en français) : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
 | Silos | **48 voyants ronds numérotés de 1 à 48** à droite du panneau, un par tube de lancement, en 2 blocs de 3 × 8 placés comme les deux silos sur la station (vue de dessus, l'avant en haut ; silo 1 à gauche). **Orange** : missile prêt ; clic → **vert** : tube choisi pour le prochain tir (un seul à la fois, nouveau clic pour annuler) ; **gris** : tube vide. **48 missiles en tout**, sans rechargement |
-| Tir nucléaire | **Gros bouton rouge** à droite des silos : lance le missile du **tube choisi (vert)** sur le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie sous les silos (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Le point visé et la puissance sont figés à l'appui. Le missile sort de son tube (animation de lancement, 5 s : trappe, descente, allumage), le tube passe au gris, puis l'explosion a lieu **10 s** après que le missile a quitté la station (délai provisoire, `flight_delay_s` de `nuke/launch_control.gd`, en attendant une durée de vol réaliste). Sans tube choisi, ou si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien et le missile reste dans son tube. Voir « Explosions nucléaires » |
+| Tir nucléaire | **Gros bouton rouge** à droite des silos : lance le missile du **tube choisi (vert)** sur le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie sous les silos (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Le point visé et la puissance sont figés à l'appui. Le missile sort de son tube (animation de lancement, 5 s : trappe, descente, allumage), le tube passe au gris, puis le missile poursuit sa ligne droite en accélérant, s'incurve vers le point visé et s'éloigne en rétrécissant jusqu'à n'être plus qu'un point lumineux ; l'explosion a lieu à son arrivée, **10 s** de temps de jeu après sa sortie de l'animation (durée provisoire, `flight_time_s` de `nuke/launch_control.gd`, en attendant une durée de vol réaliste ; le vol se fige en pause et s'accélère avec le temps). Sans tube choisi, ou si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien et le missile reste dans son tube. Voir « Explosions nucléaires » |
 | Bilan des explosions | Fenêtre **« Bilan des explosions »**, ouverte au premier tir (en haut à droite) : pays touchés et pertes, cumulées sur toutes les explosions. **Glisser sa barre de titre** (clic gauche maintenu) pour la déplacer ; bouton **—** / **+** pour la replier ; molette ou barre de défilement pour parcourir la liste |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
@@ -201,9 +201,11 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
     (tube 1_12) ; pour un autre tube, il est copié et placé à l'identique par rapport au `Point_Lancement` du tube
     (repère du tube × repère du tube 1_12⁻¹ × missile animé). Le lancement rejoue `Lancement_Missile` : ouverture de
     la trappe (si elle est fermée, avec les angles de la trappe du tube), descente, allumage de la tuyère à 2,9 s
-    (`Point_Tuyere` : échelle 0 → 1 ; signal `missile_ignited`), disparition à 5 s, ~30 m sous la station (échelle
-    0 ; signal `missile_released(silo, tube, world_transform)` : relais vers la frappe, voir « Tir nucléaire » dans
-    « Contrôles »). Chaque tube ne tire qu'une fois. `tube_ids()` et `tube_position(silo, tube)` (repère de la
+    (`Point_Tuyere` : échelle 0 → 1 ; signal `missile_ignited`), jusqu'à ~30 m sous la station (5 s ; la dernière
+    clé à pleine échelle, avant celle où Blender annule l'échelle : le missile ne rétrécit jamais). Signal
+    `missile_released(silo, tube, missile, velocity)` : le récepteur prend en charge le missile (nœud, propulsion
+    allumée) et sa vitesse de sortie pour la suite du vol (voir « Vol du missile » ci-dessous) ; sans récepteur, la
+    station le masque. Chaque tube ne tire qu'une fois. `tube_ids()` et `tube_position(silo, tube)` (repère de la
     station : +X avant, +Z droite) servent au panneau des silos ; la station est dans le groupe `Station.GROUP`.
   - **Propulsion du missile** (`scenes/effects/missile_exhaust.tscn`, script `scripts/missile_exhaust.gd`, classe
     `MissileExhaust`, instancié sous `Missile_Balistique_1_12/Point_Tuyere_1_12` dans la scène héritée : chaque copie
@@ -219,6 +221,27 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
       la taille zéro. Direction du jet : à l'opposé du déplacement du missile (le +Z de `Point_Tuyere_1_12`, annoncé
       comme direction du jet, est horizontal dans le modèle : le missile descend, sa tuyère est en haut et le jet
       monte vers la station).
+    - En vol (`enter_flight`) : panache en coordonnées locales (il suit le missile et rétrécit avec lui ; le panache
+      en coordonnées du monde s'éteint de lui-même), direction du jet imposée (`jet_direction`, opposée à la pointe),
+      lumière atténuée (`light_scale`).
+  - **Vol du missile** (`scripts/missile_flight.gd`, classe `MissileFlight`, créée par `nuke/launch_control.gd` à
+    `missile_released`, enfant de la scène) :
+    - trajectoire en mètres réels, dans le repère de la station : le missile poursuit la ligne droite de Blender
+      (vitesse de sortie ~32 m/s) en accélérant à 30 m/s², puis s'incurve vers le point d'impact (500 m au-dessus de
+      la cible, qui suit la Terre en mouvement) selon g(u) = (e^(9u) − 1 − 9u) / (e^9 − 1 − 9), u = temps écoulé /
+      durée du vol (pente nulle au départ : pas d'à-coup au relais). Mesures : ~290 m à 2 s, ~6 km à 5 s, ~130 km à
+      8,6 s, impact à 10 s. La pointe (−Y du missile) suit la direction du déplacement (1,2 rad/s au plus) ;
+    - le vol suit l'horloge du jeu (`Orbit.time_scale` : pause, accélération) ; à l'arrivée, signal `arrived` →
+      explosion (`NukeLauncher.launch_at`), le missile est libéré ;
+    - **rendu à l'échelle préservant la perspective** (la même astuce que la Terre à 1/10 000 : un objet K fois plus
+      proche et K fois plus petit paraît identique). À une distance réelle d de la caméra, le missile est dessiné à
+      taille réelle jusqu'au palier F (90 % de la distance de la couche nuageuse dans sa direction, ~35 m sous la
+      cupola), puis sur ce palier réduit de F/d (toujours devant les nuages et la Terre), enfin à l'échelle exacte de
+      la Terre quand d/10 000 dépasse F (bas de l'atmosphère : les nuages le masquent comme il se doit) ;
+    - halo (`shaders/missile_glow.gdshader`, disque additif face à la caméra) : rayon réel 2,5 m, jamais moins de
+      4 pixels à l'écran, apparaît entre 150 m et 1,5 km (de près, la flamme et le panache suffisent) puis baisse
+      lentement (45 % à 600 km) : le moteur reste un point lumineux jusqu'à l'impact ;
+    - lumière du moteur sur la station : pleine jusqu'à 40 m, puis en 1/d².
   - Radiateurs : `set_radiator_deployed(id, deployed)` (`Radiateur_D15`, `D21`, `G15`, `G21`),
     `set_all_radiators_deployed`, `set_stealth(enabled)` ; signal `radiator_changed`.
   - **Éclairage intérieur** (réglages dans le groupe « Éclairage intérieur » de `Station`) : les 28 lampes
@@ -264,8 +287,9 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
   sur elle-même ; la Terre ne reçoit pas d'ombres portées (`shadows_disabled` dans `earth_surface.gdshader`) : à
   1/10 000, l'ombre de la station y serait 10 000 fois trop grande (invisible en réalité depuis l'orbite).
 - **Échelle** : la Terre est à 1/10 000 (voir ci-dessous) ; à 400 km d'altitude, sa surface est à 40 unités sous la
-  caméra (20 à 200 km). La station (trappes des silos à −4,6 m) reste au-dessus ; le missile lancé disparaît à
-  −30 m (`missile_released`) avant d'atteindre les nuages.
+  caméra (20 à 200 km). La station (trappes des silos à −4,6 m) reste au-dessus ; le missile lancé quitte
+  l'animation Blender à −30 m puis est rendu à l'échelle préservant la perspective (`MissileFlight`) : il ne
+  traverse jamais la Terre miniature.
 - **Terre** (`Earth/`) : rendue à l'échelle **1/10 000** (1 unité = 10 km ; rayon 637,1 u) pour éviter les
   problèmes de précision du tampon de profondeur. La caméra ne se déplaçant pas, la taille angulaire est identique
   à celle d'une vraie Terre. Sa position et son orientation sont recalculées à chaque image par le nœud `Orbit`.
@@ -1262,7 +1286,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
     fin de la partie (persistance du monde) : seul `clear_effects()` (debug, banc de mesure) les retire.
   - Au démarrage, il lie `NukeClock` au nœud `Orbit` (`orbit_path`).
 - **Interface** : colonne `Launch` du panneau de contrôle (`nuke/launch_control.gd`, chaîne de tir : tube choisi →
-  `Station.launch_missile` → `missile_released` → attente `flight_delay_s` → `NukeLauncher.launch_at` sur le point
+  `Station.launch_missile` → `missile_released` → vol `MissileFlight` (`flight_time_s`) → `NukeLauncher.launch_at` sur le point
   visé à l'appui) : panneau des silos (`nuke/silo_panel.gd`, voyants `nuke/silo_button.gd` dessinés à la main) et,
   en dessous, les boutons de puissance ; à droite, gros bouton rouge (`nuke/big_red_button.gd`, dessiné à la main).
   Au clic, le capuchon s'enfonce, reste un instant en bas puis remonte avec un léger rebond. Réticule au centre de l'écran

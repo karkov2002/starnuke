@@ -54,6 +54,11 @@ func _ready() -> void:
 	impact.setup(self)
 
 
+## Nœud de la Terre (repère des explosions et du point visé).
+func get_earth() -> Node3D:
+	return _earth
+
+
 ## Point visé par le centre de la vue : {local (repère de Earth), latitude, longitude} en degrés, ou {} si le
 ## rayon manque la Terre.
 func get_aim() -> Dictionary:
