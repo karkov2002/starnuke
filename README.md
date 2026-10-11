@@ -367,9 +367,11 @@ et les **pertes humaines** (par pays, selon la densité de population) sont calc
 de nuit (zone détruite, panne régionale en cascade, panne nationale si une grosse centrale est détruite).
 
 **Persistance du monde (règle de jeu)** : une explosion n'est jamais retirée ; ses effets au sol durent toute la
-partie, sans limite de nombre. Les incendies s'étendent pendant plusieurs jours puis s'éteignent, en laissant un
-**sol calciné définitif** (visible de jour) ; le **black-out ne se répare jamais** (zone détruite, panne régionale et
-panne nationale). Le champignon se dissipe en quelques heures de jeu (dérive et dilution réelles). Après la première
+partie, sans limite de nombre. Les incendies s'étendent pendant plusieurs jours, sous un **panache de fumée** emporté
+par le vent sur des centaines de km, puis s'éteignent en laissant une **trace au sol définitive** (charbon, puis terre
+brûlée brune et gravats : plus de verdure, visible de jour, d'autant plus étendue que la bombe est puissante) ; le
+**black-out ne se répare jamais** (zone détruite, panne régionale et panne nationale). Explosions à **500 m
+d'altitude** : pas de cratère. Le champignon se dissipe en quelques heures de jeu (dérive et dilution réelles). Après la première
 demi-heure physique, jouée en accéléré, une explosion vit au rythme de l'horloge du jeu (voir « Horloge ») : ce que
 l'on retrouve après une ou plusieurs orbites correspond au temps réellement écoulé dans la partie.
 
@@ -381,7 +383,7 @@ Une responsabilité par classe (principe « S » de SOLID). Trois familles :
 |---|---|
 | **Tir** | `NukeLauncher` (visée, création de l'explosion, liste des explosions ; crée les nœuds ci-dessous), `NukeParams` (paramètres d'un tir), `NukeEffect` (une explosion : placement, temps, résultats du bilan), `NukeClock` (horloge) |
 | **Rendu d'une explosion** (enfants de `NukeEffect`) | `NukeFlash`, `NukeShock`, `NukeMushroom` (forme, volume, couleurs) avec `NukeMushroomDrift` (dérive au vent) et `NukeMushroomParticles` (particules) |
-| **Rendu global** (nœuds créés par le lanceur, alimentent les shaders du globe) | `NukeFlashFX`, `NukeCloudFX` (effets brefs, tableaux d'uniforms), `NukeGroundFX` (effets durables au sol : incendies, sol calciné, black-out ; textures de données sans plafond) ; `NukeFXMaterials` (recherche des matériaux qui déclarent un uniform) |
+| **Rendu global** (nœuds créés par le lanceur, alimentent les shaders du globe) | `NukeFlashFX`, `NukeCloudFX` (effets brefs, tableaux d'uniforms), `NukeGroundFX` (effets durables au sol : incendies, fumée, trace au sol, black-out ; textures de données sans plafond) ; `NukeFXMaterials` (recherche des matériaux qui déclarent un uniform) |
 | **Modèles** (calcul pur, sans nœud, utilisables depuis un thread) | `NukeScaling` (lois d'échelle, surpression de Brode), `NukeCasualties` (pertes du souffle et de la chaleur, chronologie), `NukeFallout` (doses et pertes des retombées) avec `NukeWSEG10` (champ de retombées) et `NukeMath`, `NukeGridImpact` (centrales détruites, panne nationale), `NukeAtmosphere`, `NukeWind` |
 | **Bilan** | `NukeImpact` (nœud `Impact` : calcule le bilan d'un tir dans un thread et l'écrit en console), `NukeTally` (cumul par pays, à l'instant présent), `NukeReportText` (textes et nombres), `NukeReportPanel` (fenêtre, affichage seulement) avec `DraggableWindow` (`scripts/ui/`, fenêtre déplaçable réutilisable) |
 | **Données géographiques** (`scripts/`) | `OceanMask`, `CountryMask` (dont `index_near` : pays le plus proche d'un point côtier), `PopulationGrid` (dont `cell_country`), `PowerPlants` |
@@ -431,7 +433,11 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 
 - **Paramètres** (`nuke/nuke_params.gd`, Resource `NukeParams`) : `yield_kt` (10 à 50 000), `latitude_deg`,
   `longitude_deg`, `wind_direction_deg` (d'où vient le vent, convention météo) et `wind_speed_m_s`,
-  `start_time_s` (instant sur l'horloge `NukeClock`), `burst_height_km` (0 = au sol, valeur par défaut),
+  `start_time_s` (instant sur l'horloge `NukeClock`), `burst_height_km` (**règle de jeu : 500 m par défaut**, `NukeScaling.DEFAULT_BURST_HEIGHT_KM` ; 0 = au sol). À
+  500 m, la boule de feu touche encore le sol à partir de ~1 Mt (rayon 1,05 km) : retombées locales et poussière
+  aspirée ; à 10 kt, c'est une explosion aérienne (pas de retombées locales), et à 100 kt seulement en partie
+  (`NukeScaling.low_burst`, 1 au sol, 0 au-dessus de 2 rayons de boule de feu). Jamais de
+  cratère,
   `over_ocean` (point zéro sur une mer ou un océan, renseigné au tir, voir « Explosions sur la mer »),
   `country_code` (pays du point zéro, renseigné au tir, voir « Pays touché »).
   - **Vent réel** (`nuke/nuke_wind.gd`) : au tir, le vent est lu au point d'impact dans la même carte que
@@ -575,11 +581,11 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   - rendu avant les nuages (`render_priority` −1) : un banc nuageux le voile.
 
   Réglages dans le script : groupes « Condensation » et « Poussière », `lift_km`.
-- **Incendies et sol calciné** (règle de jeu ; nœud `GroundFX`, classe `NukeGroundFX`, créé par `NukeLauncher` ;
+- **Incendies et trace au sol** (règle de jeu ; nœud `GroundFX`, classe `NukeGroundFX`, créé par `NukeLauncher` ;
   `nuke/shaders/nuke_fire.gdshaderinc`, inclus dans `shaders/earth_surface.gdshader` ; lois dans `NukeScaling`,
-  constantes `FIRE_*`). Ils sont allumés par le flash dans le rayon où l'exposition thermique dépasse ~10 cal/cm²
+  constantes `FIRE_*` et `SCAR_*`). Ils sont allumés par le flash dans le rayon où l'exposition thermique dépasse ~10 cal/cm²
   (inflammation des matériaux courants, Glasstone & Dolan ch. VII), **s'étendent pendant plusieurs jours** et
-  laissent un **sol calciné jusqu'à la fin de la partie**.
+  laissent une **trace au sol jusqu'à la fin de la partie**.
   - Rayon initial R0 : 12 km · (W / 1 Mt)^0,41, soit ~1,8 km à 10 kt, 12 km à 1 Mt et ~60 km à 50 Mt
     (`NukeScaling.fire_base_radius_km`).
   - Zone du flash, calée sur Hiroshima (tempête de feu formée ~20 min après l'explosion, au plus fort vers 2–3 h) :
@@ -591,10 +597,24 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
     front s'embrase en 1 h, moins fort que la tempête de feu (30 %) : **un anneau de feu s'éloigne du centre**.
   - Chaque lieu brûle avec une constante de temps d'extinction de 6 h (`FIRE_BURN_S`) : le centre est éteint en
     ~1 jour, les derniers feux du front en 4 à 5 jours.
-  - **Sol calciné** : noirci en 2 h à mesure qu'il brûle (`FIRE_CHAR_S`), définitif. Albédo charbon
-    (`nuke_burn_albedo`, mélange jusqu'à 85 %, `nuke_burn_strength`), plus net dans la zone du flash, motif
-    irrégulier ; seulement sur les terres. Visible de jour, surtout sur un sol clair (champs, villes) ; sur une forêt
-    déjà sombre, le contraste est faible, comme sur les images satellites réelles.
+  - **Trace au sol** (règle de jeu : pas de cratère, explosion à 500 m ; la partie dure quelques semaines, aucune
+    repousse visible : la trace est **définitive**). Deux causes, toutes deux fonction de la puissance :
+    - **le feu** : chaque lieu brûlé noircit en 2 h (`FIRE_CHAR_S`, charbon `nuke_burn_albedo`), puis **brunit**
+      entre 12 h et 4 jours après son passage (`SCAR_BROWN_START_S`, `SCAR_BROWN_END_S` : cendres envolées,
+      végétation morte) : terre brûlée brun sombre (`nuke_scar_albedo`, réflectance de ~5 à 8 % comme les cicatrices
+      de brûlis sur les images satellites, plus sombre qu'un sol aride), sans verdure. Plus marquée dans la zone du
+      flash, motif irrégulier ;
+    - **le souffle** : dans le rayon de 5 psi (`SCAR_RUBBLE_PSI` : bâtiments rasés, forêts couchées), gravats et
+      poussière gris-brun (`nuke_rubble_albedo`) dès l'explosion, même sans incendie.
+
+    Mélange jusqu'à 95 % (`nuke_scar_strength`) ; le relief du sol d'origine reste un peu visible
+    (`nuke_scar_relief`) ; dans les villes, la trace tire vers le gris des gravats. Seulement sur les terres. Étendue :
+    ~2 km de rayon à 10 kt (à peine une tache depuis l'orbite), ~24 km à 1 Mt, ~120 km à 50 Mt (une région entière
+    meurtrie ; dix 50 Mt couvrent un pays). Vue de biais à plusieurs centaines de km, la brume atmosphérique atténue
+    nettement le contraste (comme sur les photos obliques prises depuis l'ISS) ; vue plongeante, la trace est franche.
+    Choix du rendu procédural plutôt qu'une image (PNG) plaquée : forme irrégulière propre à chaque tir, taille
+    exacte quelle que soit la puissance (de 2 à 120 km), netteté à toutes les distances, sans texture à projeter
+    sur la sphère.
   - Toutes les durées sont en temps physique, au rythme du jeu après la première demi-heure (voir « Horloge ») :
     les incendies durent donc plusieurs jours de la partie.
   - Rendu des flammes, en émission sur le sol :
@@ -610,9 +630,35 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
     feu. Elle est faible devant un sol au soleil : les incendies se voient surtout de nuit.
   - **Aucun plafond sur le nombre d'explosions** (`NukeGroundFX`, `nuke/shaders/nuke_ground.gdshaderinc`) : chaque
     explosion est une colonne d'une texture de données (centre, temps physique, rayons : zone détruite, panne
-    régionale, incendies, portée). Une maille de 1° (360 × 180) indexe les explosions dont la portée la touche : un
-    pixel du sol ne teste que les explosions proches. Seuls les temps sont renvoyés à chaque image ; la maille est
-    reconstruite à chaque tir. Les mêmes textures servent au black-out.
+    régionale, incendies, portée ; vent de la fumée ; rayon des gravats). Une maille de 1° (360 × 180) indexe les
+    explosions dont la portée la touche : un pixel du sol ne teste que les explosions proches. Seuls les temps sont
+    renvoyés à chaque image ; la maille est reconstruite à chaque tir. Les mêmes textures servent au black-out et à
+    la fumée (qui a sa propre maille, voir ci-dessous).
+- **Fumée des incendies** (règle de jeu ; `nuke/shaders/nuke_smoke.gdshaderinc`, inclus dans
+  `shaders/earth_surface.gdshader` ; données et maille par `NukeGroundFX` ; lois dans `NukeScaling`, constantes
+  `SMOKE_*`). Tant que les incendies brûlent (plusieurs jours), leur fumée est emportée par le vent réel GFS à 4 km
+  (`SMOKE_HEIGHT_KM`) en un panache de centaines de km.
+  - **Modèle** : panache gaussien intégré sur la verticale (modèle classique de dispersion). La fumée émise à
+    l'instant t − a est, à l'instant t, à u · a sous le vent (le long du grand cercle), étalée sur
+    σ(a)² = σ0² + 2 K a (σ0 = 0,7 R0, taille du foyer ; K = 5·10⁴ m²/s, diffusion à méso-échelle), et se dépose en
+    4 jours (`SMOKE_LIFETIME_S`). Épaisseur optique verticale
+    τ = MEE · Q(t − a) · e^(−a/L) / (u · √(2π) · σ) · exp(−y² / 2σ²) ; le panache est tronqué progressivement vers
+    2 jours d'âge (`SMOKE_MAX_AGE_S`).
+  - **Débit** Q = 30 kg/s par km² en feu (`SMOKE_EMISSION_KG_S_KM2` : ~40 kg/m² de combustible urbain brûlé en ~6 h,
+    facteur d'émission ~2 %, Turco et al. 1990, Toon et al. 2007) × R0² × f(t), où f est la surface en feu
+    (`NukeScaling.smoke_burning_area`, mêmes lois que les incendies, table de 256 valeurs en échelle log,
+    `nuke_smoke_rate`) ; efficacité d'extinction 5 m²/g (`SMOKE_MEE_M2_KG`, fumée fraîche riche en suie, Bond &
+    Bergstrom 2006). Ordres de grandeur : 10 kt, un voile ; 1 Mt, un panache brun sur ~1 000 km ; 50 Mt, une nappe
+    opaque de plusieurs centaines de km de large (à l'échelle des grands feux australiens de 2019-2020).
+  - **Rendu** : couche plate sous les nuages (fumée de 1 à 6 km ; vue de 400 km, sa parallaxe est négligeable). Elle
+    voile le sol (albédo gris-brun `nuke_smoke_albedo` éclairé par le soleil, noir la nuit), les reflets de la mer et
+    les lumières des villes ; la lueur des incendies la traverse en partie (`nuke_smoke_fire_glow`). Volutes : bruit à
+    deux échelles (70 et 18 km) qui module τ de ±70 % et dérive lentement.
+  - **Maille de la fumée** (`nuke_smoke_cells`, `nuke_smoke_index`) : chaque panache est couvert par des disques le
+    long de son axe, de demi-largeur celle où τ tombe sous 0,005 (au débit maximal) ; reconstruite quand un panache
+    s'allonge d'environ 10 % ou disparaît.
+  - Limites : vent constant (celui du point zéro le jour du tir) ; fumée sous les nuages (un pyrocumulonimbus qui
+    monte au-dessus des nuages n'est pas rendu au-dessus) ; pas d'ombre du panache.
 - **Champignon** (`nuke/nuke_mushroom.tscn`, script `nuke/nuke_mushroom.gd`, enfant `Mushroom` de l'effet ;
   shaders `nuke/shaders/nuke_mushroom_volume.gdshader`, `nuke/shaders/nuke_mushroom.gdshader` et
   `nuke/shaders/nuke_smoke.gdshader`).

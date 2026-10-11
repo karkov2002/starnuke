@@ -86,7 +86,7 @@ const SHOCK_SLOWDOWN := 1.6
 #   l'allure d'un feu de forêt). Un lieu atteint par le front s'embrase en FIRE_FRONT_RISE_S, moins fort que la tempête
 #   de feu (FIRE_FRONT_SHARE) : un anneau de feu s'éloigne du centre ;
 # - chaque lieu brûle avec une constante de temps d'extinction FIRE_BURN_S, puis il ne reste que le sol calciné (noirci
-#   en FIRE_CHAR_S), définitif. Tout est éteint en 4 à 5 jours.
+#   en FIRE_CHAR_S, puis brun : voir SCAR_*), définitif. Tout est éteint en 4 à 5 jours.
 const FIRE_RADIUS_1MT_KM := 12.0
 const FIRE_RADIUS_EXP := 0.41
 const FIRE_FIRST_SHARE := 0.25
@@ -101,6 +101,46 @@ const FIRE_CHAR_S := 7200.0
 # Irrégularité du bord des incendies (part du rayon initial, motif de bruit du shader) : la portée d'une explosion
 # (fire_reach_km) en tient compte.
 const FIRE_EDGE_NOISE := 0.35
+
+# Trace au sol (règle de jeu ; nuke/shaders/nuke_fire.gdshaderinc) : pas de cratère (explosion à DEFAULT_BURST_HEIGHT_KM),
+# mais une zone dévastée, définitive (la partie dure quelques semaines : aucune repousse visible). Deux causes :
+# - le feu : le sol brûlé (zone du flash et extension des incendies) est d'abord noir de charbon, puis brunit à mesure
+#   que les cendres s'envolent et que la végétation morte sèche, de SCAR_BROWN_START_S à SCAR_BROWN_END_S après son
+#   passage : il reste une trace brune, sans verdure ;
+# - le souffle : dans le rayon de SCAR_RUBBLE_PSI (bâtiments rasés, forêts couchées ; Glasstone & Dolan ch. V), sol de
+#   gravats et de poussière, gris-brun dès l'explosion, même sans incendie (explosion sur une côte).
+# Tout découle des rayons physiques, donc de la puissance : 10 kt, ~2 km de rayon brûlé (à peine une tache depuis
+# l'orbite) ; 1 Mt, ~24 km ; 50 Mt, ~120 km (une région entière meurtrie).
+const DEFAULT_BURST_HEIGHT_KM := 0.5
+const SCAR_RUBBLE_PSI := 5.0
+const SCAR_BROWN_START_S := 43200.0
+const SCAR_BROWN_END_S := 345600.0
+
+# Fumée des incendies (nuke/shaders/nuke_smoke.gdshaderinc ; nuke/nuke_ground_fx.gd). Panache gaussien (modèle classique
+# de dispersion, intégré sur la verticale) : la fumée émise à l'instant t − a se trouve, à l'instant t, à la distance
+# u · a sous le vent (grand cercle, vent réel GFS à SMOKE_HEIGHT_KM), étalée sur σ(a)² = σ0² + 2 K a (σ0 : taille du
+# foyer, K = SMOKE_SPREAD_K_M2_S, diffusion horizontale à méso-échelle), et se dépose avec une constante de temps
+# SMOKE_LIFETIME_S. Épaisseur optique verticale :
+#   τ = MEE · Q(t − a) · e^(−a / L) / (u · √(2π) · σ(a)) · exp(−y² / 2σ²)
+# Débit Q = SMOKE_EMISSION_KG_S_KM2 · R0² · f(t), f = surface en feu (en R0², intensité comprise) calculée par
+# smoke_burning_area() avec les lois des incendies. Ordres de grandeur : ~40 kg/m² de combustible urbain brûlé en
+# ~6 h, facteur d'émission de fumée ~2 % (Turco et al. 1990 ; Toon et al. 2007), d'où ~30 kg/s par km² en feu ;
+# efficacité d'extinction massique ~5 m²/g pour une fumée fraîche riche en suie (Bond & Bergstrom 2006). Une tempête de
+# feu de 1 Mt donne un panache opaque sur des centaines de km ; 10 kt, un voile. Le panache est tronqué au-delà de
+# SMOKE_MAX_AGE_S (fumée diluée en voile ténu).
+const SMOKE_HEIGHT_KM := 4.0
+const SMOKE_EMISSION_KG_S_KM2 := 30.0
+const SMOKE_MEE_M2_KG := 5000.0
+const SMOKE_SPREAD_K_M2_S := 5.0e4
+const SMOKE_LIFETIME_S := 345600.0
+const SMOKE_MAX_AGE_S := 172800.0
+## Vent minimal du panache (m/s) : par calme plat, la fumée reste sur place (le modèle diverge à vent nul).
+const SMOKE_MIN_WIND_M_S := 1.0
+## Taille du foyer : σ0 = SMOKE_SOURCE_SIGMA · rayon initial des incendies.
+const SMOKE_SOURCE_SIGMA := 0.7
+## Table de f(t) : SMOKE_TABLE_SIZE valeurs, t en échelle log jusqu'à SMOKE_TABLE_MAX_S (au-delà, tout est éteint).
+const SMOKE_TABLE_SIZE := 256
+const SMOKE_TABLE_MAX_S := 864000.0
 
 # Explosion basse sur une mer ou un océan (NukeParams.over_ocean, masque OceanMask) : la boule de feu vaporise une
 # grande masse d'eau (Glasstone & Dolan §2.50 et suivants), le nuage est une grosse boule de vapeur condensée, blanche,
@@ -287,6 +327,67 @@ static func fire_radius_km(yield_kt: float, t: float) -> float:
 ## Distance maximale (km) à laquelle les incendies peuvent brûler, bord irrégulier compris.
 static func fire_reach_km(yield_kt: float) -> float:
 	return fire_base_radius_km(yield_kt) * (1.0 + FIRE_SPREAD + FIRE_EDGE_NOISE)
+
+
+## Intensité des flammes (0 à 1) à la distance relative x = d / R0 et au temps t (s, physique) : mêmes lois que le
+## shader (nuke_fire.gdshaderinc), motif irrégulier moyen.
+static func fire_burning(x: float, t: float) -> float:
+	var t_ignite := 0.0
+	var share: float
+	if x <= 1.0:
+		share = lerpf(0.8, 0.25, clampf(x, 0.0, 1.0))
+	else:
+		var u := (x - 1.0) / FIRE_SPREAD
+		if u >= 1.0:
+			return 0.0
+		t_ignite = -FIRE_SPREAD_S * log(1.0 - u)
+		share = FIRE_FRONT_SHARE * (1.0 - smoothstep(0.85, 1.0, u))
+	var age := t - t_ignite
+	if age <= 0.0:
+		return 0.0
+	var growth: float
+	if x <= 1.0:
+		growth = FIRE_FIRST_SHARE * smoothstep(0.3, 1.5, age) \
+				+ (1.0 - FIRE_FIRST_SHARE) * smoothstep(FIRE_GROWTH_START_S, FIRE_GROWTH_END_S, age)
+	else:
+		growth = smoothstep(0.0, FIRE_FRONT_RISE_S, age)
+	# Motif irrégulier du shader (zones qui brûlent plus ou moins) : facteur moyen mix(0.05, 1, ~0,5).
+	return share * growth * exp(-age / FIRE_BURN_S) * 0.55
+
+
+## Surface en feu au temps t (s, physique), en unités de R0² (intensité comprise) : ∫ fire_burning · 2πx dx. Ne dépend
+## pas de la puissance (toutes les distances sont relatives à R0, les durées sont les mêmes).
+static func smoke_burning_area(t: float) -> float:
+	const STEPS := 96
+	var x_max := 1.0 + FIRE_SPREAD
+	var dx := x_max / STEPS
+	var area := 0.0
+	for i in STEPS:
+		var x := (i + 0.5) * dx
+		area += fire_burning(x, t) * TAU * x * dx
+	return area
+
+
+## Coordonnée (0 à 1) du temps t dans la table de smoke_burning_area (échelle log, pas d'une minute au départ).
+static func smoke_table_coord(t: float) -> float:
+	return log(1.0 + maxf(t, 0.0) / 60.0) / log(1.0 + SMOKE_TABLE_MAX_S / 60.0)
+
+
+## Table de smoke_burning_area aux SMOKE_TABLE_SIZE temps de smoke_table_coord (lue par le shader de fumée).
+static func smoke_table() -> PackedFloat32Array:
+	var table := PackedFloat32Array()
+	table.resize(SMOKE_TABLE_SIZE)
+	var scale := log(1.0 + SMOKE_TABLE_MAX_S / 60.0)
+	for i in SMOKE_TABLE_SIZE:
+		var coord := float(i) / float(SMOKE_TABLE_SIZE - 1)
+		table[i] = smoke_burning_area(60.0 * (exp(coord * scale) - 1.0))
+	return table
+
+
+## Étalement latéral du panache (m) pour une fumée âgée de age_s, émise par un foyer de rayon initial fire_km.
+static func smoke_sigma_m(fire_km: float, age_s: float) -> float:
+	var s0 := SMOKE_SOURCE_SIGMA * fire_km * 1000.0
+	return sqrt(s0 * s0 + 2.0 * SMOKE_SPREAD_K_M2_S * maxf(age_s, 0.0))
 
 
 ## Sommet du nuage stabilisé (km) : interpolation log-log entre CLOUD_TOP_POINTS.

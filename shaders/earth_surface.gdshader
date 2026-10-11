@@ -5,6 +5,7 @@
 // - Masque d'eau approximatif (eau = sombre et bleue) pour le reflet spéculaire du soleil sur les océans.
 // - Ombres portées des nuages procéduraux (même fonction de densité que cloud_volume.gdshader).
 // - Lumières des villes la nuit (Black Marble 2016, globale 16K + tuiles HD), en émission.
+// - Explosions nucléaires durables (nuke/shaders/) : incendies, trace au sol, fumée, black-out.
 // - Éclairage personnalisé (light()) : lumière solaire teintée par la traversée de l'atmosphère
 //   (sun_light.gdshaderinc, rougissement puis extinction progressive au terminateur), reflet spéculaire GGX,
 //   plus la lumière diffuse du ciel qui persiste au crépuscule (jusqu'à ~12° sous l'horizon).
@@ -19,6 +20,7 @@ render_mode cull_back, ambient_light_disabled;
 #include "res://nuke/shaders/nuke_flash.gdshaderinc"
 #include "res://nuke/shaders/nuke_fire.gdshaderinc"
 #include "res://nuke/shaders/nuke_blackout.gdshaderinc"
+#include "res://nuke/shaders/nuke_smoke.gdshaderinc"
 
 uniform sampler2D day_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2DArray detail_tiles : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
@@ -90,14 +92,23 @@ void fragment() {
 	float luma = dot(albedo, vec3(0.299, 0.587, 0.114));
 	float water = smoothstep(0.015, 0.06, albedo.b - albedo.r) * (1.0 - smoothstep(0.18, 0.3, luma));
 	vec3 n = normalize(local_km);
-	// Explosions proches (nuke/shaders/nuke_ground.gdshaderinc) : incendies et sol calciné (de jour comme de nuit,
-	// définitif), black-out (plus bas).
+	// Explosions proches (nuke/shaders/nuke_ground.gdshaderinc) : incendies et trace au sol (de jour comme de nuit,
+	// définitive), black-out (plus bas).
 	ivec2 nuke_cell = nuke_ground_cell(n);
-	vec2 nuke_fire = vec2(0.0);
+	vec3 nuke_fire = vec3(0.0);
 	if (nuke_cell.y > 0) {
 		float urban = smoothstep(0.05, 0.3, dot(night, vec3(0.299, 0.587, 0.114)));
 		nuke_fire = nuke_fire_state(n * CLOUD_PLANET_RADIUS_KM, nuke_cell, 1.0 - water, urban);
-		albedo = mix(albedo, nuke_burn_albedo, nuke_fire.y * nuke_burn_strength);
+		albedo = nuke_scar_color(albedo, nuke_fire, urban);
+	}
+	// Fumée des incendies (nuke/shaders/nuke_smoke.gdshaderinc), couche plate sous les nuages : voile le sol, les
+	// reflets et les lumières (smoke_clear = transmittance verticale).
+	float smoke_clear = 1.0;
+	ivec2 smoke_cell = nuke_smoke_cell(n);
+	if (smoke_cell.y > 0) {
+		smoke_clear = exp(-nuke_smoke_tau(n, smoke_cell));
+		albedo = mix(nuke_smoke_albedo, albedo, smoke_clear);
+		water *= smoke_clear;
 	}
 	vec3 l = normalize(transpose(mat3(MODEL_MATRIX)) * sun_direction);
 	CloudAdvection adv = cloud_advection(n);
@@ -128,7 +139,7 @@ void fragment() {
 			glow = mix(glow, unlit, off);
 		}
 		float clouds_above = cloud_shadow(n, n, adv);
-		emission += glow * night_intensity * darkness * mix(night_cloud_floor, 1.0, clouds_above);
+		emission += glow * night_intensity * darkness * mix(night_cloud_floor, 1.0, clouds_above) * smoke_clear;
 	}
 	// Flashs nucléaires (nuke/shaders/nuke_flash.gdshaderinc) : en émission, de jour comme de nuit.
 	if (nuke_flash_count > 0) {
@@ -136,9 +147,11 @@ void fragment() {
 				* nuke_flash_ground(n * CLOUD_PLANET_RADIUS_KM, n, adv);
 	}
 	// Incendies allumés par les explosions (nuke/shaders/nuke_fire.gdshaderinc), voilés par les nuages comme les
-	// lumières des villes. Voile des nuages (marche coûteuse) seulement là où il y a du feu, pas sur tout le globe.
+	// lumières des villes. Voile des nuages (marche coûteuse) seulement là où il y a du feu, pas sur tout le globe. Sous
+	// une fumée opaque, la lueur diffusée par le panache reste visible (nuke_smoke_fire_glow).
 	if (nuke_fire.x > 0.0) {
-		emission += nuke_fire_color * nuke_fire_hdr * nuke_fire.x * mix(night_cloud_floor, 1.0, cloud_shadow(n, n, adv));
+		emission += nuke_fire_color * nuke_fire_hdr * nuke_fire.x * mix(night_cloud_floor, 1.0, cloud_shadow(n, n, adv))
+				* mix(nuke_smoke_fire_glow, 1.0, smoke_clear);
 	}
 	EMISSION = emission;
 }

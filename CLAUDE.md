@@ -14,8 +14,10 @@ Population 2030 (GHS-POP, `scripts/population_grid.gd`, `assets/population_2030.
 pertes humaines des explosions (`nuke/nuke_casualties.gd`, chronologie et retombées WSEG-10 `nuke/nuke_fallout.gd`).
 Centrales électriques (WRI, `scripts/power_plants.gd`, `assets/power_plants.res`, `tools/build_power_plants.gd`) et carte des
 pays pour les shaders (`assets/textures/country_ids.png`, import sans perte) : black-out (`nuke/nuke_grid_impact.gd`, `nuke/nuke_ground_fx.gd`).
-Règle de jeu : le monde persiste — une explosion n'est jamais retirée, incendies sur plusieurs jours puis sol calciné
-définitif, black-out jamais réparé, sans plafond de nombre (`NukeGroundFX` : textures de données + maille de 1°). Après
+Règle de jeu : le monde persiste — une explosion n'est jamais retirée, incendies sur plusieurs jours (fumée en panache
+sous le vent, `nuke/shaders/nuke_smoke.gdshaderinc`) puis trace au sol définitive (charbon, puis terre brûlée brune et
+gravats), black-out jamais réparé, sans plafond de nombre (`NukeGroundFX` : textures de données + maille de 1°).
+Explosions à 500 m d'altitude par défaut (`NukeScaling.DEFAULT_BURST_HEIGHT_KM`), pas de cratère. Après
 la première demi-heure physique (accélérée), le temps des explosions suit l'horloge du jeu (`NukeClock`).
 Organisation du code des explosions (une responsabilité par classe) et banc de performances (`tools/bench/nuke_bench.tscn`) : README,
 « Explosions nucléaires », sections « Organisation du code » et « Performances ».

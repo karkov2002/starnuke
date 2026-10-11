@@ -52,7 +52,7 @@ func _ready() -> void:
 	var earth := view.get_node("Earth")
 	var materials: Array[ShaderMaterial] = [earth.get_node("Surface").material_override,
 			earth.get_node("CloudLayer").material_override]
-	for part in ["Mushroom", "Shock", "nuke_cloud_count", "nuke_ground_count"]:
+	for part in ["Mushroom", "Shock", "nuke_cloud_count", "nuke_ground_count", "nuke_smoke_count"]:
 		_toggle(launcher, materials, part, false)
 		var m := await _measure(launcher, 60.0)
 		_log("sans %-20s : GPU %.2f ms (gain %.2f ms)" % [part, m.z, base.z - m.z])
@@ -111,7 +111,8 @@ func _measure(launcher: NukeLauncher, t: float) -> Vector3:
 ## FX qui l'alimente est mis en pause pour qu'il ne le rétablisse pas).
 func _toggle(launcher: NukeLauncher, materials: Array[ShaderMaterial], part: String, on: bool) -> void:
 	if part.begins_with("nuke_"):
-		var fx_name: String = {"nuke_cloud_count": "CloudFX", "nuke_ground_count": "GroundFX"}[part]
+		var fx_name: String = {"nuke_cloud_count": "CloudFX", "nuke_ground_count": "GroundFX",
+				"nuke_smoke_count": "GroundFX"}[part]
 		var fx := launcher.get_node(fx_name)
 		fx.process_mode = Node.PROCESS_MODE_INHERIT if on else Node.PROCESS_MODE_DISABLED
 		if on and fx.has_method(&"refresh"):
