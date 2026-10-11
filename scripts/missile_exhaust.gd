@@ -24,6 +24,9 @@ extends Node3D
 var jet_direction := Vector3.ZERO
 ## Facteur de la lumière (0 à 1), réglé en vol selon la distance réelle du missile.
 var light_scale := 1.0
+## Poussée (0 à 1) : extinction du moteur en vol (MissileFlight), sans toucher à l'échelle de la tuyère (un repère
+## d'échelle nulle n'est pas inversible : particules et ombres en souffrent).
+var throttle := 1.0
 
 @export var core_length := 2.6
 @export var core_nozzle_radius := 0.32
@@ -59,8 +62,9 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	var parent := get_parent() as Node3D
-	var level := parent.scale.x if parent else 1.0
+	var level := (parent.scale.x if parent else 1.0) * throttle
 	var on := level > 0.02
+	_core.visible = on
 	_particles.emitting = on and _flight_particles == null
 	if _flight_particles:
 		_flight_particles.emitting = on
@@ -74,7 +78,7 @@ func _process(delta: float) -> void:
 	# Vacillement : deux sinus incommensurables + bruit, comme la combustion irrégulière d'un bloc de propergol.
 	var wobble := 1.0 + flicker * (0.5 * sin(_time * 37.0) + 0.3 * sin(_time * 91.0 + 1.3) + 0.2 * (randf() * 2.0 - 1.0))
 	_light.light_energy = light_energy * level * wobble * light_scale
-	_core_material.set_shader_parameter("intensity", clampf(wobble, 0.5, 1.5))
+	_core_material.set_shader_parameter("intensity", clampf(wobble, 0.5, 1.5) * minf(throttle, 1.0))
 	_particle_material.set_shader_parameter("intensity", clampf(level, 0.0, 1.0))
 
 

@@ -327,6 +327,15 @@ func tube_position(silo: int, tube: int) -> Vector3:
 	return global_transform.affine_inverse() * (_silo_doors[key].launch_point as Node3D).global_position
 
 
+## Durée de l'animation de lancement jusqu'au relais vers le vol (s) : missile_released arrive autant après
+## launch_missile.
+func launch_handoff_s() -> float:
+	if _library == null or not _library.has_animation(ANIM_LAUNCH):
+		return 0.0
+	var anim := _library.get_animation(ANIM_LAUNCH)
+	return _handoff_time(anim, _track_for(anim, MODEL_MISSILE, Animation.TYPE_SCALE_3D))
+
+
 ## Tubes d'où un missile peut partir (trappe ouvrable, pas encore tiré).
 func available_tubes() -> Array[Vector2i]:
 	var tubes: Array[Vector2i] = []

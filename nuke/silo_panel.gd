@@ -53,6 +53,11 @@ func setup(station: Station) -> void:
 			_buttons[key] = button
 
 
+## Numéro affiché du tube (1 à 48), 0 s'il est inconnu.
+func number_of(key: Vector2i) -> int:
+	return _buttons[key].number if _buttons.has(key) else 0
+
+
 ## Le tube a tiré : gris, plus de choix possible.
 func mark_empty(key: Vector2i) -> void:
 	if selected == key:
