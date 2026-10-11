@@ -85,7 +85,8 @@ permet de piloter le jeu exporté.
 
 | Action | Contrôle |
 |---|---|
-| Orienter la vue | Maintenir le **clic droit** et déplacer la souris (tangage limité à ±80°) |
+| Orienter la vue | Maintenir le **clic droit** et déplacer la souris (tangage limité à ±80°) ; **A / E** (AZERTY, Q / E en QWERTY) : rotation gauche / droite (90°/s) |
+| Se déplacer dans la station | **Z / S** (W / S en QWERTY) ou **flèches haut / bas** : avancer / reculer dans la direction du regard (y compris vers le haut ou le bas, apesanteur) ; **Q / D** (A / D en QWERTY) ou **flèches gauche / droite** : déplacement latéral. 1,5 m/s, accélération et freinage progressifs ; collisions avec les parois, les vitres et les objets intérieurs (tubes des silos…) |
 | Curseur | Libre le reste du temps (clic gauche sur le panneau de contrôle) |
 | Altitude | Curseur du panneau, **200 à 800 km** (clic, glisser ou molette) |
 | Inclinaison de l'orbite | Curseur du panneau, **0 à 70°**, bornée par la latitude courante (voir ci-dessous) |
@@ -96,7 +97,13 @@ permet de piloter le jeu exporté.
 | Bilan des explosions | Fenêtre **« Bilan des explosions »**, ouverte au premier tir (en haut à droite) : pays touchés et pertes, cumulées sur toutes les explosions. **Glisser sa barre de titre** (clic gauche maintenu) pour la déplacer ; bouton **—** / **+** pour la replier ; molette ou barre de défilement pour parcourir la liste |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
-L'observateur ne peut pas se déplacer pour l'instant (des contrôles d'orientation de la vue sont prévus).
+Les touches sont définies par leur **position physique** sur le clavier (actions `move_forward`, `move_back`,
+`move_left`, `move_right`, `turn_left`, `turn_right` de `project.godot`) : la même disposition en AZERTY et en QWERTY.
+Elles sont ignorées pendant la saisie du champ date.
+
+**Le panneau de contrôle et le réticule de tir n'apparaissent que dans la cupola** (sphère de 1,6 m autour du repère
+`Point_Vue_Cupola`, `Station.is_in_cupola`) : en sortant de la cupola ils disparaissent en fondu (0,5 s), et
+réapparaissent en fondu en y revenant. Hors de la cupola, on ne peut donc pas tirer.
 
 **Panneau de contrôle** (`scenes/ui/orbit_controls.tscn`, script `scripts/orbit_controls.gd`), en bas au centre.
 Il affiche l'altitude et la période orbitale, l'inclinaison et le point survolé (latitude, longitude), ainsi que
@@ -225,10 +232,17 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
   silos, −Y) face à la Terre. L'unité de la scène est le mètre (station ~42 × 80 m avec les panneaux).
   - Ancienne station, gardée dans le projet : `scenes/iss_cupola.tscn` (module Node 3 « Tranquility » + Cupola en
     CSG, inclinée de 30°).
-- **Observateur** (`Camera`, script `scripts/station_camera.gd`) : au repère `Point_Vue_Cupola` du modèle (dans la
-  cupola, (0, −3,2, −11,6) dans la scène), vue initiale plongeant de 52° sous l'horizon de la station vers l'avant,
+- **Observateur** : corps `Observer` (`CharacterBody3D`, script `scripts/observer.gd`, déplacement en mode
+  « flottant », sphère de collision de 0,3 m) portant la caméra `Observer/Camera` (script
+  `scripts/station_camera.gd`, orientation). Départ au repère `Point_Vue_Cupola` du modèle (dans la cupola,
+  (0, −3,2, −11,6) dans la scène), vue initiale plongeant de 52° sous l'horizon de la station vers l'avant,
   comme avec l'ancienne Cupola (mêmes angles par rapport au repère de vol) ; les vitres de la cupola regardent le
-  nadir et sa paroi masque l'horizon (clic droit pour regarder ailleurs).
+  nadir et sa paroi masque l'horizon (clic droit pour regarder ailleurs). `Orbit` place la Terre par rapport à la
+  caméra (`observer_path`).
+- **Collisions de la station** (`Station._add_interior_collisions`) : les parois générées à l'import (« -col »,
+  formes concaves) bloquent des deux côtés (`backface_collision`, sinon on traverse la coque de l'intérieur) ; les
+  objets `Interactif_*` sans collision (48 tubes des silos, consoles…) reçoivent au démarrage une forme convexe
+  simplifiée. Les trappes et écoutilles ont déjà leur corps animé (`AnimatableBody3D`).
 - **Ombres du soleil** : jusqu'à 60 m (`directional_shadow_max_distance`), pour que la station (80 m) porte ses ombres
   sur elle-même ; la Terre ne reçoit pas d'ombres portées (`shadows_disabled` dans `earth_surface.gdshader`) : à
   1/10 000, l'ombre de la station y serait 10 000 fois trop grande (invisible en réalité depuis l'orbite).

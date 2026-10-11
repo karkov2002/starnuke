@@ -13,6 +13,10 @@
 [ext_resource type="CameraAttributesPractical" path="res://materials/camera_attributes.tres" id="11_cam"]
 [ext_resource type="Script" uid="uid://cuu53raq5g4v5" path="res://nuke/nuke_launcher.gd" id="12_nuam2"]
 [ext_resource type="Script" uid="uid://cufsohnqhvy1c" path="res://nuke/nuke_report_panel.gd" id="13_tq5ei"]
+[ext_resource type="Script" path="res://scripts/observer.gd" id="14_obs"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
+radius = 0.3
 
 [sub_resource type="SphereMesh" id="SphereMesh_dokek"]
 radius = 637.1
@@ -51,8 +55,16 @@ light_energy = 2.0
 shadow_enabled = true
 directional_shadow_max_distance = 60.0
 
-[node name="Camera" type="Camera3D" parent="." unique_id=1589073739]
-transform = Transform3D(1, 0, 0, 0, 0.6156615, 0.7880108, 0, -0.7880108, 0.6156615, 0, -3.2, -11.6)
+[node name="Observer" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3.2, -11.6)
+motion_mode = 1
+script = ExtResource("14_obs")
+
+[node name="Collision" type="CollisionShape3D" parent="Observer"]
+shape = SubResource("SphereShape3D_obs")
+
+[node name="Camera" type="Camera3D" parent="Observer" unique_id=1589073739]
+transform = Transform3D(1, 0, 0, 0, 0.6156615, 0.7880108, 0, -0.7880108, 0.6156615, 0, 0, 0)
 current = true
 far = 3000.0
 script = ExtResource("2_jnr3p")

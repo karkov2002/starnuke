@@ -4,10 +4,15 @@ extends CanvasLayer
 ## au-dessus de l'Europe à midi / minuit. Les curseurs pilotent le nœud Orbit en direct ; hors manipulation,
 ## ils affichent les valeurs réellement appliquées (l'inclinaison est bornée par la latitude courante).
 
+## Le panneau (et le réticule de tir) n'apparaît que quand l'observateur est dans la cupola (Station.is_in_cupola) :
+## fondu d'apparition et de disparition en FADE_S.
+
 const TIME_SCALES := [0.0, 1.0, 2.0, 4.0, 8.0, 16.0]
 const DAY_S := 86400.0
+const FADE_S := 0.5
 
 @export var orbit_path: NodePath = ^"../Orbit"
+@export var station_path: NodePath = ^"../Station/StationSpatiale"
 
 var _orbit: OrbitSimulation
 var _dragging_altitude := false
@@ -16,6 +21,9 @@ var _dragging_hour := false
 var _time_buttons: Array[Button] = []
 var _date_edit: LineEdit
 var _hour_slider: HSlider
+var _station: Station
+var _in_cupola := true
+var _fade: Tween
 
 @onready var _panel: PanelContainer = $Panel
 @onready var _altitude_label: Label = $Panel/Row/Altitude/AltitudeLabel
@@ -28,6 +36,7 @@ var _hour_slider: HSlider
 
 func _ready() -> void:
 	_orbit = get_node(orbit_path) as OrbitSimulation
+	_station = get_node_or_null(station_path) as Station
 	_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 24)
 	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -75,6 +84,7 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	_update_visibility()
 	if not _dragging_altitude:
 		_altitude_slider.set_value_no_signal(_orbit.altitude_km)
 	if not _dragging_inclination:
@@ -97,6 +107,31 @@ func _process(_delta: float) -> void:
 		_date_edit.text = "%04d-%02d-%02d" % [now.year, now.month, now.day]
 	if not _dragging_hour:
 		_hour_slider.set_value_no_signal((_orbit.get_utc_unix_s() - _day_start_unix()) / 3600.0)
+
+
+## Panneau et réticule visibles seulement dans la cupola, avec un fondu (masqués : plus de clics ni de tir).
+func _update_visibility() -> void:
+	var camera := get_viewport().get_camera_3d()
+	if _station == null or camera == null:
+		return
+	var inside := _station.is_in_cupola(camera.global_position)
+	if inside == _in_cupola:
+		return
+	_in_cupola = inside
+	if _fade:
+		_fade.kill()
+	var targets: Array[CanvasItem] = [_panel, $AimReticle]
+	_fade = create_tween().set_parallel()
+	for item in targets:
+		if inside:
+			item.visible = true
+		_fade.tween_property(item, "modulate:a", 1.0 if inside else 0.0, FADE_S)
+	if not inside:
+		_fade.chain().tween_callback(func() -> void:
+			for item in targets:
+				item.visible = false)
+	if not inside and _date_edit.has_focus():
+		_date_edit.release_focus()
 
 
 # Ligne date / heure (UTC) : champ date (AAAA-MM-JJ, validé par Entrée), boutons −1 / +1 jour, curseur de l'heure

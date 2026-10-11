@@ -1,10 +1,14 @@
+class_name StationCamera
 extends Camera3D
-## Caméra « tête » de l'observateur : orientation à la souris uniquement (pas de déplacement).
-## Le curseur est libre par défaut (pour interagir avec l'interface) ; la vue ne pivote que tant que
-## le bouton droit est maintenu. Le curseur est alors masqué puis replacé là où le clic a commencé.
+## Caméra « tête » de l'observateur, enfant du corps Observer (scripts/observer.gd, déplacement) : orientation
+## seulement. À la souris : le curseur est libre par défaut (pour interagir avec l'interface) ; la vue ne pivote que
+## tant que le bouton droit est maintenu, le curseur est alors masqué puis replacé là où le clic a commencé. Au
+## clavier : rotation gauche / droite (actions turn_left, turn_right : A / E en AZERTY, Q / E en QWERTY).
 
 @export var mouse_sensitivity := 0.0025
 @export_range(0.0, 89.0) var max_pitch_deg := 80.0
+## Vitesse de rotation au clavier (degrés par seconde).
+@export var turn_speed_deg := 90.0
 
 var _yaw := 0.0
 var _pitch := 0.0
@@ -16,6 +20,20 @@ func _ready() -> void:
 	_yaw = rotation.y
 	_pitch = rotation.x
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _process(delta: float) -> void:
+	if is_typing(self):
+		return
+	var turn := Input.get_axis(&"turn_right", &"turn_left")
+	if turn != 0.0:
+		_yaw += turn * deg_to_rad(turn_speed_deg) * delta
+		rotation = Vector3(_pitch, _yaw, 0.0)
+
+
+## Un champ de texte de l'interface a le focus (date du panneau…) : les touches lui sont destinées.
+static func is_typing(node: Node) -> bool:
+	return node.get_viewport().gui_get_focus_owner() is LineEdit
 
 
 func _unhandled_input(event: InputEvent) -> void:

@@ -51,7 +51,7 @@ const MAX_INCLINATION_DEG := 70.0
 @export_group("Nœuds")
 @export var earth_path: NodePath = ^"../Earth"
 @export var station_path: NodePath = ^"../Station"
-@export var observer_path: NodePath = ^"../Camera"
+@export var observer_path: NodePath = ^"../Observer/Camera"
 @export var sun_light_path: NodePath = ^"../Sun"
 @export var world_environment_path: NodePath = ^"../WorldEnvironment"
 

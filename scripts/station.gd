@@ -51,6 +51,10 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 @export var animate_solar_panels := true
 @export var animate_antennas := true
 
+## Rayon (m) de la zone de la cupola autour du repère Point_Vue_Cupola (is_in_cupola : la barre de contrôle et le tir ne
+## sont disponibles que là).
+@export var cupola_zone_radius := 1.6
+
 @export_group("Éclairage intérieur")
 ## 28 lampes ponctuelles du modèle (Lum_*), recalibrées au démarrage : ambiance ISS (luminaires LED en mode jour,
 ## ~4 500 K), sans ombres. Elles n'éclairent que les surfaces intérieures (calque INTERIOR_LAYER) : sans ombres, elles
@@ -97,6 +101,7 @@ func _ready() -> void:
 	_collect_interactives()
 	_collect_radiators()
 	_setup_interior_lighting()
+	_add_interior_collisions()
 	var model := _missile_template()
 	if model:
 		_missile_pristine = model.duplicate() as Node3D
@@ -351,7 +356,38 @@ func set_stealth(enabled: bool) -> void:
 	set_all_radiators_deployed(not enabled)
 
 
+# --- Zones ----------------------------------------------------------------------------------------------------------
+
+## Le point (monde) est-il dans la cupola ? (sphère de cupola_zone_radius autour de Point_Vue_Cupola)
+func is_in_cupola(world_position: Vector3) -> bool:
+	var point := get_node_or_null("Point_Vue_Cupola") as Node3D
+	return point != null and point.global_position.distance_to(world_position) < cupola_zone_radius
+
+
 # --- Construction ---------------------------------------------------------------------------------------------------
+
+## Collisions des objets intérieurs : le modèle n'en génère que pour les parois (« -col ») et les portes
+## (« -convcolonly ») ; les objets « Interactif_* » sans collision (tubes des silos, consoles, caisses, couchette…)
+## reçoivent une forme convexe simplifiée (StaticBody3D « Collision » enfant).
+func _add_interior_collisions() -> void:
+	# Parois (« -col », formes concaves) : collision des deux côtés. Par défaut une face ne bloque que du côté où pointe
+	# sa normale ; vue de l'intérieur d'une coque (normales vers l'extérieur), on la traverserait.
+	for collision: CollisionShape3D in find_children("*", "CollisionShape3D", true, false):
+		if collision.shape is ConcavePolygonShape3D:
+			(collision.shape as ConcavePolygonShape3D).backface_collision = true
+	for mesh_instance: MeshInstance3D in find_children("Interactif_*", "MeshInstance3D", true, false):
+		if mesh_instance.mesh == null or mesh_instance.get_children().any(func(c: Node) -> bool:
+				return c is CollisionObject3D):
+			continue
+		var shape := mesh_instance.mesh.create_convex_shape(true, true)
+		if shape == null:
+			continue
+		var body := StaticBody3D.new()
+		body.name = "Collision"
+		var collision := CollisionShape3D.new()
+		collision.shape = shape
+		body.add_child(collision)
+		mesh_instance.add_child(body)
 
 func _collect_interactives() -> void:
 	var hatch_anim := _library.get_animation(ANIM_HATCHES) if _library.has_animation(ANIM_HATCHES) else null
