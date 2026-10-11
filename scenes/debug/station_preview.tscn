@@ -1,0 +1,32 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/station_spatiale.tscn" id="1_station"]
+
+[sub_resource type="Environment" id="Environment_preview"]
+background_mode = 1
+background_color = Color(0.01, 0.012, 0.02, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.25, 0.3, 0.4, 1)
+ambient_light_energy = 0.4
+tonemap_mode = 4
+glow_enabled = true
+
+[node name="StationPreview" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_preview")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 0, 0)
+light_color = Color(1, 0.97, 0.92, 1)
+light_energy = 2.0
+shadow_enabled = true
+directional_shadow_max_distance = 150.0
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(0.789, -0.27, 0.552, 0, 0.898, 0.44, -0.614, -0.347, 0.709, 38, 22, 48)
+current = true
+fov = 50.0
+far = 1000.0
+
+[node name="StationSpatiale" parent="." instance=ExtResource("1_station")]
