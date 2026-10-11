@@ -79,6 +79,9 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 ## Rayon (m) de la zone de la cupola autour du repère Point_Vue_Cupola (is_in_cupola : la barre de contrôle et le tir ne
 ## sont disponibles que là).
 @export var cupola_zone_radius := 1.6
+## Recul de la propulsion au-delà de l'arrière du maillage du missile (m) : l'arrière est à 3 m du centre, la
+## propulsion part à 4 m (réglage visuel).
+@export var nozzle_offset_m := 1.0
 
 @export_group("Éclairage intérieur")
 ## 28 lampes ponctuelles du modèle (Lum_*), recalibrées au démarrage : ambiance ISS (luminaires LED en mode jour,
@@ -372,7 +375,7 @@ func launch_missile(silo: int, tube: int) -> bool:
 	# réexporté, Point_Tuyere est au centre du missile, et la propulsion semblait sortir du milieu de la coque.
 	var hull := (missile as MeshInstance3D).mesh.get_aabb() if missile is MeshInstance3D else AABB()
 	if hull.size.y > 0.0:
-		nozzle.position = Vector3(0.0, hull.end.y, 0.0)
+		nozzle.position = Vector3(0.0, hull.end.y + nozzle_offset_m, 0.0)
 	var model_point := get_node_or_null("Point_Lancement_%d_%02d" % [MODEL_SILO, MODEL_TUBE]) as Node3D
 	# Missile du tube = repère du tube × (repère du tube modèle)⁻¹ × missile modèle animé.
 	var tube_frame: Transform3D = (door.launch_point as Node3D).transform * model_point.transform.affine_inverse()
