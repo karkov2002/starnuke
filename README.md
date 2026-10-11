@@ -274,11 +274,12 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
     CSG, inclinée de 30°).
 - **Observateur** : corps `Observer` (`CharacterBody3D`, script `scripts/observer.gd`, déplacement en mode
   « flottant », sphère de collision de 0,3 m) portant la caméra `Observer/Camera` (script
-  `scripts/station_camera.gd`, orientation). Départ au repère `Point_Vue_Cupola` du modèle (dans la cupola,
-  (0, −3,2, −11,6) dans la scène), vue initiale plongeant de 52° sous l'horizon de la station, tournée de 30° à
-  gauche de l'avant : le centre de l'écran (réticule de tir) tombe au milieu de la vitre avant-gauche de la cupola
-  hexagonale (droit devant, il tombait sur un montant, qui masquait la cible et la fin du vol du missile) ; les
-  vitres de la cupola regardent le nadir et sa paroi masque l'horizon (clic droit pour regarder ailleurs). `Orbit` place la Terre par rapport à la
+  `scripts/station_camera.gd`, orientation). Départ 1 m sous le repère `Point_Vue_Cupola` du modèle, la tête au
+  ras des vitres ((0, −4,2, −11,6) dans la scène ; plus haut, la paroi de la cupola masque l'horizon), vue initiale
+  plongeant de 24° sous l'horizon de la station, tournée de 30° à gauche de l'avant : l'horizon terrestre (~20°
+  sous l'horizontale à 400 km) est visible à travers les vitres latérales, et le centre de l'écran (réticule de
+  tir) tombe sur la Terre au milieu de la vitre avant-gauche de la cupola hexagonale (droit devant, il tombait sur
+  un montant, qui masquait la cible et la fin du vol du missile). `Orbit` place la Terre par rapport à la
   caméra (`observer_path`).
 - **Collisions de la station** (`Station._add_interior_collisions`) : les parois générées à l'import (« -col »,
   formes concaves) bloquent des deux côtés (`backface_collision`, sinon on traverse la coque de l'intérieur) ; les

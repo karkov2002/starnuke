@@ -56,7 +56,7 @@ shadow_enabled = true
 directional_shadow_max_distance = 60.0
 
 [node name="Observer" type="CharacterBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3.2, -11.6)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4.2, -11.6)
 motion_mode = 1
 script = ExtResource("14_obs")
 
@@ -64,7 +64,7 @@ script = ExtResource("14_obs")
 shape = SubResource("SphereShape3D_obs")
 
 [node name="Camera" type="Camera3D" parent="Observer" unique_id=1589073739]
-transform = Transform3D(0.8660254, -0.3940154, 0.30782, 0, 0.6156615, 0.7880108, -0.5, -0.6824524, 0.5331579, 0, 0, 0)
+transform = Transform3D(0.8660254, -0.2038818, 0.4565457, 0, 0.9130889, 0.4077604, -0.5, -0.3531330, 0.7907612, 0, 0, 0)
 current = true
 far = 3000.0
 script = ExtResource("2_jnr3p")
