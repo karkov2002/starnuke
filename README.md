@@ -5,8 +5,64 @@ Jeu « d'ambiance » : la priorité est une vue de la Terre la plus réaliste po
 
 ## Lancer
 
-Ouvrir le projet dans Godot 4.7 puis F5 (scène principale : `res://scenes/orbit_view.tscn`).
+Ouvrir le projet dans Godot 4.7 puis F5 (scène principale : l'écran de démarrage `res://scenes/ui/main_menu.tscn` ;
+la vue orbitale `res://scenes/orbit_view.tscn` se lance aussi seule, F6).
 Les tuiles haute résolution (`assets/earth_tiles/`, `assets/earth_night_tiles/`) doivent avoir été générées (voir plus bas).
+
+## Écran de démarrage, paramètres et langues
+
+- **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : fond
+  noir, titre provisoire « Star Nuke », boutons **Start Game** (charge `orbit_view.tscn`), **Settings** (écran des
+  paramètres, par-dessus) et **Quit**.
+- **Écran des paramètres** (`scenes/ui/settings_menu.tscn`, script `scripts/ui/settings_menu.gd`) : onglets
+  **Video**, **Audio**, **Controls**, **Game** ; Audio et Controls sont à venir (onglets désactivés, infobulle
+  « Coming soon »). **Back** ou Échap pour revenir. Chaque choix est appliqué et sauvé aussitôt.
+  - **Video** : mode d'affichage (**fenêtré** / **plein écran**) et **résolution**.
+    - Fenêtré : la résolution est la taille de la fenêtre, centrée dans la zone utile de l'écran ; une fenêtre qui
+      n'y tient pas avec sa bordure et sa barre de titre (résolution native, par exemple) est maximisée.
+    - **Jeu lancé depuis l'éditeur** : par défaut, Godot 4.7 l'intègre dans l'onglet « Jeu » (lancé avec `--wid` et
+      `--resolution 1920x1080`) et impose la fenêtre. Les changements d'affichage y sont seulement sauvés
+      (`GameSettings.can_change_display`, `Engine.is_embedded_in_editor`), avec un avertissement dans l'onglet Vidéo.
+      Pour les tester : désactiver l'intégration du jeu (menu d'options de l'onglet Jeu) ou lancer le jeu hors de
+      l'éditeur (`godot --path <projet>`, ou version exportée). Vérifié hors éditeur sur un écran 5120 × 1440 :
+      plein écran 5120 × 1440 ; fenêtré 1280 × 720 centré ; fenêtré natif maximisé.
+    - Plein écran : la fenêtre couvre tout l'écran à sa résolution native (Godot ne change pas le mode vidéo de
+      l'écran ; plein écran sans bordure, `WINDOW_MODE_FULLSCREEN`). La résolution choisie règle celle du **rendu
+      3D** (`Viewport.scaling_3d_scale` = hauteur choisie / hauteur de l'écran, au moins 0,25) ; l'interface reste
+      nette à la résolution native. Utile pour gagner des images par seconde sur un très grand écran.
+    - Résolutions proposées : formats courants 16:9 (1280 × 720 à 7680 × 4320), 16:10 (1280 × 800 à
+      3840 × 2400), 21:9 (2560 × 1080, 3440 × 1440, 3840 × 1600, 5120 × 2160) et 32:9 (3840 × 1080, 5120 × 1440,
+      7680 × 2160), jusqu'à la taille de l'écran, plus celle de l'écran (« native »). Le jeu n'a pas de limite
+      propre (Godot rend jusqu'à 16384 px de côté) ; la limite pratique est le GPU (le jeu est limité par le GPU :
+      5120 × 1440 = 7,4 Mpx, 3,6 fois 1920 × 1080).
+    - **Écrans ultra-larges** (21:9, 32:9) : étirement `canvas_items` / `expand` du projet (base 1920 × 1080). La vue
+      3D garde son champ de vision vertical et s'élargit (`Camera3D.keep_aspect` = hauteur) ; l'interface garde sa
+      taille et s'étend sur toute la largeur (panneau en bas au centre, bilan en haut à droite).
+  - **Game** : **langue** (English, Français, Español, Deutsch, Italiano ; anglais par défaut), appliquée en direct.
+- **Sauvegarde** (autoload `GameSettings`, `scripts/game_settings.gd`) : `user://settings.cfg` (sous Windows
+  `%APPDATA%/Godot/app_userdata/Star Nuke/settings.cfg`), réappliqué au lancement suivant. Sections `[video]`
+  (`window_mode` = `"fullscreen"` / `"windowed"`, `resolution`, `Vector2i(0, 0)` = native) et `[game]`
+  (`locale`). Premier lancement : plein écran, résolution native, anglais.
+- **Langues** (règle du projet : **tous les textes du jeu sont dans des fichiers de langue**) : tableaux CSV importés
+  par Godot (`TranslationServer`), une colonne par langue (`en`, `fr`, `es`, `de`, `it`), déclarés dans
+  `project.godot` (`internationalization/locale/translations`) :
+  - `locale/strings.csv` : textes de l'interface (clés `MENU_*`, `SETTINGS_*`, `TAB_*`, `VIDEO_*`, `GAME_*`,
+    `HUD_*`, `REPORT_*`, `DIR_*` pour les points cardinaux) ;
+  - `locale/countries.csv` : noms des pays (`COUNTRY_<ADM0_A3>`, code de `CountryMask`) et des États souverains
+    (`SOVEREIGN_<SOV_A3>`), générés par `tools/build_country_names.gd` à partir de Natural Earth (champs NAME_EN,
+    NAME_FR, NAME_ES, NAME_DE, NAME_IT ; 258 pays, 209 États).
+
+  Dans le code, un texte fixe est la clé elle-même (`label.text = "MENU_START"` : traduction automatique des
+  contrôles) ; un texte composé passe par `tr()` et des champs nommés (`tr("HUD_ALTITUDE").format({"altitude": …})`,
+  pour que chaque langue place les valeurs où elle veut), sur un contrôle dont la traduction automatique est coupée
+  (`auto_translate_mode = AUTO_TRANSLATE_MODE_DISABLED`). Formats des nombres selon la langue
+  (`NukeReportText.number_style` : « 1,230,000 » en anglais, « 1 230 000 » en français, « 1.230.000 » en
+  espagnol, allemand, italien). Ajouter un texte : une ligne dans le CSV (les 5 langues), réimport automatique par
+  l'éditeur ; les fichiers `.translation` produits par l'import ne sont pas versionnés (`.gitignore`). Ajouter une
+  langue : une colonne dans les deux CSV, son code dans `GameSettings.LOCALES` et son nom dans
+  `GameSettings.LOCALE_NAMES`.
+  - Restent en français (outils de développement, hors interface du jeu) : la console (bilan détaillé des tirs,
+    `NukeReportText`) et le panneau de debug des explosions (`nuke/debug/`).
 
 ## Contrôles
 
@@ -18,7 +74,7 @@ Les tuiles haute résolution (`assets/earth_tiles/`, `assets/earth_night_tiles/`
 | Inclinaison de l'orbite | Curseur du panneau, **0 à 70°**, bornée par la latitude courante (voir ci-dessous) |
 | Date et heure (UTC) | Champ **date** (AAAA-MM-JJ, valider par Entrée), boutons **−1 j / +1 j**, curseur de l'**heure** du jour. La station reste au-dessus du même point ; le soleil, les étoiles et les nuages (poussés par le vent) se placent selon la nouvelle heure. Départ : **15 juillet 2035** |
 | Vitesse du temps | Boutons **Pause, x1, x2, x4, x8, x16** |
-| Redémarrer | Boutons **Restart by day** / **Restart by night** : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
+| Redémarrer | Boutons **By day** / **By night** (« De jour » / « De nuit » en français) : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
 | Tir nucléaire | **Gros bouton rouge** à droite du panneau : frappe le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie en dessous (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien. Voir « Explosions nucléaires » |
 | Bilan des explosions | Fenêtre **« Bilan des explosions »**, ouverte au premier tir (en haut à droite) : pays touchés et pertes, cumulées sur toutes les explosions. **Glisser sa barre de titre** (clic gauche maintenu) pour la déplacer ; bouton **—** / **+** pour la replier ; molette ou barre de défilement pour parcourir la liste |
 

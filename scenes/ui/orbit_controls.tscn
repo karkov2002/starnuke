@@ -22,7 +22,7 @@ layout_mode = 2
 
 [node name="AltitudeLabel" type="Label" parent="Panel/Row/Altitude" unique_id=196804771]
 layout_mode = 2
-text = "Altitude"
+text = ""
 
 [node name="AltitudeSlider" type="HSlider" parent="Panel/Row/Altitude" unique_id=1147284859]
 custom_minimum_size = Vector2(260, 24)
@@ -37,7 +37,7 @@ layout_mode = 2
 
 [node name="InclinationLabel" type="Label" parent="Panel/Row/Inclination" unique_id=740102515]
 layout_mode = 2
-text = "Inclinaison"
+text = ""
 
 [node name="InclinationSlider" type="HSlider" parent="Panel/Row/Inclination" unique_id=1376816695]
 custom_minimum_size = Vector2(260, 24)
@@ -52,7 +52,7 @@ layout_mode = 2
 
 [node name="TimeLabel" type="Label" parent="Panel/Row/Time" unique_id=632854980]
 layout_mode = 2
-text = "Temps"
+text = ""
 
 [node name="TimeButtons" type="HBoxContainer" parent="Panel/Row/Time" unique_id=3531428]
 layout_mode = 2
@@ -62,7 +62,7 @@ layout_mode = 2
 
 [node name="RestartLabel" type="Label" parent="Panel/Row/Restart" unique_id=1710032091]
 layout_mode = 2
-text = "Redémarrer (Europe)"
+text = "HUD_RESTART"
 
 [node name="RestartButtons" type="HBoxContainer" parent="Panel/Row/Restart" unique_id=391411946]
 layout_mode = 2
@@ -70,12 +70,12 @@ layout_mode = 2
 [node name="DayButton" type="Button" parent="Panel/Row/Restart/RestartButtons" unique_id=811861927]
 layout_mode = 2
 focus_mode = 0
-text = "Restart by day"
+text = "HUD_RESTART_DAY"
 
 [node name="NightButton" type="Button" parent="Panel/Row/Restart/RestartButtons" unique_id=1844315981]
 layout_mode = 2
 focus_mode = 0
-text = "Restart by night"
+text = "HUD_RESTART_NIGHT"
 
 [node name="Launch" type="VBoxContainer" parent="Panel/Row" unique_id=1494045111]
 layout_mode = 2

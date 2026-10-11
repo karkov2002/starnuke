@@ -5,7 +5,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Projet
 
 « Star Nuke » — projet de jeu **Godot 4.7** (moteur de rendu Forward Plus, physique 3D Jolt, pilote D3D12 sous Windows).
-État actuel : un POC de vue orbitale. Scène principale `res://scenes/orbit_view.tscn` (Terre + ciel étoilé + instance de `scenes/iss_cupola.tscn`, module Node 3 + Cupola de l'ISS).
+État actuel : un POC de vue orbitale. Scène principale : l'écran de démarrage `res://scenes/ui/main_menu.tscn` (Start Game,
+Settings, Quit), qui charge la vue orbitale `res://scenes/orbit_view.tscn` (Terre + ciel étoilé + instance de `scenes/iss_cupola.tscn`, module Node 3 + Cupola de l'ISS).
+Paramètres du joueur (vidéo, langue) : autoload `GameSettings` (`scripts/game_settings.gd`), sauvés dans `user://settings.cfg`,
+écran `scenes/ui/settings_menu.tscn` (README, « Écran de démarrage, paramètres et langues »).
+Règle : **tous les textes du jeu sont dans les fichiers de langue** `locale/strings.csv` (interface) et `locale/countries.csv`
+(noms de pays, `tools/build_country_names.gd`), 5 langues (en, fr, es, de, it ; anglais par défaut). Jamais de texte
+affiché en dur : une clé (traduction automatique des contrôles) ou `tr("CLE").format({...})` ; toute nouvelle clé reçoit
+ses 5 traductions. Seuls la console et le panneau de debug (outils de développement) restent en français.
 Arborescence : `scenes/` (dont `scenes/ui/`), `scripts/`, `shaders/`, `materials/` (matériaux et Environment en `.tres`), `assets/textures/`,
 `nuke/` (tout le code des explosions nucléaires, dont l'autoload `NukeClock` et la scène de debug `nuke/debug/nuke_debug.tscn`).
 Masques géographiques (Natural Earth) : mers et océans (`scripts/ocean_mask.gd`, `assets/ocean_mask.res`) et pays

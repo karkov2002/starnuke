@@ -1,0 +1,468 @@
+keys,en,fr,es,de,it
+COUNTRY_ABW,Aruba,Aruba,Aruba,Aruba,Aruba
+COUNTRY_AFG,Afghanistan,Afghanistan,Afganistán,Afghanistan,Afghanistan
+COUNTRY_AGO,Angola,Angola,Angola,Angola,Angola
+COUNTRY_AIA,Anguilla,Anguilla,Anguila,Anguilla,Anguilla
+COUNTRY_ALB,Albania,Albanie,Albania,Albanien,Albania
+COUNTRY_ALD,Åland,Åland,Åland,Åland,Isole Åland
+COUNTRY_AND,Andorra,Andorre,Andorra,Andorra,Andorra
+COUNTRY_ARE,United Arab Emirates,Émirats arabes unis,Emiratos Árabes Unidos,Vereinigte Arabische Emirate,Emirati Arabi Uniti
+COUNTRY_ARG,Argentina,Argentine,Argentina,Argentinien,Argentina
+COUNTRY_ARM,Armenia,Arménie,Armenia,Armenien,Armenia
+COUNTRY_ASM,American Samoa,Samoa américaines,Samoa Estadounidense,Amerikanisch-Samoa,Samoa Americane
+COUNTRY_ATA,Antarctica,Antarctique,Antártida,Antarktika,Antartide
+COUNTRY_ATC,Ashmore and Cartier Islands,Îles Ashmore-et-Cartier,Islas Ashmore y Cartier,Ashmore- und Cartierinseln,Isole Ashmore e Cartier
+COUNTRY_ATF,French Southern and Antarctic Lands,Terres australes et antarctiques françaises,Tierras Australes y Antárticas Francesas,Französische Süd- und Antarktisgebiete,Terre australi e antartiche francesi
+COUNTRY_ATG,Antigua and Barbuda,Antigua-et-Barbuda,Antigua y Barbuda,Antigua und Barbuda,Antigua e Barbuda
+COUNTRY_AUS,Australia,Australie,Australia,Australien,Australia
+COUNTRY_AUT,Austria,Autriche,Austria,Österreich,Austria
+COUNTRY_AZE,Azerbaijan,Azerbaïdjan,Azerbaiyán,Aserbaidschan,Azerbaigian
+COUNTRY_BDI,Burundi,Burundi,Burundi,Burundi,Burundi
+COUNTRY_BEL,Belgium,Belgique,Bélgica,Belgien,Belgio
+COUNTRY_BEN,Benin,Bénin,Benín,Benin,Benin
+COUNTRY_BFA,Burkina Faso,Burkina Faso,Burkina Faso,Burkina Faso,Burkina Faso
+COUNTRY_BGD,Bangladesh,Bangladesh,Bangladés,Bangladesch,Bangladesh
+COUNTRY_BGR,Bulgaria,Bulgarie,Bulgaria,Bulgarien,Bulgaria
+COUNTRY_BHR,Bahrain,Bahreïn,Baréin,Bahrain,Bahrein
+COUNTRY_BHS,The Bahamas,Bahamas,Bahamas,Bahamas,Bahamas
+COUNTRY_BIH,Bosnia and Herzegovina,Bosnie-Herzégovine,Bosnia y Herzegovina,Bosnien und Herzegowina,Bosnia ed Erzegovina
+COUNTRY_BJN,Bajo Nuevo Bank,Banc de Bajo Nuevo,Bajo Nuevo,Bajo-Nuevo-Bank,Bajo Nuevo Bank
+COUNTRY_BLM,Saint Barthélemy,Saint-Barthélemy,San Bartolomé,Saint-Barthélemy,Saint-Barthélemy
+COUNTRY_BLR,Belarus,Biélorussie,Bielorrusia,Belarus,Bielorussia
+COUNTRY_BLZ,Belize,Belize,Belice,Belize,Belize
+COUNTRY_BMU,Bermuda,Bermudes,Bermudas,Bermuda,Bermuda
+COUNTRY_BOL,Bolivia,Bolivie,Bolivia,Bolivien,Bolivia
+COUNTRY_BRA,Brazil,Brésil,Brasil,Brasilien,Brasile
+COUNTRY_BRB,Barbados,Barbade,Barbados,Barbados,Barbados
+COUNTRY_BRI,Brazilian Island,Ilha Brasileira,Isla Brasilera,Isla Brasilera,Isola brasiliana
+COUNTRY_BRN,Brunei,Brunei,Brunéi,Brunei,Brunei
+COUNTRY_BRT,Bir Tawil,Bir Tawil,Bir Tawil,Bir Tawil,Bir Tawil
+COUNTRY_BTN,Bhutan,Bhoutan,Bután,Bhutan,Bhutan
+COUNTRY_BWA,Botswana,Botswana,Botsuana,Botswana,Botswana
+COUNTRY_CAF,Central African Republic,République centrafricaine,República Centroafricana,Zentralafrikanische Republik,Repubblica Centrafricana
+COUNTRY_CAN,Canada,Canada,Canadá,Kanada,Canada
+COUNTRY_CHE,Switzerland,Suisse,Suiza,Schweiz,Svizzera
+COUNTRY_CHL,Chile,Chili,Chile,Chile,Cile
+COUNTRY_CHN,People's Republic of China,République populaire de Chine,China,Volksrepublik China,Cina
+COUNTRY_CIV,Ivory Coast,Côte d'Ivoire,Costa de Marfil,Elfenbeinküste,Costa d'Avorio
+COUNTRY_CLP,Clipperton Island,île Clipperton,Isla Clipperton,Clipperton-Insel,Clipperton
+COUNTRY_CMR,Cameroon,Cameroun,Camerún,Kamerun,Camerun
+COUNTRY_CNM,United Nations Buffer Zone in Cyprus,Zone tampon des Nations unies à Chypre,Línea Verde,UN-Pufferzone in Zypern,Linea Verde
+COUNTRY_COD,Democratic Republic of the Congo,République démocratique du Congo,República Democrática del Congo,Demokratische Republik Kongo,Repubblica Democratica del Congo
+COUNTRY_COG,Republic of the Congo,République du Congo,República del Congo,Republik Kongo,Repubblica del Congo
+COUNTRY_COK,Cook Islands,Îles Cook,Islas Cook,Cookinseln,Isole Cook
+COUNTRY_COL,Colombia,Colombie,Colombia,Kolumbien,Colombia
+COUNTRY_COM,Comoros,Comores,Comoras,Komoren,Comore
+COUNTRY_CPV,Cape Verde,Cap-Vert,Cabo Verde,Kap Verde,Capo Verde
+COUNTRY_CRI,Costa Rica,Costa Rica,Costa Rica,Costa Rica,Costa Rica
+COUNTRY_CSI,Coral Sea Islands,Îles de la mer de Corail,islas del mar del Coral,Korallenmeerinseln,Isole del Mar dei Coralli
+COUNTRY_CUB,Cuba,Cuba,Cuba,Kuba,Cuba
+COUNTRY_CUW,Curaçao,Curaçao,Curazao,Curaçao,Curaçao
+COUNTRY_CYM,Cayman Islands,îles Caïmans,Islas Caimán,Cayman Islands,Isole Cayman
+COUNTRY_CYN,Turkish Republic of Northern Cyprus,Chypre du Nord,República Turca del Norte de Chipre,Türkische Republik Nordzypern,Cipro del Nord
+COUNTRY_CYP,Cyprus,Chypre,Chipre,Republik Zypern,Cipro
+COUNTRY_CZE,Czech Republic,Tchéquie,República Checa,Tschechien,Repubblica Ceca
+COUNTRY_DEU,Germany,Allemagne,Alemania,Deutschland,Germania
+COUNTRY_DJI,Djibouti,Djibouti,Yibuti,Dschibuti,Gibuti
+COUNTRY_DMA,Dominica,Dominique,Dominica,Dominica,Dominica
+COUNTRY_DNK,Denmark,Danemark,Dinamarca,Dänemark,Danimarca
+COUNTRY_DOM,Dominican Republic,République dominicaine,República Dominicana,Dominikanische Republik,Repubblica Dominicana
+COUNTRY_DZA,Algeria,Algérie,Argelia,Algerien,Algeria
+COUNTRY_ECU,Ecuador,Équateur,Ecuador,Ecuador,Ecuador
+COUNTRY_EGY,Egypt,Égypte,Egipto,Ägypten,Egitto
+COUNTRY_ERI,Eritrea,Érythrée,Eritrea,Eritrea,Eritrea
+COUNTRY_ESB,Dhekelia Cantonment,Dhekelia,Dekelia,Dekelia,Base di Dhekelia
+COUNTRY_ESP,Spain,Espagne,España,Spanien,Spagna
+COUNTRY_EST,Estonia,Estonie,Estonia,Estland,Estonia
+COUNTRY_ETH,Ethiopia,Éthiopie,Etiopía,Äthiopien,Etiopia
+COUNTRY_FIN,Finland,Finlande,Finlandia,Finnland,Finlandia
+COUNTRY_FJI,Fiji,Fidji,Fiyi,Fidschi,Figi
+COUNTRY_FLK,Falkland Islands,îles Malouines,Islas Malvinas,Falklandinseln,Isole Falkland
+COUNTRY_FRA,France,France,Francia,Frankreich,Francia
+COUNTRY_FRO,Faroe Islands,îles Féroé,Islas Feroe,Färöer,Fær Øer
+COUNTRY_FSM,Federated States of Micronesia,États fédérés de Micronésie,Estados Federados de Micronesia,Föderierte Staaten von Mikronesien,Stati Federati di Micronesia
+COUNTRY_GAB,Gabon,Gabon,Gabón,Gabun,Gabon
+COUNTRY_GBR,United Kingdom,Royaume-Uni,Reino Unido,Vereinigtes Königreich,Regno Unito
+COUNTRY_GEO,Georgia,Géorgie,Georgia,Georgien,Georgia
+COUNTRY_GGY,Guernsey,Guernesey,Guernsey,Guernsey,Guernsey
+COUNTRY_GHA,Ghana,Ghana,Ghana,Ghana,Ghana
+COUNTRY_GIB,Gibraltar,Gibraltar,Gibraltar,Gibraltar,Gibilterra
+COUNTRY_GIN,Guinea,Guinée,Guinea,Guinea,Guinea
+COUNTRY_GMB,The Gambia,Gambie,Gambia,Gambia,Gambia
+COUNTRY_GNB,Guinea-Bissau,Guinée-Bissau,Guinea-Bisáu,Guinea-Bissau,Guinea-Bissau
+COUNTRY_GNQ,Equatorial Guinea,Guinée équatoriale,Guinea Ecuatorial,Äquatorialguinea,Guinea Equatoriale
+COUNTRY_GRC,Greece,Grèce,Grecia,Griechenland,Grecia
+COUNTRY_GRD,Grenada,Grenade,Granada,Grenada,Grenada
+COUNTRY_GRL,Greenland,Groenland,Groenlandia,Grönland,Groenlandia
+COUNTRY_GTM,Guatemala,Guatemala,Guatemala,Guatemala,Guatemala
+COUNTRY_GUM,Guam,Guam,Guam,Guam,Guam
+COUNTRY_GUY,Guyana,Guyana,Guyana,Guyana,Guyana
+COUNTRY_HKG,Hong Kong,Hong Kong,Hong Kong,Hongkong,Hong Kong
+COUNTRY_HMD,Heard Island and McDonald Islands,îles Heard-et-MacDonald,Islas Heard y McDonald,Heard und McDonaldinseln,Isole Heard e McDonald
+COUNTRY_HND,Honduras,Honduras,Honduras,Honduras,Honduras
+COUNTRY_HRV,Croatia,Croatie,Croacia,Kroatien,Croazia
+COUNTRY_HTI,Haiti,Haïti,Haití,Haiti,Haiti
+COUNTRY_HUN,Hungary,Hongrie,Hungría,Ungarn,Ungheria
+COUNTRY_IDN,Indonesia,Indonésie,Indonesia,Indonesien,Indonesia
+COUNTRY_IMN,Isle of Man,île de Man,Isla de Man,Isle of Man,Isola di Man
+COUNTRY_IND,India,Inde,India,Indien,India
+COUNTRY_IOA,Australian Indian Ocean Territories,Territoires extérieurs australiens de l'Océan Indien,Territorios Australianos del Océano Índico,Australische Territorien im Indischen Ozean,Australian Indian Ocean Territories
+COUNTRY_IOT,British Indian Ocean Territory,Territoire britannique de l’océan Indien,Territorio Británico del Océano Índico,Britisches Territorium im Indischen Ozean,Territorio britannico dell'oceano Indiano
+COUNTRY_IRL,Ireland,Irlande,Irlanda,Irland,Irlanda
+COUNTRY_IRN,Iran,Iran,Irán,Iran,Iran
+COUNTRY_IRQ,Iraq,Irak,Irak,Irak,Iraq
+COUNTRY_ISL,Iceland,Islande,Islandia,Island,Islanda
+COUNTRY_ISR,Israel,Israël,Israel,Israel,Israele
+COUNTRY_ITA,Italy,Italie,Italia,Italien,Italia
+COUNTRY_JAM,Jamaica,Jamaïque,Jamaica,Jamaika,Giamaica
+COUNTRY_JEY,Jersey,Jersey,Jersey,Jersey,baliato di Jersey
+COUNTRY_JOR,Jordan,Jordanie,Jordania,Jordanien,Giordania
+COUNTRY_JPN,Japan,Japon,Japón,Japan,Giappone
+COUNTRY_KAB,Baikonur,Baïkonour,Baikonur,Baikonur,Bayqoñyr
+COUNTRY_KAS,Siachen Glacier,glacier de Siachen,Glaciar de Siachen,Siachen-Gletscher,ghiacciaio Siachen
+COUNTRY_KAZ,Kazakhstan,Kazakhstan,Kazajistán,Kasachstan,Kazakistan
+COUNTRY_KEN,Kenya,Kenya,Kenia,Kenia,Kenya
+COUNTRY_KGZ,Kyrgyzstan,Kirghizistan,Kirguistán,Kirgisistan,Kirghizistan
+COUNTRY_KHM,Cambodia,Cambodge,Camboya,Kambodscha,Cambogia
+COUNTRY_KIR,Kiribati,Kiribati,Kiribati,Kiribati,Kiribati
+COUNTRY_KNA,Saint Kitts and Nevis,Saint-Christophe-et-Niévès,San Cristóbal y Nieves,St. Kitts und Nevis,Saint Kitts e Nevis
+COUNTRY_KOR,South Korea,Corée du Sud,Corea del Sur,Südkorea,Corea del Sud
+COUNTRY_KOS,Kosovo,Kosovo,Kosovo,Kosovo,Kosovo
+COUNTRY_KWT,Kuwait,Koweït,Kuwait,Kuwait,Kuwait
+COUNTRY_LAO,Laos,Laos,Laos,Laos,Laos
+COUNTRY_LBN,Lebanon,Liban,Líbano,Libanon,Libano
+COUNTRY_LBR,Liberia,Liberia,Liberia,Liberia,Liberia
+COUNTRY_LBY,Libya,Libye,Libia,Libyen,Libia
+COUNTRY_LCA,Saint Lucia,Sainte-Lucie,Santa Lucía,St. Lucia,Saint Lucia
+COUNTRY_LIE,Liechtenstein,Liechtenstein,Liechtenstein,Liechtenstein,Liechtenstein
+COUNTRY_LKA,Sri Lanka,Sri Lanka,Sri Lanka,Sri Lanka,Sri Lanka
+COUNTRY_LSO,Lesotho,Lesotho,Lesoto,Lesotho,Lesotho
+COUNTRY_LTU,Lithuania,Lituanie,Lituania,Litauen,Lituania
+COUNTRY_LUX,Luxembourg,Luxembourg,Luxemburgo,Luxemburg,Lussemburgo
+COUNTRY_LVA,Latvia,Lettonie,Letonia,Lettland,Lettonia
+COUNTRY_MAC,Macau,Macao,Macao,Macau,Macao
+COUNTRY_MAF,Saint Martin,Saint-Martin,San Martín,Saint-Martin,Saint-Martin
+COUNTRY_MAR,Morocco,Maroc,Marruecos,Marokko,Marocco
+COUNTRY_MCO,Monaco,Monaco,Mónaco,Monaco,Principato di Monaco
+COUNTRY_MDA,Moldova,Moldavie,Moldavia,Republik Moldau,Moldavia
+COUNTRY_MDG,Madagascar,Madagascar,Madagascar,Madagaskar,Madagascar
+COUNTRY_MDV,Maldives,Maldives,Maldivas,Malediven,Maldive
+COUNTRY_MEX,Mexico,Mexique,México,Mexiko,Messico
+COUNTRY_MHL,Marshall Islands,Îles Marshall,Islas Marshall,Marshallinseln,Isole Marshall
+COUNTRY_MKD,North Macedonia,Macédoine du Nord,Macedonia del Norte,Nordmazedonien,Macedonia del Nord
+COUNTRY_MLI,Mali,Mali,Malí,Mali,Mali
+COUNTRY_MLT,Malta,Malte,Malta,Malta,Malta
+COUNTRY_MMR,Myanmar,Birmanie,Birmania,Myanmar,Birmania
+COUNTRY_MNE,Montenegro,Monténégro,Montenegro,Montenegro,Montenegro
+COUNTRY_MNG,Mongolia,Mongolie,Mongolia,Mongolei,Mongolia
+COUNTRY_MNP,Northern Mariana Islands,îles Mariannes du Nord,Islas Marianas del Norte,Nördliche Marianen,Isole Marianne Settentrionali
+COUNTRY_MOZ,Mozambique,Mozambique,Mozambique,Mosambik,Mozambico
+COUNTRY_MRT,Mauritania,Mauritanie,Mauritania,Mauretanien,Mauritania
+COUNTRY_MSR,Montserrat,Montserrat,Montserrat,Montserrat,Montserrat
+COUNTRY_MUS,Mauritius,Maurice,Mauricio,Mauritius,Mauritius
+COUNTRY_MWI,Malawi,Malawi,Malaui,Malawi,Malawi
+COUNTRY_MYS,Malaysia,Malaisie,Malasia,Malaysia,Malaysia
+COUNTRY_NAM,Namibia,Namibie,Namibia,Namibia,Namibia
+COUNTRY_NCL,New Caledonia,Nouvelle-Calédonie,Nueva Caledonia,Neukaledonien,Nuova Caledonia
+COUNTRY_NER,Niger,Niger,Níger,Niger,Niger
+COUNTRY_NFK,Norfolk Island,Île Norfolk,Isla Norfolk,Norfolkinsel,Isola Norfolk
+COUNTRY_NGA,Nigeria,Nigeria,Nigeria,Nigeria,Nigeria
+COUNTRY_NIC,Nicaragua,Nicaragua,Nicaragua,Nicaragua,Nicaragua
+COUNTRY_NIU,Niue,Niue,Niue,Niue,Niue
+COUNTRY_NLD,Netherlands,Pays-Bas,Países Bajos,Niederlande,Paesi Bassi
+COUNTRY_NOR,Norway,Norvège,Noruega,Norwegen,Norvegia
+COUNTRY_NPL,Nepal,Népal,Nepal,Nepal,Nepal
+COUNTRY_NRU,Nauru,Nauru,Nauru,Nauru,Nauru
+COUNTRY_NZL,New Zealand,Nouvelle-Zélande,Nueva Zelanda,Neuseeland,Nuova Zelanda
+COUNTRY_OMN,Oman,Oman,Omán,Oman,Oman
+COUNTRY_PAK,Pakistan,Pakistan,Pakistán,Pakistan,Pakistan
+COUNTRY_PAN,Panama,Panama,Panamá,Panama,Panama
+COUNTRY_PCN,Pitcairn Islands,Iles Pitcairn,Islas Pitcairn,Pitcairninseln,Isole Pitcairn
+COUNTRY_PER,Peru,Pérou,Perú,Peru,Perù
+COUNTRY_PGA,Wake Island,Wake,Isla Wake,Wake,isola di Wake
+COUNTRY_PHL,Philippines,Philippines,Filipinas,Philippinen,Filippine
+COUNTRY_PLW,Palau,Palaos,Palaos,Palau,Palau
+COUNTRY_PNG,Papua New Guinea,Papouasie-Nouvelle-Guinée,Papúa Nueva Guinea,Papua-Neuguinea,Papua Nuova Guinea
+COUNTRY_POL,Poland,Pologne,Polonia,Polen,Polonia
+COUNTRY_PRI,Puerto Rico,Porto Rico,Puerto Rico,Puerto Rico,Porto Rico
+COUNTRY_PRK,North Korea,Corée du Nord,Corea del Norte,Nordkorea,Corea del Nord
+COUNTRY_PRT,Portugal,Portugal,Portugal,Portugal,Portogallo
+COUNTRY_PRY,Paraguay,Paraguay,Paraguay,Paraguay,Paraguay
+COUNTRY_PSX,Palestine,Palestine,Palestina,Palästina,Palestina
+COUNTRY_PYF,French Polynesia,Polynésie française,Polinesia Francesa,Französisch-Polynesien,Polinesia francese
+COUNTRY_QAT,Qatar,Qatar,Catar,Katar,Qatar
+COUNTRY_ROU,Romania,Roumanie,Rumania,Rumänien,Romania
+COUNTRY_RUS,Russia,Russie,Rusia,Russland,Russia
+COUNTRY_RWA,Rwanda,Rwanda,Ruanda,Ruanda,Ruanda
+COUNTRY_SAH,Western Sahara,Sahara occidental,Sahara Occidental,Westsahara,Sahara Occidentale
+COUNTRY_SAU,Saudi Arabia,Arabie saoudite,Arabia Saudita,Saudi-Arabien,Arabia Saudita
+COUNTRY_SCR,Scarborough Shoal,Récif de Scarborough,Bajo de Masinloc,Scarborough-Riff,Scarborough Shoal
+COUNTRY_SDN,Sudan,Soudan,Sudán,Sudan,Sudan
+COUNTRY_SDS,South Sudan,Soudan du Sud,Sudán del Sur,Südsudan,Sudan del Sud
+COUNTRY_SEN,Senegal,Sénégal,Senegal,Senegal,Senegal
+COUNTRY_SER,Serranilla Bank,Banc de Serranilla,Isla Serranilla,Serranilla Bank,isola Serranilla
+COUNTRY_SGP,Singapore,Singapour,Singapur,Singapur,Singapore
+COUNTRY_SGS,South Georgia and the South Sandwich Islands,Géorgie du Sud-et-les Îles Sandwich du Sud,Islas Georgias del Sur y Sandwich del Sur,Südgeorgien und die Südlichen Sandwichinseln,Georgia del Sud e isole Sandwich meridionali
+COUNTRY_SHN,Saint Helena,Sainte-Hélène,Isla Santa Elena,St. Helena,Sant'Elena
+COUNTRY_SLB,Solomon Islands,Îles Salomon,Islas Salomón,Salomonen,Isole Salomone
+COUNTRY_SLE,Sierra Leone,Sierra Leone,Sierra Leona,Sierra Leone,Sierra Leone
+COUNTRY_SLV,El Salvador,Salvador,El Salvador,El Salvador,El Salvador
+COUNTRY_SMR,San Marino,Saint-Marin,San Marino,San Marino,San Marino
+COUNTRY_SOL,Somaliland,Somaliland,Somalilandia,Somaliland,Somaliland
+COUNTRY_SOM,Somalia,Somalie,Somalia,Somalia,Somalia
+COUNTRY_SPI,Southern Patagonian Ice Field,champ de glace Sud de Patagonie,Campo de hielo Patagónico Sur,Südpatagonisches Eisfeld,campo di ghiaccio Patagonico Sud
+COUNTRY_SPM,Saint Pierre and Miquelon,Saint-Pierre-et-Miquelon,San Pedro y Miquelón,Saint-Pierre und Miquelon,Saint-Pierre e Miquelon
+COUNTRY_SRB,Serbia,Serbie,Serbia,Serbien,Serbia
+COUNTRY_STP,São Tomé and Príncipe,Sao Tomé-et-Principe,Santo Tomé y Príncipe,São Tomé und Príncipe,São Tomé e Príncipe
+COUNTRY_SUR,Suriname,Suriname,Surinam,Suriname,Suriname
+COUNTRY_SVK,Slovakia,Slovaquie,Eslovaquia,Slowakei,Slovacchia
+COUNTRY_SVN,Slovenia,Slovénie,Eslovenia,Slowenien,Slovenia
+COUNTRY_SWE,Sweden,Suède,Suecia,Schweden,Svezia
+COUNTRY_SWZ,Eswatini,Eswatini,Suazilandia,Eswatini,eSwatini
+COUNTRY_SXM,Sint Maarten,Saint-Martin,San Martín,Sint Maarten,Sint Maarten
+COUNTRY_SYC,Seychelles,Seychelles,Seychelles,Seychellen,Seychelles
+COUNTRY_SYR,Syria,Syrie,Siria,Syrien,Siria
+COUNTRY_TCA,Turks and Caicos Islands,îles Turques-et-Caïques,Islas Turcas y Caicos,Turks- und Caicosinseln,Turks e Caicos
+COUNTRY_TCD,Chad,Tchad,Chad,Tschad,Ciad
+COUNTRY_TGO,Togo,Togo,Togo,Togo,Togo
+COUNTRY_THA,Thailand,Thaïlande,Tailandia,Thailand,Thailandia
+COUNTRY_TJK,Tajikistan,Tadjikistan,Tayikistán,Tadschikistan,Tagikistan
+COUNTRY_TKM,Turkmenistan,Turkménistan,Turkmenistán,Turkmenistan,Turkmenistan
+COUNTRY_TLS,East Timor,Timor oriental,Timor Oriental,Osttimor,Timor Est
+COUNTRY_TON,Tonga,Tonga,Tonga,Tonga,Tonga
+COUNTRY_TTO,Trinidad and Tobago,Trinité-et-Tobago,Trinidad y Tobago,Trinidad und Tobago,Trinidad e Tobago
+COUNTRY_TUN,Tunisia,Tunisie,Túnez,Tunesien,Tunisia
+COUNTRY_TUR,Turkey,Turquie,Turquía,Türkei,Turchia
+COUNTRY_TUV,Tuvalu,Tuvalu,Tuvalu,Tuvalu,Tuvalu
+COUNTRY_TWN,Taiwan,Taïwan,República de China,Republik China,Taiwan
+COUNTRY_TZA,Tanzania,Tanzanie,Tanzania,Tansania,Tanzania
+COUNTRY_UGA,Uganda,Ouganda,Uganda,Uganda,Uganda
+COUNTRY_UKR,Ukraine,Ukraine,Ucrania,Ukraine,Ucraina
+COUNTRY_UMI,United States Minor Outlying Islands,Îles mineures éloignées des États-Unis,Islas ultramarinas de Estados Unidos,United States Minor Outlying Islands,Isole minori esterne degli Stati Uniti d'America
+COUNTRY_URY,Uruguay,Uruguay,Uruguay,Uruguay,Uruguay
+COUNTRY_USA,United States of America,États-Unis,Estados Unidos,Vereinigte Staaten,Stati Uniti d'America
+COUNTRY_USG,Guantanamo Bay Naval Base,base navale de la baie de Guantánamo,Base Naval de la Bahía de Guantánamo,Guantanamo Bay Naval Base,base navale di Guantanamo
+COUNTRY_UZB,Uzbekistan,Ouzbékistan,Uzbekistán,Usbekistan,Uzbekistan
+COUNTRY_VAT,Vatican City,Cité du Vatican,Ciudad del Vaticano,Vatikanstadt,Città del Vaticano
+COUNTRY_VCT,Saint Vincent and the Grenadines,Saint-Vincent-et-les-Grenadines,San Vicente y las Granadinas,St. Vincent und die Grenadinen,Saint Vincent e Grenadine
+COUNTRY_VEN,Venezuela,Venezuela,Venezuela,Venezuela,Venezuela
+COUNTRY_VGB,British Virgin Islands,îles Vierges britanniques,Islas Vírgenes Británicas,Britische Jungferninseln,Isole Vergini britanniche
+COUNTRY_VIR,United States Virgin Islands,îles Vierges des États-Unis,Islas Vírgenes de los Estados Unidos,Amerikanische Jungferninseln,Isole Vergini americane
+COUNTRY_VNM,Vietnam,Viêt Nam,Vietnam,Vietnam,Vietnam
+COUNTRY_VUT,Vanuatu,Vanuatu,Vanuatu,Vanuatu,Vanuatu
+COUNTRY_WLF,Wallis and Futuna,Wallis-et-Futuna,Wallis y Futuna,Wallis und Futuna,Wallis e Futuna
+COUNTRY_WSB,Akrotiri Sovereign Base Area,Akrotiri,Akrotiri,Akrotiri,Akrotiri
+COUNTRY_WSM,Samoa,Samoa,Samoa,Samoa,Samoa
+COUNTRY_YEM,Yemen,Yémen,Yemen,Jemen,Yemen
+COUNTRY_ZAF,South Africa,Afrique du Sud,Sudáfrica,Südafrika,Sudafrica
+COUNTRY_ZMB,Zambia,Zambie,Zambia,Sambia,Zambia
+COUNTRY_ZWE,Zimbabwe,Zimbabwe,Zimbabue,Simbabwe,Zimbabwe
+SOVEREIGN_AFG,Afghanistan,Afghanistan,Afganistán,Afghanistan,Afghanistan
+SOVEREIGN_AGO,Angola,Angola,Angola,Angola,Angola
+SOVEREIGN_ALB,Albania,Albanie,Albania,Albanien,Albania
+SOVEREIGN_AND,Andorra,Andorre,Andorra,Andorra,Andorra
+SOVEREIGN_ARE,United Arab Emirates,Émirats arabes unis,Emiratos Árabes Unidos,Vereinigte Arabische Emirate,Emirati Arabi Uniti
+SOVEREIGN_ARG,Argentina,Argentine,Argentina,Argentinien,Argentina
+SOVEREIGN_ARM,Armenia,Arménie,Armenia,Armenien,Armenia
+SOVEREIGN_ATA,Antarctica,Antarctique,Antártida,Antarktika,Antartide
+SOVEREIGN_ATG,Antigua and Barbuda,Antigua-et-Barbuda,Antigua y Barbuda,Antigua und Barbuda,Antigua e Barbuda
+SOVEREIGN_AU1,Australia,Australie,Australia,Australien,Australia
+SOVEREIGN_AUT,Austria,Autriche,Austria,Österreich,Austria
+SOVEREIGN_AZE,Azerbaijan,Azerbaïdjan,Azerbaiyán,Aserbaidschan,Azerbaigian
+SOVEREIGN_BDI,Burundi,Burundi,Burundi,Burundi,Burundi
+SOVEREIGN_BEL,Belgium,Belgique,Bélgica,Belgien,Belgio
+SOVEREIGN_BEN,Benin,Bénin,Benín,Benin,Benin
+SOVEREIGN_BFA,Burkina Faso,Burkina Faso,Burkina Faso,Burkina Faso,Burkina Faso
+SOVEREIGN_BGD,Bangladesh,Bangladesh,Bangladés,Bangladesch,Bangladesh
+SOVEREIGN_BGR,Bulgaria,Bulgarie,Bulgaria,Bulgarien,Bulgaria
+SOVEREIGN_BHR,Bahrain,Bahreïn,Baréin,Bahrain,Bahrein
+SOVEREIGN_BHS,The Bahamas,Bahamas,Bahamas,Bahamas,Bahamas
+SOVEREIGN_BIH,Bosnia and Herzegovina,Bosnie-Herzégovine,Bosnia y Herzegovina,Bosnien und Herzegowina,Bosnia ed Erzegovina
+SOVEREIGN_BJN,Bajo Nuevo Bank,Banc de Bajo Nuevo,Bajo Nuevo,Bajo-Nuevo-Bank,Bajo Nuevo Bank
+SOVEREIGN_BLR,Belarus,Biélorussie,Bielorrusia,Belarus,Bielorussia
+SOVEREIGN_BLZ,Belize,Belize,Belice,Belize,Belize
+SOVEREIGN_BOL,Bolivia,Bolivie,Bolivia,Bolivien,Bolivia
+SOVEREIGN_BRA,Brazil,Brésil,Brasil,Brasilien,Brasile
+SOVEREIGN_BRB,Barbados,Barbade,Barbados,Barbados,Barbados
+SOVEREIGN_BRI,Brazilian Island,Ilha Brasileira,Isla Brasilera,Isla Brasilera,Isola brasiliana
+SOVEREIGN_BRN,Brunei,Brunei,Brunéi,Brunei,Brunei
+SOVEREIGN_BRT,Bir Tawil,Bir Tawil,Bir Tawil,Bir Tawil,Bir Tawil
+SOVEREIGN_BTN,Bhutan,Bhoutan,Bután,Bhutan,Bhutan
+SOVEREIGN_BWA,Botswana,Botswana,Botsuana,Botswana,Botswana
+SOVEREIGN_CAF,Central African Republic,République centrafricaine,República Centroafricana,Zentralafrikanische Republik,Repubblica Centrafricana
+SOVEREIGN_CAN,Canada,Canada,Canadá,Kanada,Canada
+SOVEREIGN_CH1,People's Republic of China,République populaire de Chine,China,Volksrepublik China,Cina
+SOVEREIGN_CHE,Switzerland,Suisse,Suiza,Schweiz,Svizzera
+SOVEREIGN_CHL,Chile,Chili,Chile,Chile,Cile
+SOVEREIGN_CIV,Ivory Coast,Côte d'Ivoire,Costa de Marfil,Elfenbeinküste,Costa d'Avorio
+SOVEREIGN_CMR,Cameroon,Cameroun,Camerún,Kamerun,Camerun
+SOVEREIGN_CNM,United Nations Buffer Zone in Cyprus,Zone tampon des Nations unies à Chypre,Línea Verde,UN-Pufferzone in Zypern,Linea Verde
+SOVEREIGN_COD,Democratic Republic of the Congo,République démocratique du Congo,República Democrática del Congo,Demokratische Republik Kongo,Repubblica Democratica del Congo
+SOVEREIGN_COG,Republic of the Congo,République du Congo,República del Congo,Republik Kongo,Repubblica del Congo
+SOVEREIGN_COL,Colombia,Colombie,Colombia,Kolumbien,Colombia
+SOVEREIGN_COM,Comoros,Comores,Comoras,Komoren,Comore
+SOVEREIGN_CPV,Cape Verde,Cap-Vert,Cabo Verde,Kap Verde,Capo Verde
+SOVEREIGN_CRI,Costa Rica,Costa Rica,Costa Rica,Costa Rica,Costa Rica
+SOVEREIGN_CU1,Cuba,Cuba,Cuba,Kuba,Cuba
+SOVEREIGN_CYN,Turkish Republic of Northern Cyprus,Chypre du Nord,República Turca del Norte de Chipre,Türkische Republik Nordzypern,Cipro del Nord
+SOVEREIGN_CYP,Cyprus,Chypre,Chipre,Republik Zypern,Cipro
+SOVEREIGN_CZE,Czech Republic,Tchéquie,República Checa,Tschechien,Repubblica Ceca
+SOVEREIGN_DEU,Germany,Allemagne,Alemania,Deutschland,Germania
+SOVEREIGN_DJI,Djibouti,Djibouti,Yibuti,Dschibuti,Gibuti
+SOVEREIGN_DMA,Dominica,Dominique,Dominica,Dominica,Dominica
+SOVEREIGN_DN1,Denmark,Danemark,Dinamarca,Dänemark,Danimarca
+SOVEREIGN_DOM,Dominican Republic,République dominicaine,República Dominicana,Dominikanische Republik,Repubblica Dominicana
+SOVEREIGN_DZA,Algeria,Algérie,Argelia,Algerien,Algeria
+SOVEREIGN_ECU,Ecuador,Équateur,Ecuador,Ecuador,Ecuador
+SOVEREIGN_EGY,Egypt,Égypte,Egipto,Ägypten,Egitto
+SOVEREIGN_ERI,Eritrea,Érythrée,Eritrea,Eritrea,Eritrea
+SOVEREIGN_ESP,Spain,Espagne,España,Spanien,Spagna
+SOVEREIGN_EST,Estonia,Estonie,Estonia,Estland,Estonia
+SOVEREIGN_ETH,Ethiopia,Éthiopie,Etiopía,Äthiopien,Etiopia
+SOVEREIGN_FI1,Finland,Finlande,Finlandia,Finnland,Finlandia
+SOVEREIGN_FJI,Fiji,Fidji,Fiyi,Fidschi,Figi
+SOVEREIGN_FR1,France,France,Francia,Frankreich,Francia
+SOVEREIGN_FSM,Federated States of Micronesia,États fédérés de Micronésie,Estados Federados de Micronesia,Föderierte Staaten von Mikronesien,Stati Federati di Micronesia
+SOVEREIGN_GAB,Gabon,Gabon,Gabón,Gabun,Gabon
+SOVEREIGN_GB1,United Kingdom,Royaume-Uni,Reino Unido,Vereinigtes Königreich,Regno Unito
+SOVEREIGN_GEO,Georgia,Géorgie,Georgia,Georgien,Georgia
+SOVEREIGN_GHA,Ghana,Ghana,Ghana,Ghana,Ghana
+SOVEREIGN_GIN,Guinea,Guinée,Guinea,Guinea,Guinea
+SOVEREIGN_GMB,The Gambia,Gambie,Gambia,Gambia,Gambia
+SOVEREIGN_GNB,Guinea-Bissau,Guinée-Bissau,Guinea-Bisáu,Guinea-Bissau,Guinea-Bissau
+SOVEREIGN_GNQ,Equatorial Guinea,Guinée équatoriale,Guinea Ecuatorial,Äquatorialguinea,Guinea Equatoriale
+SOVEREIGN_GRC,Greece,Grèce,Grecia,Griechenland,Grecia
+SOVEREIGN_GRD,Grenada,Grenade,Granada,Grenada,Grenada
+SOVEREIGN_GTM,Guatemala,Guatemala,Guatemala,Guatemala,Guatemala
+SOVEREIGN_GUY,Guyana,Guyana,Guyana,Guyana,Guyana
+SOVEREIGN_HND,Honduras,Honduras,Honduras,Honduras,Honduras
+SOVEREIGN_HRV,Croatia,Croatie,Croacia,Kroatien,Croazia
+SOVEREIGN_HTI,Haiti,Haïti,Haití,Haiti,Haiti
+SOVEREIGN_HUN,Hungary,Hongrie,Hungría,Ungarn,Ungheria
+SOVEREIGN_IDN,Indonesia,Indonésie,Indonesia,Indonesien,Indonesia
+SOVEREIGN_IND,India,Inde,India,Indien,India
+SOVEREIGN_IRL,Ireland,Irlande,Irlanda,Irland,Irlanda
+SOVEREIGN_IRN,Iran,Iran,Irán,Iran,Iran
+SOVEREIGN_IRQ,Iraq,Irak,Irak,Irak,Iraq
+SOVEREIGN_IS1,Israel,Israël,Israel,Israel,Israele
+SOVEREIGN_ISL,Iceland,Islande,Islandia,Island,Islanda
+SOVEREIGN_ITA,Italy,Italie,Italia,Italien,Italia
+SOVEREIGN_JAM,Jamaica,Jamaïque,Jamaica,Jamaika,Giamaica
+SOVEREIGN_JOR,Jordan,Jordanie,Jordania,Jordanien,Giordania
+SOVEREIGN_JPN,Japan,Japon,Japón,Japan,Giappone
+SOVEREIGN_KA1,Kazakhstan,Kazakhstan,Kazajistán,Kasachstan,Kazakistan
+SOVEREIGN_KAS,Kashmir,Kashmir,Kashmir,Kashmir,Kashmir
+SOVEREIGN_KEN,Kenya,Kenya,Kenia,Kenia,Kenya
+SOVEREIGN_KGZ,Kyrgyzstan,Kirghizistan,Kirguistán,Kirgisistan,Kirghizistan
+SOVEREIGN_KHM,Cambodia,Cambodge,Camboya,Kambodscha,Cambogia
+SOVEREIGN_KIR,Kiribati,Kiribati,Kiribati,Kiribati,Kiribati
+SOVEREIGN_KNA,Saint Kitts and Nevis,Saint-Christophe-et-Niévès,San Cristóbal y Nieves,St. Kitts und Nevis,Saint Kitts e Nevis
+SOVEREIGN_KOR,South Korea,Corée du Sud,Corea del Sur,Südkorea,Corea del Sud
+SOVEREIGN_KOS,Kosovo,Kosovo,Kosovo,Kosovo,Kosovo
+SOVEREIGN_KWT,Kuwait,Koweït,Kuwait,Kuwait,Kuwait
+SOVEREIGN_LAO,Laos,Laos,Laos,Laos,Laos
+SOVEREIGN_LBN,Lebanon,Liban,Líbano,Libanon,Libano
+SOVEREIGN_LBR,Liberia,Liberia,Liberia,Liberia,Liberia
+SOVEREIGN_LBY,Libya,Libye,Libia,Libyen,Libia
+SOVEREIGN_LCA,Saint Lucia,Sainte-Lucie,Santa Lucía,St. Lucia,Saint Lucia
+SOVEREIGN_LIE,Liechtenstein,Liechtenstein,Liechtenstein,Liechtenstein,Liechtenstein
+SOVEREIGN_LKA,Sri Lanka,Sri Lanka,Sri Lanka,Sri Lanka,Sri Lanka
+SOVEREIGN_LSO,Lesotho,Lesotho,Lesoto,Lesotho,Lesotho
+SOVEREIGN_LTU,Lithuania,Lituanie,Lituania,Litauen,Lituania
+SOVEREIGN_LUX,Luxembourg,Luxembourg,Luxemburgo,Luxemburg,Lussemburgo
+SOVEREIGN_LVA,Latvia,Lettonie,Letonia,Lettland,Lettonia
+SOVEREIGN_MAR,Morocco,Maroc,Marruecos,Marokko,Marocco
+SOVEREIGN_MCO,Monaco,Monaco,Mónaco,Monaco,Principato di Monaco
+SOVEREIGN_MDA,Moldova,Moldavie,Moldavia,Republik Moldau,Moldavia
+SOVEREIGN_MDG,Madagascar,Madagascar,Madagascar,Madagaskar,Madagascar
+SOVEREIGN_MDV,Maldives,Maldives,Maldivas,Malediven,Maldive
+SOVEREIGN_MEX,Mexico,Mexique,México,Mexiko,Messico
+SOVEREIGN_MHL,Marshall Islands,Îles Marshall,Islas Marshall,Marshallinseln,Isole Marshall
+SOVEREIGN_MKD,North Macedonia,Macédoine du Nord,Macedonia del Norte,Nordmazedonien,Macedonia del Nord
+SOVEREIGN_MLI,Mali,Mali,Malí,Mali,Mali
+SOVEREIGN_MLT,Malta,Malte,Malta,Malta,Malta
+SOVEREIGN_MMR,Myanmar,Birmanie,Birmania,Myanmar,Birmania
+SOVEREIGN_MNE,Montenegro,Monténégro,Montenegro,Montenegro,Montenegro
+SOVEREIGN_MNG,Mongolia,Mongolie,Mongolia,Mongolei,Mongolia
+SOVEREIGN_MOZ,Mozambique,Mozambique,Mozambique,Mosambik,Mozambico
+SOVEREIGN_MRT,Mauritania,Mauritanie,Mauritania,Mauretanien,Mauritania
+SOVEREIGN_MUS,Mauritius,Maurice,Mauricio,Mauritius,Mauritius
+SOVEREIGN_MWI,Malawi,Malawi,Malaui,Malawi,Malawi
+SOVEREIGN_MYS,Malaysia,Malaisie,Malasia,Malaysia,Malaysia
+SOVEREIGN_NAM,Namibia,Namibie,Namibia,Namibia,Namibia
+SOVEREIGN_NER,Niger,Niger,Níger,Niger,Niger
+SOVEREIGN_NGA,Nigeria,Nigeria,Nigeria,Nigeria,Nigeria
+SOVEREIGN_NIC,Nicaragua,Nicaragua,Nicaragua,Nicaragua,Nicaragua
+SOVEREIGN_NL1,Netherlands,Pays-Bas,Países Bajos,Niederlande,Paesi Bassi
+SOVEREIGN_NOR,Norway,Norvège,Noruega,Norwegen,Norvegia
+SOVEREIGN_NPL,Nepal,Népal,Nepal,Nepal,Nepal
+SOVEREIGN_NRU,Nauru,Nauru,Nauru,Nauru,Nauru
+SOVEREIGN_NZ1,New Zealand,Nouvelle-Zélande,Nueva Zelanda,Neuseeland,Nuova Zelanda
+SOVEREIGN_OMN,Oman,Oman,Omán,Oman,Oman
+SOVEREIGN_PAK,Pakistan,Pakistan,Pakistán,Pakistan,Pakistan
+SOVEREIGN_PAN,Panama,Panama,Panamá,Panama,Panama
+SOVEREIGN_PER,Peru,Pérou,Perú,Peru,Perù
+SOVEREIGN_PGA,Wake Island,Wake,Isla Wake,Wake,isola di Wake
+SOVEREIGN_PHL,Philippines,Philippines,Filipinas,Philippinen,Filippine
+SOVEREIGN_PLW,Palau,Palaos,Palaos,Palau,Palau
+SOVEREIGN_PNG,Papua New Guinea,Papouasie-Nouvelle-Guinée,Papúa Nueva Guinea,Papua-Neuguinea,Papua Nuova Guinea
+SOVEREIGN_POL,Poland,Pologne,Polonia,Polen,Polonia
+SOVEREIGN_PRK,North Korea,Corée du Nord,Corea del Norte,Nordkorea,Corea del Nord
+SOVEREIGN_PRT,Portugal,Portugal,Portugal,Portugal,Portogallo
+SOVEREIGN_PRY,Paraguay,Paraguay,Paraguay,Paraguay,Paraguay
+SOVEREIGN_QAT,Qatar,Qatar,Catar,Katar,Qatar
+SOVEREIGN_ROU,Romania,Roumanie,Rumania,Rumänien,Romania
+SOVEREIGN_RUS,Russia,Russie,Rusia,Russland,Russia
+SOVEREIGN_RWA,Rwanda,Rwanda,Ruanda,Ruanda,Ruanda
+SOVEREIGN_SAH,Western Sahara,Sahara occidental,Sahara Occidental,Westsahara,Sahara Occidentale
+SOVEREIGN_SAU,Saudi Arabia,Arabie saoudite,Arabia Saudita,Saudi-Arabien,Arabia Saudita
+SOVEREIGN_SCR,Scarborough Shoal,Récif de Scarborough,Bajo de Masinloc,Scarborough-Riff,Scarborough Shoal
+SOVEREIGN_SDN,Sudan,Soudan,Sudán,Sudan,Sudan
+SOVEREIGN_SDS,South Sudan,Soudan du Sud,Sudán del Sur,Südsudan,Sudan del Sud
+SOVEREIGN_SEN,Senegal,Sénégal,Senegal,Senegal,Senegal
+SOVEREIGN_SER,Serranilla Bank,Banc de Serranilla,Isla Serranilla,Serranilla Bank,isola Serranilla
+SOVEREIGN_SGP,Singapore,Singapour,Singapur,Singapur,Singapore
+SOVEREIGN_SLB,Solomon Islands,Îles Salomon,Islas Salomón,Salomonen,Isole Salomone
+SOVEREIGN_SLE,Sierra Leone,Sierra Leone,Sierra Leona,Sierra Leone,Sierra Leone
+SOVEREIGN_SLV,El Salvador,Salvador,El Salvador,El Salvador,El Salvador
+SOVEREIGN_SMR,San Marino,Saint-Marin,San Marino,San Marino,San Marino
+SOVEREIGN_SOL,Somaliland,Somaliland,Somalilandia,Somaliland,Somaliland
+SOVEREIGN_SOM,Somalia,Somalie,Somalia,Somalia,Somalia
+SOVEREIGN_SPI,Southern Patagonian Ice Field,champ de glace Sud de Patagonie,Campo de hielo Patagónico Sur,Südpatagonisches Eisfeld,campo di ghiaccio Patagonico Sud
+SOVEREIGN_SRB,Serbia,Serbie,Serbia,Serbien,Serbia
+SOVEREIGN_STP,São Tomé and Príncipe,Sao Tomé-et-Principe,Santo Tomé y Príncipe,São Tomé und Príncipe,São Tomé e Príncipe
+SOVEREIGN_SUR,Suriname,Suriname,Surinam,Suriname,Suriname
+SOVEREIGN_SVK,Slovakia,Slovaquie,Eslovaquia,Slowakei,Slovacchia
+SOVEREIGN_SVN,Slovenia,Slovénie,Eslovenia,Slowenien,Slovenia
+SOVEREIGN_SWE,Sweden,Suède,Suecia,Schweden,Svezia
+SOVEREIGN_SWZ,Eswatini,Eswatini,Suazilandia,Eswatini,eSwatini
+SOVEREIGN_SYC,Seychelles,Seychelles,Seychelles,Seychellen,Seychelles
+SOVEREIGN_SYR,Syria,Syrie,Siria,Syrien,Siria
+SOVEREIGN_TCD,Chad,Tchad,Chad,Tschad,Ciad
+SOVEREIGN_TGO,Togo,Togo,Togo,Togo,Togo
+SOVEREIGN_THA,Thailand,Thaïlande,Tailandia,Thailand,Thailandia
+SOVEREIGN_TJK,Tajikistan,Tadjikistan,Tayikistán,Tadschikistan,Tagikistan
+SOVEREIGN_TKM,Turkmenistan,Turkménistan,Turkmenistán,Turkmenistan,Turkmenistan
+SOVEREIGN_TLS,East Timor,Timor oriental,Timor Oriental,Osttimor,Timor Est
+SOVEREIGN_TON,Tonga,Tonga,Tonga,Tonga,Tonga
+SOVEREIGN_TTO,Trinidad and Tobago,Trinité-et-Tobago,Trinidad y Tobago,Trinidad und Tobago,Trinidad e Tobago
+SOVEREIGN_TUN,Tunisia,Tunisie,Túnez,Tunesien,Tunisia
+SOVEREIGN_TUR,Turkey,Turquie,Turquía,Türkei,Turchia
+SOVEREIGN_TUV,Tuvalu,Tuvalu,Tuvalu,Tuvalu,Tuvalu
+SOVEREIGN_TWN,Taiwan,Taïwan,República de China,Republik China,Taiwan
+SOVEREIGN_TZA,Tanzania,Tanzanie,Tanzania,Tansania,Tanzania
+SOVEREIGN_UGA,Uganda,Ouganda,Uganda,Uganda,Uganda
+SOVEREIGN_UKR,Ukraine,Ukraine,Ucrania,Ukraine,Ucraina
+SOVEREIGN_URY,Uruguay,Uruguay,Uruguay,Uruguay,Uruguay
+SOVEREIGN_US1,United States of America,États-Unis,Estados Unidos,Vereinigte Staaten,Stati Uniti d'America
+SOVEREIGN_UZB,Uzbekistan,Ouzbékistan,Uzbekistán,Usbekistan,Uzbekistan
+SOVEREIGN_VAT,Vatican City,Cité du Vatican,Ciudad del Vaticano,Vatikanstadt,Città del Vaticano
+SOVEREIGN_VCT,Saint Vincent and the Grenadines,Saint-Vincent-et-les-Grenadines,San Vicente y las Granadinas,St. Vincent und die Grenadinen,Saint Vincent e Grenadine
+SOVEREIGN_VEN,Venezuela,Venezuela,Venezuela,Venezuela,Venezuela
+SOVEREIGN_VNM,Vietnam,Viêt Nam,Vietnam,Vietnam,Vietnam
+SOVEREIGN_VUT,Vanuatu,Vanuatu,Vanuatu,Vanuatu,Vanuatu
+SOVEREIGN_WSM,Samoa,Samoa,Samoa,Samoa,Samoa
+SOVEREIGN_YEM,Yemen,Yémen,Yemen,Jemen,Yemen
+SOVEREIGN_ZAF,South Africa,Afrique du Sud,Sudáfrica,Südafrika,Sudafrica
+SOVEREIGN_ZMB,Zambia,Zambie,Zambia,Sambia,Zambia
+SOVEREIGN_ZWE,Zimbabwe,Zimbabwe,Zimbabue,Simbabwe,Zimbabwe

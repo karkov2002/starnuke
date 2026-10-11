@@ -1,3 +1,5 @@
 .godot/
 # Cache du serveur MCP Godot (captures, instantanés d'annulation)
 addons/godot_mcp/cache/
+# Traductions compilées par l'import des CSV de langue (locale/*.csv), régénérées par l'éditeur
+locale/*.translation

@@ -39,6 +39,8 @@ func _ready() -> void:
 	$Panel/Row/Time.custom_minimum_size.x = 380.0
 	for label: Label in [_altitude_label, _inclination_label, _time_label]:
 		label.clip_text = true
+		# Textes composés à chaque image (tr() + format) : pas de traduction automatique.
+		label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_time_buttons_box.add_theme_constant_override("separation", 4)
 
 	_altitude_slider.min_value = OrbitSimulation.MIN_ALTITUDE_KM
@@ -62,7 +64,7 @@ func _ready() -> void:
 	var group := ButtonGroup.new()
 	for factor: float in TIME_SCALES:
 		var button := Button.new()
-		button.text = "Pause" if factor == 0.0 else "x%d" % int(factor)
+		button.text = "HUD_PAUSE" if factor == 0.0 else "x%d" % int(factor)
 		button.toggle_mode = true
 		button.button_group = group
 		button.focus_mode = Control.FOCUS_NONE
@@ -81,13 +83,16 @@ func _process(_delta: float) -> void:
 		_time_buttons[i].set_pressed_no_signal(is_equal_approx(_orbit.time_scale, TIME_SCALES[i]))
 
 	var point: Vector2 = _orbit.get_subsatellite_point()
-	_altitude_label.text = "Altitude : %d km  ·  période %.1f min" % [roundi(_orbit.altitude_km), _orbit.get_period_s() / 60.0]
-	_inclination_label.text = "Inclinaison : %.1f°  ·  %s %s" % [_orbit.inclination_deg,
-			_format_angle(point.x, "N", "S"), _format_angle(point.y, "E", "O")]
+	_altitude_label.text = tr("HUD_ALTITUDE").format({"altitude": roundi(_orbit.altitude_km),
+			"period": "%.1f" % (_orbit.get_period_s() / 60.0)})
+	_inclination_label.text = tr("HUD_INCLINATION").format({"inclination": "%.1f" % _orbit.inclination_deg,
+			"latitude": _format_angle(point.x, "DIR_N", "DIR_S"), "longitude": _format_angle(point.y, "DIR_E", "DIR_W")})
 
 	var now := _orbit.get_utc_datetime()
-	_time_label.text = "%02d/%02d/%d  %02d:%02d:%02d UTC  ·  %s solaire" % [now.day, now.month, now.year,
-			now.hour, now.minute, now.second, _format_hour(_orbit.get_local_solar_hour(point.y))]
+	var date := tr("HUD_DATE").format({"day": "%02d" % now.day, "month": "%02d" % now.month, "year": now.year})
+	_time_label.text = tr("HUD_TIME").format({"date": date,
+			"time": "%02d:%02d:%02d" % [now.hour, now.minute, now.second],
+			"solar": _format_hour(_orbit.get_local_solar_hour(point.y))})
 	if not _date_edit.has_focus():
 		_date_edit.text = "%04d-%02d-%02d" % [now.year, now.month, now.day]
 	if not _dragging_hour:
@@ -102,15 +107,15 @@ func _build_date_row() -> void:
 	$Panel/Row/Time.add_child(row)
 	$Panel/Row/Time.move_child(row, _time_label.get_index() + 1)
 
-	var previous := _make_small_button("−1 j", func() -> void: _shift_time(-DAY_S))
+	var previous := _make_small_button("HUD_DAY_BACK", func() -> void: _shift_time(-DAY_S))
 	_date_edit = LineEdit.new()
 	_date_edit.custom_minimum_size.x = 112.0
 	_date_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_date_edit.max_length = 10
 	_date_edit.focus_mode = Control.FOCUS_CLICK
-	_date_edit.tooltip_text = "Date UTC (AAAA-MM-JJ), valider par Entrée"
+	_date_edit.tooltip_text = "HUD_DATE_TOOLTIP"
 	_date_edit.text_submitted.connect(_on_date_submitted)
-	var next := _make_small_button("+1 j", func() -> void: _shift_time(DAY_S))
+	var next := _make_small_button("HUD_DAY_FORWARD", func() -> void: _shift_time(DAY_S))
 
 	_hour_slider = HSlider.new()
 	_hour_slider.min_value = 0.0
@@ -119,7 +124,7 @@ func _build_date_row() -> void:
 	_hour_slider.focus_mode = Control.FOCUS_NONE
 	_hour_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_hour_slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_hour_slider.tooltip_text = "Heure UTC"
+	_hour_slider.tooltip_text = "HUD_HOUR_TOOLTIP"
 	_hour_slider.value_changed.connect(_on_hour_changed)
 	_hour_slider.drag_started.connect(func() -> void: _dragging_hour = true)
 	_hour_slider.drag_ended.connect(func(_changed: bool) -> void: _dragging_hour = false)
@@ -167,8 +172,9 @@ func _format_hour(hour: float) -> String:
 	return "%02d:%02d" % [minutes / 60, minutes % 60]
 
 
+## « 42.0° N » : positive et negative sont les clés de langue des directions (DIR_N, DIR_S…).
 func _format_angle(value: float, positive: String, negative: String) -> String:
-	return "%.1f° %s" % [absf(value), positive if value >= 0.0 else negative]
+	return "%.1f° %s" % [absf(value), tr(positive if value >= 0.0 else negative)]
 
 
 func _make_panel_style() -> StyleBoxFlat:

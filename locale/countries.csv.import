@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://d042qm3s34wv5"
+
+[deps]
+
+files=["res://locale/countries.en.translation", "res://locale/countries.fr.translation", "res://locale/countries.es.translation", "res://locale/countries.de.translation", "res://locale/countries.it.translation"]
+
+source_file="res://locale/countries.csv"
+dest_files=["res://locale/countries.en.translation", "res://locale/countries.fr.translation", "res://locale/countries.es.translation", "res://locale/countries.de.translation", "res://locale/countries.it.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

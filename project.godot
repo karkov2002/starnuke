@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Star Nuke"
-run/main_scene="res://scenes/orbit_view.tscn"
+run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 MCPRuntime="*uid://d3mawvfkf8rq6"
 NukeClock="*res://nuke/nuke_clock.gd"
+GameSettings="*res://scripts/game_settings.gd"
 
 [display]
 
@@ -30,6 +31,10 @@ window/stretch/aspect="expand"
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")
+
+[internationalization]
+
+locale/translations=["res://locale/strings.en.translation", "res://locale/strings.fr.translation", "res://locale/strings.es.translation", "res://locale/strings.de.translation", "res://locale/strings.it.translation", "res://locale/countries.en.translation", "res://locale/countries.fr.translation", "res://locale/countries.es.translation", "res://locale/countries.de.translation", "res://locale/countries.it.translation"]
 
 [physics]
 

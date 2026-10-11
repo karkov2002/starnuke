@@ -4,8 +4,21 @@ extends RefCounted
 ## NukeGridImpact et NukeFallout. Fonctions pures, utilisables depuis un autre thread.
 
 
-## Nombre arrondi à 3 chiffres significatifs, espaces entre milliers (« 1 230 000 »).
-static func count(value: float) -> String:
+## Séparateurs des nombres selon la langue (code TranslationServer) : {thousands, decimal, percent} (percent : ce qui
+## précède le signe %). Anglais « 1,230,000 » et « 0.05% » ; français « 1 230 000 » et « 0,05 % » ; espagnol,
+## allemand, italien « 1.230.000 » et « 0,05 % ».
+static func number_style(locale: String) -> Dictionary:
+	match locale.substr(0, 2):
+		"en":
+			return {"thousands": ",", "decimal": ".", "percent": ""}
+		"fr":
+			return {"thousands": " ", "decimal": ",", "percent": " "}
+		_:
+			return {"thousands": ".", "decimal": ",", "percent": " "}
+
+
+## Nombre arrondi à 3 chiffres significatifs, séparateur de milliers thousands (« 1 230 000 » par défaut).
+static func count(value: float, thousands := " ") -> String:
 	var n := int(round(value))
 	if n >= 1000:
 		var magnitude := pow(10.0, floor(log(float(n)) / log(10.0)) - 2.0)
@@ -14,19 +27,23 @@ static func count(value: float) -> String:
 	var out := ""
 	for i in digits.length():
 		if i > 0 and (digits.length() - i) % 3 == 0:
-			out += " "
+			out += thousands
 		out += digits[i]
 	return out
 
 
-## Part de la population d'un pays : « 0 % », « < 0,01 % », « 1,23 % » ; « — » sans population connue.
-static func share(killed: float, population: float) -> String:
+## Part de la population d'un pays : « 0 % », « < 0,01 % », « 1,23 % » ; « — » sans population connue. style :
+## séparateurs (number_style), français par défaut.
+static func share(killed: float, population: float, style := {"decimal": ",", "percent": " "}) -> String:
 	if population <= 0.0:
 		return "—"
+	var percent_sign: String = style.percent + "%"
 	if killed < 0.5:
-		return "0 %"
+		return "0" + percent_sign
 	var percent := 100.0 * killed / population
-	return "< 0,01 %" if percent < 0.01 else ("%.2f %%" % percent).replace(".", ",")
+	if percent < 0.01:
+		return "< 0" + style.decimal + "01" + percent_sign
+	return ("%.2f" % percent).replace(".", style.decimal) + percent_sign
 
 
 ## Nom affiché d'un pays (fiche CountryMask ou entrée de bilan) : suivi de son État souverain s'il en dépend.

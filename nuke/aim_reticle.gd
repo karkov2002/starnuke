@@ -23,12 +23,14 @@ func _draw() -> void:
 	for d: Vector2 in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
 		draw_line(c + d * GAP, c + d * (GAP + ARM), color, 1.5, true)
 	if not aim.is_empty():
-		var text := "%s  %s" % [_format_angle(aim.latitude, "N", "S"), _format_angle(aim.longitude, "E", "O")]
+		var text := "%s  %s" % [_format_angle(aim.latitude, "DIR_N", "DIR_S"),
+				_format_angle(aim.longitude, "DIR_E", "DIR_W")]
 		var at := c + Vector2(GAP + ARM + 6.0, -6.0)
 		var font := get_theme_default_font()
 		draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, 4, Color(0.0, 0.0, 0.0, 0.7))
 		draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, color)
 
 
+## « 42.18° N » : positive et negative sont les clés de langue des directions (DIR_N, DIR_S…).
 func _format_angle(value: float, positive: String, negative: String) -> String:
-	return "%.2f° %s" % [absf(value), positive if value >= 0.0 else negative]
+	return "%.2f° %s" % [absf(value), tr(positive if value >= 0.0 else negative)]

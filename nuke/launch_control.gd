@@ -13,7 +13,7 @@ func _ready() -> void:
 
 	var button := BigRedButton.new()
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	button.tooltip_text = "Lancer un missile sur le point visé (centre de la vue)"
+	button.tooltip_text = "HUD_LAUNCH_TOOLTIP"
 	button.pressed.connect(_on_fire)
 	add_child(button)
 
