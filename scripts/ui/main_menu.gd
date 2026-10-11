@@ -51,14 +51,12 @@ func _ready() -> void:
 	column.add_theme_constant_override("separation", 18)
 	_menu.add_child(column)
 
-	var title := Label.new()
-	title.text = "GAME_TITLE"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 112)
-	title.add_theme_color_override("font_color", Color(0.95, 0.42, 0.25))
+	# Titre lumineux : halo et couleur de corps noir qui va et vient du noir au blanc (scripts/ui/title_glow.gd).
+	var title := TitleGlow.new()
+	title.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(title)
 	var spacer := Control.new()
-	spacer.custom_minimum_size.y = 48.0
+	spacer.custom_minimum_size.y = 8.0
 	column.add_child(spacer)
 
 	_start_button = _add_button(column, "MENU_START", _on_start)
