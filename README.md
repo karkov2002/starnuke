@@ -28,11 +28,16 @@ permet de piloter le jeu exporté.
 
 ## Écran de démarrage, paramètres et langues
 
-- **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : fond
-  noir, titre provisoire « Star Nuke », boutons **Start Game** (charge `orbit_view.tscn`), **Settings** (écran des
-  paramètres, par-dessus) et **Quit**. Après **Start Game**, la scène du jeu est chargée en tâche de fond
-  (`ResourceLoader.load_threaded_request`, quelques secondes) : le menu laisse place à « Loading in progress… »
-  (clé `MENU_LOADING`, points animés et pourcentage), qui reste affiché pendant la mise en place de la scène.
+- **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : titre
+  provisoire « Star Nuke » et boutons **Start Game** (charge `orbit_view.tscn`), **Settings** (écran des
+  paramètres, par-dessus) et **Quit** dans la moitié droite ; à gauche, **la station vue de l'extérieur, côté
+  soleil, au-dessus de la Terre qui défile** (temps accéléré ×8). Ce décor est la scène du jeu elle-même, chargée
+  en tâche de fond dès l'ouverture du menu (`ResourceLoader.load_threaded_request`, quelques secondes, fond noir en
+  attendant) puis affichée en fondu (2 s), sans son interface ni le tir (`OrbitControls`, `NukeReport`,
+  `NukeLauncher` retirés), observateur désactivé, caméra extérieure (`BACKDROP_CAMERA_*` ; décalage horizontal
+  pour placer station et Terre à gauche). Le même chargement sert à **Start Game** : s'il n'est pas terminé, le
+  menu laisse place à « Loading in progress… » (clé `MENU_LOADING`, points animés et pourcentage), qui reste
+  affiché pendant la mise en place de la scène.
 - **Écran des paramètres** (`scenes/ui/settings_menu.tscn`, script `scripts/ui/settings_menu.gd`) : onglets
   **Video**, **Audio**, **Controls**, **Game** ; Audio et Controls sont à venir (onglets désactivés, infobulle
   « Coming soon »). **Back** ou Échap pour revenir. Chaque choix est appliqué et sauvé aussitôt.
