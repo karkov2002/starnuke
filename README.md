@@ -85,8 +85,8 @@ permet de piloter le jeu exporté.
 
 | Action | Contrôle |
 |---|---|
-| Orienter la vue | Maintenir le **clic droit** et déplacer la souris (lacet et tangage autour des axes de la tête) ; **A / E** (AZERTY, Q / E en QWERTY) : **roulis** gauche / droite autour de l'axe du regard (90°/s). Orientation libre comme en apesanteur : pas de « haut » imposé, tangage non limité |
-| Se déplacer dans la station | **Z / S** (W / S en QWERTY) ou **flèches haut / bas** : avancer / reculer dans la direction du regard (y compris vers le haut ou le bas, apesanteur) ; **Q / D** (A / D en QWERTY) ou **flèches gauche / droite** : déplacement latéral. 1,5 m/s, accélération et freinage progressifs ; collisions avec les parois, les vitres et les objets intérieurs (tubes des silos…) |
+| Orienter la vue | Maintenir le **clic droit** et déplacer la souris (lacet et tangage autour des axes de la tête) ; **A / E** (AZERTY, Q / E en QWERTY) : **roulis** gauche / droite autour de l'axe du regard (60°/s, mise en rotation et arrêt progressifs). Orientation libre comme en apesanteur : pas de « haut » imposé, tangage non limité |
+| Se déplacer dans la station | **Z / S** (W / S en QWERTY) ou **flèches haut / bas** : avancer / reculer dans la direction du regard (y compris vers le haut ou le bas, apesanteur) ; **Q / D** (A / D en QWERTY) ou **flèches gauche / droite** : déplacement latéral. 1,5 m/s ; inertie d'apesanteur : démarrage et arrêt en douceur (~1 s), on continue sur sa lancée un instant après avoir relâché la touche ; collisions avec les parois, les vitres et les objets intérieurs (tubes des silos…) |
 | Curseur | Libre le reste du temps (clic gauche sur le panneau de contrôle) |
 | Altitude | Curseur du panneau, **200 à 800 km** (clic, glisser ou molette) |
 | Inclinaison de l'orbite | Curseur du panneau, **0 à 70°**, bornée par la latitude courante (voir ci-dessous) |
@@ -100,6 +100,10 @@ Pendant la rotation le curseur est masqué, puis replacé là où le clic droit 
 Les touches sont définies par leur **position physique** sur le clavier (actions `move_forward`, `move_back`,
 `move_left`, `move_right`, `roll_left`, `roll_right` de `project.godot`) : la même disposition en AZERTY et en QWERTY.
 Elles sont ignorées pendant la saisie du champ date.
+L'inertie (`smooth_toward` de `scripts/station_camera.gd`) est un double lissage exponentiel : la commande est lissée,
+puis la vitesse est lissée vers la commande lissée, ce qui donne une courbe en S sans à-coup au départ ni à l'arrivée
+(constantes de temps : 0,25 s en translation, 0,2 s en roulis). La souris garde un léger lissage (0,08 s) pour rester
+précise à la visée.
 
 **Le panneau de contrôle et le réticule de tir n'apparaissent que dans la cupola** (sphère de 1,6 m autour du repère
 `Point_Vue_Cupola`, `Station.is_in_cupola`) : en sortant de la cupola ils disparaissent en fondu (0,5 s), et

@@ -7,14 +7,17 @@ extends CharacterBody3D
 ## - avancer / reculer dans la direction du regard (y compris vers le haut ou le bas) : move_forward, move_back
 ##   (Z / S en AZERTY, W / S en QWERTY, flèches haut / bas) ;
 ## - déplacement latéral : move_left, move_right (Q / D en AZERTY, A / D en QWERTY, flèches gauche / droite).
-## Accélération et freinage progressifs (on se pousse sur les mains courantes, on se freine) ; contre une paroi, le
-## mouvement glisse le long d'elle.
+## Inertie d'apesanteur : double lissage (commande lissée, puis vitesse lissée vers la commande), soit une courbe en S
+## sans à-coup au démarrage ni à l'arrivée (~1 s pour atteindre la vitesse de croisière ou s'arrêter) ; contre une
+## paroi, le mouvement glisse le long d'elle.
 
 @export var camera_path: NodePath = ^"Camera"
 ## Vitesse de croisière (m/s) : un astronaute se déplace à ~0,5–1,5 m/s dans l'ISS.
 @export var speed := 1.5
-@export var acceleration := 3.0
-@export var braking := 4.0
+## Constante de temps de l'inertie (s).
+@export var smoothing_s := 0.25
+
+var _drive := Vector3.ZERO
 
 @onready var _camera: Camera3D = get_node(camera_path)
 
@@ -31,7 +34,10 @@ func _physics_process(delta: float) -> void:
 	var wish := (-view.z * input.y + view.x * input.x)
 	if wish.length() > 1.0:
 		wish = wish.normalized()
-	var target := wish * speed
-	var rate := acceleration if wish.length() > 0.0 else braking
-	velocity = velocity.move_toward(target, rate * delta)
+	_drive = StationCamera.smooth_toward(_drive, wish * speed, delta, smoothing_s)
+	velocity = StationCamera.smooth_toward(velocity, _drive, delta, smoothing_s)
+	if velocity.length() < 1e-3 and _drive.length() < 1e-3:
+		velocity = Vector3.ZERO
+		_drive = Vector3.ZERO
+		return
 	move_and_slide()
