@@ -959,7 +959,9 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
       (`volume_extinction_per_km`).
     - 64 pas par rayon, décalage d'échantillonnage fixe par pixel (pas de bruit temporel) : pas de scintillement.
     - Profondeur écrite par le shader : là où le pixel est presque opaque (alpha total > 0,8, `depth_alpha`), celle
-      du premier point dense (alpha cumulé > 0,35, `depth_first`), sinon un point juste au-dessus du sol. Les nuages
+      du premier point dense (alpha cumulé > 0,35, `depth_first`), sinon le plan lointain (rien n'est masqué derrière
+      le bord ténu ; un point juste au-dessus du sol masquait, vu à l'horizon, le limbe lumineux de l'atmosphère
+      derrière le champignon, dont le bord se détachait alors sur le noir de l'espace : liseré noir). Les nuages
       et l'atmosphère, rendus après, ne le recouvrent que là où ils sont devant lui : c'est cette profondeur qui rend
       le champignon visible au-dessus d'un banc nuageux. Un panache ténu (alpha < 0,8) est donc caché par les nuages
       qu'il survole, mais reste visible au-dessus d'un sol dégagé. Avec l'ancien seuil (0,35 sur l'alpha cumulé), le

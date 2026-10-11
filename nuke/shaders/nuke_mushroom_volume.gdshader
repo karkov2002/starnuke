@@ -16,7 +16,7 @@
 // ciel ambiant ; lueur de la boule de feu émise au cœur du chapeau.
 // Décalage d'échantillonnage fixe par pixel (pas de bruit temporel) : pas de scintillement.
 // Profondeur : là où le pixel est presque opaque (alpha total > depth_alpha), celle du premier point dense (alpha
-// cumulé > depth_first) ; ailleurs, un point juste au-dessus du sol (derrière la couche nuageuse). Les nuages et
+// cumulé > depth_first) ; ailleurs, le plan lointain (rien n'est masqué derrière le bord ténu). Les nuages et
 // l'atmosphère, rendus après, le recouvrent seulement là où ils sont devant lui. Un seuil bas (0,35) faisait
 // scintiller le bord d'un panache ténu au-dessus des nuages : chaque pixel y basculait entre « panache sur le sol,
 // nuages masqués » (gris) et « nuages » (blanc). Au-dessus de 0,8, les deux aspects sont proches.
@@ -263,12 +263,15 @@ void fragment() {
 	}
 	ALBEDO = scattered;
 	ALPHA = 1.0 - transmittance;
-	// Profondeur : premier point dense si le pixel est presque opaque, sinon juste au-dessus du sol (derrière les
-	// nuages, devant le sol).
+	// Profondeur : premier point dense si le pixel est presque opaque ; sinon, le plan lointain (Z inversé : 0) : les
+	// nuages et l'atmosphère, rendus après, se superposent au bord ténu au lieu d'être masqués. (Un point « juste
+	// au-dessus du sol » ou la sortie de la boîte masquait, vu à l'horizon, le limbe lumineux de l'atmosphère
+	// derrière le champignon : son bord ténu se détachait sur le noir de l'espace, un liseré noir.)
 	if (depth_t < 0.0 || ALPHA < depth_alpha) {
-		depth_t = rd.y < 0.0 ? max((0.01 - ro.y) / rd.y, t0) : t1;
+		DEPTH = 0.0;
+	} else {
+		vec3 p_world = (local_to_world * vec4(ro + rd * depth_t, 1.0)).xyz;
+		vec4 clip = PROJECTION_MATRIX * (VIEW_MATRIX * vec4(p_world, 1.0));
+		DEPTH = clip.z / clip.w;
 	}
-	vec3 p_world = (local_to_world * vec4(ro + rd * depth_t, 1.0)).xyz;
-	vec4 clip = PROJECTION_MATRIX * (VIEW_MATRIX * vec4(p_world, 1.0));
-	DEPTH = clip.z / clip.w;
 }
