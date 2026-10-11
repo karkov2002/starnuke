@@ -17,6 +17,8 @@ extends HBoxContainer
 var _yield_kt := 1000.0
 var _silos: SiloPanel
 var _station: Station
+## Tube choisi (vert) : trappe ouverte, gyrophare allumé.
+var _armed := SiloPanel.NONE
 ## Vector2i(silo, tube) -> {latitude, longitude, yield_kt} : missiles lancés, en attente de leur sortie de la station.
 var _pending := {}
 
@@ -62,7 +64,20 @@ func _connect_station() -> void:
 	if _station == null:
 		return
 	_silos.setup(_station)
+	_silos.selection_changed.connect(_on_selection_changed)
 	_station.missile_released.connect(_on_missile_released)
+
+
+## Tube choisi : sa trappe s'ouvre (animation Blender) et son gyrophare clignote ; le tube choisi auparavant (s'il n'a
+## pas tiré) referme sa trappe et éteint son gyrophare.
+func _on_selection_changed(key: Vector2i) -> void:
+	if _armed != SiloPanel.NONE and not _pending.has(_armed):
+		_station.close_silo_door(_armed.x, _armed.y)
+		_station.set_silo_beacon(_armed.x, _armed.y, false)
+	_armed = key
+	if key != SiloPanel.NONE:
+		_station.open_silo_door(key.x, key.y)
+		_station.set_silo_beacon(key.x, key.y, true)
 
 
 func _on_fire() -> void:
@@ -79,6 +94,9 @@ func _on_fire() -> void:
 
 func _on_missile_released(silo: int, tube: int, missile: Node3D, velocity: Vector3) -> void:
 	var key := Vector2i(silo, tube)
+	# Le missile a quitté le tube : gyrophare éteint, trappe refermée (station furtive).
+	_station.set_silo_beacon(silo, tube, false)
+	_station.close_silo_door(silo, tube)
 	var launcher := get_tree().get_first_node_in_group(NukeLauncher.GROUP) as NukeLauncher
 	if not _pending.has(key) or launcher == null:
 		missile.queue_free()

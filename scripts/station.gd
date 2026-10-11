@@ -64,6 +64,16 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 @export var panel_max_speed_deg := 6.0
 ## Marge (degrés) au-dessus de l'horizon local pour la face des cellules.
 @export var panel_horizon_margin_deg := 2.0
+
+@export_group("Gyrophare des silos")
+## Clignotement (période en s, part allumée) et lumière (énergie, portée en m) du gyrophare du tube choisi.
+@export var beacon_period_s := 0.9
+@export_range(0.05, 1.0) var beacon_duty := 0.35
+@export var beacon_energy := 4.0
+@export var beacon_range := 6.0
+## Décalage depuis le repère Point_Lancement du tube (m) : x vers l'extérieur de la rangée, y sous la coque.
+@export var beacon_offset := Vector3(0.75, -0.12, 0.0)
+@export_group("")
 @export var animate_antennas := true
 
 ## Rayon (m) de la zone de la cupola autour du repère Point_Vue_Cupola (is_in_cupola : la barre de contrôle et le tir ne
@@ -99,6 +109,9 @@ var _library: AnimationLibrary
 ## Copie intacte du missile modèle (prise au démarrage) : celui du tube 1_12 disparaît après son lancement.
 var _missile_pristine: Node3D
 var _panel_pivots: Array[Node3D] = []
+## Vector2i(silo, tube) -> gyrophare (Node3D : Lampe, Lumiere)
+var _beacons := {}
+var _beacon_time := 0.0
 ## Angle courant des panneaux (radians autour de Z) ; NAN avant la première image (placement direct).
 var _panel_angle := NAN
 
@@ -138,6 +151,8 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	if track_sun_panels:
 		_track_sun(delta)
+	if not _beacons.is_empty():
+		_blink_beacons(delta)
 	if _radiators.is_empty():
 		return
 	var deployed := 0.0
@@ -215,8 +230,10 @@ func set_silo_door_open(silo: int, tube: int, open: bool) -> bool:
 	if not _silo_doors.has(key) or not _silo_doors[key].ouvrable:
 		return false
 	var door: Dictionary = _silo_doors[key]
-	if door.is_open == open:
+	# État visé (et non l'état atteint) : une demande inverse en cours de mouvement repart de la position actuelle.
+	if door.get("target", door.is_open) == open:
 		return true
+	door.target = open
 	_tween_hinge(door, door.open if open else door.closed, func() -> void:
 		door.is_open = open
 		silo_door_changed.emit(silo, tube, open))
@@ -241,6 +258,7 @@ func set_all_silo_doors_open(open: bool, silo := 0) -> void:
 		_play_group(ANIM_SILO_DOORS, not open, func() -> void:
 			for k: Vector2i in keys:
 				_silo_doors[k].is_open = open
+				_silo_doors[k].target = open
 				silo_door_changed.emit(k.x, k.y, open))
 	else:
 		for k: Vector2i in keys:
@@ -248,6 +266,50 @@ func set_all_silo_doors_open(open: bool, silo := 0) -> void:
 
 
 # --- Missiles -------------------------------------------------------------------------------------------------------
+
+## Gyrophare rouge à côté de la trappe du tube (tube choisi pour le tir) : petite lampe émissive et lumière rouge
+## clignotante (beacon_period_s), qui éclaire la trappe et le dessous de la coque pour qu'on voie la trappe s'ouvrir.
+func set_silo_beacon(silo: int, tube: int, on: bool) -> void:
+	var key := Vector2i(silo, tube)
+	if not on:
+		if _beacons.has(key):
+			(_beacons[key] as Node3D).queue_free()
+			_beacons.erase(key)
+		return
+	if _beacons.has(key) or not _silo_doors.has(key) or _silo_doors[key].launch_point == null:
+		return
+	var point := to_local((_silo_doors[key].launch_point as Node3D).global_position)
+	var beacon := Node3D.new()
+	beacon.name = "Gyrophare_%d_%02d" % [silo, tube]
+	# Juste sous la coque, décalé vers l'extérieur de la rangée de tubes (avant/arrière), entre deux trappes.
+	var side := signf(point.x) if absf(point.x) > 0.1 else 1.0
+	beacon.position = point + Vector3(beacon_offset.x * side, beacon_offset.y, beacon_offset.z)
+	var lamp := MeshInstance3D.new()
+	lamp.name = "Lampe"
+	var sphere := SphereMesh.new()
+	sphere.radius = 0.07
+	sphere.height = 0.14
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.25, 0.0, 0.0)
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.05, 0.02)
+	material.emission_energy_multiplier = 0.0
+	sphere.material = material
+	lamp.mesh = sphere
+	lamp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	beacon.add_child(lamp)
+	var light := OmniLight3D.new()
+	light.name = "Lumiere"
+	light.light_color = Color(1.0, 0.08, 0.04)
+	light.omni_range = beacon_range
+	light.omni_attenuation = 1.2
+	light.shadow_enabled = true
+	light.light_cull_mask = 0xFFFFF & ~INTERIOR_LAYER
+	light.position = Vector3(0.0, -0.1, 0.0)
+	beacon.add_child(light)
+	add_child(beacon)
+	_beacons[key] = beacon
+
 
 ## Tous les tubes de lancement, triés (silo, puis tube).
 func tube_ids() -> Array[Vector2i]:
@@ -311,12 +373,18 @@ func launch_missile(silo: int, tube: int) -> bool:
 	var release_time := _handoff_time(anim, scale_track)
 	var state := {"ignited": false}
 	var was_open: bool = door.is_open
+	# Trappe déjà ouverte ou en mouvement (choix du tube sur le panneau) : l'animation la reprend où elle est.
+	if door.tween:
+		door.tween.kill()
+		door.tween = null
+	door.target = true
+	var hinge_start: Quaternion = (door.hinge as Node3D).quaternion
 	var step := func(t: float) -> void:
 		# Trappe du tube : même ouverture que la trappe modèle dans l'animation, transposée sur ses angles.
-		if model_hinge_track >= 0 and not was_open:
+		if model_hinge_track >= 0:
 			var q := anim.rotation_track_interpolate(model_hinge_track, t)
 			var weight := q.angle_to(Quaternion.IDENTITY) / maxf(model_hinge_end.angle_to(Quaternion.IDENTITY), 1e-4)
-			door.hinge.quaternion = (door.closed as Quaternion).slerp(door.open, clampf(weight, 0.0, 1.0))
+			door.hinge.quaternion = hinge_start.slerp(door.open, clampf(weight, 0.0, 1.0))
 		var scale_value := anim.scale_track_interpolate(scale_track, t) if scale_track >= 0 else Vector3.ONE
 		var model := Transform3D(Basis.IDENTITY.scaled(scale_value), anim.position_track_interpolate(position_track, t))
 		missile.transform = tube_frame * model
@@ -403,6 +471,17 @@ func set_stealth(enabled: bool) -> void:
 func is_in_cupola(world_position: Vector3) -> bool:
 	var point := get_node_or_null("Point_Vue_Cupola") as Node3D
 	return point != null and point.global_position.distance_to(world_position) < cupola_zone_radius
+
+
+## Éclat bref puis extinction (gyrophare à éclats), montée et descente rapides pour éviter un clignotement sec.
+func _blink_beacons(delta: float) -> void:
+	_beacon_time = fmod(_beacon_time + delta, beacon_period_s)
+	var phase := _beacon_time / beacon_period_s
+	var level := smoothstep(0.0, 0.05, phase) * (1.0 - smoothstep(beacon_duty - 0.05, beacon_duty, phase))
+	for beacon: Node3D in _beacons.values():
+		var lamp := beacon.get_node("Lampe") as MeshInstance3D
+		((lamp.mesh as SphereMesh).material as StandardMaterial3D).emission_energy_multiplier = 8.0 * level
+		(beacon.get_node("Lumiere") as OmniLight3D).light_energy = beacon_energy * level
 
 
 # --- Panneaux solaires ----------------------------------------------------------------------------------------------
