@@ -6,7 +6,7 @@ extends Node
 ## (rayon réel × SCENE_UNITS_PER_KM). S'il manque la Terre (ciel, limbe), il ne se passe rien. Le point touché est
 ## exprimé dans le repère local du nœud Earth (qui tourne avec la planète, cf. scripts/orbit.gd) et en lat/lon.
 ## Chaque tir crée une NukeEffect (nuke/nuke_effect.tscn), enfant de Earth. Le lanceur crée aussi les nœuds qui
-## traitent les explosions en cours : effets globaux (FlashFX, FireFX, CloudFX, BlackoutFX) et bilan (Impact, calculé
+## traitent les explosions en cours : effets globaux (FlashFX, CloudFX, GroundFX) et bilan (Impact, calculé
 ## hors du fil principal : un tir ne coûte que la création de la scène).
 
 ## Émis à chaque tir réussi.
@@ -40,18 +40,14 @@ func _ready() -> void:
 	add_child(flash_fx)
 	flash_fx.setup(self, get_node_or_null(world_environment_path) as WorldEnvironment, _earth,
 			get_node_or_null(station_path) as Node3D)
-	var fire_fx := NukeFireFX.new()
-	fire_fx.name = "FireFX"
-	add_child(fire_fx)
-	fire_fx.setup(self, _earth)
 	var cloud_fx := NukeCloudFX.new()
 	cloud_fx.name = "CloudFX"
 	add_child(cloud_fx)
 	cloud_fx.setup(self, _earth)
-	var blackout_fx := NukeBlackoutFX.new()
-	blackout_fx.name = "BlackoutFX"
-	add_child(blackout_fx)
-	blackout_fx.setup(self, _earth)
+	var ground_fx := NukeGroundFX.new()
+	ground_fx.name = "GroundFX"
+	add_child(ground_fx)
+	ground_fx.setup(self, _earth)
 	var impact := NukeImpact.new()
 	impact.name = "Impact"
 	add_child(impact)
@@ -118,7 +114,7 @@ func fire(params: NukeParams) -> NukeEffect:
 	return effect
 
 
-## Explosions en cours (enfants de Earth).
+## Explosions de la partie (enfants de Earth), qui restent en place jusqu'à la fin : leurs effets au sol persistent.
 func get_effects() -> Array[NukeEffect]:
 	var effects: Array[NukeEffect] = []
 	for child in _earth.get_children():

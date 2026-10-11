@@ -43,8 +43,8 @@ const MUSHROOM_RISE_S := 600.0
 # - disparition (évaporation, dépôt, mélange avec l'air environnant) : × exp(−(t − t_s) / τ), τ = CLOUD_FADE_TROPO_S
 #   pour un chapeau dans la troposphère, CLOUD_FADE_STRATO_S au-dessus de la tropopause (air sec et stable, pas de
 #   précipitations), avec un passage progressif sur ±CLOUD_TROPOPAUSE_BLEND_KM.
-# Le champignon est masqué sous CLOUD_FADE_MIN : ~2 h à 10 kt, ~6 h à 1 Mt (temps physique, ~12 et ~36 min
-# d'horloge avec l'accélération ×10).
+# Le champignon est masqué sous CLOUD_FADE_MIN : ~2 h à 10 kt, ~6 h à 1 Mt (temps physique ; ~1 h 30 et ~5 h 30
+# d'horloge, la première demi-heure physique étant jouée en ~4 min, cf. NukeClock) : il survit à plusieurs orbites.
 const CLOUD_SPREAD_K_M2_S := 2.0e4
 const CLOUD_THIN_EXP := 0.5
 const CLOUD_FADE_TROPO_S := 3600.0
@@ -72,28 +72,42 @@ const SHOCK_VISUAL_MIN_KM := 4.0
 const SHOCK_TAU_S_PER_KM := 1.28
 const SHOCK_SLOWDOWN := 1.6
 
-# Incendies allumés par le flash : rayon où l'exposition thermique dépasse ~10 cal/cm² (inflammation des matériaux
-# courants, Glasstone & Dolan ch. VII ; ~12 km pour 1 Mt avec l'absorption de l'air), ∝ W^0,41 (entre la loi en W^0,5
-# du vide et l'absorption croissante avec la distance) : ~1,8 km à 10 kt, ~60 km à 50 Mt.
-# Évolution, calée sur Hiroshima (tempête de feu formée ~20 min après l'explosion, au maximum vers 2–3 h) : foyers
-# allumés par le flash (FIRE_FIRST_SHARE de l'intensité finale), qui se rejoignent de FIRE_GROWTH_START_S à
-# FIRE_GROWTH_END_S ; extension lente (+FIRE_SPREAD du rayon, constante de temps FIRE_SPREAD_S) ; extinction
-# progressive (constante de temps FIRE_BURN_S). Intensité (0 à 1) : ~0,3 à 20 min, ~0,6 à 1 h, maximum ~0,7 vers 1 h 20.
+# Incendies allumés par le flash : rayon initial où l'exposition thermique dépasse ~10 cal/cm² (inflammation des
+# matériaux courants, Glasstone & Dolan ch. VII ; ~12 km pour 1 Mt avec l'absorption de l'air), ∝ W^0,41 (entre la loi
+# en W^0,5 du vide et l'absorption croissante avec la distance) : ~1,8 km à 10 kt, ~60 km à 50 Mt. Règle de jeu : les
+# incendies durent plusieurs jours et laissent un sol brûlé jusqu'à la fin de la partie. Modèle, évalué par le shader
+# du sol (nuke/shaders/nuke_fire.gdshaderinc, constantes transmises par NukeGroundFX), en temps physique (au rythme du
+# jeu après la première demi-heure, cf. NukeClock) :
+# - zone du flash (rayon initial R0), calée sur Hiroshima (tempête de feu formée ~20 min après l'explosion, au maximum
+#   vers 2–3 h) : foyers allumés par le flash (FIRE_FIRST_SHARE de l'intensité finale), qui se rejoignent de
+#   FIRE_GROWTH_START_S à FIRE_GROWTH_END_S ;
+# - propagation : le front gagne les terres alentour, rayon R0 · (1 + FIRE_SPREAD · (1 − exp(−t / FIRE_SPREAD_S))),
+#   soit 2 R0 au bout de quelques jours (63 % du chemin en 1 jour, 95 % en 3 jours ; au départ ~0,5 km/h pour 1 Mt,
+#   l'allure d'un feu de forêt). Un lieu atteint par le front s'embrase en FIRE_FRONT_RISE_S, moins fort que la tempête
+#   de feu (FIRE_FRONT_SHARE) : un anneau de feu s'éloigne du centre ;
+# - chaque lieu brûle avec une constante de temps d'extinction FIRE_BURN_S, puis il ne reste que le sol calciné (noirci
+#   en FIRE_CHAR_S), définitif. Tout est éteint en 4 à 5 jours.
 const FIRE_RADIUS_1MT_KM := 12.0
 const FIRE_RADIUS_EXP := 0.41
 const FIRE_FIRST_SHARE := 0.25
 const FIRE_GROWTH_START_S := 120.0
 const FIRE_GROWTH_END_S := 5400.0
-const FIRE_SPREAD := 0.15
-const FIRE_SPREAD_S := 3600.0
-const FIRE_BURN_S := 14400.0
+const FIRE_SPREAD := 1.0
+const FIRE_SPREAD_S := 86400.0
+const FIRE_FRONT_SHARE := 0.3
+const FIRE_FRONT_RISE_S := 3600.0
+const FIRE_BURN_S := 21600.0
+const FIRE_CHAR_S := 7200.0
+# Irrégularité du bord des incendies (part du rayon initial, motif de bruit du shader) : la portée d'une explosion
+# (fire_reach_km) en tient compte.
+const FIRE_EDGE_NOISE := 0.35
 
 # Explosion basse sur une mer ou un océan (NukeParams.over_ocean, masque OceanMask) : la boule de feu vaporise une
 # grande masse d'eau (Glasstone & Dolan §2.50 et suivants), le nuage est une grosse boule de vapeur condensée, blanche,
 # chargée d'eau. Après la stabilisation (t_s = MUSHROOM_RISE_S), l'eau retombe en pluie : le nuage s'affaisse
 # (hauteurs × 1 − STEAM_SINK · (1 − exp(−(t − t_s) / STEAM_SINK_S))) et disparaît vite (densité ×
 # exp(−(t − t_s) / STEAM_FADE_S), en plus de la dissipation ordinaire) : masqué moins d'une heure après l'explosion
-# (temps physique, ~5 min d'horloge), contre plusieurs heures sur terre.
+# (temps physique, une demi-heure d'horloge au plus), contre plusieurs heures sur terre.
 const STEAM_SINK := 0.35
 const STEAM_SINK_S := 900.0
 const STEAM_FADE_S := 600.0
@@ -105,29 +119,24 @@ const STEAM_FADE_S := 600.0
 # mer ; précision ~10 %. Résultat en psi (1 psi = 6,895 kPa).
 const KILOFEET_PER_KM := 3.28084
 
-# Black-out électrique (NukeGridImpact, NukeBlackoutFX, nuke/shaders/nuke_blackout.gdshaderinc ; visible de nuit, sur les
-# lumières des villes). Trois couches :
-# - zone détruite, éteinte pour de bon : rayon de BLACKOUT_DESTROYED_PSI (réseau de distribution, postes, bâtiments) ;
+# Black-out électrique (NukeGridImpact, NukeGroundFX, nuke/shaders/nuke_blackout.gdshaderinc ; visible de nuit, sur les
+# lumières des villes). Règle de jeu : le black-out dure jusqu'à la fin de la partie (réseau détruit, aucune remise en
+# état pendant une guerre nucléaire). Trois couches :
+# - zone détruite, éteinte dès l'explosion : rayon de BLACKOUT_DESTROYED_PSI (réseau de distribution, postes,
+#   bâtiments) ;
 # - panne régionale en cascade : disque de rayon BLACKOUT_REGION_1MT_KM · (W / 1 Mt)^(1/3) (~26 km à 10 kt, 120 km à
-#   1 Mt, ~440 km à 50 Mt ; choix de jeu, au moins 2 fois la zone détruite), qui s'éteint du centre vers le bord
-#   (front R · (1 − exp(−t / BLACKOUT_CASCADE_TAU_S))) puis se rallume par plaques, du bord (après
-#   BLACKOUT_RESTORE_START_S) vers le centre (BLACKOUT_RESTORE_END_S) ; la panne de 2003 dans le nord-est des
-#   États-Unis a été réparée en 1 à 2 jours ;
+#   1 Mt, ~440 km à 50 Mt ; choix de jeu, au moins 2 fois la zone détruite), qui s'éteint par plaques du centre vers
+#   le bord (front R · (1 − exp(−t / BLACKOUT_CASCADE_TAU_S))) ;
 # - panne nationale : si les centrales détruites (dans le rayon de BLACKOUT_PLANT_PSI, Global Power Plant Database)
-#   représentent au moins BLACKOUT_NATIONAL_SHARE de la capacité du pays, tout le pays s'éteint en
-#   BLACKOUT_NATIONAL_OFF_S (effondrement de la fréquence), puis se rallume par plaques entre
-#   BLACKOUT_NATIONAL_RESTORE_START_S et BLACKOUT_NATIONAL_RESTORE_END_S. Repère : panne de la péninsule ibérique du
-#   28 avril 2025, Espagne et Portugal éteints en quelques secondes, courant rétabli en ~10 h.
+#   représentent au moins BLACKOUT_NATIONAL_SHARE de la capacité du pays, tout le pays s'éteint par plaques en
+#   BLACKOUT_NATIONAL_OFF_S (effondrement de la fréquence). Repère : panne de la péninsule ibérique du 28 avril 2025,
+#   Espagne et Portugal éteints en quelques secondes.
 const BLACKOUT_DESTROYED_PSI := 2.0
 const BLACKOUT_REGION_1MT_KM := 120.0
 const BLACKOUT_CASCADE_TAU_S := 15.0
-const BLACKOUT_RESTORE_START_S := 3600.0
-const BLACKOUT_RESTORE_END_S := 86400.0
 const BLACKOUT_PLANT_PSI := 5.0
 const BLACKOUT_NATIONAL_SHARE := 0.10
 const BLACKOUT_NATIONAL_OFF_S := 30.0
-const BLACKOUT_NATIONAL_RESTORE_START_S := 7200.0
-const BLACKOUT_NATIONAL_RESTORE_END_S := 43200.0
 
 # Flash initial. Puissance thermique au second maximum (Glasstone & Dolan, The Effects of Nuclear Weapons, §7.88,
 # explosion dans l'air) : P_max = 4 · W^0,56 kt/s. Pour 1 Mt : 8·10¹⁴ W, soit ~400 W/m² à 400 km (0,29 soleil) avant
@@ -265,19 +274,19 @@ static func shock_front_radius_km(yield_kt: float, t: float) -> float:
 	return shock_max_radius_km(yield_kt) * (1.0 - exp(-maxf(t, 0.0) / shock_tau_s(yield_kt)))
 
 
-## Rayon de la zone en feu (km) au temps t (s, physique).
+## Rayon initial des incendies (km) : zone allumée par le flash.
+static func fire_base_radius_km(yield_kt: float) -> float:
+	return FIRE_RADIUS_1MT_KM * pow(_clamp_yield(yield_kt) / 1000.0, FIRE_RADIUS_EXP)
+
+
+## Rayon du front des incendies (km) au temps t (s, physique) ; t = INF : extension finale (2 fois le rayon initial).
 static func fire_radius_km(yield_kt: float, t: float) -> float:
-	var base := FIRE_RADIUS_1MT_KM * pow(_clamp_yield(yield_kt) / 1000.0, FIRE_RADIUS_EXP)
-	return base * (1.0 + FIRE_SPREAD * (1.0 - exp(-maxf(t, 0.0) / FIRE_SPREAD_S)))
+	return fire_base_radius_km(yield_kt) * (1.0 + FIRE_SPREAD * (1.0 - exp(-maxf(t, 0.0) / FIRE_SPREAD_S)))
 
 
-## Intensité des incendies (0 à 1) au temps t (s, physique).
-static func fire_intensity(t: float) -> float:
-	if t <= 0.0:
-		return 0.0
-	var growth := FIRE_FIRST_SHARE * smoothstep(0.3, 1.5, t) \
-			+ (1.0 - FIRE_FIRST_SHARE) * smoothstep(FIRE_GROWTH_START_S, FIRE_GROWTH_END_S, t)
-	return growth * exp(-t / FIRE_BURN_S)
+## Distance maximale (km) à laquelle les incendies peuvent brûler, bord irrégulier compris.
+static func fire_reach_km(yield_kt: float) -> float:
+	return fire_base_radius_km(yield_kt) * (1.0 + FIRE_SPREAD + FIRE_EDGE_NOISE)
 
 
 ## Sommet du nuage stabilisé (km) : interpolation log-log entre CLOUD_TOP_POINTS.

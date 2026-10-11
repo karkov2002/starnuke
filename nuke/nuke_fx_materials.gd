@@ -1,8 +1,8 @@
 class_name NukeFXMaterials
 extends RefCounted
 ## Recherche des matériaux de la Terre (sol, nuages, atmosphère : material_override des enfants du nœud Earth) qui
-## déclarent un uniform donné : c'est par eux que les nœuds d'effets (NukeFlashFX, NukeFireFX, NukeCloudFX,
-## NukeBlackoutFX) transmettent les explosions aux shaders.
+## déclarent un uniform donné : c'est par eux que les nœuds d'effets (NukeFlashFX, NukeCloudFX,
+## NukeGroundFX) transmettent les explosions aux shaders.
 
 
 ## Matériaux des enfants de earth dont le shader déclare l'uniform uniform_name.

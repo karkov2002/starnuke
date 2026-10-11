@@ -1,37 +1,28 @@
 // Black-out électrique des explosions nucléaires, appliqué aux lumières des villes dans le sol
-// (earth_surface.gdshader). À inclure après cloud_density.gdshaderinc (bruit 3D). Les uniforms sont alimentés à chaque
-// image par nuke/nuke_blackout.gd ; sans panne (comptes nuls), rien n'est calculé. Lois et durées : NukeScaling
-// (BLACKOUT_*).
+// (earth_surface.gdshader). À inclure après cloud_density.gdshaderinc (bruit 3D). Explosions : nuke_ground.gdshaderinc
+// (alimenté par nuke/nuke_ground_fx.gd) ; lois et durées : NukeScaling (BLACKOUT_*). Règle de jeu : le black-out dure
+// jusqu'à la fin de la partie.
 //
 // nuke_blackout_darkness() rend la part des lumières éteintes (0 à 1) au point p (km, repère de la planète) :
-// - zone détruite (rayon nuke_blackout_b.x) : éteinte pour de bon, bord irrégulier ;
-// - panne régionale (rayon nuke_blackout_b.y) : le front de la cascade avance du centre vers le bord, par plaques
-//   (bruit à grosse maille), puis les plaques se rallument une à une, du bord (restore_s.x) vers le centre
-//   (restore_s.y) ;
+// - zone détruite (rayon destroyed_km) : éteinte dès l'explosion, bord irrégulier ;
+// - panne régionale (rayon region_km) : le front de la cascade avance du centre vers le bord, par plaques (bruit à
+//   grosse maille) ;
 // - panne nationale : tout le pays (carte nuke_country_ids, indice + 1 sur 16 bits) s'éteint par plaques en
-//   national_off_s, puis se rallume par plaques entre national_restore_s.x et .y.
+//   national_off_s.
 // Chaque plaque bascule sur une fenêtre de temps (pas de saut d'une image à l'autre).
 #ifndef NUKE_BLACKOUT_INC
 #define NUKE_BLACKOUT_INC
 
-const int NUKE_MAX_BLACKOUTS = 16;
-const int NUKE_MAX_BLACKOUT_COUNTRIES = 8;
+#include "res://nuke/shaders/nuke_ground.gdshaderinc"
 
-uniform int nuke_blackout_count = 0;
-// Événement i : a = (centre x, y, z en km dans le repère de la planète, temps physique écoulé en s),
-// b = (rayon détruit en km, rayon de la panne régionale en km, inutilisés).
-uniform vec4 nuke_blackout_a[16];
-uniform vec4 nuke_blackout_b[16];
-uniform int nuke_blackout_country_count = 0;
-// Pays plongés dans le noir : indice + 1 dans la carte des pays, et temps physique écoulé (s).
-uniform int nuke_blackout_country[8];
-uniform float nuke_blackout_country_time[8];
+// Pays plongés dans le noir : texture indexée par l'indice de pays + 1, temps physique écoulé depuis la panne (s, 0 :
+// pas de panne) ; nuke_ground_country_count : nombre de pays dans le noir.
+uniform int nuke_ground_country_count = 0;
+uniform sampler2D nuke_ground_countries : filter_nearest, repeat_disable;
 uniform sampler2D nuke_country_ids : filter_nearest, repeat_disable;
-// Durées (s, temps physique), fournies par NukeBlackout depuis NukeScaling.
+// Durées (s, temps physique), fournies par NukeGroundFX depuis NukeScaling.
 uniform float nuke_blackout_cascade_tau_s = 15.0;
-uniform vec2 nuke_blackout_restore_s = vec2(3600.0, 86400.0);
 uniform float nuke_blackout_national_off_s = 30.0;
-uniform vec2 nuke_blackout_national_restore_s = vec2(7200.0, 43200.0);
 // Taille des plaques (km : quartiers, communes) et irrégularité du bord de la zone détruite (part du rayon).
 uniform float nuke_blackout_patch_km = 18.0;
 uniform float nuke_blackout_edge_noise = 0.15;
@@ -46,11 +37,9 @@ float nuke_blackout_patch(vec3 uvw) {
 	return clamp((textureLod(cloud_shape_noise, uvw, 0.0).r - 0.5) * 3.0 + 0.5, 0.0, 1.0);
 }
 
-// Plaque éteinte entre t_off et t_on (s) : 1 = éteinte ; bascules adoucies sur 5 % de la date (au moins 2 s).
-float nuke_blackout_window(float t, float t_off, float t_on) {
-	float off = smoothstep(t_off, t_off + max(0.05 * t_off, 2.0), t);
-	float on = smoothstep(t_on, t_on + max(0.05 * t_on, 2.0), t);
-	return off * (1.0 - on);
+// Plaque éteinte à partir de t_off (s) : 1 = éteinte ; bascule adoucie sur 5 % de la date (au moins 2 s).
+float nuke_blackout_off(float t, float t_off) {
+	return smoothstep(t_off, t_off + max(0.05 * t_off, 2.0), t);
 }
 
 int nuke_country_id(vec3 n) {
@@ -63,51 +52,47 @@ int nuke_country_id(vec3 n) {
 	return int(rg.r * 255.0 + 0.5) + 256 * int(rg.g * 255.0 + 0.5);
 }
 
-float nuke_blackout_darkness(vec3 p, vec3 n) {
+// Part des lumières éteintes au point p (km) de normale n, pour les explosions de la maille cell (nuke_ground_cell).
+float nuke_blackout_darkness(vec3 p, vec3 n, ivec2 cell) {
 	float dark = 0.0;
-	for (int i = 0; i < NUKE_MAX_BLACKOUTS; i++) {
-		if (i >= nuke_blackout_count) {
-			break;
+	for (int k = cell.x; k < cell.x + cell.y; k++) {
+		NukeGroundEvent e = nuke_ground_event(k);
+		float t = e.time_s;
+		float region = e.region_km;
+		if (t <= 0.0) {
+			continue;
 		}
-		vec3 v = p - nuke_blackout_a[i].xyz;
-		float t = nuke_blackout_a[i].w;
-		float destroyed = nuke_blackout_b[i].x;
-		float region = nuke_blackout_b[i].y;
+		vec3 v = p - e.pos_km;
 		float d = length(v);
 		if (d > region * 1.2) {
 			continue;
 		}
 		// Zone détruite : bord irrégulier, à l'échelle de son rayon (motif fixe, centré sur l'explosion).
+		float destroyed = e.destroyed_km;
 		float wobble = nuke_blackout_patch(v / max(destroyed * 0.4, 0.5)) - 0.5;
 		float r_destroyed = destroyed * (1.0 + 2.0 * nuke_blackout_edge_noise * wobble);
 		dark = max(dark, 1.0 - smoothstep(r_destroyed * 0.95, r_destroyed * 1.05, d));
-		// Panne régionale : chaque plaque a sa distance « vue par la cascade » et sa date de retour.
-		float patch_a = nuke_blackout_patch(v / nuke_blackout_patch_km);
-		float patch_b = nuke_blackout_patch(v / nuke_blackout_patch_km + vec3(3.7, 1.3, 5.1));
-		float d_patch = d * mix(0.8, 1.2, patch_a);
+		// Panne régionale : chaque plaque a sa distance « vue par la cascade », éteinte au passage du front (inverse de
+		// R · (1 − exp(−t / τ))).
+		float patch = nuke_blackout_patch(v / nuke_blackout_patch_km);
+		float d_patch = d * mix(0.8, 1.2, patch);
 		if (d_patch > region) {
 			continue;
 		}
-		// Date de passage du front (inverse de R · (1 − exp(−t / τ))), puis date de retour : du bord vers le centre.
 		float t_off = -nuke_blackout_cascade_tau_s * log(max(1.0 - d_patch / region, 1e-3));
-		float u = clamp((d_patch - destroyed) / max(region - destroyed, 1e-3), 0.0, 1.0);
-		float t_on = mix(nuke_blackout_restore_s.y, nuke_blackout_restore_s.x, u) * mix(0.7, 1.3, patch_b);
-		dark = max(dark, nuke_blackout_window(t, t_off, t_on));
+		dark = max(dark, nuke_blackout_off(t, t_off));
+		if (dark >= 1.0) {
+			return 1.0;
+		}
 	}
-	if (nuke_blackout_country_count > 0) {
+	if (nuke_ground_country_count > 0) {
 		int id = nuke_country_id(n);
-		for (int i = 0; i < NUKE_MAX_BLACKOUT_COUNTRIES; i++) {
-			if (i >= nuke_blackout_country_count) {
-				break;
+		if (id > 0 && id < textureSize(nuke_ground_countries, 0).x) {
+			float t = texelFetch(nuke_ground_countries, ivec2(id, 0), 0).r;
+			if (t > 0.0) {
+				float patch = nuke_blackout_patch(p / (2.0 * nuke_blackout_patch_km) + vec3(7.1, 2.9, 0.4));
+				dark = max(dark, nuke_blackout_off(t, mix(0.15, 1.0, patch) * nuke_blackout_national_off_s));
 			}
-			if (id != nuke_blackout_country[i]) {
-				continue;
-			}
-			float patch_a = nuke_blackout_patch(p / (2.0 * nuke_blackout_patch_km) + vec3(7.1, 2.9, 0.4));
-			float patch_b = nuke_blackout_patch(p / (2.0 * nuke_blackout_patch_km) + vec3(1.9, 6.3, 4.7));
-			float t_off = mix(0.15, 1.0, patch_a) * nuke_blackout_national_off_s;
-			float t_on = mix(nuke_blackout_national_restore_s.x, nuke_blackout_national_restore_s.y, patch_b);
-			dark = max(dark, nuke_blackout_window(nuke_blackout_country_time[i], t_off, t_on));
 		}
 	}
 	return dark;

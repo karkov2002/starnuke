@@ -90,6 +90,15 @@ void fragment() {
 	float luma = dot(albedo, vec3(0.299, 0.587, 0.114));
 	float water = smoothstep(0.015, 0.06, albedo.b - albedo.r) * (1.0 - smoothstep(0.18, 0.3, luma));
 	vec3 n = normalize(local_km);
+	// Explosions proches (nuke/shaders/nuke_ground.gdshaderinc) : incendies et sol calciné (de jour comme de nuit,
+	// définitif), black-out (plus bas).
+	ivec2 nuke_cell = nuke_ground_cell(n);
+	vec2 nuke_fire = vec2(0.0);
+	if (nuke_cell.y > 0) {
+		float urban = smoothstep(0.05, 0.3, dot(night, vec3(0.299, 0.587, 0.114)));
+		nuke_fire = nuke_fire_state(n * CLOUD_PLANET_RADIUS_KM, nuke_cell, 1.0 - water, urban);
+		albedo = mix(albedo, nuke_burn_albedo, nuke_fire.y * nuke_burn_strength);
+	}
 	vec3 l = normalize(transpose(mat3(MODEL_MATRIX)) * sun_direction);
 	CloudAdvection adv = cloud_advection(n);
 	float shadow = cloud_shadow(n, l, adv);
@@ -113,8 +122,8 @@ void fragment() {
 		// naturelle des terres alentour (gris bleuté du clair de lune, luminance de la campagne non éclairée),
 		// pas à une version atténuée d'elle-même (l'orange des lampes au sodium resterait en tache brune). Rien de
 		// visible de jour (darkness = 0).
-		if (nuke_blackout_count > 0 || nuke_blackout_country_count > 0) {
-			float off = nuke_blackout_darkness(n * CLOUD_PLANET_RADIUS_KM, n);
+		if (nuke_cell.y > 0 || nuke_ground_country_count > 0) {
+			float off = nuke_blackout_darkness(n * CLOUD_PLANET_RADIUS_KM, n, nuke_cell);
 			vec3 unlit = nuke_blackout_land_tint * (night_land_level * min(night_luma, nuke_blackout_unlit_luma));
 			glow = mix(glow, unlit, off);
 		}
@@ -127,14 +136,9 @@ void fragment() {
 				* nuke_flash_ground(n * CLOUD_PLANET_RADIUS_KM, n, adv);
 	}
 	// Incendies allumés par les explosions (nuke/shaders/nuke_fire.gdshaderinc), voilés par les nuages comme les
-	// lumières des villes.
-	if (nuke_fire_count > 0) {
-		float urban = smoothstep(0.05, 0.3, dot(night, vec3(0.299, 0.587, 0.114)));
-		vec3 fire = nuke_fire_emission(n * CLOUD_PLANET_RADIUS_KM, 1.0 - water, urban);
-		// Voile des nuages (marche coûteuse) seulement là où il y a du feu, pas sur tout le globe.
-		if (fire.r + fire.g + fire.b > 0.0) {
-			emission += fire * mix(night_cloud_floor, 1.0, cloud_shadow(n, n, adv));
-		}
+	// lumières des villes. Voile des nuages (marche coûteuse) seulement là où il y a du feu, pas sur tout le globe.
+	if (nuke_fire.x > 0.0) {
+		emission += nuke_fire_color * nuke_fire_hdr * nuke_fire.x * mix(night_cloud_floor, 1.0, cloud_shadow(n, n, adv));
 	}
 	EMISSION = emission;
 }

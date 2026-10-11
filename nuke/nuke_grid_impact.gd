@@ -2,7 +2,7 @@ class_name NukeGridImpact
 extends RefCounted
 ## Effet d'une explosion sur le réseau électrique : centrales détruites (PowerPlants, dans le rayon de
 ## NukeScaling.BLACKOUT_PLANT_PSI) et décision d'une panne nationale (part de la capacité du pays perdue au moins
-## NukeScaling.BLACKOUT_NATIONAL_SHARE). Le rendu de la panne est fait par NukeBlackoutFX.
+## NukeScaling.BLACKOUT_NATIONAL_SHARE). Le rendu de la panne est fait par NukeGroundFX.
 ## Calcul pur, sûr depuis un autre thread (lectures seules).
 
 

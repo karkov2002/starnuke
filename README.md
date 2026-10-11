@@ -366,6 +366,13 @@ et **explosions sur la mer** (pas d'incendie au large, nuage de vapeur d'eau qui
 et les **pertes humaines** (par pays, selon la densité de population) sont calculés au tir ; **black-out électrique**
 de nuit (zone détruite, panne régionale en cascade, panne nationale si une grosse centrale est détruite).
 
+**Persistance du monde (règle de jeu)** : une explosion n'est jamais retirée ; ses effets au sol durent toute la
+partie, sans limite de nombre. Les incendies s'étendent pendant plusieurs jours puis s'éteignent, en laissant un
+**sol calciné définitif** (visible de jour) ; le **black-out ne se répare jamais** (zone détruite, panne régionale et
+panne nationale). Le champignon se dissipe en quelques heures de jeu (dérive et dilution réelles). Après la première
+demi-heure physique, jouée en accéléré, une explosion vit au rythme de l'horloge du jeu (voir « Horloge ») : ce que
+l'on retrouve après une ou plusieurs orbites correspond au temps réellement écoulé dans la partie.
+
 ### Organisation du code
 
 Une responsabilité par classe (principe « S » de SOLID). Trois familles :
@@ -374,7 +381,7 @@ Une responsabilité par classe (principe « S » de SOLID). Trois familles :
 |---|---|
 | **Tir** | `NukeLauncher` (visée, création de l'explosion, liste des explosions ; crée les nœuds ci-dessous), `NukeParams` (paramètres d'un tir), `NukeEffect` (une explosion : placement, temps, résultats du bilan), `NukeClock` (horloge) |
 | **Rendu d'une explosion** (enfants de `NukeEffect`) | `NukeFlash`, `NukeShock`, `NukeMushroom` (forme, volume, couleurs) avec `NukeMushroomDrift` (dérive au vent) et `NukeMushroomParticles` (particules) |
-| **Rendu global** (nœuds créés par le lanceur, alimentent les shaders du globe) | `NukeFlashFX`, `NukeFireFX`, `NukeCloudFX`, `NukeBlackoutFX` ; `NukeFXMaterials` (recherche des matériaux qui déclarent un uniform) |
+| **Rendu global** (nœuds créés par le lanceur, alimentent les shaders du globe) | `NukeFlashFX`, `NukeCloudFX` (effets brefs, tableaux d'uniforms), `NukeGroundFX` (effets durables au sol : incendies, sol calciné, black-out ; textures de données sans plafond) ; `NukeFXMaterials` (recherche des matériaux qui déclarent un uniform) |
 | **Modèles** (calcul pur, sans nœud, utilisables depuis un thread) | `NukeScaling` (lois d'échelle, surpression de Brode), `NukeCasualties` (pertes du souffle et de la chaleur, chronologie), `NukeFallout` (doses et pertes des retombées) avec `NukeWSEG10` (champ de retombées) et `NukeMath`, `NukeGridImpact` (centrales détruites, panne nationale), `NukeAtmosphere`, `NukeWind` |
 | **Bilan** | `NukeImpact` (nœud `Impact` : calcule le bilan d'un tir dans un thread et l'écrit en console), `NukeTally` (cumul par pays, à l'instant présent), `NukeReportText` (textes et nombres), `NukeReportPanel` (fenêtre, affichage seulement) avec `DraggableWindow` (`scripts/ui/`, fenêtre déplaçable réutilisable) |
 | **Données géographiques** (`scripts/`) | `OceanMask`, `CountryMask` (dont `index_near` : pays le plus proche d'un point côtier), `PopulationGrid` (dont `cell_country`), `PowerPlants` |
@@ -568,20 +575,29 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   - rendu avant les nuages (`render_priority` −1) : un banc nuageux le voile.
 
   Réglages dans le script : groupes « Condensation » et « Poussière », `lift_km`.
-- **Incendies** (`nuke/nuke_fire_fx.gd`, nœud `FireFX` créé par `NukeLauncher` ; `nuke/shaders/nuke_fire.gdshaderinc`,
-  inclus dans `shaders/earth_surface.gdshader`). Ils sont allumés par le flash dans le rayon où l'exposition
-  thermique dépasse ~10 cal/cm² (inflammation des matériaux courants, Glasstone & Dolan ch. VII).
-  - Rayon : 12 km · (W / 1 Mt)^0,41, soit ~1,8 km à 10 kt, 12 km à 1 Mt et ~60 km à 50 Mt
-    (`NukeScaling.fire_radius_km`).
-  - Évolution (`NukeScaling.fire_intensity`), calée sur Hiroshima (tempête de feu formée ~20 min après
-    l'explosion, au plus fort vers 2–3 h) :
-    - 25 % de l'intensité finale dès le flash (foyers allumés par le rayonnement thermique) ;
-    - les foyers se rejoignent entre 2 min et 1 h 30 ; intensité (0 à 1) : ~0,3 à 20 min, ~0,6 à 1 h, maximum
-      ~0,7 vers 1 h 20 ;
-    - le rayon s'étend de 15 % (constante de temps 1 h) ;
-    - extinction progressive (constante de temps 4 h).
-    - avec l'accélération de l'horloge (×10 après la rampe), 1 h 20 physique ≈ 8 min 30 s à l'écran.
-  - Rendu, en émission sur le sol :
+- **Incendies et sol calciné** (règle de jeu ; nœud `GroundFX`, classe `NukeGroundFX`, créé par `NukeLauncher` ;
+  `nuke/shaders/nuke_fire.gdshaderinc`, inclus dans `shaders/earth_surface.gdshader` ; lois dans `NukeScaling`,
+  constantes `FIRE_*`). Ils sont allumés par le flash dans le rayon où l'exposition thermique dépasse ~10 cal/cm²
+  (inflammation des matériaux courants, Glasstone & Dolan ch. VII), **s'étendent pendant plusieurs jours** et
+  laissent un **sol calciné jusqu'à la fin de la partie**.
+  - Rayon initial R0 : 12 km · (W / 1 Mt)^0,41, soit ~1,8 km à 10 kt, 12 km à 1 Mt et ~60 km à 50 Mt
+    (`NukeScaling.fire_base_radius_km`).
+  - Zone du flash, calée sur Hiroshima (tempête de feu formée ~20 min après l'explosion, au plus fort vers 2–3 h) :
+    25 % de l'intensité finale dès le flash (foyers allumés par le rayonnement thermique), foyers qui se rejoignent
+    entre 2 min et 1 h 30 ; intensité maximale ~0,8 vers 1 h 30.
+  - Propagation : le front gagne les terres alentour, rayon R0 · (1 + 1 · (1 − exp(−t / 1 jour)))
+    (`FIRE_SPREAD`, `FIRE_SPREAD_S`, `NukeScaling.fire_radius_km`) : 63 % du chemin en 1 jour, 95 % en 3 jours,
+    jusqu'à 2 R0 (24 km à 1 Mt) ; au départ ~0,5 km/h pour 1 Mt, l'allure d'un feu de forêt. Un lieu atteint par le
+    front s'embrase en 1 h, moins fort que la tempête de feu (30 %) : **un anneau de feu s'éloigne du centre**.
+  - Chaque lieu brûle avec une constante de temps d'extinction de 6 h (`FIRE_BURN_S`) : le centre est éteint en
+    ~1 jour, les derniers feux du front en 4 à 5 jours.
+  - **Sol calciné** : noirci en 2 h à mesure qu'il brûle (`FIRE_CHAR_S`), définitif. Albédo charbon
+    (`nuke_burn_albedo`, mélange jusqu'à 85 %, `nuke_burn_strength`), plus net dans la zone du flash, motif
+    irrégulier ; seulement sur les terres. Visible de jour, surtout sur un sol clair (champs, villes) ; sur une forêt
+    déjà sombre, le contraste est faible, comme sur les images satellites réelles.
+  - Toutes les durées sont en temps physique, au rythme du jeu après la première demi-heure (voir « Horloge ») :
+    les incendies durent donc plusieurs jours de la partie.
+  - Rendu des flammes, en émission sur le sol :
     - la part du sol en feu est forte au centre (l'exposition décroît en 1/d²) ;
     - seulement sur les terres (masque d'eau du sol) : **une mer ou un océan ne brûle pas**. Une explosion en mer
       sans aucune terre dans le rayon des incendies (`OceanMask.has_land_within`, `NukeEffect.can_ignite_land`)
@@ -592,7 +608,11 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
     - voilée par les nuages comme les lumières des villes.
   - Depuis l'orbite (~0,5 km par pixel), on ne voit pas les flammes une à une, mais la lueur moyenne des zones en
     feu. Elle est faible devant un sol au soleil : les incendies se voient surtout de nuit.
-  - `FireFX` transmet au sol les 8 incendies les plus intenses (position, rayon, intensité).
+  - **Aucun plafond sur le nombre d'explosions** (`NukeGroundFX`, `nuke/shaders/nuke_ground.gdshaderinc`) : chaque
+    explosion est une colonne d'une texture de données (centre, temps physique, rayons : zone détruite, panne
+    régionale, incendies, portée). Une maille de 1° (360 × 180) indexe les explosions dont la portée la touche : un
+    pixel du sol ne teste que les explosions proches. Seuls les temps sont renvoyés à chaque image ; la maille est
+    reconstruite à chaque tir. Les mêmes textures servent au black-out.
 - **Champignon** (`nuke/nuke_mushroom.tscn`, script `nuke/nuke_mushroom.gd`, enfant `Mushroom` de l'effet ;
   shaders `nuke/shaders/nuke_mushroom_volume.gdshader`, `nuke/shaders/nuke_mushroom.gdshader` et
   `nuke/shaders/nuke_smoke.gdshader`).
@@ -661,7 +681,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
     - **fragmentation** : le nuage dilué se déchire en lambeaux (trous de bruit basse fréquence, seuil 0,55 ×
       (1 − √densité), `breakup` du shader) ; la déformation verticale du domaine est réduite de R0 / R (couche mince) ;
     - le champignon est masqué sous 1 % de densité : ~2 h après un 10 kt, ~6 h après un 1 Mt (temps physique ;
-      ~12 et ~36 min d'horloge avec l'accélération ×10). Effet visible : à 1 Mt, chapeau net à 30 min, panache
+      ~1 h 30 et ~5 h 30 d'horloge, soit une à plusieurs orbites). Effet visible : à 1 Mt, chapeau net à 30 min, panache
       étiré à 1 h, voile ténu à 2 h ;
     - la boîte englobante suit les hauteurs occupées : une fois la tige dissoute, elle ne descend plus jusqu'au sol
       et ne couvre que la dérive du chapeau (qui peut être à des centaines de km du point zéro) ;
@@ -717,9 +737,10 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
     Leur vitesse suit celle du temps physique (`speed_scale` : pause et accélération de l'horloge). Elles ne se
     rejouent pas au scrubber. Pas de *soft particles* : elles liraient la texture de profondeur, peu fiable sous
     D3D12 dans ce projet ; les bords sont adoucis par la forme. Pas de flipbook (aucun dans le projet).
-- **Black-out électrique** (règle de jeu ; `nuke/nuke_grid_impact.gd`, classe `NukeGridImpact` ; `nuke/nuke_blackout_fx.gd`, classe `NukeBlackoutFX`, nœud `BlackoutFX` créé par
+- **Black-out électrique** (règle de jeu ; `nuke/nuke_grid_impact.gd`, classe `NukeGridImpact` ; `nuke/nuke_ground_fx.gd`, classe `NukeGroundFX`, nœud `GroundFX` créé par
   `NukeLauncher` ; `nuke/shaders/nuke_blackout.gdshaderinc`, inclus dans `shaders/earth_surface.gdshader` ; lois et
-  durées dans `NukeScaling`, constantes `BLACKOUT_*`). Seules les lumières des villes s'éteignent : **de jour, rien
+  durées dans `NukeScaling`, constantes `BLACKOUT_*`). **Le black-out dure jusqu'à la fin de la partie** : réseau
+  détruit, aucune remise en état pendant une guerre nucléaire. Seules les lumières des villes s'éteignent : **de jour, rien
   ne se voit** ; au crépuscule, les villes s'allument autour d'une zone qui reste noire (la panne multiplie
   l'allumage progressif des lumières, du soleil à +2° jusqu'à −7° sous l'horizon) ; à l'aube tout s'éteint
   ensemble. Une ville éteinte retombe à la lueur de la campagne non éclairée (quasi noire, gris bleuté), pas à une
@@ -728,17 +749,16 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
      8,5 km à 1 Mt, 31 km à 50 Mt), éteinte dès l'explosion et pour de bon, bord irrégulier.
   2. **Panne régionale en cascade** : disque de 120 km · (W / 1 Mt)^(1/3) (`BLACKOUT_REGION_1MT_KM` : ~26 km à
      10 kt, ~440 km à 50 Mt ; au moins 2 fois la zone détruite). Le front de la panne avance du centre vers le bord
-     (R · (1 − exp(−t / 15 s))), par plaques d'une vingtaine de km (quartiers, communes : bruit fixe). Les plaques se
-     rallument une à une, du bord (après 1 h) vers le centre (24 h), ±30 % selon la plaque. Repère : la panne du
-     nord-est des États-Unis (14 août 2003) a été réparée en 1 à 2 jours.
+     (R · (1 − exp(−t / 15 s))), par plaques d'une vingtaine de km (quartiers, communes : bruit fixe), et reste
+     éteint.
   3. **Panne nationale** : au tir, `NukeGridImpact.assess()` (dans le thread de `NukeImpact`) cherche les centrales détruites (rayon de 5 psi,
      `BLACKOUT_PLANT_PSI`) dans la Global Power Plant Database (`scripts/power_plants.gd`, classe `PowerPlants`,
      `assets/power_plants.res`). Si elles représentent au moins 10 % de la capacité du pays
      (`BLACKOUT_NATIONAL_SHARE`), tout le pays s'éteint, à ses frontières (carte `assets/textures/country_ids.png`
-     lue par le shader), par plaques en 5 à 30 s (effondrement de la fréquence), puis se rallume par plaques entre
-     2 h et 12 h. Repère : la panne de la péninsule ibérique du 28 avril 2025 (Espagne et Portugal éteints en
-     quelques secondes, courant rétabli en une dizaine d'heures). Le pays retenu est celui du point zéro (en mer :
-     celui qui perd le plus de capacité).
+     lue par le shader), par plaques en 5 à 30 s (effondrement de la fréquence), et reste éteint. Repère : la panne
+     de la péninsule ibérique du 28 avril 2025 (Espagne et Portugal éteints en quelques secondes). Le pays retenu est
+     celui du point zéro (en mer : celui qui perd le plus de capacité). Les pays dans le noir sont transmis au shader
+     par une texture indexée par pays (`nuke_ground_countries`), sans limite de nombre.
   - Console :
     ```
       réseau électrique : 2 centrale(s) détruite(s), 2923 MW : DOEL 4 (Nuclear, 2910 MW), Loghidden City (Solar, 13 MW)
@@ -749,8 +769,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
     (215 GW) ne s'éteignent pas pour une seule centrale.
   - Les plaques basculent sur une fenêtre de temps (5 % de la date, au moins 2 s) : pas de clignotement. Le motif
     des plaques est fixe (centré sur l'explosion, ou en coordonnées planétaires à échelle constante pour un pays).
-  - Mesures : 1 Mt sur Anvers, de nuit : Belgique noire à 10 min, encore largement noire à 4 h, rallumée par
-    plaques à 20 h ; à 30 h, seule la zone détruite reste noire.
+  - Mesure : 1 Mt sur Anvers, de nuit : Belgique noire à 10 min, et pour le reste de la partie.
   - Limites : la base recense ~70 % de la capacité mondiale (surtout les grosses centrales, qui comptent ici) ; les
     réseaux interconnectés (une panne qui déborde sur les pays voisins) et l'impulsion électromagnétique d'une
     explosion en haute altitude ne sont pas simulés.
@@ -833,8 +852,8 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
     - exemples (morts à 60 jours) : Kansas City 1 Mt, ~40 000 (en plus de 64 000 pour le souffle) ; Paris 1 Mt
       (vent de 32 m/s vers le nord-est), ~143 000 ; Paris 50 Mt, ~15 millions jusqu'en Allemagne, en Belgique et aux
       Pays-Bas.
-    - Avec l'horloge, ces jours passent lentement : 1 jour physique ≈ 2 h 24 d'horloge à ×10 (et moins avec les
-      vitesses x2 à x16 du panneau).
+    - Ces jours sont des jours de la partie : après la première demi-heure, le temps physique suit l'horloge du jeu
+      (1 jour physique ≈ 1 jour d'horloge, moins de temps réel avec les vitesses x2 à x16 du panneau).
   - **Non comptés** : tempête de feu (le modèle de surpression la sous-estime pour les fortes puissances, critique
     de Postol), effets à long terme (cancers), contamination de l'eau et des aliments, évacuation et soins. Le
     modèle de l'OTA vaut pour une ville de faible hauteur ; il est discutable pour les tours modernes.
@@ -964,10 +983,16 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
     multiplié par `acceleration` (1 par défaut) ;
   - le temps physique d'une explosion défile en temps réel pendant `realtime_phase_s` (20 s : flash, boule de
     feu, onde de choc). Sa vitesse monte ensuite **progressivement** (smoothstep) sur `ramp_s` (40 s d'horloge)
-    jusqu'à `slow_phase_acceleration` (×10), pour la montée et l'étalement du champignon ;
-  - la rampe évite un saut de vitesse : un effet encore en cours à 20 s ne se met pas à filer d'un coup (l'anneau
-    de condensation d'un 50 Mt s'évapore vers 35 s d'horloge, à ×3,8) ;
-  - repères : 60 s d'horloge = 240 s physiques, 10 min physiques ≈ 1 min 36 s d'horloge, 3 h ≈ 19 min ;
+    jusqu'à `slow_phase_acceleration` (×10), pour la montée du champignon et les trous dans les nuages ;
+  - quand `slow_phase_end_s` (30 min) de temps physique sont écoulés, la vitesse **redescend** de la même façon
+    (smoothstep sur `ramp_s`) jusqu'à 1 : l'explosion vit ensuite **au rythme du jeu**, avec une avance fixe de
+    ~29 min (`late_offset_s()`, 1 764 s). Sans ce retour, une orbite (92 min) valait ~15 h pour les explosions et
+    tout avait disparu au passage suivant ; désormais incendies (jours), dissipation du champignon (heures), décès
+    différés et retombées suivent la date de la partie ;
+  - les rampes évitent les sauts de vitesse : un effet encore en cours à 20 s ne se met pas à filer d'un coup
+    (l'anneau de condensation d'un 50 Mt s'évapore vers 35 s d'horloge, à ×3,8) ;
+  - repères : 60 s d'horloge = 240 s physiques, 10 min physiques ≈ 1 min 36 s d'horloge, 30 min ≈ 3 min 36 s,
+    fin de la redescente à ~4 min 16 s d'horloge (~34 min physiques) ; au-delà, physique = horloge + 1 764 s ;
   - `to_physical()` (intégrale de la vitesse) et `to_clock()` (réciproque, par dichotomie) convertissent.
 - **Tir** (`nuke/nuke_launcher.gd`, nœud `NukeLauncher` de `orbit_view.tscn`, groupe `nuke_launcher`) : rayon partant
   de la caméra par le centre de l'écran, intersecté analytiquement avec la sphère terrestre (6371 km, soit 637,1 u).
@@ -979,8 +1004,8 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
     sans rien faire ;
   - `launch_at(latitude, longitude, yield_kt)` : tire sur des coordonnées ; `fire(params)` : à partir d'une
     `NukeParams` ;
-  - signal `detonated(effect)` ; `get_effects()`, `clear_effects()`. Les explosions restent en place (pas encore
-    de fin d'effet).
+  - signal `detonated(effect)` ; `get_effects()`, `clear_effects()`. Les explosions restent en place jusqu'à la
+    fin de la partie (persistance du monde) : seul `clear_effects()` (debug, banc de mesure) les retire.
   - Au démarrage, il lie `NukeClock` au nœud `Orbit` (`orbit_path`).
 - **Interface** : colonne `Launch` du panneau de contrôle (`nuke/launch_control.gd`) : gros bouton rouge
   (`nuke/big_red_button.gd`, dessiné à la main) et, en dessous, les boutons de puissance. Au clic, le capuchon
