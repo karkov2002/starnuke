@@ -22,7 +22,7 @@ const BACKDROP_CAMERA_FOV := 55.0
 const BACKDROP_TIME_SCALE := 1.0
 const BACKDROP_FADE_S := 2.0
 ## Nœuds de la scène du jeu retirés du décor (interface, tir).
-const BACKDROP_REMOVED: Array[String] = ["OrbitControls", "NukeReport", "NukeLauncher"]
+const BACKDROP_REMOVED: Array[String] = ["OrbitControls", "NukeReport", "NukeLauncher", "PauseMenu"]
 
 var _menu: Control
 var _start_button: Button

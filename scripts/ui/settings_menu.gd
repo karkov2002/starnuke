@@ -2,6 +2,13 @@ extends Control
 ## Écran des paramètres (scenes/ui/settings_menu.tscn), ouvert par l'écran de démarrage. Onglets « Vidéo », « Audio »,
 ## « Commandes » et « Jeu » ; Audio et Commandes sont à venir (onglets désactivés). Chaque choix est appliqué et sauvé
 ## aussitôt par l'autoload GameSettings. Émet closed au clic sur « Retour » (ou Échap).
+## En jeu (in_game, ouvert par la pause, scripts/ui/pause_menu.gd) : fond translucide sur la vue figée et bouton
+## supplémentaire « Retour au menu » (main_menu_requested).
+
+signal main_menu_requested
+
+## Ouvert depuis la partie (pause) : à fixer avant l'ajout à l'arbre.
+var in_game := false
 ## Textes : clés des fichiers de langue (locale/strings.csv) ; les textes composés (résolutions, note) sont refaits
 ## quand la langue change.
 
@@ -22,7 +29,7 @@ var _back: Button
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var background := ColorRect.new()
-	background.color = Color.BLACK
+	background.color = Color(0.0, 0.0, 0.0, 0.72) if in_game else Color.BLACK
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
 	var center := CenterContainer.new()
@@ -68,7 +75,20 @@ func _ready() -> void:
 	_back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_back.add_theme_font_size_override("font_size", 22)
 	_back.pressed.connect(func() -> void: closed.emit())
-	column.add_child(_back)
+	if in_game:
+		var buttons := HBoxContainer.new()
+		buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+		buttons.add_theme_constant_override("separation", 24)
+		column.add_child(buttons)
+		buttons.add_child(_back)
+		var main_menu := Button.new()
+		main_menu.text = "SETTINGS_MAIN_MENU"
+		main_menu.custom_minimum_size = Vector2(220.0, 52.0)
+		main_menu.add_theme_font_size_override("font_size", 22)
+		main_menu.pressed.connect(func() -> void: main_menu_requested.emit())
+		buttons.add_child(main_menu)
+	else:
+		column.add_child(_back)
 
 	_refresh()
 	GameSettings.changed.connect(_refresh)
