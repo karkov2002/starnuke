@@ -228,8 +228,9 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
     - cœur : cône additif de 2,6 m (`shaders/missile_exhaust_core.gdshader`), éblouissant au ras de la tuyère
       (blanc-jaune, luminance HDR 24 : glow), qui s'élargit et vire à l'orange ;
     - panache : sans air pour le confiner, le gaz se détend très largement : 900 particules additives
-      (`shaders/missile_exhaust_particle.gdshader`), 35 à 70 m/s, demi-angle 65°, durée de vie 0,4 s, de ~1 à
-      ~5 m ; opacité qui chute vite (densité en 1/r²) : voile translucide, **pas de traînée de fumée** ;
+      (`shaders/missile_exhaust_particle.gdshader`), 35 à 70 m/s, demi-angle 40°, durée de vie 0,4 s ; elles
+      naissent petites (~25 cm, moins que la tuyère) juste derrière sa sortie, puis grossissent jusqu'à ~8 m (à 65°
+      et nées à 1 m, elles enveloppaient la coque : le gaz semblait sortir des flancs du missile) ; opacité qui chute vite (densité en 1/r²) : voile translucide, **pas de traînée de fumée** ;
     - lumière : `OmniLight3D` orange qui vacille (combustion irrégulière), 40 m de portée, avec ombres (quelques
       secondes seulement), qui n'éclaire pas les surfaces intérieures (calque `INTERIOR_LAYER`).
     - Allumage : échelle de `Point_Tuyere` (0 → 1 à 2,9 s, cf. `Lancement_Missile`) ; l'effet en hérite et naît à

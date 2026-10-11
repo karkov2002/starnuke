@@ -6,7 +6,8 @@ extends Node3D
 ## Moteur à propergol solide (missile balistique de type mer-sol) dans le vide :
 ## - cœur : cône additif éblouissant à la sortie de la tuyère, blanc-jaune, qui s'élargit et s'éteint en quelques
 ##   mètres (shaders/missile_exhaust_core.gdshader) ;
-## - panache : sans air pour le confiner, le gaz se détend très largement (~65° de demi-angle) ; particules additives
+## - panache : sans air pour le confiner, le gaz se détend largement (~40° de demi-angle) ; particules additives, nées
+##   petites juste derrière la tuyère,
 ##   rapides (35 à 70 m/s par rapport au missile) qui grossissent et deviennent transparentes en ~0,35 s
 ##   (shaders/missile_exhaust_particle.gdshader). Pas de traînée de fumée : rien ne freine ni ne retient le gaz ;
 ## - lumière : OmniLight3D orange qui vacille, avec ombres (quelques secondes seulement), sur le dessous de la station ;
@@ -32,7 +33,9 @@ var throttle := 1.0
 @export var core_nozzle_radius := 0.32
 @export var core_end_radius := 0.95
 @export var plume_speed := Vector2(35.0, 70.0)
-@export var plume_spread_deg := 65.0
+## Demi-angle du cône du panache (degrés) : assez ouvert pour un jet dans le vide, sans que le gaz semble jaillir
+## des flancs du missile (65° lui faisait envelopper la coque).
+@export var plume_spread_deg := 40.0
 @export var plume_lifetime := 0.4
 ## Nombreuses particules larges et peu opaques : elles se fondent en un voile de gaz continu (pas des étincelles).
 @export var plume_amount := 900
@@ -142,10 +145,12 @@ func _build_plume() -> void:
 	process.emission_sphere_radius = core_nozzle_radius
 	process.scale_min = 1.0
 	process.scale_max = 1.6
-	# Taille : ~1 m à la sortie, jusqu'à ~10 m en fin de vie (le gaz se détend à mesure qu'il s'éloigne).
+	# Taille : ~25 cm à la sortie (plus petit que la tuyère : le panache naît d'elle, pas de la coque), puis le gaz se
+	# détend en s'éloignant, jusqu'à ~8 m en fin de vie.
 	var growth := Curve.new()
 	growth.max_value = 8.0
-	growth.add_point(Vector2(0.0, 0.7))
+	growth.add_point(Vector2(0.0, 0.2))
+	growth.add_point(Vector2(0.15, 1.2))
 	growth.add_point(Vector2(1.0, 5.0))
 	var growth_texture := CurveTexture.new()
 	growth_texture.curve = growth
@@ -177,6 +182,8 @@ func _build_plume() -> void:
 	_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# Le panache s'étend sur ~25 m : boîte de visibilité large, sinon il disparaît dès que l'émetteur sort du champ.
 	_particles.visibility_aabb = AABB(Vector3(-20.0, -5.0, -20.0), Vector3(40.0, 40.0, 40.0))
+	# Émission juste derrière la sortie de la tuyère (et non sur son plan) : aucune particule ne naît sur la coque.
+	_particles.position = Vector3(0.0, core_nozzle_radius, 0.0)
 	add_child(_particles)
 
 
