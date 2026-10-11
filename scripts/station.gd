@@ -431,6 +431,8 @@ func _setup_interior_lighting() -> void:
 			var material := mesh_instance.mesh.surface_get_material(s)
 			var material_name := material.resource_name if material else ""
 			if _has_prefix(material_name, BOTH_SIDES_MATERIALS):
+				if material_name.begins_with("Vitrage") and material is BaseMaterial3D:
+					mesh_instance.set_surface_override_material(s, _matte_glass(material as BaseMaterial3D))
 				continue
 			if _has_prefix(material_name, INTERIOR_MATERIALS):
 				interior.append(s)
@@ -458,6 +460,16 @@ func _setup_interior_lighting() -> void:
 		light.light_temperature = interior_light_temperature
 		light.light_specular = interior_light_specular
 		light.shadow_enabled = interior_shadows
+
+
+## Vitrage de la cupola sans reflet spéculaire : le reflet de l'environnement (disque solaire du ciel) ignore l'ombre
+## portée de la station, et faisait briller le soleil dans le hublot du nadir alors que la cupola est à l'ombre.
+static func _matte_glass(source: BaseMaterial3D) -> BaseMaterial3D:
+	var glass := source.duplicate() as BaseMaterial3D
+	glass.metallic = 0.0
+	glass.metallic_specular = 0.0
+	glass.roughness = 1.0
+	return glass
 
 
 static func _has_prefix(text: String, prefixes: Array[String]) -> bool:

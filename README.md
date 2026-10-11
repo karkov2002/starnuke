@@ -207,6 +207,10 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
     ses surfaces extérieures, une copie `<nom>_Interieur` (même maillage, LOD compris, sans ombre portée) ses
     surfaces intérieures ; les surfaces cachées ont un matériau qui place leurs sommets hors du champ (aucun pixel
     calculé). L'extérieur n'est éclairé que par le soleil (et le flash des explosions).
+  - **Vitrage de la cupola sans reflet** (`Station._matte_glass`) : le reflet de l'environnement (disque solaire du
+    ciel) ignore l'ombre portée de la station ; il faisait briller un point lumineux dans le hublot du nadir alors
+    que la cupola est à l'ombre. Le matériau `Vitrage` est remplacé au démarrage par une copie sans reflet
+    spéculaire (métal 0, spéculaire 0, rugosité 1), toujours transparente.
   - **Chaleur** (règle de jeu, valeurs provisoires en attendant la jauge) : `heat` (0 à 1) monte de
     `heat_rise_per_s` (0,01/s) radiateurs tous repliés (**mode furtif** : pas de rayonnement infrarouge, la chaleur
     s'accumule) et descend de `heat_fall_per_s` (0,02/s) radiateurs tous déployés, en proportion des radiateurs
