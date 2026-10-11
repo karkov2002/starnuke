@@ -181,6 +181,20 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
     (`Point_Tuyere` : échelle 0 → 1 ; signal `missile_ignited`), disparition à 5 s, ~30 m sous la station (échelle
     0 ; signal `missile_released(silo, tube, world_transform)` : relais prévu vers le système de frappe). Chaque
     tube ne tire qu'une fois. Le bouton rouge reste pour l'instant indépendant (frappe directe).
+  - **Propulsion du missile** (`scenes/effects/missile_exhaust.tscn`, script `scripts/missile_exhaust.gd`, classe
+    `MissileExhaust`, instancié sous `Missile_Balistique_1_12/Point_Tuyere_1_12` dans la scène héritée : chaque copie
+    du missile en hérite). Moteur à propergol solide dans le vide :
+    - cœur : cône additif de 2,6 m (`shaders/missile_exhaust_core.gdshader`), éblouissant au ras de la tuyère
+      (blanc-jaune, luminance HDR 24 : glow), qui s'élargit et vire à l'orange ;
+    - panache : sans air pour le confiner, le gaz se détend très largement : 900 particules additives
+      (`shaders/missile_exhaust_particle.gdshader`), 35 à 70 m/s, demi-angle 65°, durée de vie 0,4 s, de ~1 à
+      ~5 m ; opacité qui chute vite (densité en 1/r²) : voile translucide, **pas de traînée de fumée** ;
+    - lumière : `OmniLight3D` orange qui vacille (combustion irrégulière), 40 m de portée, avec ombres (quelques
+      secondes seulement), qui n'éclaire pas les surfaces intérieures (calque `INTERIOR_LAYER`).
+    - Allumage : échelle de `Point_Tuyere` (0 → 1 à 2,9 s, cf. `Lancement_Missile`) ; l'effet en hérite et naît à
+      la taille zéro. Direction du jet : à l'opposé du déplacement du missile (le +Z de `Point_Tuyere_1_12`, annoncé
+      comme direction du jet, est horizontal dans le modèle : le missile descend, sa tuyère est en haut et le jet
+      monte vers la station).
   - Radiateurs : `set_radiator_deployed(id, deployed)` (`Radiateur_D15`, `D21`, `G15`, `G21`),
     `set_all_radiators_deployed`, `set_stealth(enabled)` ; signal `radiator_changed`.
   - **Éclairage intérieur** (réglages dans le groupe « Éclairage intérieur » de `Station`) : les 28 lampes
