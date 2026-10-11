@@ -6,8 +6,7 @@ extends Node3D
 ## 1. Phase spatiale (de 0 à flight_time_s − reentry_time_s), dans le repère de la station (fixe dans la scène ; c'est
 ##    la Terre qui bouge) : le missile poursuit la ligne droite de Blender (vitesse de sortie) en accélérant
 ##    (dive_acceleration), puis s'incurve vers le point d'entrée dans l'atmosphère (entry_altitude_km au-dessus de la
-##    cible, décalé perpendiculairement à la ligne de visée pour une pente de entry_angle_deg : traînée vue de
-##    profil) selon g(u) = (e^(λu) − 1 − λu) / (e^λ − 1 − λ)
+##    cible, en amont du côté de la station, pente de entry_angle_deg : la rentrée prolonge le vol) selon g(u) = (e^(λu) − 1 − λu) / (e^λ − 1 − λ)
 ##    (pente nulle au départ : pas d'à-coup au relais). Le moteur brûle burn_time_s puis s'éteint : la tête,
 ##    froide, devient invisible (on perd le missile de vue bien avant l'impact).
 ## 2. Rentrée (reentry_time_s) : du point d'entrée au point d'explosion (burst_height_km au-dessus de la cible), en
@@ -46,13 +45,17 @@ var glow_fade_in_m := Vector2(150.0, 1500.0)
 var light_full_m := 40.0
 ## Rentrée : altitude d'entrée (km), pente (degrés sous l'horizontale), part du vol (bornée en secondes).
 var entry_altitude_km := 100.0
-var entry_angle_deg := 60.0
+## Pente rasante, comme une vraie rentrée depuis l'orbite (quelques degrés) : plus plate que la ligne de visée vers
+## la cible (≥ ~10° sous l'horizontale), la traînée arrive à l'écran du bas, du côté de la station, et monte vers la
+## cible, dans le sens où le missile est parti. (Une pente égale à celle de la ligne de visée la réduirait à un
+## point ; plus raide, elle semblerait tomber du haut de l'écran.)
+var entry_angle_deg := 8.0
 var reentry_share := 0.2
 var reentry_bounds_s := Vector2(6.0, 12.0)
 ## Éclat de la rentrée selon l'altitude (km) : apparition, plein, fin du plein, extinction.
 var reentry_glow_km := PackedFloat32Array([75.0, 60.0, 30.0, 10.0])
 ## Longueur de la traînée, en secondes de trajet derrière la tête.
-var trail_seconds := 4.0
+var trail_seconds := 3.5
 
 var _missile: Node3D
 var _exhaust: MissileExhaust
@@ -91,20 +94,17 @@ func setup(missile: Node3D, velocity: Vector3, station: Node3D, earth: Node3D, t
 	var up := target_local.normalized()
 	var units := OrbitSimulation.SCENE_UNITS_PER_KM
 	_burst_local = up * (OrbitSimulation.EARTH_RADIUS_KM + burst_height_km) * units
-	# Point d'entrée : au-dessus de la cible, décalé à l'horizontale perpendiculairement à la ligne de visée depuis la
-	# station : la traînée de rentrée est vue de profil, de toute sa longueur (dans l'axe du regard, elle se réduirait
-	# à un point). Cible au nadir (ligne de visée verticale) : arrivée de l'arrière, le long de la trace au sol.
+	# Point d'entrée : dans le prolongement du vol, en amont de la cible du côté de la station (le missile part de la
+	# station et file vers la cible : sa tête rentre dans l'atmosphère en venant de là ; à l'écran, la traînée pointe
+	# de la station vers la cible). Cible au nadir (pas de direction horizontale) : arrivée de l'arrière, le long de la
+	# trace au sol.
 	var forward := earth.global_basis.inverse() * station.global_basis.x
 	var back := -(forward - up * forward.dot(up))
 	back = back.normalized() if back.length() > 1e-4 else up.cross(Vector3.UP).normalized()
 	var station_local := earth.global_transform.affine_inverse() * station.global_position
 	var sight := station_local - _burst_local
 	sight -= up * sight.dot(up)
-	var toward := back
-	if sight.length() > 30.0 * units:
-		toward = up.cross(sight).normalized()
-		if toward.dot(back) < 0.0:
-			toward = -toward
+	var toward := sight.normalized() if sight.length() > 30.0 * units else back
 	var drop := entry_altitude_km - burst_height_km
 	_entry_local = up * (OrbitSimulation.EARTH_RADIUS_KM + entry_altitude_km) * units \
 			+ toward * (drop / tan(deg_to_rad(entry_angle_deg))) * units

@@ -250,11 +250,15 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
       (`MissileExhaust.throttle`) : panache, flamme, lumière et halo s'éteignent, la tête froide devient invisible :
       on perd le missile de vue bien avant l'impact (~1,5 km de la station à l'extinction) ;
     - **rentrée atmosphérique** (les derniers 20 % du vol, entre 6 et 12 s ; `scripts/reentry_streak.gd`,
-      `shaders/reentry_streak.gdshader`) : du point d'entrée au point d'explosion (500 m au-dessus de la cible), pente
-      de 60°, en ralentissant ; le point d'entrée est décalé perpendiculairement à la ligne de visée depuis la
-      station (traînée vue de profil ; au nadir, arrivée de l'arrière le long de la trace au sol). La tête s'échauffe
-      comme un météore vu depuis l'ISS : tête blanc-bleuté éblouissante (halo additif, rayon 1,5 km, au moins
-      6 pixels) et traînée de plasma de 4 s de trajet, effilée, qui se refroidit du jaune à l'orange puis au rouge
+      `shaders/reentry_streak.gdshader`) : du point d'entrée au point d'explosion (500 m au-dessus de la cible), en
+      ralentissant, **dans le prolongement du vol** : le point d'entrée est en amont de la cible, du côté de la
+      station, avec une pente rasante de 8° (une vraie rentrée depuis l'orbite se fait à quelques degrés). Plus plate
+      que la ligne de visée vers la cible (≥ ~10° sous l'horizontale), la traînée arrive à l'écran du bas, du côté de
+      la station, et monte vers la cible, dans le sens où le missile est parti (pente égale à la ligne de visée :
+      traînée vue en bout, réduite à un point ; plus raide : elle semblerait tomber du haut de l'écran). Cible au
+      nadir : arrivée de l'arrière, le long de la trace au sol. La tête s'échauffe comme un météore vu depuis
+      l'ISS : tête blanc-bleuté éblouissante (halo additif, rayon 1,5 km, au moins 6 pixels) et traînée de plasma de
+      3,5 s de trajet, effilée, qui se refroidit du jaune à l'orange puis au rouge
       sombre, avec des bouffées d'ablation et un léger vacillement. Éclat selon l'altitude : apparition sous 75 km,
       plein de 60 à 30 km, extinction vers 10 km (la tête a ralenti). La traînée est mélangée par opacité (et non
       additive) en couleurs HDR : elle reste orange devant des nuages blancs en plein jour, et déborde en halo.
