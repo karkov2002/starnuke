@@ -85,7 +85,7 @@ permet de piloter le jeu exporté.
 
 | Action | Contrôle |
 |---|---|
-| Orienter la vue | Maintenir le **clic droit** et déplacer la souris (tangage limité à ±80°) ; **A / E** (AZERTY, Q / E en QWERTY) : rotation gauche / droite (90°/s) |
+| Orienter la vue | Maintenir le **clic droit** et déplacer la souris (lacet et tangage autour des axes de la tête) ; **A / E** (AZERTY, Q / E en QWERTY) : **roulis** gauche / droite autour de l'axe du regard (90°/s). Orientation libre comme en apesanteur : pas de « haut » imposé, tangage non limité |
 | Se déplacer dans la station | **Z / S** (W / S en QWERTY) ou **flèches haut / bas** : avancer / reculer dans la direction du regard (y compris vers le haut ou le bas, apesanteur) ; **Q / D** (A / D en QWERTY) ou **flèches gauche / droite** : déplacement latéral. 1,5 m/s, accélération et freinage progressifs ; collisions avec les parois, les vitres et les objets intérieurs (tubes des silos…) |
 | Curseur | Libre le reste du temps (clic gauche sur le panneau de contrôle) |
 | Altitude | Curseur du panneau, **200 à 800 km** (clic, glisser ou molette) |
@@ -98,7 +98,7 @@ permet de piloter le jeu exporté.
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
 Les touches sont définies par leur **position physique** sur le clavier (actions `move_forward`, `move_back`,
-`move_left`, `move_right`, `turn_left`, `turn_right` de `project.godot`) : la même disposition en AZERTY et en QWERTY.
+`move_left`, `move_right`, `roll_left`, `roll_right` de `project.godot`) : la même disposition en AZERTY et en QWERTY.
 Elles sont ignorées pendant la saisie du champ date.
 
 **Le panneau de contrôle et le réticule de tir n'apparaissent que dans la cupola** (sphère de 1,6 m autour du repère
