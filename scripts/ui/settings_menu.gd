@@ -115,8 +115,10 @@ func _confirm_quit_game() -> void:
 	dialog.get_cancel_button().grab_focus.call_deferred()
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed(&"ui_cancel"):
+## Échap ferme l'écran, quel que soit le contrôle qui a le focus (un menu déroulant ou une fenêtre de confirmation
+## ouverts reçoivent Échap avant, dans leur propre fenêtre, et se ferment seuls).
+func _input(event: InputEvent) -> void:
+	if (event.is_action_pressed(&"ui_cancel") or event.is_action_pressed(&"pause")) and not event.is_echo():
 		get_viewport().set_input_as_handled()
 		closed.emit()
 

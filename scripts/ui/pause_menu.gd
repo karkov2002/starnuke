@@ -1,9 +1,9 @@
 extends CanvasLayer
-## Pause en jeu (nœud PauseMenu de scenes/orbit_view.tscn) : la touche Espace (action pause) fige le jeu
+## Pause en jeu (nœud PauseMenu de scenes/orbit_view.tscn) : la touche Échap (action pause) fige le jeu
 ## (SceneTree.paused : orbite, missiles en vol, explosions, animations) et ouvre l'écran des paramètres
 ## (scenes/ui/settings_menu.tscn) par-dessus la vue, avec le bouton supplémentaire « Retour au menu ». « Retour » (ou
 ## Échap) ferme l'écran et reprend la partie ; « Retour au menu » revient à l'écran de démarrage (la partie est
-## perdue). Ce nœud et l'écran tournent pendant la pause (PROCESS_MODE_ALWAYS). Espace est ignoré pendant la saisie
+## perdue). Ce nœud et l'écran tournent pendant la pause (PROCESS_MODE_ALWAYS). Échap est ignoré pendant la saisie
 ## d'un champ texte (date du panneau).
 
 const SETTINGS_SCENE := preload("res://scenes/ui/settings_menu.tscn")
