@@ -92,6 +92,63 @@ uniform float light_first_step = 0.01;
 // depth_alpha ; la profondeur est celle du point où l'opacité cumulée atteint depth_first.
 uniform float depth_alpha = 0.8;
 uniform float depth_first = 0.35;
+// Perspective aérienne entre la caméra et le champignon (même modèle que shaders/atmosphere.gdshader : Rayleigh +
+// Mie + ozone, étirement vertical height_scale, intensité solaire) : le volume écrit sa profondeur, la coquille
+// atmosphérique « sol » (rendue après, à ~16 km d'altitude) est donc masquée devant lui ; sans ce calcul, un
+// champignon vu en rasant vers l'horizon serait aussi net qu'à la verticale, alors que le sol derrière lui est voilé.
+uniform int aerial_steps = 12;
+uniform float aerial_sun_intensity = 9.0;
+uniform float aerial_height_scale = 2.5;
+uniform float aerial_mie_g = 0.8;
+
+const vec3 AERIAL_RAYLEIGH_BETA = vec3(5.802e-3, 13.558e-3, 33.1e-3);
+const float AERIAL_MIE_BETA = 3.996e-3;
+const float AERIAL_MIE_EXTINCTION_RATIO = 1.11;
+const vec3 AERIAL_OZONE_BETA = vec3(0.650e-3, 1.881e-3, 0.085e-3);
+
+vec3 aerial_densities(float h) {
+	h = max(h, 0.0) / aerial_height_scale;
+	return vec3(exp(-h / 8.0), exp(-h / 1.2), max(0.0, 1.0 - abs(h - 25.0) / 15.0));
+}
+
+vec3 aerial_extinction(vec3 od) {
+	return (AERIAL_RAYLEIGH_BETA * od.x + vec3(AERIAL_MIE_BETA * AERIAL_MIE_EXTINCTION_RATIO) * od.y
+			+ AERIAL_OZONE_BETA * od.z) / aerial_height_scale;
+}
+
+// Transmittance (rgb) et lumière diffusée (rgb) le long du segment a → b (km, repère de la planète).
+void aerial_perspective(vec3 a, vec3 b, vec3 l, out vec3 transmittance, out vec3 inscatter) {
+	vec3 seg = b - a;
+	float len = length(seg);
+	vec3 rd = seg / max(len, 1e-4);
+	vec3 od = vec3(0.0);
+	vec3 sum_r = vec3(0.0);
+	vec3 sum_m = vec3(0.0);
+	// Pas resserrés vers le champignon (b), dans l'air dense ; la caméra, en orbite, est dans le vide.
+	for (int i = 0; i < aerial_steps; i++) {
+		float u0 = float(i) / float(aerial_steps);
+		float u1 = float(i + 1) / float(aerial_steps);
+		float ta = len * (1.0 - (1.0 - u0) * (1.0 - u0));
+		float tb = len * (1.0 - (1.0 - u1) * (1.0 - u1));
+		float ds = tb - ta;
+		vec3 p = a + rd * (0.5 * (ta + tb));
+		vec3 d = aerial_densities(length(p) - SUN_PLANET_RADIUS_KM);
+		vec3 od_mid = od + d * ds * 0.5;
+		od += d * ds;
+		// Lumière reçue en p (traversée de l'atmosphère vers le soleil, ombre de la planète comprise).
+		vec3 t = exp(-aerial_extinction(od_mid)) * sun_transmittance_at(p, l);
+		sum_r += d.x * ds * t;
+		sum_m += d.y * ds * t;
+	}
+	float mu = dot(rd, l);
+	float phase_r = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
+	float g2 = aerial_mie_g * aerial_mie_g;
+	float phase_m = 3.0 / (8.0 * PI) * ((1.0 - g2) * (1.0 + mu * mu))
+			/ ((2.0 + g2) * pow(1.0 + g2 - 2.0 * aerial_mie_g * mu, 1.5));
+	inscatter = aerial_sun_intensity / aerial_height_scale
+			* (sum_r * AERIAL_RAYLEIGH_BETA * phase_r + sum_m * AERIAL_MIE_BETA * phase_m);
+	transmittance = exp(-aerial_extinction(od));
+}
 
 float noise3(vec3 p) {
 	return texture(noise_tex, p).r;
@@ -261,8 +318,16 @@ void fragment() {
 	if (transmittance > 0.995) {
 		discard;
 	}
-	ALBEDO = scattered;
 	ALPHA = 1.0 - transmittance;
+	// Perspective aérienne jusqu'au champignon (premier point dense, sinon milieu de la traversée de la boîte) :
+	// couleur atténuée, voile de l'air ajouté en proportion de l'opacité (prémultiplié).
+	float t_ref = depth_t >= 0.0 ? depth_t : 0.5 * (t0 + t1);
+	vec3 cam_km = (local_to_planet_km * vec4(ro, 1.0)).xyz;
+	vec3 hit_km = (local_to_planet_km * vec4(ro + rd * t_ref, 1.0)).xyz;
+	vec3 air_t;
+	vec3 air_in;
+	aerial_perspective(cam_km, hit_km, normalize(sun_dir_planet), air_t, air_in);
+	ALBEDO = scattered * air_t + air_in * ALPHA;
 	// Profondeur : premier point dense si le pixel est presque opaque ; sinon, le plan lointain (Z inversé : 0) : les
 	// nuages et l'atmosphère, rendus après, se superposent au bord ténu au lieu d'être masqués. (Un point « juste
 	// au-dessus du sol » ou la sortie de la boîte masquait, vu à l'horizon, le limbe lumineux de l'atmosphère

@@ -958,6 +958,12 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
       l'atmosphère, ciel ambiant. La lueur de la boule de feu est émise au cœur du chapeau. Extinction : 1 km⁻¹
       (`volume_extinction_per_km`).
     - 64 pas par rayon, décalage d'échantillonnage fixe par pixel (pas de bruit temporel) : pas de scintillement.
+    - **Perspective aérienne** (`aerial_perspective` dans le shader) : la couleur du champignon est atténuée par l'air
+      traversé entre la caméra et lui (premier point dense), et le voile de l'air diffusé y est ajouté, avec le même
+      modèle que `shaders/atmosphere.gdshader` (Rayleigh, Mie, ozone, étirement ×2,5, intensité solaire 9 ; 12 pas
+      resserrés vers le champignon, lumière reçue par `sun_transmittance_at`). Le volume écrit sa profondeur : la
+      coquille atmosphérique « sol », rendue après, est masquée devant lui ; sans ce calcul, un champignon vu en
+      rasant vers l'horizon restait aussi net qu'à la verticale, alors que le sol derrière lui était voilé.
     - Profondeur écrite par le shader : là où le pixel est presque opaque (alpha total > 0,8, `depth_alpha`), celle
       du premier point dense (alpha cumulé > 0,35, `depth_first`), sinon le plan lointain (rien n'est masqué derrière
       le bord ténu ; un point juste au-dessus du sol masquait, vu à l'horizon, le limbe lumineux de l'atmosphère
