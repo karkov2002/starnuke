@@ -31,7 +31,7 @@ permet de piloter le jeu exporté.
 - **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : titre
   provisoire « Star Nuke » et boutons **Start Game** (charge `orbit_view.tscn`), **Settings** (écran des
   paramètres, par-dessus) et **Quit** dans la moitié droite ; à gauche, **la station vue de l'extérieur, côté
-  soleil, au-dessus de la Terre qui défile** (temps accéléré ×8). Ce décor est la scène du jeu elle-même, chargée
+  soleil et légèrement en plongée, au-dessus de la Terre qui défile** (en temps réel). Ce décor est la scène du jeu elle-même, chargée
   en tâche de fond dès l'ouverture du menu (`ResourceLoader.load_threaded_request`, quelques secondes, fond noir en
   attendant) puis affichée en fondu (2 s), sans son interface ni le tir (`OrbitControls`, `NukeReport`,
   `NukeLauncher` retirés), observateur désactivé, caméra extérieure (`BACKDROP_CAMERA_*` ; décalage horizontal

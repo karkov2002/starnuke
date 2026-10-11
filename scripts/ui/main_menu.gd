@@ -6,7 +6,7 @@ extends Control
 ##
 ## Décor : la scène du jeu elle-même (Terre, nuages, atmosphère, station), chargée en tâche de fond dès l'ouverture
 ## du menu puis affichée en fondu, sans son interface ni le tir (OrbitControls, NukeReport, NukeLauncher retirés),
-## observateur désactivé, filmée par une caméra extérieure (BACKDROP_CAMERA_*), temps accéléré (BACKDROP_TIME_SCALE).
+## observateur désactivé, filmée par une caméra extérieure (BACKDROP_CAMERA_*), en temps réel (BACKDROP_TIME_SCALE).
 ## Le même chargement sert au lancement de la partie : « Commencer la partie » n'attend plus que la fin du chargement
 ## s'il n'est pas terminé.
 
@@ -15,11 +15,11 @@ const SETTINGS_SCENE := preload("res://scenes/ui/settings_menu.tscn")
 const BUTTON_SIZE := Vector2(380.0, 60.0)
 ## Caméra du décor (repère de la scène du jeu : station à l'origine, avant −Z, Terre en bas) : position, point visé,
 ## décalage horizontal (positif : station et Terre à gauche de l'écran), champ.
-const BACKDROP_CAMERA_POSITION := Vector3(62.0, 6.0, 48.0)
+const BACKDROP_CAMERA_POSITION := Vector3(58.0, 22.0, 45.0)
 const BACKDROP_CAMERA_TARGET := Vector3(0.0, -6.0, 0.0)
 const BACKDROP_CAMERA_H_OFFSET := 0.38
 const BACKDROP_CAMERA_FOV := 55.0
-const BACKDROP_TIME_SCALE := 8.0
+const BACKDROP_TIME_SCALE := 1.0
 const BACKDROP_FADE_S := 2.0
 ## Nœuds de la scène du jeu retirés du décor (interface, tir).
 const BACKDROP_REMOVED: Array[String] = ["OrbitControls", "NukeReport", "NukeLauncher"]
