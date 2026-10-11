@@ -9,6 +9,23 @@ Ouvrir le projet dans Godot 4.7 puis F5 (scène principale : l'écran de démarr
 la vue orbitale `res://scenes/orbit_view.tscn` se lance aussi seule, F6).
 Les tuiles haute résolution (`assets/earth_tiles/`, `assets/earth_night_tiles/`) doivent avoir été générées (voir plus bas).
 
+## Version distribuable (Windows)
+
+`powershell -ExecutionPolicy Bypass -File tools/package_game.ps1` (modèles d'export Godot 4.7.2 installés ; l'éditeur
+peut rester ouvert) construit `../exe/starnuke/` et `../exe/StarNuke.zip` (~1 Go) :
+- export « release » du preset « Windows Desktop » (`export_presets.cfg`) : `Star Nuke.exe` et `Star Nuke.pck`
+  (~450 Mo : toutes les ressources, plus `assets/population_2030.bin`, fichier brut ajouté par `include_filter` ;
+  `tools/` et le cache du MCP, `addons/godot_mcp/cache/`, ~500 Mo de captures, exclus par `exclude_filter`) ;
+- tuiles HD (`assets/earth_tiles`, `earth_night_tiles`, `earth_cloud_tiles`, 3 × 2 592 fichiers) copiées dans
+  `assets/` à côté de l'exécutable : leurs dossiers ont un `.gdignore` et ne peuvent pas entrer dans le `.pck`, mais
+  un fichier `res://` absent du `.pck` est cherché dans le dossier de l'exécutable, où le jeu les trouve ;
+- archive zip du dossier (tar de Windows).
+
+Pour jouer : dézipper, lancer `Star Nuke.exe` (Windows 10/11 64 bits, carte graphique Direct3D 12). Vérifié : jeu
+exporté sur un écran 5120 × 1440 (fenêtre maximisée, tuiles HD, bilan des pertes). Le module MCP (`MCPRuntime`) reste
+dans l'export : il ne fait rien sans serveur MCP sur la machine, mais en présence de celui-ci (développement) il
+permet de piloter le jeu exporté.
+
 ## Écran de démarrage, paramètres et langues
 
 - **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : fond
