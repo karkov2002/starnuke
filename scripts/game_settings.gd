@@ -12,6 +12,11 @@ extends Node
 ## Les écrans ultra-larges sont gérés par l'étirement « expand » du projet : la vue 3D garde son champ vertical et
 ## s'élargit, l'interface s'étend sur toute la largeur.
 ##
+## Luminosité (brightness, 0,5 à 1,5) : multiplicateur d'exposition des attributs de caméra partagés
+## (materials/camera_attributes.tres, CameraAttributesPractical.exposure_multiplier), appliqué à toutes les vues 3D
+## (menu et jeu). L'exposition automatique s'adapte à la luminosité moyenne de l'image : en 32:9, l'image contient plus
+## de ciel noir qu'en 16:9 et l'exposition monte (Terre plus claire) ; ce réglage permet de compenser.
+##
 ## Langue : TranslationServer, fichiers de langue locale/strings.csv (textes du jeu) et locale/countries.csv (noms
 ## de pays) ; anglais par défaut.
 
@@ -34,17 +39,34 @@ const RESOLUTIONS: Array[Vector2i] = [
 ]
 ## Échelle minimale du rendu 3D en plein écran.
 const MIN_3D_SCALE := 0.25
+const CAMERA_ATTRIBUTES := "res://materials/camera_attributes.tres"
+const BRIGHTNESS_RANGE := Vector2(0.5, 1.5)
 
 var window_mode := WindowMode.FULLSCREEN
 ## Résolution choisie ; Vector2i.ZERO : celle de l'écran.
 var resolution := Vector2i.ZERO
 var locale := DEFAULT_LOCALE
+## Multiplicateur de luminosité (1 = exposition automatique seule).
+var brightness := 1.0
 
 
 func _ready() -> void:
 	_load()
 	TranslationServer.set_locale(locale)
 	apply_display()
+	_apply_brightness()
+
+
+func set_brightness(value: float) -> void:
+	brightness = clampf(value, BRIGHTNESS_RANGE.x, BRIGHTNESS_RANGE.y)
+	_apply_brightness()
+	_save()
+
+
+func _apply_brightness() -> void:
+	var attributes := load(CAMERA_ATTRIBUTES) as CameraAttributesPractical
+	if attributes:
+		attributes.exposure_multiplier = brightness
 
 
 func set_window_mode(mode: WindowMode) -> void:
@@ -161,6 +183,7 @@ func _load() -> void:
 	window_mode = WindowMode.WINDOWED if config.get_value("video", "window_mode", "fullscreen") == "windowed" \
 			else WindowMode.FULLSCREEN
 	resolution = config.get_value("video", "resolution", Vector2i.ZERO)
+	brightness = clampf(float(config.get_value("video", "brightness", 1.0)), BRIGHTNESS_RANGE.x, BRIGHTNESS_RANGE.y)
 	locale = config.get_value("game", "locale", DEFAULT_LOCALE)
 	if not locale in LOCALES:
 		locale = DEFAULT_LOCALE
@@ -170,5 +193,6 @@ func _save() -> void:
 	var config := ConfigFile.new()
 	config.set_value("video", "window_mode", "windowed" if window_mode == WindowMode.WINDOWED else "fullscreen")
 	config.set_value("video", "resolution", resolution)
+	config.set_value("video", "brightness", brightness)
 	config.set_value("game", "locale", locale)
 	config.save(PATH)

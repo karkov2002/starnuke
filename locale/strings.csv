@@ -19,6 +19,7 @@ VIDEO_DISPLAY_MODE,"Display mode","Mode d'affichage","Modo de pantalla","Anzeige
 VIDEO_WINDOWED,"Windowed","Fenêtré","Ventana","Fenster","Finestra"
 VIDEO_FULLSCREEN,"Full screen","Plein écran","Pantalla completa","Vollbild","Schermo intero"
 VIDEO_RESOLUTION,"Resolution","Résolution","Resolución","Auflösung","Risoluzione"
+VIDEO_BRIGHTNESS,"Brightness","Luminosité","Brillo","Helligkeit","Luminosità"
 VIDEO_NATIVE,"native","native","nativa","nativ","nativa"
 VIDEO_RESOLUTION_NOTE_FULLSCREEN,"In full screen, the game always covers the whole screen: the resolution sets the 3D rendering resolution (the interface stays sharp).","En plein écran, le jeu couvre toujours tout l'écran : la résolution règle celle du rendu 3D (l'interface reste nette).","En pantalla completa, el juego siempre ocupa toda la pantalla: la resolución ajusta la del renderizado 3D (la interfaz sigue nítida).","Im Vollbild füllt das Spiel immer den ganzen Bildschirm: Die Auflösung bestimmt die der 3D-Darstellung (die Oberfläche bleibt scharf).","A schermo intero il gioco occupa sempre tutto lo schermo: la risoluzione imposta quella del rendering 3D (l'interfaccia resta nitida)."
 VIDEO_RESOLUTION_NOTE_WINDOWED,"In a window, the resolution is the size of the window.","En fenêtre, la résolution est la taille de la fenêtre.","En ventana, la resolución es el tamaño de la ventana.","Im Fenster ist die Auflösung die Fenstergröße.","In finestra, la risoluzione è la dimensione della finestra."

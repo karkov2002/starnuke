@@ -45,7 +45,12 @@ permet de piloter le jeu exporté.
 - **Écran des paramètres** (`scenes/ui/settings_menu.tscn`, script `scripts/ui/settings_menu.gd`) : onglets
   **Video**, **Audio**, **Controls**, **Game** ; Audio et Controls sont à venir (onglets désactivés, infobulle
   « Coming soon »). **Back** ou Échap pour revenir. Chaque choix est appliqué et sauvé aussitôt.
-  - **Video** : mode d'affichage (**fenêtré** / **plein écran**) et **résolution**.
+  - **Video** : mode d'affichage (**fenêtré** / **plein écran**), **résolution** et **luminosité** (50 à 150 %,
+    `GameSettings.brightness`, sauvée dans `user://settings.cfg` : multiplicateur d'exposition des attributs de
+    caméra partagés `materials/camera_attributes.tres`, appliqué au menu et au jeu). L'exposition automatique
+    s'adapte à la luminosité moyenne de l'image : en 32:9, l'image contient plus de ciel noir qu'en 16:9 (jeu lancé
+    dans l'éditeur) et l'exposition monte, la Terre paraît plus claire ; la luminosité permet de compenser. L'écran
+    des paramètres a un fond translucide : on juge le réglage sur la vue 3D derrière.
     - Fenêtré : la résolution est la taille de la fenêtre, centrée dans la zone utile de l'écran ; une fenêtre qui
       n'y tient pas avec sa bordure et sa barre de titre (résolution native, par exemple) est maximisée.
     - **Jeu lancé depuis l'éditeur** : par défaut, Godot 4.7 l'intègre dans l'onglet « Jeu » (lancé avec `--wid` et

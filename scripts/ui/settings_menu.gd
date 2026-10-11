@@ -23,6 +23,8 @@ var _tabs: TabContainer
 var _mode: OptionButton
 var _resolution: OptionButton
 var _resolution_note: Label
+var _brightness: HSlider
+var _brightness_value: Label
 var _language: OptionButton
 var _back: Button
 
@@ -30,7 +32,8 @@ var _back: Button
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var background := ColorRect.new()
-	background.color = Color(0.0, 0.0, 0.0, 0.72) if in_game else Color.BLACK
+	# Fond translucide : la vue 3D (décor du menu ou partie figée) reste visible, pour juger la luminosité.
+	background.color = Color(0.0, 0.0, 0.0, 0.6)
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
 	var center := CenterContainer.new()
@@ -136,6 +139,28 @@ func _build_video(page: VBoxContainer) -> void:
 	_resolution.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_resolution.item_selected.connect(func(index: int) -> void:
 		GameSettings.set_resolution(_resolution.get_item_metadata(index)))
+	# Luminosité : curseur de 50 à 150 % (multiplicateur d'exposition, GameSettings.brightness).
+	var label := Label.new()
+	label.text = "VIDEO_BRIGHTNESS"
+	label.add_theme_font_size_override("font_size", 20)
+	grid.add_child(label)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	grid.add_child(row)
+	_brightness = HSlider.new()
+	_brightness.min_value = GameSettings.BRIGHTNESS_RANGE.x * 100.0
+	_brightness.max_value = GameSettings.BRIGHTNESS_RANGE.y * 100.0
+	_brightness.step = 5.0
+	_brightness.custom_minimum_size = Vector2(360.0, 44.0)
+	_brightness.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_brightness)
+	_brightness_value = Label.new()
+	_brightness_value.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_brightness_value.add_theme_font_size_override("font_size", 20)
+	row.add_child(_brightness_value)
+	_brightness.value_changed.connect(func(value: float) -> void:
+		_brightness_value.text = "%d %%" % roundi(value)
+		GameSettings.set_brightness(value / 100.0))
 	_resolution_note = _add_note(page, "")
 	_resolution_note.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 
@@ -167,6 +192,8 @@ func _refresh() -> void:
 	if not GameSettings.can_change_display():
 		_resolution_note.text += "\n\n" + tr("VIDEO_EMBEDDED_NOTE")
 	_language.select(GameSettings.LOCALES.find(GameSettings.locale))
+	_brightness.set_value_no_signal(GameSettings.brightness * 100.0)
+	_brightness_value.text = "%d %%" % roundi(GameSettings.brightness * 100.0)
 
 
 func _make_grid(page: VBoxContainer) -> GridContainer:
