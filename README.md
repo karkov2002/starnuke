@@ -233,7 +233,7 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
       et nées à 1 m, elles enveloppaient la coque : le gaz semblait sortir des flancs du missile) ; opacité qui chute vite (densité en 1/r²) : voile translucide, **pas de traînée de fumée** ;
     - lumière : `OmniLight3D` orange qui vacille (combustion irrégulière), 40 m de portée, avec ombres (quelques
       secondes seulement), qui n'éclaire pas les surfaces intérieures (calque `INTERIOR_LAYER`).
-    - Position : `Station.launch_missile` place `Point_Tuyere` à 4 m du centre du missile, 1 m derrière l'arrière de
+    - Position : `Station.launch_missile` place `Point_Tuyere` à 3,5 m du centre du missile, 0,5 m derrière l'arrière de
       son maillage (bout +Y à 3 m, la pointe est en −Y ; `nozzle_offset_m`, réglage visuel) : dans le modèle réexporté, ce repère est au centre du missile, et la propulsion semblait
       sortir du milieu de la coque.
     - Allumage : échelle de `Point_Tuyere` (0 → 1 à 2,9 s, cf. `Lancement_Missile`) ; l'effet en hérite et naît à

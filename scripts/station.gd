@@ -80,8 +80,8 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 ## sont disponibles que là).
 @export var cupola_zone_radius := 1.6
 ## Recul de la propulsion au-delà de l'arrière du maillage du missile (m) : l'arrière est à 3 m du centre, la
-## propulsion part à 4 m (réglage visuel).
-@export var nozzle_offset_m := 1.0
+## propulsion part à 3,5 m (réglage visuel).
+@export var nozzle_offset_m := 0.5
 
 @export_group("Éclairage intérieur")
 ## 28 lampes ponctuelles du modèle (Lum_*), recalibrées au démarrage : ambiance ISS (luminaires LED en mode jour,
