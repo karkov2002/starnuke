@@ -368,6 +368,11 @@ func launch_missile(silo: int, tube: int) -> bool:
 		missile.get_child(0).name = "Point_Tuyere_%d_%02d" % [silo, tube]
 		add_child(missile)
 	var nozzle := missile.get_child(0) as Node3D
+	# Repère de la tuyère à l'arrière du missile (bout +Y du maillage, la pointe est en −Y) : dans le modèle
+	# réexporté, Point_Tuyere est au centre du missile, et la propulsion semblait sortir du milieu de la coque.
+	var hull := (missile as MeshInstance3D).mesh.get_aabb() if missile is MeshInstance3D else AABB()
+	if hull.size.y > 0.0:
+		nozzle.position = Vector3(0.0, hull.end.y, 0.0)
 	var model_point := get_node_or_null("Point_Lancement_%d_%02d" % [MODEL_SILO, MODEL_TUBE]) as Node3D
 	# Missile du tube = repère du tube × (repère du tube modèle)⁻¹ × missile modèle animé.
 	var tube_frame: Transform3D = (door.launch_point as Node3D).transform * model_point.transform.affine_inverse()
