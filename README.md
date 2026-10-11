@@ -303,10 +303,11 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
   à la rotation de la Terre près, ~4°), plongeant de 24° sous l'horizon de la station : l'horizon terrestre (~20°
   sous l'horizontale à 400 km) est visible, et le centre de l'écran (réticule de tir) tombe sur la Terre au milieu
   de la vitre avant.
-- **Cupola tournée de 30°** autour de son axe vertical (centre (11,6 ; 0) du modèle), dans la scène héritée
-  `scenes/station_spatiale.tscn` : `Commande_Cupola` (structure et barreaux) et `Commande_Cupola_Vitres`, avec
-  leurs collisions. Dans le modèle, un barreau de l'hexagone pointait droit devant et masquait la vue avant ; une
-  face est maintenant face à l'avant. `Orbit` place la Terre par rapport à la
+- **Cupola** (modèle Blender) : hexagone orienté avec une face vers l'avant (+X du modèle), montants affinés
+  (un montant pointait auparavant droit devant et masquait la vue avant).
+- **Hublot cargo** (modèle Blender, `Hublot_Cargo` : tunnel de visée et cadres, `Hublot_Cargo_Vitre` : matériau
+  `Vitrage`, donc visible des deux côtés et sans reflet, cf. `Station._matte_glass`) : percé dans la cloison du fond
+  du module d'arrimage, à côté de l'écoutille cargo, il donne sur le vaisseau cargo amarré. `Orbit` place la Terre par rapport à la
   caméra (`observer_path`).
 - **Collisions de la station** (`Station._add_interior_collisions`) : les parois générées à l'import (« -col »,
   formes concaves) bloquent des deux côtés (`backface_collision`, sinon on traverse la coque de l'intérieur) ; les
