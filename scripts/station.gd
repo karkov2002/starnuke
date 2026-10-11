@@ -50,7 +50,18 @@ const BOTH_SIDES_MATERIALS: Array[String] = ["Hublot", "Vitrage"]
 ## Surface masquée : rejetée avant tout calcul de pixel (sommets hors du volume de vue).
 const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_transform;\nvoid vertex() {\n\tPOSITION = vec4(0.0, 0.0, 2.0, 1.0);\n}\n"
 
-@export var animate_solar_panels := true
+## Panneaux solaires (pivots Pivot_Panneau_*, rotation autour de l'axe Z du modèle, cellules du côté +Y) orientés vers
+## le soleil à chaque image, sans jamais tourner leur face vers le sol (station furtive : une face éclairée tournée vers
+## la Terre la rendrait visible) ; l'animation Blender Rotation_Panneaux (rotation continue) n'est plus jouée.
+@export var track_sun_panels := true
+## Lumière du soleil et Terre de la scène (direction du soleil, verticale locale). Sans Terre : +Y de la station.
+@export var sun_path: NodePath = ^"../../Sun"
+@export var earth_path: NodePath = ^"../../Earth"
+## Vitesse maximale des panneaux (degrés par seconde) : le suivi normal est bien plus lent (un tour par orbite) ; la
+## limite évite un saut quand la date ou l'heure change.
+@export var panel_max_speed_deg := 6.0
+## Marge (degrés) au-dessus de l'horizon local pour la face des cellules.
+@export var panel_horizon_margin_deg := 2.0
 @export var animate_antennas := true
 
 ## Rayon (m) de la zone de la cupola autour du repère Point_Vue_Cupola (is_in_cupola : la barre de contrôle et le tir ne
@@ -85,6 +96,9 @@ var _players := {}
 var _library: AnimationLibrary
 ## Copie intacte du missile modèle (prise au démarrage) : celui du tube 1_12 disparaît après son lancement.
 var _missile_pristine: Node3D
+var _panel_pivots: Array[Node3D] = []
+## Angle courant des panneaux (radians autour de Z) ; NAN avant la première image (placement direct).
+var _panel_angle := NAN
 
 
 func _ready() -> void:
@@ -108,8 +122,7 @@ func _ready() -> void:
 	var model := _missile_template()
 	if model:
 		_missile_pristine = model.duplicate() as Node3D
-	if animate_solar_panels and _players.has(ANIM_PANELS):
-		_players[ANIM_PANELS].play(ANIM_PANELS)
+	_panel_pivots.assign(find_children("Pivot_Panneau_*", "Node3D", false, false))
 	if animate_antennas and _players.has(ANIM_ANTENNAS):
 		_players[ANIM_ANTENNAS].play(ANIM_ANTENNAS)
 
@@ -121,6 +134,8 @@ func _exit_tree() -> void:
 
 
 func _process(delta: float) -> void:
+	if track_sun_panels:
+		_track_sun(delta)
 	if _radiators.is_empty():
 		return
 	var deployed := 0.0
@@ -381,6 +396,46 @@ func set_stealth(enabled: bool) -> void:
 func is_in_cupola(world_position: Vector3) -> bool:
 	var point := get_node_or_null("Point_Vue_Cupola") as Node3D
 	return point != null and point.global_position.distance_to(world_position) < cupola_zone_radius
+
+
+# --- Panneaux solaires ----------------------------------------------------------------------------------------------
+
+## Oriente les panneaux vers le soleil autour de leur axe (Z du modèle). La face des cellules n(θ) = (−sin θ, cos θ)
+## dans le plan XY de la station suit la projection du soleil, mais reste au-dessus de l'horizon local (n · zénith ≥
+## sin(marge)) : si le soleil est sous l'horizon, elle s'arrête à la limite. Même angle pour les 4 panneaux (même
+## axe, même soleil).
+func _track_sun(delta: float) -> void:
+	var sun := get_node_or_null(sun_path) as Node3D
+	if sun == null or _panel_pivots.is_empty():
+		return
+	var inverse := global_basis.inverse()
+	var sun_dir := inverse * sun.global_basis.z
+	var earth := get_node_or_null(earth_path) as Node3D
+	var zenith := inverse * (global_position - earth.global_position) if earth else Vector3.UP
+	var target := Vector2(sun_dir.x, sun_dir.y)
+	var up := Vector2(zenith.x, zenith.y)
+	if up.length() < 1e-4:
+		return
+	up = up.normalized()
+	if target.length() < 1e-4:
+		target = up
+	target = target.normalized()
+	# Angle limite autour du zénith projeté : la face peut s'écarter de 90° − marge du zénith au plus.
+	var max_tilt := deg_to_rad(90.0 - panel_horizon_margin_deg)
+	var offset := clampf(up.angle_to(target), -max_tilt, max_tilt)
+	var wanted := _normal_angle(up.rotated(offset))
+	if is_nan(_panel_angle):
+		_panel_angle = wanted
+	else:
+		var step := deg_to_rad(panel_max_speed_deg) * delta
+		_panel_angle += clampf(angle_difference(_panel_angle, wanted), -step, step)
+	for pivot in _panel_pivots:
+		pivot.quaternion = Quaternion(Vector3.BACK, _panel_angle)
+
+
+## Angle θ autour de +Z tel que la normale (−sin θ, cos θ) vaut n.
+static func _normal_angle(n: Vector2) -> float:
+	return atan2(-n.x, n.y)
 
 
 # --- Construction ---------------------------------------------------------------------------------------------------

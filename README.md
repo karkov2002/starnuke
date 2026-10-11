@@ -158,7 +158,7 @@ Modèle `assets/station/station_spatiale.glb` (Blender, ~60 Mo, textures intégr
 noms de nœuds ; tout réglage passe par son `.import`, le script de post-import et la scène héritée.
 - **Import** (`station_spatiale.glb.import`) : échelle 1 (mètres), racine `StationSpatiale`, collisions par
   suffixes de noms (`-col` : collision statique concave + maillage ; `-convcolonly` : collision convexe seule),
-  LOD générés, animations à 24 i/s, **Rotation_Panneaux** et **Balayage_Antennes** en boucle (les autres jouées
+  LOD générés, animations à 24 i/s, **Rotation_Panneaux** (plus jouée : suivi du soleil, voir plus bas) et **Balayage_Antennes** en boucle (les autres jouées
   une fois). Textures extraites à côté du .glb (compression GPU S3TC/BPTC) : les images sont régénérées à chaque
   import et ne sont pas versionnées (`.gitignore`) ; leurs `.import` le sont (UID et réglages stables).
 - **Post-import** (`tools/import/station_import.gd`) :
@@ -181,7 +181,16 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
   `ouvrable`), angles et durées lus dans les animations Blender. Un objet seul est piloté par un Tween qui rejoue
   ses pistes ; un groupe entier dans le même état (toutes les écoutilles, les 48 trappes, les 4 radiateurs) par
   l'animation complète. Chaque animation a son propre AnimationPlayer (créé au démarrage, bibliothèque partagée) :
-  panneaux solaires et antennes tournent en boucle pendant les autres mouvements.
+  les antennes tournent en boucle pendant les autres mouvements.
+  - **Panneaux solaires : suivi du soleil, station furtive** (`Station._track_sun`, `track_sun_panels`). L'animation
+    Blender `Rotation_Panneaux` (rotation continue, trop rapide) n'est plus jouée : à chaque image, les 4 pivots
+    `Pivot_Panneau_*` (axe Z du modèle, face des cellules du côté +Y au repos) tournent pour présenter les cellules
+    au soleil (projection de la direction du soleil, lumière `Sun`, sur leur plan de rotation) : ils suivent donc le
+    soleil à sa vitesse apparente (un tour par orbite). **Règle de furtivité** : le dessous des panneaux porte un
+    cache qui les empêche de briller vus de la Terre, et la face des cellules ne doit jamais être tournée vers le
+    sol ; elle reste au moins 2° au-dessus de l'horizon local (`panel_horizon_margin_deg`, verticale = direction
+    Terre → station, nœud `Earth`). Quand le soleil passe sous l'horizon de la station, les panneaux s'arrêtent à
+    cette limite. Vitesse bornée à 6°/s (`panel_max_speed_deg`), pour éviter un saut quand la date ou l'heure change.
   - États au repos : écoutilles ouvertes, trappes des silos fermées, radiateurs déployés. Écoutille cargo et
     trappes sas et nadir verrouillées (`ouvrable` faux) : leurs commandes renvoient `false`.
   - Écoutilles : `open_hatch(id)`, `close_hatch(id)`, `set_hatch_open(id, open)`, `set_all_hatches_open(open)`,
