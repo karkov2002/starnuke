@@ -1,5 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="PackedScene" uid="uid://cm8qpsouav5ba" path="res://assets/station/station_spatiale.glb" id="1_glb"]
+[ext_resource type="Script" path="res://scripts/station.gd" id="2_script"]
 
 [node name="StationSpatiale" instance=ExtResource("1_glb")]
+script = ExtResource("2_script")

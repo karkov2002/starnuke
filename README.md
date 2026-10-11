@@ -162,6 +162,31 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
   animées, faux pour l'écoutille cargo et les trappes sas et nadir, verrouillées).
 - **Scène héritée** `scenes/station_spatiale.tscn` : base de tout le jeu (script, réglages des lumières, etc.).
   Aperçu seul : `scenes/debug/station_preview.tscn` (soleil, fond noir, caméra extérieure).
+- **Pilotage** (`scripts/station.gd`, classe `Station`, racine de la scène héritée). Rien n'est codé en dur : objets
+  trouvés par leurs extras (`type` : `ecoutille`, `trappe_silo`, `trappe` ; `id`, `charniere`, `silo`, `tube`,
+  `ouvrable`), angles et durées lus dans les animations Blender. Un objet seul est piloté par un Tween qui rejoue
+  ses pistes ; un groupe entier dans le même état (toutes les écoutilles, les 48 trappes, les 4 radiateurs) par
+  l'animation complète. Chaque animation a son propre AnimationPlayer (créé au démarrage, bibliothèque partagée) :
+  panneaux solaires et antennes tournent en boucle pendant les autres mouvements.
+  - États au repos : écoutilles ouvertes, trappes des silos fermées, radiateurs déployés. Écoutille cargo et
+    trappes sas et nadir verrouillées (`ouvrable` faux) : leurs commandes renvoient `false`.
+  - Écoutilles : `open_hatch(id)`, `close_hatch(id)`, `set_hatch_open(id, open)`, `set_all_hatches_open(open)`,
+    `is_hatch_open(id)`, `hatch_ids()` ; signal `hatch_changed(id, open)`.
+  - Trappes des silos : `open_silo_door(silo, tube)`, `close_silo_door(…)`, `set_all_silo_doors_open(open, silo)`
+    (silo 0 : les deux) ; signal `silo_door_changed(silo, tube, open)`.
+  - **Missiles** (`launch_missile(silo, tube)`, `can_launch`, `available_tubes()`) : un seul missile est modélisé
+    (tube 1_12) ; pour un autre tube, il est copié et placé à l'identique par rapport au `Point_Lancement` du tube
+    (repère du tube × repère du tube 1_12⁻¹ × missile animé). Le lancement rejoue `Lancement_Missile` : ouverture de
+    la trappe (si elle est fermée, avec les angles de la trappe du tube), descente, allumage de la tuyère à 2,9 s
+    (`Point_Tuyere` : échelle 0 → 1 ; signal `missile_ignited`), disparition à 5 s, ~30 m sous la station (échelle
+    0 ; signal `missile_released(silo, tube, world_transform)` : relais prévu vers le système de frappe). Chaque
+    tube ne tire qu'une fois. Le bouton rouge reste pour l'instant indépendant (frappe directe).
+  - Radiateurs : `set_radiator_deployed(id, deployed)` (`Radiateur_D15`, `D21`, `G15`, `G21`),
+    `set_all_radiators_deployed`, `set_stealth(enabled)` ; signal `radiator_changed`.
+  - **Chaleur** (règle de jeu, valeurs provisoires en attendant la jauge) : `heat` (0 à 1) monte de
+    `heat_rise_per_s` (0,01/s) radiateurs tous repliés (**mode furtif** : pas de rayonnement infrarouge, la chaleur
+    s'accumule) et descend de `heat_fall_per_s` (0,02/s) radiateurs tous déployés, en proportion des radiateurs
+    déployés ; signal `heat_changed`.
 
 ## Organisation de la scène
 
