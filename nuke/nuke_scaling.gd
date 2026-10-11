@@ -122,14 +122,29 @@ const SCAR_BROWN_END_S := 345600.0
 # foyer, K = SMOKE_SPREAD_K_M2_S, diffusion horizontale à méso-échelle), et se dépose avec une constante de temps
 # SMOKE_LIFETIME_S. Épaisseur optique verticale :
 #   τ = MEE · Q(t − a) · e^(−a / L) / (u · √(2π) · σ(a)) · exp(−y² / 2σ²)
-# Débit Q = SMOKE_EMISSION_KG_S_KM2 · R0² · f(t), f = surface en feu (en R0², intensité comprise) calculée par
-# smoke_burning_area() avec les lois des incendies. Ordres de grandeur : ~40 kg/m² de combustible urbain brûlé en
-# ~6 h, facteur d'émission de fumée ~2 % (Turco et al. 1990 ; Toon et al. 2007), d'où ~30 kg/s par km² en feu ;
-# efficacité d'extinction massique ~5 m²/g pour une fumée fraîche riche en suie (Bond & Bergstrom 2006). Une tempête de
-# feu de 1 Mt donne un panache opaque sur des centaines de km ; 10 kt, un voile. Le panache est tronqué au-delà de
-# SMOKE_MAX_AGE_S (fumée diluée en voile ténu).
+# Débit Q = Y · R0² · f(t) / FIRE_BURN_S, f = surface en feu (en R0², intensité comprise) calculée par
+# smoke_burning_area() avec les lois des incendies, Y = fumée par m² de sol en feu (kg/m²) = combustible × facteur
+# d'émission, moyenne sur la zone des incendies (smoke_yield_kg_m2, calculée au tir dans le thread de NukeImpact). Le
+# combustible dépend de ce qui brûle :
+# - végétation (campagne, maquis, forêts) : SMOKE_WILDLAND_FUEL_KG_M2 consommés (herbe 0,3 à 0,5 kg/m², broussailles
+#   1 à 3, forêt 2 à 5 ; inventaires de feux de végétation, van der Werf et al. 2017), facteur d'émission de particules
+#   SMOKE_WILDLAND_EF (~7 à 18 g/kg, Andreae 2019) ;
+# - bâti : Toon et al. 2007 (§ 6.1) relient la charge de combustible à la population, 1,1·10⁷ g par habitant, soit
+#   0,0011 g/cm² par hab./km² (SMOKE_URBAN_FUEL_KG_M2_PER_HAB_KM2) : ~110 kg/m² à 10 000 hab./km² (centres-villes
+#   mesurés : 120 à 470 kg/m², Hambourg 1943 : 470), facteur d'émission 0,020 g de fumée par g (Small 1989, repris par
+#   Toon et al.).
+# Une campagne peu peuplée (Sardaigne, ~70 hab./km²) donne ~0,03 kg/m², une grande ville 1 à 3 kg/m² : une explosion sur
+# une ville produit 30 à 100 fois plus de fumée par km² en feu. Repère : 100 explosions de 15 kt sur des mégapoles
+# donnent 1 à 5 Tg de suie (Toon et al. 2007), soit 0,01 à 0,05 Tg chacune. Efficacité d'extinction massique ~5 m²/g
+# (fumée fraîche ; Toon et al. citent 4,4 à 7 m²/g). Le panache est tronqué au-delà de SMOKE_MAX_AGE_S (fumée diluée
+# en voile ténu).
 const SMOKE_HEIGHT_KM := 4.0
-const SMOKE_EMISSION_KG_S_KM2 := 30.0
+const SMOKE_WILDLAND_FUEL_KG_M2 := 2.0
+const SMOKE_WILDLAND_EF := 0.012
+const SMOKE_URBAN_FUEL_KG_M2_PER_HAB_KM2 := 0.011
+const SMOKE_URBAN_EF := 0.02
+## Échantillons (par côté) de la zone des incendies pour smoke_yield_kg_m2.
+const SMOKE_YIELD_SAMPLES := 24
 const SMOKE_MEE_M2_KG := 5000.0
 const SMOKE_SPREAD_K_M2_S := 5.0e4
 const SMOKE_LIFETIME_S := 345600.0
@@ -382,6 +397,35 @@ static func smoke_table() -> PackedFloat32Array:
 		var coord := float(i) / float(SMOKE_TABLE_SIZE - 1)
 		table[i] = smoke_burning_area(60.0 * (exp(coord * scale) - 1.0))
 	return table
+
+
+## Fumée par m² de sol en feu (kg/m²), moyenne sur les terres de la zone des incendies (rayon final) : végétation et
+## bâti (charge proportionnelle à la population, grille GHS-POP). Sûr depuis un autre thread (lectures seules).
+static func smoke_yield_kg_m2(params: NukeParams) -> float:
+	var radius := fire_radius_km(params.yield_kt, INF)
+	var km_per_deg := 111.32
+	var cos_lat := maxf(cos(deg_to_rad(params.latitude_deg)), 0.05)
+	var cell_km2 := pow(km_per_deg / PopulationGrid.CELLS_PER_DEGREE, 2.0) * cos_lat
+	var has_population := PopulationGrid.is_available()
+	var total := 0.0
+	var land := 0
+	for i in SMOKE_YIELD_SAMPLES:
+		for j in SMOKE_YIELD_SAMPLES:
+			var x := ((i + 0.5) / SMOKE_YIELD_SAMPLES * 2.0 - 1.0) * radius
+			var y := ((j + 0.5) / SMOKE_YIELD_SAMPLES * 2.0 - 1.0) * radius
+			if x * x + y * y > radius * radius:
+				continue
+			var lat := params.latitude_deg + y / km_per_deg
+			var lon := params.longitude_deg + x / (km_per_deg * cos_lat)
+			if OceanMask.is_ocean(lat, lon):
+				continue
+			var density := 0.0
+			if has_population:
+				density = PopulationGrid.cell_population(PopulationGrid.row_of(lat), PopulationGrid.col_of(lon)) / cell_km2
+			total += SMOKE_WILDLAND_FUEL_KG_M2 * SMOKE_WILDLAND_EF \
+					+ SMOKE_URBAN_FUEL_KG_M2_PER_HAB_KM2 * density * SMOKE_URBAN_EF
+			land += 1
+	return total / land if land > 0 else SMOKE_WILDLAND_FUEL_KG_M2 * SMOKE_WILDLAND_EF
 
 
 ## Étalement latéral du panache (m) pour une fumée âgée de age_s, émise par un foyer de rayon initial fire_km.

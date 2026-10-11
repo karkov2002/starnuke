@@ -12,7 +12,8 @@ extends Node
 ## - nuke_ground_events (RGBAF, une colonne par explosion, ROWS lignes) : ligne 0 = (centre en km dans le repère de la
 ##   planète, temps physique écoulé en s) ; ligne 1 = (rayon détruit, rayon de la panne régionale, rayon initial des
 ##   incendies (0 : rien ne brûle), portée de l'explosion) en km ; ligne 2 = (direction où va le vent de la fumée,
-##   vecteur unitaire du repère de la planète, vitesse en m/s) ; ligne 3 = (rayon des gravats en km, inutilisés) ;
+##   vecteur unitaire du repère de la planète, vitesse en m/s) ; ligne 3 = (rayon des gravats en km, fumée par m²
+##   de sol en feu en kg/m² (négative tant que NukeImpact ne l'a pas calculée : pas encore de fumée), inutilisés) ;
 ## - nuke_ground_cells (RGF, maille de 1° en longitude × latitude) : (début, nombre) de la liste des explosions dont la
 ##   portée touche la maille, rangée dans nuke_ground_index (RF, INDEX_WIDTH de large) : un pixel du sol ne teste que
 ##   les explosions proches ;
@@ -91,7 +92,7 @@ func setup(launcher: NukeLauncher, earth: Node3D) -> void:
 				NukeScaling.SCAR_BROWN_END_S))
 		material.set_shader_parameter("nuke_smoke_rate", rate)
 		material.set_shader_parameter("nuke_smoke_rate_scale", scale)
-		material.set_shader_parameter("nuke_smoke_physics", Vector4(NukeScaling.SMOKE_EMISSION_KG_S_KM2,
+		material.set_shader_parameter("nuke_smoke_physics", Vector4(NukeScaling.FIRE_BURN_S,
 				NukeScaling.SMOKE_MEE_M2_KG, NukeScaling.SMOKE_SPREAD_K_M2_S, NukeScaling.SMOKE_LIFETIME_S))
 		material.set_shader_parameter("nuke_smoke_source", Vector2(NukeScaling.SMOKE_SOURCE_SIGMA,
 				NukeScaling.SMOKE_MAX_AGE_S))
@@ -114,6 +115,15 @@ func _process(_delta: float) -> void:
 			var key := _smoke_key(i)
 			if key != _smoke_keys[i]:
 				smoke_changed = true
+		# Fumée par m² en feu, calculée par NukeImpact quelques ms après le tir.
+		var statics: Array = _statics[_effects[i].get_instance_id()]
+		var row3: Vector4 = statics[2]
+		if row3.y < 0.0 and _effects[i].smoke_yield_kg_m2 >= 0.0:
+			row3.y = _effects[i].smoke_yield_kg_m2
+			statics[2] = row3
+			_write(i, 3, row3)
+			changed = true
+			smoke_changed = true
 	if changed:
 		_events_texture.update(Image.create_from_data(_capacity, ROWS, false, Image.FORMAT_RGBAF,
 				_data.to_byte_array()))
@@ -189,7 +199,7 @@ func _compute_statics(effect: NukeEffect) -> Array:
 	var speed := maxf(wind.length(), NukeScaling.SMOKE_MIN_WIND_M_S)
 	var direction := (east * wind.x + north * wind.y).normalized() if wind.length() > 1e-3 else east
 	return [Vector4(destroyed, region, fire, reach), Vector4(direction.x, direction.y, direction.z, speed),
-			Vector4(rubble, 0.0, 0.0, 0.0)]
+			Vector4(rubble, effect.smoke_yield_kg_m2, 0.0, 0.0)]
 
 
 ## Âges (s) de la fumée encore présente dans le panache de l'explosion i : (plus jeune, plus vieille) ; vide si elle
@@ -197,7 +207,8 @@ func _compute_statics(effect: NukeEffect) -> Array:
 func _smoke_ages(i: int) -> Vector2:
 	var statics: Array = _statics[_effects[i].get_instance_id()]
 	var t := _times[i]
-	if statics[0].z <= 0.0 or t <= 0.0:
+	# Rien ne brûle, ou fumée par m² pas encore calculée (NukeImpact).
+	if statics[0].z <= 0.0 or statics[2].y <= 0.0 or t <= 0.0:
 		return Vector2.ZERO
 	var youngest := maxf(t - _fire_end_s, 0.0)
 	var oldest := minf(t, NukeScaling.SMOKE_MAX_AGE_S)
@@ -226,20 +237,22 @@ func _rebuild_smoke() -> void:
 		var statics: Array = _statics[_effects[i].get_instance_id()]
 		var fire_km: float = statics[0].z
 		var wind: Vector4 = statics[1]
+		var smoke_yield: float = statics[2].y
 		var origin := (_effects[i].position / OrbitSimulation.SCENE_UNITS_PER_KM).normalized()
 		var direction := Vector3(wind.x, wind.y, wind.z)
 		var start_km := wind.w * ages.x / 1000.0
-		var end_km := wind.w * ages.y / 1000.0
+		var end_km := wind.w * ages.y / 1000.0 + 2.0 * NukeScaling.smoke_sigma_m(fire_km, ages.y) / 1000.0
 		var steps := maxi(ceili((end_km - start_km) / SMOKE_CELL_STEP_KM), 1)
 		for s in steps + 1:
 			var along := lerpf(start_km, end_km, float(s) / steps)
 			var age := along * 1000.0 / wind.w
 			# Demi-largeur où τ tombe sous le seuil : τ_axe · exp(−y² / 2σ²) = SMOKE_CELL_MIN_TAU.
 			var sigma := NukeScaling.smoke_sigma_m(fire_km, age)
-			var axis_tau := NukeScaling.SMOKE_MEE_M2_KG * NukeScaling.SMOKE_EMISSION_KG_S_KM2 * fire_km * fire_km \
-					* _burning_peak * exp(-age / NukeScaling.SMOKE_LIFETIME_S) / (wind.w * sqrt(TAU) * sigma)
+			var axis_tau := NukeScaling.SMOKE_MEE_M2_KG * smoke_yield * 1.0e6 * fire_km * fire_km * _burning_peak \
+					/ NukeScaling.FIRE_BURN_S * exp(-age / NukeScaling.SMOKE_LIFETIME_S) / (wind.w * sqrt(TAU) * sigma)
 			var half_width := sigma * sqrt(2.0 * log(maxf(axis_tau / SMOKE_CELL_MIN_TAU, 1.0)))
-			var radius := half_width / 1000.0 + SMOKE_CELL_STEP_KM
+			# Marge : front étalé et bords déformés par le bruit du shader (jusqu'à ~0,7 σ), front à ±2 σ.
+			var radius := (half_width + 2.0 * sigma) / 1000.0 + SMOKE_CELL_STEP_KM
 			# Point du grand cercle à la distance along, dans la direction du vent (repère du maillage).
 			var angle := along / OrbitSimulation.EARTH_RADIUS_KM
 			var p := origin * cos(angle) + direction * sin(angle)

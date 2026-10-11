@@ -3,10 +3,11 @@ extends Node
 ## Bilan d'une explosion, créé par NukeLauncher (nœud Impact) : à chaque tir (signal detonated), il calcule hors du
 ## fil principal (WorkerThreadPool) :
 ## 1. les pertes du souffle et de la chaleur (NukeCasualties.estimate) et l'effet sur le réseau électrique
-##    (NukeGridImpact.assess), quelques ms à ~40 ms ;
+##    (NukeGridImpact.assess), quelques ms à ~40 ms, et la fumée des incendies par m² en feu, selon la population
+##    (NukeScaling.smoke_yield_kg_m2) ;
 ## 2. les retombées (NukeFallout.estimate), jusqu'à quelques secondes pour 50 Mt ;
-## puis renseigne la NukeEffect (casualties, grid, fallout) dans le fil principal et écrit le bilan en console
-## (NukeReportText). L'écriture en console coûte plusieurs ms par ligne (sortie de l'éditeur) : elle se fait dans le
+## puis renseigne la NukeEffect (casualties, grid, smoke_yield_kg_m2, fallout) dans le fil principal et écrit le bilan
+## en console (NukeReportText). L'écriture en console coûte plusieurs ms par ligne (sortie de l'éditeur) : elle se fait dans le
 ## thread de calcul, jamais pendant une image.
 ## Tant que les résultats manquent, NukeEffect.impact_pending / fallout_pending le signalent (fenêtre de bilan).
 
@@ -27,7 +28,8 @@ func _on_detonated(effect: NukeEffect) -> void:
 func _compute(effect_id: int, params: NukeParams) -> void:
 	var casualties := NukeCasualties.estimate(params)
 	var grid := NukeGridImpact.assess(params)
-	_apply.call_deferred(effect_id, {"casualties": casualties, "grid": grid})
+	var smoke := NukeScaling.smoke_yield_kg_m2(params)
+	_apply.call_deferred(effect_id, {"casualties": casualties, "grid": grid, "smoke": smoke})
 	print("%s\n%s\n%s" % [NukeReportText.launch(params), NukeReportText.casualties(casualties),
 			NukeReportText.grid(grid)])
 	if NukeScaling.low_burst(params.yield_kt, params.burst_height_km) > 0.01:
@@ -43,6 +45,7 @@ func _apply(effect_id: int, results: Dictionary) -> void:
 	if results.has("casualties"):
 		effect.casualties = results.casualties
 		effect.grid = results.grid
+		effect.smoke_yield_kg_m2 = results.smoke
 		effect.impact_pending = false
 	if results.has("fallout"):
 		effect.fallout = results.fallout

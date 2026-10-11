@@ -644,12 +644,31 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
     4 jours (`SMOKE_LIFETIME_S`). Épaisseur optique verticale
     τ = MEE · Q(t − a) · e^(−a/L) / (u · √(2π) · σ) · exp(−y² / 2σ²) ; le panache est tronqué progressivement vers
     2 jours d'âge (`SMOKE_MAX_AGE_S`).
-  - **Débit** Q = 30 kg/s par km² en feu (`SMOKE_EMISSION_KG_S_KM2` : ~40 kg/m² de combustible urbain brûlé en ~6 h,
-    facteur d'émission ~2 %, Turco et al. 1990, Toon et al. 2007) × R0² × f(t), où f est la surface en feu
-    (`NukeScaling.smoke_burning_area`, mêmes lois que les incendies, table de 256 valeurs en échelle log,
-    `nuke_smoke_rate`) ; efficacité d'extinction 5 m²/g (`SMOKE_MEE_M2_KG`, fumée fraîche riche en suie, Bond &
-    Bergstrom 2006). Ordres de grandeur : 10 kt, un voile ; 1 Mt, un panache brun sur ~1 000 km ; 50 Mt, une nappe
-    opaque de plusieurs centaines de km de large (à l'échelle des grands feux australiens de 2019-2020).
+  - **Bords** : le modèle gaussien classique néglige la diffusion dans le sens du vent ; comme l'émission démarre au
+    flash, le front du panache (fumée la plus ancienne, à u · t) y serait une coupure droite perpendiculaire au vent.
+    Le front est donc étalé sur ±2 σ (même diffusion K que sur les côtés). Les bords sont en outre déformés par un
+    bruit à l'échelle de l'étalement (±0,7 σ en distance et en écart latéral : langues et volutes), propre à chaque
+    explosion. Au vent du foyer, la fumée ne déborde que de la moitié de la taille du foyer.
+  - **Accumulation** : la formule du panache décrit le régime établi (la fumée part avec le vent aussi vite qu'elle
+    est émise), atteint quand le vent a balayé le foyer, u · t ≈ √(2π) σ0 (2 à 3 h pour un foyer de 40 km à 10 m/s).
+    Avant, la fumée s'accumule au-dessus du foyer (colonne Q · t / 2π σ0²) : le panache s'épaissit progressivement au
+    lieu de couvrir d'emblée toute la zone.
+  - **Débit** Q = Y · R0² · f(t) / 6 h (`FIRE_BURN_S`), où f est la surface en feu (`NukeScaling.smoke_burning_area`,
+    mêmes lois que les incendies, table de 256 valeurs en échelle log, `nuke_smoke_rate`) et Y la fumée par m² en feu,
+    **selon ce qui brûle** (`NukeScaling.smoke_yield_kg_m2`, calculée au tir dans le thread de `NukeImpact` : moyenne
+    de 24 × 24 points des terres de la zone des incendies, population GHS-POP) :
+    - végétation : 2 kg/m² de combustible consumé (`SMOKE_WILDLAND_FUEL_KG_M2` ; herbe 0,3 à 0,5, broussailles 1 à 3,
+      forêt 2 à 5, van der Werf et al. 2017), facteur d'émission 1,2 % (`SMOKE_WILDLAND_EF`, Andreae 2019) ;
+    - bâti : 0,011 kg/m² par hab./km² (`SMOKE_URBAN_FUEL_KG_M2_PER_HAB_KM2` : 1,1·10⁷ g par habitant, Toon et al. 2007
+      § 6.1 ; centres-villes mesurés 120 à 470 kg/m²), facteur d'émission 2 % (`SMOKE_URBAN_EF`, Small 1989).
+
+    Mesures : 50 Mt sur la Sardaigne (~70 hab./km²), Y = 0,042 kg/m² ; 1 Mt sur Paris, Y = 1,17 kg/m² (28 fois plus).
+    Repère : 100 explosions de 15 kt sur des mégapoles donnent 1 à 5 Tg de suie (Toon et al. 2007). Efficacité
+    d'extinction 5 m²/g (`SMOKE_MEE_M2_KG` ; Toon et al. citent 4,4 à 7 m²/g). Une 50 Mt sur une île rurale : voile
+    léger à 30 min, épaississement sur 2 à 3 h, panache épais sous le vent ensuite (l'île entière brûle : le rayon
+    d'inflammation, ~60 km, couvre presque toute la Sardaigne) ; sur une grande ville, panache bien plus opaque.
+    Version précédente (corrigée) : tout sol en feu était traité comme une ville (~0,65 kg/m²), soit ~15 fois trop
+    de fumée en campagne, et le panache atteignait d'emblée son régime établi.
   - **Rendu** : couche plate sous les nuages (fumée de 1 à 6 km ; vue de 400 km, sa parallaxe est négligeable). Elle
     voile le sol (albédo gris-brun `nuke_smoke_albedo` éclairé par le soleil, noir la nuit), les reflets de la mer et
     les lumières des villes ; la lueur des incendies la traverse en partie (`nuke_smoke_fire_glow`). Volutes : bruit à
@@ -1135,6 +1154,15 @@ Les paragraphes (§) sont ceux des ouvrages ; entre parenthèses, les fichiers d
 - Postol, T. A. (1986). « Possible fatalities from superfires following nuclear attacks in or near urban areas ».
   In *The Medical Implications of Nuclear War*, National Academy Press. Critique du modèle de surpression (non
   retenue : limite documentée).
+- Toon, O. B., Turco, R. P., Robock, A., Bardeen, C., Oman, L. et Stenchikov, G. L. (2007). « Atmospheric effects
+  and societal consequences of regional scale nuclear conflicts and acts of individual nuclear terrorism ».
+  *Atmospheric Chemistry and Physics*, 7, p. 1973–2002, doi:10.5194/acp-7-1973-2007. Charge de combustible urbain
+  (1,1·10⁷ g par habitant, 0,0011 g/cm² par hab./km², § 6.1), facteur d'émission de fumée (0,020 g/g, d'après
+  Small 1989), 1 à 5 Tg de suie pour 100 explosions de 15 kt (fumée des incendies, `NukeScaling.SMOKE_*`).
+- Andreae, M. O. (2019). « Emission of trace gases and aerosols from biomass burning – an updated assessment ».
+  *Atmospheric Chemistry and Physics*, 19, p. 8523–8546. Facteurs d'émission de particules des feux de végétation.
+- van der Werf, G. R. et al. (2017). « Global fire emissions estimates during 1997–2016 ». *Earth System Science
+  Data*, 9, p. 697–720 (GFED4). Ordres de grandeur du combustible consumé par les feux de végétation.
 
 ### Réseaux électriques
 
