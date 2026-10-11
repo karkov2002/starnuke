@@ -69,7 +69,8 @@ func _update_color() -> void:
 	color = color * lerpf(0.04, 1.0, brightness)
 	color.a = 1.0
 	(material as ShaderMaterial).set_shader_parameter("tint", color)
-	(material as ShaderMaterial).set_shader_parameter("glow_strength", lerpf(0.4, 1.4, brightness))
+	# Halo jamais éteint (lueur minimale de braise dans le shader, halo_floor) : le titre reste lisible au plus froid.
+	(material as ShaderMaterial).set_shader_parameter("glow_strength", lerpf(0.9, 1.4, brightness))
 
 
 ## Couleur d'un corps noir à la température kelvin (approximation de Tanner Helland, 1 000 à 40 000 K).

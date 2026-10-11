@@ -32,7 +32,8 @@ permet de piloter le jeu exporté.
   provisoire « Star Nuke » lumineux (`scripts/ui/title_glow.gd`, `shaders/title_glow.gdshader` : texte rendu en
   blanc dans un SubViewport puis teinté, avec un halo flou ; sa couleur suit celle d'un corps noir chauffé, allant
   et venant en 18 s de ~700 K, presque noir, au rouge, à l'orange, au jaune puis au blanc ~6 600 K, approximation
-  de Tanner Helland ; la luminosité monte vite avec la température pour que le rouge rougeoie) et boutons **Start Game** (charge `orbit_view.tscn`), **Settings** (écran des
+  de Tanner Helland ; la luminosité monte vite avec la température pour que le rouge rougeoie ; le halo garde une
+  lueur minimale de braise, `halo_floor` : au plus froid, les lettres sombres restent lisibles) et boutons **Start Game** (charge `orbit_view.tscn`), **Settings** (écran des
   paramètres, par-dessus) et **Quit** dans la moitié droite ; à gauche, **la station vue de l'extérieur, côté
   soleil et légèrement en plongée, au-dessus de la Terre qui défile** (en temps réel). Ce décor est la scène du jeu elle-même, chargée
   en tâche de fond dès l'ouverture du menu (`ResourceLoader.load_threaded_request`, quelques secondes, fond noir en

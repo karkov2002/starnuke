@@ -7,6 +7,9 @@ uniform vec4 tint : source_color = vec4(1.0);
 // Rayon du halo (pixels) et intensité.
 uniform float glow_radius = 28.0;
 uniform float glow_strength = 1.3;
+// Lueur minimale du halo : quand le titre est presque noir, ses lettres sombres se détachent encore sur un halo
+// rouge sombre (braise).
+uniform vec3 halo_floor : source_color = vec3(0.45, 0.07, 0.02);
 
 void fragment() {
 	float base = texture(TEXTURE, UV).a;
@@ -24,6 +27,7 @@ void fragment() {
 	glow = glow / total * glow_strength;
 	float alpha = clamp(base + glow * (1.0 - base), 0.0, 1.0);
 	// Lettres : teinte pleine ; halo : même teinte, plus douce.
-	vec3 color = tint.rgb * (base + glow * 0.8) / max(alpha, 1e-3);
+	vec3 halo = max(tint.rgb, halo_floor);
+	vec3 color = (tint.rgb * base + halo * glow * 0.8) / max(alpha, 1e-3);
 	COLOR = vec4(color, alpha * tint.a);
 }
