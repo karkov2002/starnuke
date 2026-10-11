@@ -200,17 +200,22 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
 
 ## Organisation de la scène
 
-- **Station** : instance de `scenes/iss_cupola.tscn`, inspirée de l'ISS. L'unité de la scène est le mètre.
-  - Module type **Node 3 « Tranquility »** : section intérieure 2,1 × 2,1 m, longueur 4,6 m, parois couvertes de
-    racks, deux plafonniers, mains courantes autour du port nadir.
-  - **Cupola** fixée sur le port nadir : dôme hexagonal (Ø ~2,8 m, hauteur ~1,3 m) construit en CSG (`CSGPolygon3D`
-    en mode *spin* à 6 côtés), avec le **hublot central rond de 80 cm** et six fenêtres latérales trapézoïdales
-    séparées par des montants.
-  - Comme sur l'ISS, l'axe de la Cupola pointe vers le nadir (centre de la Terre). La station est inclinée de 30°
-    (`Station.rotation_degrees.x`) pour que l'observateur, qui garde la verticale du monde comme « haut », voie à la
-    fois le hublot central et l'horizon par les fenêtres latérales.
-- **Observateur** (`Camera`, script `scripts/station_camera.gd`) : tête dans la Cupola, à ~1 m du hublot central ;
-  vue initiale inclinée de 22° vers le bas (horizon dans le haut de l'image, Terre dans le reste du champ).
+- **Station** : nœud `Station` (repère de vol lu par `Orbit` : zénith +Y, direction de vol −Z ; aussi utilisé par
+  `NukeFlashFX` pour éclairer la station au flash), qui contient l'instance `StationSpatiale` de
+  `scenes/station_spatiale.tscn` (modèle Blender, voir « Station spatiale (modèle Blender) ») **tournée de 90°
+  autour de Y** : le module Commande (+X du modèle) vole à l'avant, le dessous de la station (cupola, trappes des
+  silos, −Y) face à la Terre. L'unité de la scène est le mètre (station ~42 × 80 m avec les panneaux).
+  - Ancienne station, gardée dans le projet : `scenes/iss_cupola.tscn` (module Node 3 « Tranquility » + Cupola en
+    CSG, inclinée de 30°).
+- **Observateur** (`Camera`, script `scripts/station_camera.gd`) : au repère `Point_Vue_Cupola` du modèle (dans la
+  cupola, (0, −3,2, −11,6) dans la scène), vue initiale plongeant de 52° sous l'horizon de la station vers l'avant,
+  comme avec l'ancienne Cupola (mêmes angles par rapport au repère de vol) ; les vitres de la cupola regardent le
+  nadir et sa paroi masque l'horizon (clic droit pour regarder ailleurs).
+- **Ombres du soleil** : jusqu'à 60 m (`directional_shadow_max_distance`), pour que la station (80 m) porte ses ombres
+  sur elle-même.
+- **Échelle** : la Terre est à 1/10 000 (voir ci-dessous) ; à 400 km d'altitude, sa surface est à 40 unités sous la
+  caméra (20 à 200 km). La station (trappes des silos à −4,6 m) reste au-dessus ; le missile lancé disparaît à
+  −30 m (`missile_released`) avant d'atteindre les nuages.
 - **Terre** (`Earth/`) : rendue à l'échelle **1/10 000** (1 unité = 10 km ; rayon 637,1 u) pour éviter les
   problèmes de précision du tampon de profondeur. La caméra ne se déplaçant pas, la taille angulaire est identique
   à celle d'une vraie Terre. Sa position et son orientation sont recalculées à chaque image par le nœud `Orbit`.

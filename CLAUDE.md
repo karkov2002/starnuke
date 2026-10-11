@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 « Star Nuke » — projet de jeu **Godot 4.7** (moteur de rendu Forward Plus, physique 3D Jolt, pilote D3D12 sous Windows).
 État actuel : un POC de vue orbitale. Scène principale : l'écran de démarrage `res://scenes/ui/main_menu.tscn` (Start Game,
-Settings, Quit), qui charge la vue orbitale `res://scenes/orbit_view.tscn` (Terre + ciel étoilé + instance de `scenes/iss_cupola.tscn`, module Node 3 + Cupola de l'ISS).
+Settings, Quit), qui charge la vue orbitale `res://scenes/orbit_view.tscn` (Terre + ciel étoilé + station Blender `scenes/station_spatiale.tscn`, script `scripts/station.gd`, sous le nœud `Station` ; l'ancienne `scenes/iss_cupola.tscn` est gardée). Modèle `assets/station/station_spatiale.glb` : ne jamais le modifier (réexporté depuis Blender), régler via son `.import`, `tools/import/station_import.gd` et la scène héritée.
 Paramètres du joueur (vidéo, langue) : autoload `GameSettings` (`scripts/game_settings.gd`), sauvés dans `user://settings.cfg`,
 écran `scenes/ui/settings_menu.tscn` (README, « Écran de démarrage, paramètres et langues »).
 Règle : **tous les textes du jeu sont dans les fichiers de langue** `locale/strings.csv` (interface) et `locale/countries.csv`
