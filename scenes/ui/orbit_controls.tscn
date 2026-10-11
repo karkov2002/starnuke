@@ -77,6 +77,6 @@ layout_mode = 2
 focus_mode = 0
 text = "HUD_RESTART_NIGHT"
 
-[node name="Launch" type="VBoxContainer" parent="Panel/Row" unique_id=1494045111]
+[node name="Launch" type="HBoxContainer" parent="Panel/Row" unique_id=1494045111]
 layout_mode = 2
 script = ExtResource("2_4bsrj")

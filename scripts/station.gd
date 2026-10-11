@@ -29,6 +29,8 @@ signal missile_ignited(silo: int, tube: int)
 signal missile_released(silo: int, tube: int, world_transform: Transform3D)
 signal heat_changed(heat: float)
 
+## Groupe de la station (pour la retrouver depuis l'interface).
+const GROUP := &"station"
 const ANIM_HATCHES := &"Fermeture_Ecoutilles"
 const ANIM_SILO_DOORS := &"Ouverture_Trappes"
 const ANIM_LAUNCH := &"Lancement_Missile"
@@ -86,6 +88,7 @@ var _missile_pristine: Node3D
 
 
 func _ready() -> void:
+	add_to_group(GROUP)
 	var imported := find_children("*", "AnimationPlayer", true, false)
 	if imported.is_empty():
 		push_error("Station : pas d'AnimationPlayer dans le modèle")
@@ -228,6 +231,22 @@ func set_all_silo_doors_open(open: bool, silo := 0) -> void:
 
 
 # --- Missiles -------------------------------------------------------------------------------------------------------
+
+## Tous les tubes de lancement, triés (silo, puis tube).
+func tube_ids() -> Array[Vector2i]:
+	var tubes: Array[Vector2i] = []
+	tubes.assign(_silo_doors.keys())
+	tubes.sort()
+	return tubes
+
+
+## Position du tube (repère Point_Lancement) dans le repère de la station : +X vers l'avant, +Z vers la droite.
+func tube_position(silo: int, tube: int) -> Vector3:
+	var key := Vector2i(silo, tube)
+	if not _silo_doors.has(key) or _silo_doors[key].launch_point == null:
+		return Vector3.ZERO
+	return global_transform.affine_inverse() * (_silo_doors[key].launch_point as Node3D).global_position
+
 
 ## Tubes d'où un missile peut partir (trappe ouvrable, pas encore tiré).
 func available_tubes() -> Array[Vector2i]:

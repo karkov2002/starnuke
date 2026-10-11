@@ -93,7 +93,8 @@ permet de piloter le jeu exporté.
 | Date et heure (UTC) | Champ **date** (AAAA-MM-JJ, valider par Entrée), boutons **−1 j / +1 j**, curseur de l'**heure** du jour. La station reste au-dessus du même point ; le soleil, les étoiles et les nuages (poussés par le vent) se placent selon la nouvelle heure. Départ : **15 juillet 2035** |
 | Vitesse du temps | Boutons **Pause, x1, x2, x4, x8, x16** |
 | Redémarrer | Boutons **By day** / **By night** (« De jour » / « De nuit » en français) : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
-| Tir nucléaire | **Gros bouton rouge** à droite du panneau : frappe le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie en dessous (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien. Voir « Explosions nucléaires » |
+| Silos | **48 voyants ronds numérotés de 1 à 48** à droite du panneau, un par tube de lancement, en 2 blocs de 3 × 8 placés comme les deux silos sur la station (vue de dessus, l'avant en haut ; silo 1 à gauche). **Orange** : missile prêt ; clic → **vert** : tube choisi pour le prochain tir (un seul à la fois, nouveau clic pour annuler) ; **gris** : tube vide. **48 missiles en tout**, sans rechargement |
+| Tir nucléaire | **Gros bouton rouge** à droite des silos : lance le missile du **tube choisi (vert)** sur le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie sous les silos (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Le point visé et la puissance sont figés à l'appui. Le missile sort de son tube (animation de lancement, 5 s : trappe, descente, allumage), le tube passe au gris, puis l'explosion a lieu **10 s** après que le missile a quitté la station (délai provisoire, `flight_delay_s` de `nuke/launch_control.gd`, en attendant une durée de vol réaliste). Sans tube choisi, ou si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien et le missile reste dans son tube. Voir « Explosions nucléaires » |
 | Bilan des explosions | Fenêtre **« Bilan des explosions »**, ouverte au premier tir (en haut à droite) : pays touchés et pertes, cumulées sur toutes les explosions. **Glisser sa barre de titre** (clic gauche maintenu) pour la déplacer ; bouton **—** / **+** pour la replier ; molette ou barre de défilement pour parcourir la liste |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
@@ -190,8 +191,9 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
     (repère du tube × repère du tube 1_12⁻¹ × missile animé). Le lancement rejoue `Lancement_Missile` : ouverture de
     la trappe (si elle est fermée, avec les angles de la trappe du tube), descente, allumage de la tuyère à 2,9 s
     (`Point_Tuyere` : échelle 0 → 1 ; signal `missile_ignited`), disparition à 5 s, ~30 m sous la station (échelle
-    0 ; signal `missile_released(silo, tube, world_transform)` : relais prévu vers le système de frappe). Chaque
-    tube ne tire qu'une fois. Le bouton rouge reste pour l'instant indépendant (frappe directe).
+    0 ; signal `missile_released(silo, tube, world_transform)` : relais vers la frappe, voir « Tir nucléaire » dans
+    « Contrôles »). Chaque tube ne tire qu'une fois. `tube_ids()` et `tube_position(silo, tube)` (repère de la
+    station : +X avant, +Z droite) servent au panneau des silos ; la station est dans le groupe `Station.GROUP`.
   - **Propulsion du missile** (`scenes/effects/missile_exhaust.tscn`, script `scripts/missile_exhaust.gd`, classe
     `MissileExhaust`, instancié sous `Missile_Balistique_1_12/Point_Tuyere_1_12` dans la scène héritée : chaque copie
     du missile en hérite). Moteur à propergol solide dans le vide :
@@ -1248,9 +1250,11 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   - signal `detonated(effect)` ; `get_effects()`, `clear_effects()`. Les explosions restent en place jusqu'à la
     fin de la partie (persistance du monde) : seul `clear_effects()` (debug, banc de mesure) les retire.
   - Au démarrage, il lie `NukeClock` au nœud `Orbit` (`orbit_path`).
-- **Interface** : colonne `Launch` du panneau de contrôle (`nuke/launch_control.gd`) : gros bouton rouge
-  (`nuke/big_red_button.gd`, dessiné à la main) et, en dessous, les boutons de puissance. Au clic, le capuchon
-  s'enfonce, reste un instant en bas puis remonte avec un léger rebond. Réticule au centre de l'écran
+- **Interface** : colonne `Launch` du panneau de contrôle (`nuke/launch_control.gd`, chaîne de tir : tube choisi →
+  `Station.launch_missile` → `missile_released` → attente `flight_delay_s` → `NukeLauncher.launch_at` sur le point
+  visé à l'appui) : panneau des silos (`nuke/silo_panel.gd`, voyants `nuke/silo_button.gd` dessinés à la main) et,
+  en dessous, les boutons de puissance ; à droite, gros bouton rouge (`nuke/big_red_button.gd`, dessiné à la main).
+  Au clic, le capuchon s'enfonce, reste un instant en bas puis remonte avec un léger rebond. Réticule au centre de l'écran
   (`nuke/aim_reticle.gd`) : rouge avec la latitude et la longitude du point visé quand la vue vise la Terre, gris
   sinon.
 - **Scène de debug** (`nuke/debug/nuke_debug.tscn`, à lancer avec F6 ; instancie `orbit_view.tscn` et ajoute le
