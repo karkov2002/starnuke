@@ -30,7 +30,9 @@ permet de piloter le jeu exporté.
 
 - **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : fond
   noir, titre provisoire « Star Nuke », boutons **Start Game** (charge `orbit_view.tscn`), **Settings** (écran des
-  paramètres, par-dessus) et **Quit**.
+  paramètres, par-dessus) et **Quit**. Après **Start Game**, la scène du jeu est chargée en tâche de fond
+  (`ResourceLoader.load_threaded_request`, quelques secondes) : le menu laisse place à « Loading in progress… »
+  (clé `MENU_LOADING`, points animés et pourcentage), qui reste affiché pendant la mise en place de la scène.
 - **Écran des paramètres** (`scenes/ui/settings_menu.tscn`, script `scripts/ui/settings_menu.gd`) : onglets
   **Video**, **Audio**, **Controls**, **Game** ; Audio et Controls sont à venir (onglets désactivés, infobulle
   « Coming soon »). **Back** ou Échap pour revenir. Chaque choix est appliqué et sauvé aussitôt.

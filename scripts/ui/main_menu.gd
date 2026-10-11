@@ -51,8 +51,40 @@ func _add_button(parent: Control, key: String, action: Callable) -> Button:
 	return button
 
 
+## La scène du jeu est chargée en tâche de fond (quelques secondes) : le menu laisse place à « Chargement en cours… »
+## (points animés, pourcentage), puis la scène remplace le menu. Le dernier message reste affiché pendant la mise en
+## place de la scène (_ready des nœuds), qui se fait sur le fil principal.
 func _on_start() -> void:
-	get_tree().change_scene_to_file(GAME_SCENE)
+	if ResourceLoader.load_threaded_request(GAME_SCENE) != OK:
+		get_tree().change_scene_to_file(GAME_SCENE)
+		return
+	_menu.visible = false
+	var loading := Label.new()
+	loading.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	loading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	loading.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	loading.add_theme_font_size_override("font_size", 32)
+	loading.add_theme_color_override("font_color", Color(0.85, 0.87, 0.9))
+	loading.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(loading)
+	var progress: Array = []
+	var dots := 0
+	while true:
+		var status := ResourceLoader.load_threaded_get_status(GAME_SCENE, progress)
+		if status == ResourceLoader.THREAD_LOAD_LOADED:
+			break
+		if status != ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			get_tree().change_scene_to_file(GAME_SCENE)
+			return
+		dots = (dots + 1) % 30
+		loading.text = tr("MENU_LOADING").format({"dots": ".".repeat(1 + floori(dots / 10.0)),
+				"percent": roundi(100.0 * float(progress[0]) if not progress.is_empty() else 0.0)})
+		await get_tree().process_frame
+	loading.text = tr("MENU_LOADING").format({"dots": "...", "percent": 100})
+	# Deux images : le texte final est affiché avant la mise en place de la scène, qui fige l'écran un instant.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	get_tree().change_scene_to_packed(ResourceLoader.load_threaded_get(GAME_SCENE) as PackedScene)
 
 
 func _on_settings() -> void:
