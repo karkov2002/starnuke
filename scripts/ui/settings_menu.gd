@@ -3,7 +3,8 @@ extends Control
 ## « Commandes » et « Jeu » ; Audio et Commandes sont à venir (onglets désactivés). Chaque choix est appliqué et sauvé
 ## aussitôt par l'autoload GameSettings. Émet closed au clic sur « Retour » (ou Échap).
 ## En jeu (in_game, ouvert par la pause, scripts/ui/pause_menu.gd) : fond translucide sur la vue figée et bouton
-## supplémentaire « Retour au menu » (main_menu_requested).
+## supplémentaire « Quitter la partie », avec confirmation Oui / Non (main_menu_requested : retour à l'écran de
+## démarrage).
 
 signal main_menu_requested
 
@@ -82,10 +83,10 @@ func _ready() -> void:
 		column.add_child(buttons)
 		buttons.add_child(_back)
 		var main_menu := Button.new()
-		main_menu.text = "SETTINGS_MAIN_MENU"
+		main_menu.text = "SETTINGS_QUIT_GAME"
 		main_menu.custom_minimum_size = Vector2(220.0, 52.0)
 		main_menu.add_theme_font_size_override("font_size", 22)
-		main_menu.pressed.connect(func() -> void: main_menu_requested.emit())
+		main_menu.pressed.connect(_confirm_quit_game)
 		buttons.add_child(main_menu)
 	else:
 		column.add_child(_back)
@@ -93,6 +94,22 @@ func _ready() -> void:
 	_refresh()
 	GameSettings.changed.connect(_refresh)
 	_mode.grab_focus.call_deferred()
+
+
+## « Quitter la partie » : confirmation Oui / Non (la partie en cours est perdue).
+func _confirm_quit_game() -> void:
+	var dialog := ConfirmationDialog.new()
+	dialog.title = tr("SETTINGS_QUIT_GAME")
+	dialog.dialog_text = tr("SETTINGS_QUIT_GAME_CONFIRM")
+	dialog.ok_button_text = tr("DIALOG_YES")
+	dialog.cancel_button_text = tr("DIALOG_NO")
+	dialog.confirmed.connect(func() -> void: main_menu_requested.emit())
+	dialog.visibility_changed.connect(func() -> void:
+		if not dialog.visible:
+			dialog.queue_free())
+	add_child(dialog)
+	dialog.popup_centered()
+	dialog.get_cancel_button().grab_focus.call_deferred()
 
 
 func _unhandled_input(event: InputEvent) -> void:
