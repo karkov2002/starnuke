@@ -212,7 +212,8 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
   comme avec l'ancienne Cupola (mêmes angles par rapport au repère de vol) ; les vitres de la cupola regardent le
   nadir et sa paroi masque l'horizon (clic droit pour regarder ailleurs).
 - **Ombres du soleil** : jusqu'à 60 m (`directional_shadow_max_distance`), pour que la station (80 m) porte ses ombres
-  sur elle-même.
+  sur elle-même ; la Terre ne reçoit pas d'ombres portées (`shadows_disabled` dans `earth_surface.gdshader`) : à
+  1/10 000, l'ombre de la station y serait 10 000 fois trop grande (invisible en réalité depuis l'orbite).
 - **Échelle** : la Terre est à 1/10 000 (voir ci-dessous) ; à 400 km d'altitude, sa surface est à 40 unités sous la
   caméra (20 à 200 km). La station (trappes des silos à −4,6 m) reste au-dessus ; le missile lancé disparaît à
   −30 m (`missile_released`) avant d'atteindre les nuages.

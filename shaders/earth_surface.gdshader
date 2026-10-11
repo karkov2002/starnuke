@@ -13,7 +13,10 @@
 shader_type spatial;
 // Pas de lumière ambiante de l'Environment (réglée pour l'intérieur de la station) : vue de l'espace, la face
 // nocturne n'est éclairée que par ses propres émissions (villes, lueur du composite NASA, ciel au crépuscule).
-render_mode cull_back, ambient_light_disabled;
+// Pas d'ombres portées : la Terre est à 1/10 000 (surface à ~40 unités sous la caméra) alors que la station est à
+// l'échelle 1 ; elle y projetterait une ombre 10 000 fois trop grande (une station de 80 m à 400 km n'a pas d'ombre
+// visible depuis l'orbite). L'ombre des nuages sur le sol est calculée dans ce shader (cloud_shadow).
+render_mode cull_back, ambient_light_disabled, shadows_disabled;
 
 #include "res://shaders/cloud_density.gdshaderinc"
 #include "res://shaders/sun_light.gdshaderinc"
