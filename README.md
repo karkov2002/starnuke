@@ -183,6 +183,16 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
     tube ne tire qu'une fois. Le bouton rouge reste pour l'instant indépendant (frappe directe).
   - Radiateurs : `set_radiator_deployed(id, deployed)` (`Radiateur_D15`, `D21`, `G15`, `G21`),
     `set_all_radiators_deployed`, `set_stealth(enabled)` ; signal `radiator_changed`.
+  - **Éclairage intérieur** (réglages dans le groupe « Éclairage intérieur » de `Station`) : les 28 lampes
+    ponctuelles du modèle (`Lum_*`, importées à 6 522 d'énergie et 4 096 m de portée) sont recalibrées au démarrage :
+    blanc 4 500 K (luminaires LED de l'ISS en mode jour), énergie 1,2, portée 5,5 m, atténuation 1,3, reflets 0,4,
+    **sans ombres**. Sans ombres, une lampe traverse les parois : elles n'éclairent donc que les surfaces intérieures,
+    sur le calque `INTERIOR_LAYER` (bit 11, `light_cull_mask`). Est intérieur un matériau dont le nom commence par
+    `Int_` ou `Ecran_` ; hublots et vitrages sont des deux côtés ; tout le reste est extérieur. Les 14 coques mixtes
+    (surface `Coque_Silo` dehors, `Int_Coque` dedans, dans un même objet) sont doublées : l'original ne montre que
+    ses surfaces extérieures, une copie `<nom>_Interieur` (même maillage, LOD compris, sans ombre portée) ses
+    surfaces intérieures ; les surfaces cachées ont un matériau qui place leurs sommets hors du champ (aucun pixel
+    calculé). L'extérieur n'est éclairé que par le soleil (et le flash des explosions).
   - **Chaleur** (règle de jeu, valeurs provisoires en attendant la jauge) : `heat` (0 à 1) monte de
     `heat_rise_per_s` (0,01/s) radiateurs tous repliés (**mode furtif** : pas de rayonnement infrarouge, la chaleur
     s'accumule) et descend de `heat_fall_per_s` (0,02/s) radiateurs tous déployés, en proportion des radiateurs

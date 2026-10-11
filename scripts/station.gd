@@ -39,9 +39,28 @@ const MODEL_MISSILE := "Missile_Balistique_1_12"
 const MODEL_SILO := 1
 const MODEL_TUBE := 12
 const RADIATOR_IDS: Array[String] = ["Radiateur_D15", "Radiateur_D21", "Radiateur_G15", "Radiateur_G21"]
+## Calque des surfaces intérieures (bit 11), seul éclairé par les lampes intérieures.
+const INTERIOR_LAYER := 1 << 10
+## Matériaux intérieurs (préfixes des noms Blender) ; tous les autres sont extérieurs. Les vitrages et hublots se
+## voient des deux côtés : ils sont des deux calques.
+const INTERIOR_MATERIALS: Array[String] = ["Int_", "Ecran_"]
+const BOTH_SIDES_MATERIALS: Array[String] = ["Hublot", "Vitrage"]
+## Surface masquée : rejetée avant tout calcul de pixel (sommets hors du volume de vue).
+const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_transform;\nvoid vertex() {\n\tPOSITION = vec4(0.0, 0.0, 2.0, 1.0);\n}\n"
 
 @export var animate_solar_panels := true
 @export var animate_antennas := true
+
+@export_group("Éclairage intérieur")
+## 28 lampes ponctuelles du modèle (Lum_*), recalibrées au démarrage : ambiance ISS (luminaires LED en mode jour,
+## ~4 500 K), sans ombres. Elles n'éclairent que les surfaces intérieures (calque INTERIOR_LAYER) : sans ombres, elles
+## traverseraient sinon la coque et l'éclaireraient de l'extérieur.
+@export var interior_light_energy := 1.2
+@export var interior_light_range := 5.5
+@export var interior_light_attenuation := 1.3
+@export var interior_light_temperature := 4500.0
+@export var interior_light_specular := 0.4
+@export var interior_shadows := false
 ## Chaleur : montée par seconde radiateurs tous repliés, descente par seconde radiateurs tous déployés
 ## (valeurs provisoires, à régler avec la jauge).
 @export var heat_rise_per_s := 0.01
@@ -77,6 +96,7 @@ func _ready() -> void:
 		_players[anim_name] = player
 	_collect_interactives()
 	_collect_radiators()
+	_setup_interior_lighting()
 	var model := _missile_template()
 	if model:
 		_missile_pristine = model.duplicate() as Node3D
@@ -393,6 +413,58 @@ func _collect_radiators() -> void:
 				tracks.append(t)
 		if not tracks.is_empty():
 			_radiators[id] = {"tracks": tracks, "is_deployed": true, "tween": null}
+
+
+## Calques et lampes intérieures. Un maillage entièrement intérieur passe sur INTERIOR_LAYER ; un maillage mixte (coques :
+## surfaces Coque_Silo dehors, Int_Coque dedans) est doublé : l'original ne garde que ses surfaces extérieures, la copie
+## (même maillage, LOD compris, sans ombre portée) ses surfaces intérieures, sur INTERIOR_LAYER.
+func _setup_interior_lighting() -> void:
+	var hidden := ShaderMaterial.new()
+	hidden.shader = Shader.new()
+	hidden.shader.code = HIDDEN_SHADER
+	for mesh_instance: MeshInstance3D in find_children("*", "MeshInstance3D", true, false):
+		if mesh_instance.mesh == null:
+			continue
+		var interior: Array[int] = []
+		var exterior: Array[int] = []
+		for s in mesh_instance.mesh.get_surface_count():
+			var material := mesh_instance.mesh.surface_get_material(s)
+			var material_name := material.resource_name if material else ""
+			if _has_prefix(material_name, BOTH_SIDES_MATERIALS):
+				continue
+			if _has_prefix(material_name, INTERIOR_MATERIALS):
+				interior.append(s)
+			else:
+				exterior.append(s)
+		if exterior.is_empty():
+			mesh_instance.layers |= INTERIOR_LAYER
+		elif not interior.is_empty():
+			var inside := MeshInstance3D.new()
+			inside.name = String(mesh_instance.name) + "_Interieur"
+			inside.mesh = mesh_instance.mesh
+			inside.layers = mesh_instance.layers | INTERIOR_LAYER
+			inside.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			for s in exterior:
+				inside.set_surface_override_material(s, hidden)
+			for s in interior:
+				mesh_instance.set_surface_override_material(s, hidden)
+			mesh_instance.add_child(inside)
+	for light: OmniLight3D in find_children("Lum_*", "OmniLight3D", true, false):
+		light.light_cull_mask = INTERIOR_LAYER
+		light.light_energy = interior_light_energy
+		light.omni_range = interior_light_range
+		light.omni_attenuation = interior_light_attenuation
+		light.light_color = Color.WHITE
+		light.light_temperature = interior_light_temperature
+		light.light_specular = interior_light_specular
+		light.shadow_enabled = interior_shadows
+
+
+static func _has_prefix(text: String, prefixes: Array[String]) -> bool:
+	for prefix in prefixes:
+		if text.begins_with(prefix):
+			return true
+	return false
 
 
 # --- Outils ---------------------------------------------------------------------------------------------------------
