@@ -137,6 +137,32 @@ quand il n'y a plus d'explosion (« Effacer » du panneau de debug).
   Madrid (40,4° N), le minimum est 40,4°.
 - l'accélération du temps agit sur l'orbite, la rotation de la Terre, le soleil et le déplacement des nuages par le vent (pas sur la lente évolution du relief de leurs sommets).
 
+## Station spatiale (modèle Blender)
+
+Modèle `assets/station/station_spatiale.glb` (Blender, ~60 Mo, textures intégrées ; conventions dans
+`assets/station/LISEZMOI_GODOT.md`). **Ne jamais modifier le .glb** : il est réexporté depuis Blender avec les mêmes
+noms de nœuds ; tout réglage passe par son `.import`, le script de post-import et la scène héritée.
+- **Import** (`station_spatiale.glb.import`) : échelle 1 (mètres), racine `StationSpatiale`, collisions par
+  suffixes de noms (`-col` : collision statique concave + maillage ; `-convcolonly` : collision convexe seule),
+  LOD générés, animations à 24 i/s, **Rotation_Panneaux** et **Balayage_Antennes** en boucle (les autres jouées
+  une fois). Textures extraites à côté du .glb (compression GPU S3TC/BPTC) : les images sont régénérées à chaque
+  import et ne sont pas versionnées (`.gitignore`) ; leurs `.import` le sont (UID et réglages stables).
+- **Post-import** (`tools/import/station_import.gd`) :
+  - collisions des portes et trappes (enfants d'une `Charniere_*` animée) converties en `AnimatableBody3D`, qui
+    suivent le mouvement ;
+  - pistes constantes retirées des animations : l'export Blender met dans chaque action tous les objets animés
+    (75 pistes) ; il ne reste que les pistes utiles (Rotation_Panneaux 4, Balayage_Antennes 3, Fermeture_Ecoutilles
+    4, Ouverture_Trappes 48, Retraction_Radiateurs 12, Lancement_Missile 5). Sans cela, jouer une animation
+    remettrait aussi en place tous les autres objets animés.
+  - **Piège** : l'éditeur garde le script de post-import en cache ; modifié hors de l'éditeur, il n'est pas relu à
+    l'import suivant (relancer l'éditeur). Toucher le `.import` ne relance pas l'import : il faut changer un
+    réglage ou réexporter le .glb.
+- **Métadonnées** : les propriétés personnalisées Blender (extras glTF) sont dans `get_meta("extras")`, un
+  dictionnaire ; les nombres y sont des flottants (`silo: 1.0`). `ouvrable` (vrai pour les écoutilles et trappes
+  animées, faux pour l'écoutille cargo et les trappes sas et nadir, verrouillées).
+- **Scène héritée** `scenes/station_spatiale.tscn` : base de tout le jeu (script, réglages des lumières, etc.).
+  Aperçu seul : `scenes/debug/station_preview.tscn` (soleil, fond noir, caméra extérieure).
+
 ## Organisation de la scène
 
 - **Station** : instance de `scenes/iss_cupola.tscn`, inspirée de l'ISS. L'unité de la scène est le mètre.
