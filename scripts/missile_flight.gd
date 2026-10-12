@@ -5,7 +5,7 @@ extends Node3D
 ## Deux phases, en mètres réels (le temps suit l'horloge du jeu : Orbit.time_scale, pause et accélération) :
 ## 1. Phase spatiale (de 0 à flight_time_s − reentry_time_s), dans le repère de la station (fixe dans la scène ; c'est
 ##    la Terre qui bouge), vers le point d'entrée dans l'atmosphère (entry_altitude_km au-dessus de la cible, en amont
-##    du côté de la station, pente de entry_angle_deg : la rentrée prolonge le vol). Comme un vrai missile, il
+##    du côté de la station, pente de 8 à 25° selon la ligne de visée : la rentrée prolonge le vol). Comme un vrai missile, il
 ##    manœuvre pendant la combustion (burn_time_s) : il part dans l'axe de son tube (ligne droite de Blender), tourne
 ##    vers le point d'entrée en accélérant, puis le moteur s'éteint et il file sur sa lancée, en ligne droite à
 ##    vitesse constante (_space_point). La tête, froide, devient alors invisible : on le voit partir vers la cible,
@@ -44,11 +44,14 @@ var glow_fade_in_m := Vector2(150.0, 1500.0)
 var light_full_m := 40.0
 ## Rentrée : altitude d'entrée (km), pente (degrés sous l'horizontale), part du vol (bornée en secondes).
 var entry_altitude_km := 100.0
-## Pente rasante, comme une vraie rentrée depuis l'orbite (quelques degrés) : plus plate que la ligne de visée vers
-## la cible (≥ ~10° sous l'horizontale), la traînée arrive à l'écran du bas, du côté de la station, et monte vers la
+## Pente de la rentrée : entry_sight_ratio × la hauteur de la station vue depuis la cible (ligne de visée), bornée à
+## entry_angle_range_deg ; vers 20 à 25°, comme la tête d'un missile balistique (traînée lumineuse de ~150 à 180 km).
+## Plus plate que la ligne de visée, la traînée arrive à l'écran du bas, du côté de la station, et monte vers la
 ## cible, dans le sens où le missile est parti. (Une pente égale à celle de la ligne de visée la réduirait à un
-## point ; plus raide, elle semblerait tomber du haut de l'écran.)
-var entry_angle_deg := 8.0
+## point ; plus raide, elle semblerait tomber du haut de l'écran.) Cible lointaine (station basse sur l'horizon) :
+## pente rasante de 8°, comme une rentrée depuis l'orbite.
+var entry_sight_ratio := 0.7
+var entry_angle_range_deg := Vector2(8.0, 25.0)
 var reentry_share := 0.2
 var reentry_bounds_s := Vector2(6.0, 12.0)
 ## Éclat de la rentrée selon l'altitude (km) : apparition, plein, fin du plein, extinction.
@@ -102,11 +105,14 @@ func setup(missile: Node3D, velocity: Vector3, station: Node3D, earth: Node3D, t
 	back = back.normalized() if back.length() > 1e-4 else up.cross(Vector3.UP).normalized()
 	var station_local := earth.global_transform.affine_inverse() * station.global_position
 	var sight := station_local - _burst_local
+	var elevation := asin(clampf(sight.normalized().dot(up), -1.0, 1.0))
+	var entry_angle := clampf(entry_sight_ratio * elevation, deg_to_rad(entry_angle_range_deg.x),
+			deg_to_rad(entry_angle_range_deg.y))
 	sight -= up * sight.dot(up)
 	var toward := sight.normalized() if sight.length() > 30.0 * units else back
 	var drop := entry_altitude_km - burst_height_km
 	_entry_local = up * (OrbitSimulation.EARTH_RADIUS_KM + entry_altitude_km) * units \
-			+ toward * (drop / tan(deg_to_rad(entry_angle_deg))) * units
+			+ toward * (drop / tan(entry_angle)) * units
 	_start_offset = missile.global_position - station.global_position
 	_start_velocity = velocity
 	_dive_direction = velocity.normalized() if velocity.length() > 0.1 else -station.global_basis.y

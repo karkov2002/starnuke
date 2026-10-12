@@ -269,10 +269,13 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
     - **rentrée atmosphérique** (les derniers 20 % du vol, entre 6 et 12 s ; `scripts/reentry_streak.gd`,
       `shaders/reentry_streak.gdshader`) : du point d'entrée au point d'explosion (500 m au-dessus de la cible), en
       ralentissant, **dans le prolongement du vol** : le point d'entrée est en amont de la cible, du côté de la
-      station, avec une pente rasante de 8° (une vraie rentrée depuis l'orbite se fait à quelques degrés). Plus plate
-      que la ligne de visée vers la cible (≥ ~10° sous l'horizontale), la traînée arrive à l'écran du bas, du côté de
+      station. Pente : 0,7 × la hauteur de la station vue depuis la cible (ligne de visée), bornée entre 8° (rentrée
+      rasante depuis l'orbite : cibles lointaines, ~460 km de traînée lumineuse) et 25° (tête de missile balistique :
+      cibles proches, ~150 km). Plus plate que la ligne de visée, la traînée arrive à l'écran du bas, du côté de
       la station, et monte vers la cible, dans le sens où le missile est parti (pente égale à la ligne de visée :
-      traînée vue en bout, réduite à un point ; plus raide : elle semblerait tomber du haut de l'écran). Cible au
+      traînée vue en bout, réduite à un point ; plus raide : elle semblerait tomber du haut de l'écran). La durée de
+      la rentrée, elle, est compressée comme tout le vol (6 à 12 s au lieu de 1 à 2 min) : la tête paraît 5 à 10 fois
+      plus rapide qu'en réalité (~7 km/s). Cible au
       nadir : arrivée de l'arrière, le long de la trace au sol. La tête s'échauffe comme un météore vu depuis
       l'ISS : tête blanc-bleuté éblouissante (halo additif, rayon 1,5 km, au moins 6 pixels) et traînée de plasma de
       3,5 s de trajet, effilée, qui se refroidit du jaune à l'orange puis au rouge
