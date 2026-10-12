@@ -32,7 +32,11 @@ uniform sampler2D night_texture : source_color, filter_linear_mipmap_anisotropic
 uniform sampler2DArray night_tiles : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 uniform bool night_detail_ready = false;
 uniform float land_roughness : hint_range(0.0, 1.0) = 0.9;
-uniform float ocean_roughness : hint_range(0.0, 1.0) = 0.22;
+// Rugosité de la mer : reflet du soleil large, argenté, aux bords progressifs, comme sur les photos prises depuis
+// l'ISS. Les pentes des vagues de Cox & Munk (1954), σ² ≈ 0,003 + 0,00512 · vent (m/s), donneraient ~0,5 par vent de
+// 7 m/s, mais le reflet devient alors terne (le soleil n'a pas sa vraie luminance HDR) ; 0,22 donnait une tache
+// ponctuelle. Compromis réglé à l'œil : 0,35.
+uniform float ocean_roughness : hint_range(0.0, 1.0) = 0.35;
 uniform float ocean_specular : hint_range(0.0, 1.0) = 0.6;
 uniform vec3 sun_direction = vec3(0.0, 1.0, 0.0); // espace monde, vers le soleil
 uniform float units_to_km = 10.0;
