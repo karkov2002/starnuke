@@ -4,11 +4,12 @@ extends Node3D
 ##
 ## Deux phases, en mètres réels (le temps suit l'horloge du jeu : Orbit.time_scale, pause et accélération) :
 ## 1. Phase spatiale (de 0 à flight_time_s − reentry_time_s), dans le repère de la station (fixe dans la scène ; c'est
-##    la Terre qui bouge) : le missile poursuit la ligne droite de Blender (vitesse de sortie) en accélérant
-##    (dive_acceleration), puis s'incurve vers le point d'entrée dans l'atmosphère (entry_altitude_km au-dessus de la
-##    cible, en amont du côté de la station, pente de entry_angle_deg : la rentrée prolonge le vol) selon g(u) = (e^(λu) − 1 − λu) / (e^λ − 1 − λ)
-##    (pente nulle au départ : pas d'à-coup au relais). Le moteur brûle burn_time_s puis s'éteint : la tête,
-##    froide, devient invisible (on perd le missile de vue bien avant l'impact).
+##    la Terre qui bouge), vers le point d'entrée dans l'atmosphère (entry_altitude_km au-dessus de la cible, en amont
+##    du côté de la station, pente de entry_angle_deg : la rentrée prolonge le vol). Comme un vrai missile, il
+##    manœuvre pendant la combustion (burn_time_s) : il part dans l'axe de son tube (ligne droite de Blender), tourne
+##    vers le point d'entrée en accélérant, puis le moteur s'éteint et il file sur sa lancée, en ligne droite à
+##    vitesse constante (_space_point). La tête, froide, devient alors invisible : on le voit partir vers la cible,
+##    puis on le perd de vue bien avant l'impact.
 ## 2. Rentrée (reentry_time_s) : du point d'entrée au point d'explosion (burst_height_km au-dessus de la cible), en
 ##    ralentissant ; la tête s'échauffe : tête incandescente et traînée de plasma (ReentryStreak) dont l'éclat suit
 ##    l'altitude (montée sous 75 km, plein de 60 à 30 km, extinction vers 10 km : la tête a ralenti). arrived à la fin.
@@ -31,10 +32,8 @@ var flight_time_s := 20.0
 ## Durée de combustion du moteur (s) et durée de son extinction (s).
 var burn_time_s := 9.0
 var burn_out_s := 0.5
-## Accélération le long de la ligne droite de Blender (m/s²) avant la courbe vers le point d'entrée.
+## Accélération le long de la ligne droite de Blender (m/s²), au début de la combustion, avant le virage.
 var dive_acceleration := 30.0
-## Raideur de la loi exponentielle (plus grand : le missile reste plus longtemps près de la station).
-var curve_steepness := 9.0
 ## Rotation maximale du missile pour suivre sa trajectoire (rad/s).
 var turn_rate := 1.2
 ## Halo du moteur : rayon réel (m), taille minimale à l'écran (pixels), distance réelle d'apparition (m).
@@ -148,11 +147,7 @@ func _process(delta: float) -> void:
 		_exhaust.throttle = _engine
 
 	if t < space_s:
-		var u := t / space_s
-		var straight := _start_offset + _start_velocity * t + _dive_direction * (0.5 * dive_acceleration * t * t)
-		var k := curve_steepness
-		var g := (exp(k * u) - 1.0 - k * u) / (exp(k) - 1.0 - k)
-		var relative := straight.lerp(_to_relative(_earth.global_transform * _entry_local), g)
+		var relative := _space_point(t, space_s, _to_relative(_earth.global_transform * _entry_local))
 		if game_delta > 0.0:
 			var motion := relative - _last_relative
 			if motion.length() > 1e-4:
@@ -177,6 +172,32 @@ func _process(delta: float) -> void:
 		arrived.emit()
 		_missile.queue_free()
 		queue_free()
+
+
+## Position du missile pendant la phase spatiale (t de 0 à space_s), relative à la station (m réels) ; entry : point
+## d'entrée dans l'atmosphère, même repère (recalculé à chaque image : il suit la Terre). Vitesse de croisière V,
+## choisie pour arriver au point d'entrée à space_s : la combustion (durée b) couvre ~V · b / 2 en accélérant, la
+## croisière le reste, L = V · (b / 2 + (space_s − b)).
+## - Combustion : courbe d'Hermite de la sortie (vitesse de Blender) au point de fin de combustion (vitesse V vers le
+##   point d'entrée), fondue depuis la ligne droite de Blender (accélérée de dive_acceleration) : le missile part dans
+##   l'axe de son tube, puis tourne vers la cible en accélérant.
+## - Croisière, moteur éteint : ligne droite à vitesse constante V jusqu'au point d'entrée.
+func _space_point(t: float, space_s: float, entry: Vector3) -> Vector3:
+	var b := minf(burn_time_s, space_s)
+	var to_entry := entry - _start_offset
+	var length := maxf(to_entry.length(), 1.0)
+	var direction := to_entry / length
+	var speed := length / (0.5 * b + (space_s - b))
+	var burn_end := _start_offset + direction * (0.5 * speed * b)
+	if t >= b:
+		return burn_end + direction * speed * (t - b)
+	var s := t / b
+	var s2 := s * s
+	var s3 := s2 * s
+	var hermite := _start_offset * (2.0 * s3 - 3.0 * s2 + 1.0) + _start_velocity * b * (s3 - 2.0 * s2 + s) \
+			+ burn_end * (3.0 * s2 - 2.0 * s3) + direction * speed * b * (s3 - s2)
+	var straight := _start_offset + _start_velocity * t + _dive_direction * (0.5 * dive_acceleration * t * t)
+	return straight.lerp(hermite, smoothstep(0.0, 1.0, s))
 
 
 ## Position de la tête pendant la rentrée (v de 0 à 1), repère du maillage de la Terre : ligne droite du point
