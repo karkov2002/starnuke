@@ -101,7 +101,9 @@ void fragment() {
 	vec3 nuke_fire = vec3(0.0);
 	if (nuke_cell.y > 0) {
 		float urban = smoothstep(0.05, 0.3, dot(night, vec3(0.299, 0.587, 0.114)));
-		nuke_fire = nuke_fire_state(n * CLOUD_PLANET_RADIUS_KM, nuke_cell, 1.0 - water, urban);
+		// Terres seulement : carte des pays (les mers, très sombres, échappent au masque d'eau déduit de la couleur).
+		float land = nuke_land_share(n) * (1.0 - water);
+		nuke_fire = nuke_fire_state(n * CLOUD_PLANET_RADIUS_KM, nuke_cell, land, urban);
 		albedo = nuke_scar_color(albedo, nuke_fire, urban);
 	}
 	// Fumée des incendies (nuke/shaders/nuke_smoke.gdshaderinc), couche plate sous les nuages : voile le sol, les

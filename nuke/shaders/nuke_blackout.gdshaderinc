@@ -19,7 +19,6 @@
 // pas de panne) ; nuke_ground_country_count : nombre de pays dans le noir.
 uniform int nuke_ground_country_count = 0;
 uniform sampler2D nuke_ground_countries : filter_nearest, repeat_disable;
-uniform sampler2D nuke_country_ids : filter_nearest, repeat_disable;
 // Durées (s, temps physique), fournies par NukeGroundFX depuis NukeScaling.
 uniform float nuke_blackout_cascade_tau_s = 15.0;
 uniform float nuke_blackout_national_off_s = 30.0;
@@ -40,16 +39,6 @@ float nuke_blackout_patch(vec3 uvw) {
 // Plaque éteinte à partir de t_off (s) : 1 = éteinte ; bascule adoucie sur 5 % de la date (au moins 2 s).
 float nuke_blackout_off(float t, float t_off) {
 	return smoothstep(t_off, t_off + max(0.05 * t_off, 2.0), t);
-}
-
-int nuke_country_id(vec3 n) {
-	vec2 size = vec2(textureSize(nuke_country_ids, 0));
-	// Repère du maillage (+Y nord, +Z vers −180°) : latitude asin(y), longitude atan2(−x, −z).
-	float lat = asin(clamp(n.y, -1.0, 1.0));
-	float lon = atan(-n.x, -n.z);
-	ivec2 texel = ivec2(clamp(vec2((lon + PI) / TAU, 0.5 - lat / PI) * size, vec2(0.0), size - 1.0));
-	vec2 rg = texelFetch(nuke_country_ids, texel, 0).rg;
-	return int(rg.r * 255.0 + 0.5) + 256 * int(rg.g * 255.0 + 0.5);
 }
 
 // Part des lumières éteintes au point p (km) de normale n, pour les explosions de la maille cell (nuke_ground_cell).

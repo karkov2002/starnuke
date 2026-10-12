@@ -20,6 +20,42 @@ uniform int nuke_ground_count = 0;
 uniform sampler2D nuke_ground_events : filter_nearest, repeat_disable;
 uniform sampler2D nuke_ground_cells : filter_nearest, repeat_disable;
 uniform sampler2D nuke_ground_index : filter_nearest, repeat_disable;
+// Carte des pays (assets/textures/country_ids.png, tools/build_country_mask.gd) : indice du pays + 1 sur 16 bits
+// (R = octet faible, G = octet fort ; 0 = mer ou océan), ~2,4 km par pixel, équirectangulaire. Sert au black-out
+// national et de masque des terres pour les incendies (le masque d'eau déduit de la couleur du sol ne reconnaît pas les
+// mers, trop sombres).
+uniform sampler2D nuke_country_ids : filter_nearest, repeat_disable;
+
+// Position du point de normale n dans nuke_country_ids, en pixels (repère du maillage : +Y nord, +Z vers −180° ;
+// latitude asin(y), longitude atan2(−x, −z)).
+vec2 nuke_country_pixel(vec3 n, vec2 size) {
+	float lat = asin(clamp(n.y, -1.0, 1.0));
+	float lon = atan(-n.x, -n.z);
+	return vec2((lon + PI) / TAU, 0.5 - lat / PI) * size;
+}
+
+int nuke_country_id(vec3 n) {
+	vec2 size = vec2(textureSize(nuke_country_ids, 0));
+	ivec2 texel = ivec2(clamp(nuke_country_pixel(n, size), vec2(0.0), size - 1.0));
+	vec2 rg = texelFetch(nuke_country_ids, texel, 0).rg;
+	return int(rg.r * 255.0 + 0.5) + 256 * int(rg.g * 255.0 + 0.5);
+}
+
+// Part de terre (0 = mer ou océan, 1 = terre) au point de normale n : pixels de nuke_country_ids interpolés (côte
+// adoucie sur ~2 km, pas d'escalier).
+float nuke_land_share(vec3 n) {
+	ivec2 size = textureSize(nuke_country_ids, 0);
+	vec2 f = nuke_country_pixel(n, vec2(size)) - 0.5;
+	ivec2 i0 = ivec2(floor(f));
+	vec2 w = f - vec2(i0);
+	float land[4];
+	for (int k = 0; k < 4; k++) {
+		// Longitude : bouclée ; latitude : bornée.
+		ivec2 texel = ivec2((i0.x + (k & 1) + size.x) % size.x, clamp(i0.y + (k >> 1), 0, size.y - 1));
+		land[k] = dot(texelFetch(nuke_country_ids, texel, 0).rg, vec2(1.0)) > 0.0 ? 1.0 : 0.0;
+	}
+	return mix(mix(land[0], land[1], w.x), mix(land[2], land[3], w.x), w.y);
+}
 
 struct NukeGroundEvent {
 	int id;

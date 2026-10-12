@@ -885,7 +885,10 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
     les incendies durent donc plusieurs jours de la partie.
   - Rendu des flammes, en émission sur le sol :
     - la part du sol en feu est forte au centre (l'exposition décroît en 1/d²) ;
-    - seulement sur les terres (masque d'eau du sol) : **une mer ou un océan ne brûle pas**. Une explosion en mer
+    - seulement sur les terres : **une mer ou un océan ne brûle pas**. Masque des terres : la carte des pays
+      (`assets/textures/country_ids.png`, 0 = mer, ~2,4 km par pixel, interpolée pour adoucir la côte,
+      `nuke_land_share` dans `nuke/shaders/nuke_ground.gdshaderinc`) ; le masque d'eau déduit de la couleur du sol ne
+      suffit pas (en espace linéaire, les mers de Blue Marble sont trop sombres pour qu'il les reconnaisse). Une explosion en mer
       sans aucune terre dans le rayon des incendies (`OceanMask.has_land_within`, `NukeEffect.can_ignite_land`)
       n'allume rien ; près d'une côte, le flash enflamme les terres à portée ;
     - plus forte et plus vive dans les villes (combustible, lu dans l'image des lumières nocturnes) ;
