@@ -2,7 +2,8 @@
 // - Texture globale Blue Marble NG (16K, ~2,4 km/px) partout.
 // - Sous l'observateur : fenêtre de 5 x 5 tuiles de 5° en 500 m/px (Texture2DArray alimenté par
 //   scripts/earth_detail_tiles.gd), fondue dans la texture globale sur ses bords.
-// - Masque d'eau approximatif (eau = sombre et bleue) pour le reflet spéculaire du soleil sur les océans.
+// - Masque d'eau (carte des pays, plus les eaux sombres et bleues) pour le reflet spéculaire du soleil sur les
+//   océans et pour cantonner les incendies aux terres.
 // - Ombres portées des nuages procéduraux (même fonction de densité que cloud_volume.gdshader).
 // - Lumières des villes la nuit (Black Marble 2016, globale 16K + tuiles HD), en émission.
 // - Explosions nucléaires durables (nuke/shaders/) : incendies, trace au sol, fumée, black-out.
@@ -92,18 +93,19 @@ void fragment() {
 		}
 	}
 
-	float luma = dot(albedo, vec3(0.299, 0.587, 0.114));
-	float water = smoothstep(0.015, 0.06, albedo.b - albedo.r) * (1.0 - smoothstep(0.18, 0.3, luma));
 	vec3 n = normalize(local_km);
+	// Masque d'eau : mers et océans d'après la carte des pays (0 = mer, nuke_land_share), plus les eaux intérieures
+	// reconnues à leur couleur (sombre et bleue ; seule, elle manque les mers, trop sombres en espace linéaire).
+	float luma = dot(albedo, vec3(0.299, 0.587, 0.114));
+	float water = max(1.0 - nuke_land_share(n),
+			smoothstep(0.015, 0.06, albedo.b - albedo.r) * (1.0 - smoothstep(0.18, 0.3, luma)));
 	// Explosions proches (nuke/shaders/nuke_ground.gdshaderinc) : incendies et trace au sol (de jour comme de nuit,
 	// définitive), black-out (plus bas).
 	ivec2 nuke_cell = nuke_ground_cell(n);
 	vec3 nuke_fire = vec3(0.0);
 	if (nuke_cell.y > 0) {
 		float urban = smoothstep(0.05, 0.3, dot(night, vec3(0.299, 0.587, 0.114)));
-		// Terres seulement : carte des pays (les mers, très sombres, échappent au masque d'eau déduit de la couleur).
-		float land = nuke_land_share(n) * (1.0 - water);
-		nuke_fire = nuke_fire_state(n * CLOUD_PLANET_RADIUS_KM, nuke_cell, land, urban);
+		nuke_fire = nuke_fire_state(n * CLOUD_PLANET_RADIUS_KM, nuke_cell, 1.0 - water, urban);
 		albedo = nuke_scar_color(albedo, nuke_fire, urban);
 	}
 	// Fumée des incendies (nuke/shaders/nuke_smoke.gdshaderinc), couche plate sous les nuages : voile le sol, les

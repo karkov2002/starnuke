@@ -351,7 +351,10 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
   - `AtmosphereGround` (638,7 u) et `AtmosphereSky` (664 u) : diffusion atmosphérique physique, voir ci-dessous.
 - **Orbite** (`Orbit`, script `scripts/orbit.gd`) : mécanique orbitale, voir ci-dessous.
 - **Soleil** : `DirectionalLight3D` orientée par `Orbit` (position réelle du soleil, éteinte pendant l'éclipse) ;
-  elle éclaire la Terre et produit le reflet du soleil sur les océans (masque d'eau déduit de la couleur).
+  elle éclaire la Terre et produit le reflet du soleil sur les océans. Masque d'eau : mers et océans d'après la carte
+  des pays (`assets/textures/country_ids.png`, 0 = mer, `nuke_land_share`), plus les eaux intérieures reconnues à
+  leur couleur (sombre et bleue). La couleur seule ne suffit pas : en espace linéaire, les mers de Blue Marble sont
+  trop sombres pour être reconnues, et les océans étaient rendus mats comme les terres.
 - **Transition jour / nuit** (`shaders/sun_light.gdshaderinc`, partagé par le sol et les nuages) : la lumière du
   soleil est atténuée par l'air qu'elle traverse. Au-dessus de l'horizon local, on utilise la masse d'air de
   Kasten-Young. Sous l'horizon, le rayon a frôlé la Terre à l'altitude tangente ht et traversé une colonne d'environ
