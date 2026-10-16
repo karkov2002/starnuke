@@ -19,8 +19,12 @@ const GROUP := &"exposure_control"
 @export var earth_path: NodePath = ^"../Earth"
 @export var sun_path: NodePath = ^"../Sun"
 @export var world_environment_path: NodePath = ^"../WorldEnvironment"
-@export var day_multiplier := 1.0
-@export var night_multiplier := 3.0
+## Base de jour et de nuit (multiplicateur d'exposition à luminosité 100 %). Calibration provisoire du 2026-10-16 :
+## ×1 de jour reproduisait l'exposition automatique « à froid » en 16:9, mais l'utilisateur voyait un rendu nettement
+## plus sombre (l'auto dépendait de l'historique de la session) : base abaissée à ×0,5, à ajuster avec le curseur de
+## luminosité (25 à 150 %) puis à normaliser.
+@export var day_multiplier := 0.5
+@export var night_multiplier := 1.5
 ## Hauteur du soleil (degrés) au point regardé : plein jour au-dessus, pleine nuit en dessous.
 @export var day_elevation_deg := 8.0
 @export var night_elevation_deg := -12.0

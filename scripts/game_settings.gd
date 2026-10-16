@@ -41,7 +41,7 @@ const RESOLUTIONS: Array[Vector2i] = [
 ## Échelle minimale du rendu 3D en plein écran.
 const MIN_3D_SCALE := 0.25
 const CAMERA_ATTRIBUTES := "res://materials/camera_attributes.tres"
-const BRIGHTNESS_RANGE := Vector2(0.5, 1.5)
+const BRIGHTNESS_RANGE := Vector2(0.25, 1.5)
 
 var window_mode := WindowMode.FULLSCREEN
 ## Résolution choisie ; Vector2i.ZERO : celle de l'écran.

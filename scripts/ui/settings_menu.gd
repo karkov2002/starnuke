@@ -141,7 +141,7 @@ func _build_video(page: VBoxContainer) -> void:
 	_resolution.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_resolution.item_selected.connect(func(index: int) -> void:
 		GameSettings.set_resolution(_resolution.get_item_metadata(index)))
-	# Luminosité : curseur de 50 à 150 % (multiplicateur d'exposition, GameSettings.brightness).
+	# Luminosité : curseur de 25 à 150 % (facteur d'exposition, GameSettings.brightness).
 	var label := Label.new()
 	label.text = "VIDEO_BRIGHTNESS"
 	label.add_theme_font_size_override("font_size", 20)

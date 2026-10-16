@@ -45,7 +45,7 @@ permet de piloter le jeu exporté.
 - **Écran des paramètres** (`scenes/ui/settings_menu.tscn`, script `scripts/ui/settings_menu.gd`) : onglets
   **Video**, **Audio**, **Controls**, **Game** ; Audio et Controls sont à venir (onglets désactivés, infobulle
   « Coming soon »). **Back** ou Échap pour revenir. Chaque choix est appliqué et sauvé aussitôt.
-  - **Video** : mode d'affichage (**fenêtré** / **plein écran**), **résolution** et **luminosité** (50 à 150 %,
+  - **Video** : mode d'affichage (**fenêtré** / **plein écran**), **résolution** et **luminosité** (25 à 150 %,
     `GameSettings.brightness`, sauvée dans `user://settings.cfg` : facteur du multiplicateur d'exposition des
     attributs de caméra partagés `materials/camera_attributes.tres`, appliqué au menu et au jeu par le nœud
     `Exposure`, voir « Exposition » dans « Organisation de la scène »). L'écran des paramètres a un fond
@@ -402,8 +402,12 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
   moyenne de la même vue de jour : 86 à 100 ; de nuit : 45 à 135). Désormais l'exposition ne dépend que de ce qui
   est regardé, comme un œil adapté à l'extérieur, indépendamment du cadrage :
   - **jour / nuit** : d'après la hauteur du soleil au point de la Terre visé par le centre de la vue (sinon le point
-    survolé) : × 1 quand elle dépasse 8°, × 3 sous −12° (nuit : villes et étoiles, l'intérieur de la Cupola reste
-    sombre), interpolation géométrique entre les deux (crépuscule), lissage de 1 s. Calibré pour retrouver le rendu
+    survolé) : base de jour quand elle dépasse 8°, base de nuit (3 × celle de jour : villes et étoiles, l'intérieur de la
+    Cupola reste sombre) sous −12°, interpolation géométrique entre les deux (crépuscule), lissage de 1 s. Bases
+    `day_multiplier` / `night_multiplier` du nœud : × 1 / × 3 reproduisaient l'exposition automatique « à froid » en
+    16:9, mais le rendu vu en jeu était nettement plus sombre (l'auto dépendait de l'historique de la session) :
+    **bases provisoires × 0,5 / × 1,5** (2026-10-16), à normaliser d'après le réglage de luminosité préféré
+    (curseur élargi à 25–150 % pour cela). Calibration initiale : rendu
     de l'exposition automatique en 16:9 (`tools/bench/exposure_probe.tscn` : captures avec l'exposition automatique
     puis à plusieurs multiplicateurs fixes, luminance moyenne par ffmpeg) ; vérifié à 1920 × 1080 et 5120 × 1440 :
     même luminance sur le même champ (le centre 2560 × 1440 de l'image 32:9) ;
