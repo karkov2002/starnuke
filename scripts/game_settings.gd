@@ -64,10 +64,10 @@ func set_brightness(value: float) -> void:
 	_save()
 
 
+## Rien à écrire : le nœud Exposure (ExposureControl) lit brightness à chaque image et impose la sensibilité de
+## l'exposition. (CameraAttributes.exposure_multiplier n'agit pas sur le rendu dans ce build, voir ExposureControl.)
 func _apply_brightness() -> void:
-	var attributes := load(CAMERA_ATTRIBUTES) as CameraAttributesPractical
-	if attributes:
-		attributes.exposure_multiplier = brightness
+	pass
 
 
 func set_window_mode(mode: WindowMode) -> void:

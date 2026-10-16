@@ -395,31 +395,38 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
   effet d'image, ce halo déborde sur les montants des fenêtres, comme dans l'œil ou un objectif. Il disparaît dès que
   le disque est masqué par la station ou par la Terre.
 - **Exposition** (nœud `Exposure`, `scripts/exposure_control.gd`, classe `ExposureControl` ; attributs de caméra
-  `materials/camera_attributes.tres` affectés au `WorldEnvironment`, exposition automatique de Godot **coupée**).
-  L'exposition automatique se réglait sur la luminance moyenne de toute l'image : en 32:9, ou en plein écran, le
-  ciel noir pèse davantage qu'en 16:9, la moyenne chute et l'exposition monte — Terre et station brûlées à
-  5120 × 1440 alors que la fenêtre 16:9 était correcte ; et elle était instable d'un lancement à l'autre (luminance
-  moyenne de la même vue de jour : 86 à 100 ; de nuit : 45 à 135). Désormais l'exposition ne dépend que de ce qui
-  est regardé, comme un œil adapté à l'extérieur, indépendamment du cadrage :
+  `materials/camera_attributes.tres` affectés au `WorldEnvironment`). L'exposition automatique de Godot, laissée
+  libre, se réglait sur la luminance moyenne de toute l'image : en 32:9, ou en plein écran, le ciel noir pèse
+  davantage qu'en 16:9, la moyenne chute et l'exposition monte — Terre et station brûlées à 5120 × 1440 alors que
+  la fenêtre 16:9 était correcte ; et elle dépendait de l'historique de la session (luminance moyenne de la même
+  vue de jour, à froid : 86 à 100 ; de nuit : 45 à 135). Désormais l'exposition ne dépend que de ce qui est
+  regardé, comme un œil adapté à l'extérieur, indépendamment du cadrage.
+  - **Mécanisme** : l'exposition automatique reste activée mais **bridée** — le nœud impose à chaque image
+    `auto_exposure_min_sensitivity` = `max_sensitivity` = `base_sensitivity` / facteur (`auto_exposure_scale`
+    0,22, vitesse 20 : elle suit la consigne en quelques images ; le lissage est fait par le nœud). Pourquoi pas
+    `exposure_multiplier` ? Dans ce build (Godot 4.7, D3D12, Forward+), **il n'agit pas sur le rendu** : à 0,
+    l'image de jour garde 90 % de sa luminance (seuls ciel et glow y réagissent), alors que la sensibilité
+    bridée expose réellement toute l'image (`tools/bench/exposure_sweep.tscn` : S = 50 brûlé, 200 référence,
+    3 200 sombre). Le multiplicateur est neutralisé à 1. Une première version du nœud s'appuyait sur lui : le jeu
+    tournait en fait à exposition ≈ 1 (HDR brut, « beaucoup plus brillant »), le curseur de luminosité presque
+    sans effet, et le flash d'un 50 Mt inondait l'écran — une après-midi de fausses pistes (glow, éblouissement,
+    lumières), jusqu'au test « exposition 0 → image inchangée ».
   - **jour / nuit** : d'après la hauteur du soleil au point de la Terre visé par le centre de la vue (sinon le point
-    survolé) : base de jour quand elle dépasse 8°, base de nuit (3 × celle de jour : villes et étoiles, l'intérieur de la
-    Cupola reste sombre) sous −12°, interpolation géométrique entre les deux (crépuscule), lissage de 1 s. Bases
-    `day_multiplier` / `night_multiplier` du nœud : × 1 / × 3 reproduisaient l'exposition automatique « à froid » en
-    16:9, mais le rendu vu en jeu était nettement plus sombre (l'auto dépendait de l'historique de la session) :
-    **bases provisoires × 0,5 / × 1,5** (2026-10-16), à normaliser d'après le réglage de luminosité préféré
-    (curseur élargi à 25–150 % pour cela). Calibration initiale : rendu
-    de l'exposition automatique en 16:9 (`tools/bench/exposure_probe.tscn` : captures avec l'exposition automatique
-    puis à plusieurs multiplicateurs fixes, luminance moyenne par ffmpeg) ; vérifié à 1920 × 1080 et 5120 × 1440 :
-    même luminance sur le même champ (le centre 2560 × 1440 de l'image 32:9) ;
+    survolé) : sensibilité 200 quand elle dépasse 8° (`day_multiplier` × 1 : nuages texturés, océan profond — le
+    rendu de référence), 70 sous −12° (`night_multiplier` × 2,85, le plafond de l'ancienne exposition automatique :
+    villes et étoiles, montants clairs), interpolation géométrique entre les deux (crépuscule), lissage de 1 s vers
+    le clair et 0,25 s vers le sombre (`adaptation_s`, `darkening_s`, comme l'œil). Vérifié à 1920 × 1080 et en
+    vrai plein écran 5120 × 1440 : même luminance sur le même champ (le centre 2560 × 1440 de l'image 32:9), de
+    jour (71,3 / 70,8) comme de nuit (38,0 / 37,6 ; `tools/bench/exposure_probe.tscn`) ;
   - **face au soleil** : quand le disque solaire est dans le champ (demi-diagonale, bord progressif sur ±10°) et
-    au-dessus du limbe terrestre, l'exposition est divisée par 5 : la Terre s'assombrit et les étoiles s'effacent
-    (ce que faisait l'exposition automatique, dominée par le disque) ;
-  - **multiplicateur final** = luminosité des paramètres (`GameSettings.brightness`) × facteur ci-dessus ×
-    éblouissement du flash (`NukeFlashFX` fournit `dazzle`, voir « Lumière et effets d'écran du flash »),
-    ÷ (1 + 8 × flux de flash reçu par la caméra, en soleils ; `flash_adapt_gain`), avec une adaptation rapide vers
-    le sombre (0,25 s, `darkening_s`) et lente vers le clair (1 s, `adaptation_s`) : l'œil
-    s'adapte à la scène qu'un flash éclaire, qui s'assombrit autour de lui — ce que faisait l'exposition
-    automatique ; sans ce terme, un 50 Mt éclairait toute la scène au lieu de rester concentré.
+    au-dessus du limbe terrestre, l'exposition est divisée par 5 (`sun_dimming`) : la Terre s'assombrit et les
+    étoiles s'effacent (ce que faisait l'exposition automatique, dominée par le disque) ;
+  - **facteur final** = luminosité des paramètres (`GameSettings.brightness`, 100 % = sensibilité 200 de jour) ×
+    facteur jour / nuit × éblouissement du flash (`NukeFlashFX` fournit `dazzle`, voir « Lumière et effets d'écran
+    du flash ») ÷ (1 + 8 × flux de flash reçu par la caméra, en soleils ; `flash_adapt_gain`) : l'œil s'adapte à la
+    scène qu'un flash éclaire, qui s'assombrit autour de lui — ce que faisait l'exposition automatique ; sans ce
+    terme, un 50 Mt éclairait toute la scène au lieu de rester un disque concentré (`tools/bench/flow_probe.tscn`,
+    `flash_look_probe.tscn` : captures à 1, 2, 5, 10 et 20 s).
   - **Lumière ambiante** : celle de l'Environment n'éclaire que la station. La surface terrestre l'ignore
     (`render_mode ambient_light_disabled` dans `earth_surface.gdshader`) : remontée de × 2,5 la nuit, elle
     rendait les continents visibles. La face nocturne n'a que ses émissions (villes, lueur des terres, ciel au

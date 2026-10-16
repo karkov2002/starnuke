@@ -68,6 +68,9 @@ func setup(launcher: NukeLauncher, world_environment: WorldEnvironment, earth: N
 func _process(delta: float) -> void:
 	if _launcher == null:
 		return
+	# Le nœud Exposure est prêt après le lanceur (ordre de la scène) : recherche différée.
+	if _exposure == null:
+		_exposure = get_tree().get_first_node_in_group(&"exposure_control")
 	var flashes: Array[NukeFlash] = []
 	for effect in _launcher.get_effects():
 		var flash := effect.get_flash()

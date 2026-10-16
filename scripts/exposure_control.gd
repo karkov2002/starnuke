@@ -11,7 +11,15 @@ extends Node
 ## 16:9 (tools/bench/exposure_probe.tscn) : ×1 de jour, ×3 de nuit. Face au soleil (disque dans le champ, au-dessus
 ## du limbe), l'exposition est divisée par sun_dimming, comme l'œil ébloui : la Terre s'assombrit, les étoiles
 ## s'effacent (c'est ce que faisait l'exposition automatique, dominée par le disque).
-## Multiplicateur final = GameSettings.brightness × ce facteur × dazzle (éblouissement du flash, NukeFlashFX).
+## Facteur final = GameSettings.brightness × ce facteur × dazzle (éblouissement du flash, NukeFlashFX).
+##
+## Application : par l'exposition automatique de Godot **bridée** — sensibilité minimale = maximale = base_sensitivity
+## / facteur (auto_exposure_scale 0,22, vitesse 20 : elle suit la consigne en quelques images, le lissage est fait
+## ici). CameraAttributes.exposure_multiplier n'agit pas sur le rendu dans ce build (Godot 4.7, D3D12, Forward+ :
+## à 0, l'image de jour reste presque inchangée ; seule la voie automatique expose réellement l'image, mesure
+## tools/bench/exposure_sweep.tscn). La sensibilité imposée ne dépend pas du contenu de l'image : même rendu en
+## 16:9 et en 32:9. base_sensitivity 200 : rendu de jour de référence (nuages texturés, océan profond) ; nuit ×2,85 →
+## sensibilité 70, le plafond de l'ancienne exposition automatique.
 
 const GROUP := &"exposure_control"
 
@@ -19,12 +27,11 @@ const GROUP := &"exposure_control"
 @export var earth_path: NodePath = ^"../Earth"
 @export var sun_path: NodePath = ^"../Sun"
 @export var world_environment_path: NodePath = ^"../WorldEnvironment"
-## Base de jour et de nuit (multiplicateur d'exposition à luminosité 100 %). Calibration provisoire du 2026-10-16 :
-## ×1 de jour reproduisait l'exposition automatique « à froid » en 16:9, mais l'utilisateur voyait un rendu nettement
-## plus sombre (l'auto dépendait de l'historique de la session) : base abaissée à ×0,5, à ajuster avec le curseur de
-## luminosité (25 à 150 %) puis à normaliser.
-@export var day_multiplier := 0.5
-@export var night_multiplier := 1.5
+## Sensibilité (ISO) de jour à luminosité 100 % et facteur 1 ; l'exposition en est l'inverse.
+@export var base_sensitivity := 200.0
+## Facteurs d'exposition de jour et de nuit (×1 : sensibilité base_sensitivity).
+@export var day_multiplier := 1.0
+@export var night_multiplier := 2.85
 ## Hauteur du soleil (degrés) au point regardé : plein jour au-dessus, pleine nuit en dessous.
 @export var day_elevation_deg := 8.0
 @export var night_elevation_deg := -12.0
@@ -79,8 +86,15 @@ func get_factor() -> float:
 
 
 func _apply() -> void:
-	if _attributes:
-		_attributes.exposure_multiplier = GameSettings.brightness * exp(_log_factor) * dazzle
+	var practical := _attributes as CameraAttributesPractical
+	if practical == null:
+		return
+	var sensitivity := base_sensitivity / maxf(GameSettings.brightness * exp(_log_factor) * dazzle, 1e-4)
+	practical.auto_exposure_enabled = true
+	practical.auto_exposure_min_sensitivity = sensitivity
+	practical.auto_exposure_max_sensitivity = sensitivity
+	# Le multiplicateur a un effet partiel (ciel, glow) : neutralisé, tout passe par la sensibilité.
+	practical.exposure_multiplier = 1.0
 
 
 ## Facteur cible d'après la hauteur du soleil au point regardé, divisé par l'éblouissement du soleil dans le champ.

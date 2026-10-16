@@ -9,7 +9,7 @@ extends Node
 ##   godot --path . res://tools/bench/flash_probe.tscn
 
 const YIELD_KT := 50000.0
-const TIMES_S: Array[float] = [3.0, 10.0, 20.0]
+const TIMES_S: Array[float] = [3.0]
 
 var _launcher: NukeLauncher
 var _earth: Node3D
@@ -40,6 +40,31 @@ func _ready() -> void:
 	orbit.restart(12.0)
 	orbit.time_scale = 0.0
 	await _frames(10)
+	# Témoin sans explosion : l'exposition agit-elle ?
+	var attr0 := (view.get_node("WorldEnvironment") as WorldEnvironment).camera_attributes as CameraAttributesPractical
+	var expo0: Node = view.get_node("Exposure")
+	expo0.process_mode = Node.PROCESS_MODE_DISABLED
+	for mult: float in [0.5, 0.05]:
+		attr0.exposure_multiplier = mult
+		await _frames(5)
+		_shot("temoin_expo_%.3f.png" % mult)
+	# Variante : exposition automatique activée, même multiplicateur.
+	attr0.auto_exposure_enabled = true
+	for mult: float in [0.5, 0.05]:
+		attr0.exposure_multiplier = mult
+		await _frames(60)
+		_shot("temoin_auto_%.3f.png" % mult)
+	attr0.auto_exposure_enabled = false
+	# Variante : attributs posés sur la caméra.
+	var cam0 := get_viewport().get_camera_3d()
+	cam0.attributes = attr0
+	for mult: float in [0.5, 0.05]:
+		attr0.exposure_multiplier = mult
+		await _frames(5)
+		_shot("temoin_cam_%.3f.png" % mult)
+	cam0.attributes = null
+	expo0.process_mode = Node.PROCESS_MODE_INHERIT
+	get_tree().quit()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1234
 	var aim := _launcher.get_aim()
@@ -62,20 +87,50 @@ func _ready() -> void:
 		flash_fx.process_mode = Node.PROCESS_MODE_DISABLED
 		clouds.set_shader_parameter("nuke_flash_count", 0)
 		var no_clouds := await _gpu()
+		_shot("flash_%ds_sans_nuages.png" % int(t))
 		flash_fx.process_mode = Node.PROCESS_MODE_INHERIT
 		await _frames(2)
 		flash_fx.process_mode = Node.PROCESS_MODE_DISABLED
 		surface.set_shader_parameter("nuke_flash_count", 0)
 		var no_ground := await _gpu()
+		_shot("flash_%ds_sans_sol.png" % int(t))
 		clouds.set_shader_parameter("nuke_flash_count", 0)
 		var no_both := await _gpu()
+		_shot("flash_%ds_sans_les_deux.png" % int(t))
 		flash_fx.process_mode = Node.PROCESS_MODE_INHERIT
 		await _frames(2)
 		flash_fx.process_mode = Node.PROCESS_MODE_DISABLED
 		light.visible = false
 		var no_light := await _gpu()
+		_shot("flash_%ds_sans_lumiere.png" % int(t))
+		light.visible = true
+		var cam_attributes := (_earth.get_parent().get_node("WorldEnvironment") as WorldEnvironment).camera_attributes as CameraAttributesPractical
+		var expo_node: Node = _earth.get_parent().get_node("Exposure")
+		expo_node.process_mode = Node.PROCESS_MODE_DISABLED
+		flash_fx.process_mode = Node.PROCESS_MODE_DISABLED
+		for mult: float in [0.5, 0.0005, 0.00005]:
+			cam_attributes.exposure_multiplier = mult
+			await _frames(5)
+			print("multiplicateur forcé %.3f (lu %.3f)" % [mult, cam_attributes.exposure_multiplier])
+			_shot("flash_%ds_expo_%.3f.png" % [int(t), mult])
+		flash_fx.process_mode = Node.PROCESS_MODE_INHERIT
+		expo_node.process_mode = Node.PROCESS_MODE_INHERIT
 		flash_fx.process_mode = Node.PROCESS_MODE_INHERIT
 		await _frames(2)
+		# Élimination sur toute la scène : chaque nœud masqué tour à tour, capture.
+		var scene_root: Node = _earth.get_parent()
+		for path: String in ["Station", "Earth/CloudLayer", "Earth/Surface", "Earth/AtmosphereSky", "Earth/AtmosphereGround", "Sun", "OrbitControls", "NukeReport", "FpsOverlay"]:
+			var node: Node = scene_root.get_node(path)
+			node.set(&"visible", false)
+			await _frames(5)
+			_shot("flash_%ds_cache_%s.png" % [int(t), path.replace("/", "_")])
+			node.set(&"visible", true)
+		for effect in _launcher.get_effects():
+			effect.visible = false
+		await _frames(5)
+		_shot("flash_%ds_cache_effets.png" % int(t))
+		for effect in _launcher.get_effects():
+			effect.visible = true
 		print("GPU : tout %.2f ms | flash nuages coupé %.2f | flash sol coupé %.2f | les deux %.2f | lumière station coupée %.2f"
 				% [all, no_clouds, no_ground, no_both, no_light])
 		# Nœuds des explosions.
@@ -83,6 +138,7 @@ func _ready() -> void:
 		for part in ["Flash/Flare", "Flash/Fireball", "Flash", "Mushroom", "Shock"]:
 			_toggle(part, false)
 			parts[part] = await _gpu()
+			_shot("flash_%ds_sans_%s.png" % [int(t), part.replace("/", "_")])
 			_toggle(part, true)
 		print("GPU sans : Flare %.2f | Fireball %.2f | Flash entier %.2f | Mushroom %.2f | Shock %.2f" % [parts["Flash/Flare"],
 				parts["Flash/Fireball"], parts["Flash"], parts["Mushroom"], parts["Shock"]])
@@ -117,6 +173,10 @@ func _toggle(part: String, on: bool) -> void:
 		node.process_mode = Node.PROCESS_MODE_INHERIT if on else Node.PROCESS_MODE_DISABLED
 		if part.begins_with("Flash/"):
 			effect.get_node("Flash").process_mode = Node.PROCESS_MODE_INHERIT if on else Node.PROCESS_MODE_DISABLED
+
+
+func _shot(name: String) -> void:
+	get_viewport().get_texture().get_image().save_png("user://bench_shots/" + name)
 
 
 func _gpu() -> float:
