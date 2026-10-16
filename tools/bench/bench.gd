@@ -4,22 +4,29 @@ extends Node
 ## chacun depuis le même état (Orbit.restart à midi au-dessus de Madrid) :
 ## 1. orbite simple : temps x1, aucune explosion, LIVE_S secondes ;
 ## 2. MISSILES missiles tirés d'un coup depuis les tubes de la station (animation de sortie, vol, rentrée), mesurés
-##    phase par phase jusqu'à l'impact, puis LIVE_S secondes d'explosions à l'arrivée ;
-## 3. EXPLOSIONS explosions de YIELD_KT tirées d'un coup (graine fixe), orbite figée, toutes figées à chaque instant
+##    phase par phase jusqu'à l'impact, puis les explosions à l'arrivée, en direct, par fenêtres ARRIVAL_WINDOWS_S ;
+## 3. EXPLOSIONS explosions tirées d'un coup (graine fixe), orbite figée, toutes figées à chaque instant
 ##    de EXPLOSION_TIMES_S (time_override_s) pendant FRAMES images.
-## Enfin, à la dernière résolution, la part GPU de chaque effet (en le coupant). Pour chaque mesure : temps CPU par
-## image (moyen et pire), temps GPU (RenderingServer), images/s, appels de dessin. Résultats en console et dans un
-## fichier Markdown (argument « -- <fichier> », sinon tools/bench/results/bench_<date>.md). Usage :
-##   godot --path . res://tools/bench/bench.tscn [-- <résultats.md>]
+## Puissance des tirs : « --yield=<kt> » (1 Mt par défaut). Enfin, à la dernière résolution, la part GPU de chaque
+## effet (en le coupant) à chaque instant de BREAKDOWN_TIMES_S (« --only-breakdown » : seulement cette partie).
+## Pour chaque mesure : temps CPU par image (moyen et pire), temps GPU (RenderingServer), images/s, appels de
+## dessin. Résultats en console et dans un fichier Markdown (argument « -- <fichier> », sinon
+## tools/bench/results/bench_<date>_<puissance>.md). Usage :
+##   godot --path . res://tools/bench/bench.tscn [-- [<résultats.md>] [--yield=50000] [--only-breakdown]]
 
 const RESOLUTIONS: Array[Vector2i] = [Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3440, 1440),
 		Vector2i(5120, 1440)]
 const MISSILES := 8
 const EXPLOSIONS := 10
-const YIELD_KT := 1000.0
+## Puissance des tirs (kt), argument « --yield=<kt> » (1 Mt par défaut ; 50 000 pour les gros champignons).
+var _yield_kt := 1000.0
+## Fenêtres de mesure (s réelles) après l'arrivée des missiles : flash, montée du champignon, suite.
+const ARRIVAL_WINDOWS_S: Array[float] = [4.0, 20.0, 60.0]
 ## Instants mesurés (s, physiques) : éclair et onde de choc, montée du champignon, champignon étalé, nuage
 ## stabilisé, incendies et fumée.
 const EXPLOSION_TIMES_S: Array[float] = [5.0, 60.0, 600.0, 1800.0, 21600.0]
+## Instants de la part de chaque effet : champignon en montée, incendies et fumée.
+const BREAKDOWN_TIMES_S: Array[float] = [60.0, 21600.0]
 const LIVE_S := 4.0
 const WARMUP_FRAMES := 30
 const FRAMES := 120
@@ -31,6 +38,10 @@ const RESULTS_DIR := "res://tools/bench/results"
 const SHOTS_DIR := "user://bench_shots"
 
 var _lines: Array[String] = []
+## Fichier de résultats (argument sans « -- » ; vide : RESULTS_DIR/bench_<date>_<puissance>.md).
+var _results_path := ""
+## « --only-breakdown » : seulement la part de chaque effet (à la dernière résolution), ~1 min.
+var _only_breakdown := false
 var _view: Node
 var _orbit: OrbitSimulation
 var _launcher: NukeLauncher
@@ -69,6 +80,13 @@ class Stats:
 
 
 func _ready() -> void:
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--yield="):
+			_yield_kt = float(arg.trim_prefix("--yield="))
+		elif arg == "--only-breakdown":
+			_only_breakdown = true
+		else:
+			_results_path = arg
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = 0
 	# GameSettings a pu mettre le plein écran et une échelle de rendu : fenêtre sans bordure, rendu à l'échelle 1.
@@ -95,22 +113,26 @@ func _ready() -> void:
 			+ "l'échelle 1. Scénarios : orbite simple (temps x1, %.0f s) ; %d missiles tirés d'un coup, mesurés par "
 			% [LIVE_S, MISSILES]
 			+ "phase jusqu'à l'impact puis %.0f s d'explosions ; %d explosions de %s figées à chaque instant "
-			% [LIVE_S, EXPLOSIONS, NukeScaling.format_yield(YIELD_KT)]
+			% [ARRIVAL_WINDOWS_S[-1], EXPLOSIONS, NukeScaling.format_yield(_yield_kt)]
 			+ "(%d images). CPU = temps entre deux images (le jeu attend le GPU)." % FRAMES)
 	_log("")
 	_log("| Résolution | Scénario | Phase | im/s | CPU moy. (ms) | CPU pire (ms) | GPU moy. (ms) | Appels de dessin |")
 	_log("|---|---|---|---|---|---|---|---|")
 	var notes: Array[String] = []
-	for resolution in RESOLUTIONS:
-		var label := await _set_resolution(resolution, notes)
-		await _scenario_orbit(label)
-		await _scenario_missiles(label, notes)
-		await _scenario_explosions(label, notes)
-	_log("")
-	for note in notes:
-		_log("- " + note)
-	_log("")
-	await _breakdown(RESOLUTIONS[-1])
+	if _only_breakdown:
+		await _set_resolution(RESOLUTIONS[-1], notes)
+	else:
+		for resolution in RESOLUTIONS:
+			var label := await _set_resolution(resolution, notes)
+			await _scenario_orbit(label)
+			await _scenario_missiles(label, notes)
+			await _scenario_explosions(label, notes)
+		_log("")
+		for note in notes:
+			_log("- " + note)
+	for t in BREAKDOWN_TIMES_S:
+		_log("")
+		await _breakdown(RESOLUTIONS[-1], t)
 	_write_results()
 	get_tree().quit()
 
@@ -149,7 +171,7 @@ func _scenario_missiles(label: String, notes: Array[String]) -> void:
 	for i in mini(MISSILES, tubes.size()):
 		var target := _launcher.aim_at(aim.latitude + rng.randf_range(-2.0, 2.0),
 				aim.longitude + rng.randf_range(-2.5, 2.5))
-		if _launch_control.fire_tube(tubes[i], target, YIELD_KT):
+		if _launch_control.fire_tube(tubes[i], target, _yield_kt):
 			fired += 1
 		await get_tree().process_frame
 	if fired < MISSILES:
@@ -162,33 +184,36 @@ func _scenario_missiles(label: String, notes: Array[String]) -> void:
 	for phase: String in ["sortie du tube", "propulsion", "croisière", "rentrée"]:
 		if stats.has(phase):
 			_log(stats[phase].row(label, scenario, phase))
-	var after: Dictionary = await _measure_seconds(LIVE_S)
-	_log(after[""].row(label, scenario, "explosions à l'arrivée (0–%.0f s)" % LIVE_S))
-	_screenshot(label, "missiles_arrivee")
+	var from := 0.0
+	for until in ARRIVAL_WINDOWS_S:
+		var after: Dictionary = await _measure_seconds(until - from)
+		_log(after[""].row(label, scenario, "explosions à l'arrivée (%.0f–%.0f s)" % [from, until]))
+		_screenshot(label, "missiles_arrivee_%.0fs" % until)
+		from = until
 
 
 ## Tire EXPLOSIONS explosions d'un coup (orbite figée) et les fige à chaque instant de EXPLOSION_TIMES_S.
 func _scenario_explosions(label: String, notes: Array[String]) -> void:
 	_reset(0.0)
 	await _frames(WARMUP_FRAMES)
-	var shot := await _fire(EXPLOSIONS, YIELD_KT)
+	var shot := await _fire(EXPLOSIONS, _yield_kt)
 	notes.append("%s : tir de %d explosions en %.1f ms, pire image après le tir %.1f ms." % [label, EXPLOSIONS, shot.x,
 			shot.y])
-	var scenario := "%d × %s" % [EXPLOSIONS, NukeScaling.format_yield(YIELD_KT)]
+	var scenario := "%d × %s" % [EXPLOSIONS, NukeScaling.format_yield(_yield_kt)]
 	for t in EXPLOSION_TIMES_S:
 		var stats: Dictionary = await _measure_frozen(t)
 		_log(stats[""].row(label, scenario, "figées à %s" % _format_time(t)))
 		_screenshot(label, "explosions_%s" % _format_time(t).replace(" ", ""))
 
 
-## Part GPU de chaque effet (EXPLOSIONS explosions à 60 s) : temps GPU sans cet effet.
-func _breakdown(resolution: Vector2i) -> void:
+## Part GPU de chaque effet (EXPLOSIONS explosions figées à t) : temps GPU sans cet effet.
+func _breakdown(resolution: Vector2i, t: float) -> void:
 	_reset(0.0)
 	await _frames(WARMUP_FRAMES)
-	await _fire(EXPLOSIONS, YIELD_KT)
-	var base: Stats = (await _measure_frozen(60.0))[""]
-	_log("Part de chaque effet (%d × %s figées à 60 s, %d × %d) : temps GPU sans cet effet." % [EXPLOSIONS,
-			NukeScaling.format_yield(YIELD_KT), resolution.x, resolution.y])
+	await _fire(EXPLOSIONS, _yield_kt)
+	var base: Stats = (await _measure_frozen(t))[""]
+	_log("Part de chaque effet (%d × %s figées à %s, %d × %d) : temps GPU sans cet effet." % [EXPLOSIONS,
+			NukeScaling.format_yield(_yield_kt), _format_time(t), resolution.x, resolution.y])
 	_log("")
 	_log("| Effet coupé | GPU moy. (ms) | Gain (ms) |")
 	_log("|---|---|---|")
@@ -198,7 +223,7 @@ func _breakdown(resolution: Vector2i) -> void:
 			earth.get_node("CloudLayer").material_override]
 	for part in ["Mushroom", "Shock", "nuke_cloud_count", "nuke_ground_count", "nuke_smoke_count"]:
 		_toggle(materials, part, false)
-		var m: Stats = (await _measure_frozen(60.0))[""]
+		var m: Stats = (await _measure_frozen(t))[""]
 		_log("| %s | %.2f | %.2f |" % [part, m.gpu_ms(), base.gpu_ms() - m.gpu_ms()])
 		_toggle(materials, part, true)
 
@@ -348,13 +373,11 @@ static func _format_time(t: float) -> String:
 
 
 func _write_results() -> void:
-	var args := OS.get_cmdline_user_args()
-	var path: String
-	if args.is_empty():
+	var path := _results_path
+	if path.is_empty():
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(RESULTS_DIR))
-		path = RESULTS_DIR + "/bench_%s.md" % Time.get_datetime_string_from_system().replace(":", "-")
-	else:
-		path = args[0]
+		path = RESULTS_DIR + "/bench_%s_%s.md" % [Time.get_datetime_string_from_system().replace(":", "-"),
+				NukeScaling.format_yield(_yield_kt).replace(" ", "")]
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file:
 		file.store_string("\n".join(_lines) + "\n")

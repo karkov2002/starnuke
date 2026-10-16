@@ -681,21 +681,24 @@ calculé par `NukeImpact` dans un `WorkerThreadPool`, puis remis à l'explosion 
 GPU par image, appels de dessin et mémoire vidéo.
 
 **Banc de mesure de référence** : `tools/bench/bench.tscn` (`godot --path . res://tools/bench/bench.tscn
-[-- <résultats.md>]` ; sans argument, le fichier va dans `tools/bench/results/bench_<date>.md`, versionné : c'est la
-trace des mesures de référence, à comparer après chaque optimisation). Il charge la scène principale, coupe la
+[-- [<résultats.md>] [--yield=<kt>]]` ; puissance des tirs 1 Mt par défaut, `--yield=50000` pour les gros
+champignons ; sans fichier, le résultat va dans `tools/bench/results/bench_<date>_<puissance>.md`, versionné : c'est
+la trace des mesures de référence, à comparer après chaque optimisation). Il charge la scène principale, coupe la
 synchro verticale, met la fenêtre sans bordure à chaque résolution mesurée (1920 × 1080, 2560 × 1440, 3440 × 1440,
 5120 × 1440 ; rendu 3D à l'échelle 1, pas de 3840 × 2160 : l'écran de référence fait 1440 px de haut) et y joue trois
 scénarios, chacun depuis le même état (`Orbit.restart` à midi au-dessus de Madrid, plus d'explosion) :
 1. **orbite simple** : temps x1, aucune explosion, 4 s ;
 2. **8 missiles** tirés d'un coup depuis les tubes de la station (`LaunchControl.fire_tube`, cibles à ±2° du point
    visé, graine fixe), chaque image rangée dans sa phase : sortie du tube (animation de la station), propulsion,
-   croisière, rentrée (dès qu'un missile y est), puis 4 s d'explosions à l'arrivée ;
-3. **10 explosions de 1 Mt** tirées d'un coup (`launch_at`), orbite figée, toutes figées (`time_override_s`) à 5 s,
+   croisière, rentrée (dès qu'un missile y est), puis les explosions à l'arrivée, en direct, par fenêtres de temps
+   réel (0–4 s : flash ; 4–20 s et 20–60 s : montée du champignon) ;
+3. **10 explosions** tirées d'un coup (`launch_at`), orbite figée, toutes figées (`time_override_s`) à 5 s,
    60 s, 10 min, 30 min et 6 h, 120 images chacune (après 30 images de chauffe).
 Pour chaque mesure : images/s, temps CPU par image (moyen et pire : temps entre deux images, qui inclut l'attente du
 GPU), temps GPU (`RenderingServer.viewport_get_measured_render_time_gpu`), appels de dessin ; en notes, la durée des
 appels de tir et la pire image qui suit ; enfin, à la dernière résolution, la part GPU de chaque effet (en le
-coupant). Durée : ~6 min. **Ne rien faire tourner d'autre pendant la mesure** : fermer l'éditeur Godot (ou au moins
+coupant), à 60 s et à 6 h (`--only-breakdown` : seulement cette partie, ~1 min). Durée : ~10 min. Une capture
+d'écran par mesure dans `user://bench_shots/` (hors dépôt) pour vérifier ce qui a été mesuré. **Ne rien faire tourner d'autre pendant la mesure** : fermer l'éditeur Godot (ou au moins
 ne pas y lancer de partie), il partage le GPU.
 
 **Référence du gel fonctionnel (2026-10-16)** : `tools/bench/results/bench_2026-10-16_reference.md` (RTX 5080,
@@ -723,6 +726,28 @@ Ce que la référence montre :
 - **l'éditeur Godot ouvert fausse tout**, même sans partie lancée : sa vue 3D redessine en continu les shaders
   animés et ajoutait ~10 ms par image (55 im/s au lieu de 259 en 1080p au premier passage). Le fermer avant de
   mesurer.
+
+**Référence à 50 Mt** (`tools/bench/results/bench_2026-10-16_reference_50Mt.md`, `--yield=50000`, même séance) :
+c'est avec les grosses bombes que le jeu s'écroule. Images/s (temps GPU moyen) :
+
+| Résolution | Orbite simple | 8 × 50 Mt à l'arrivée, 0–4 s | 4–20 s | 20–60 s | 10 × 50 Mt à 1 min | 10 × 50 Mt à 6 h |
+|---|---|---|---|---|---|---|
+| 1920 × 1080 | 247 (3,9 ms) | 108 (9,2 ms) | 104 (9,5 ms) | 187 (5,2 ms) | 183 (5,3 ms) | 68 (14,6 ms) |
+| 2560 × 1440 | 153 (6,4 ms) | 62 (15,9 ms) | 61 (16,4 ms) | 122 (8,0 ms) | 124 (8,0 ms) | 42 (23,6 ms) |
+| 3440 × 1440 | 125 (7,9 ms) | 62 (16,1 ms) | 59 (16,8 ms) | 105 (9,4 ms) | 107 (9,2 ms) | 34 (29,4 ms) |
+| 5120 × 1440 | 102 (9,6 ms) | 61 (16,2 ms) | 58 (17,0 ms) | 88 (11,1 ms) | 92 (10,8 ms) | 29 (34,8 ms) |
+
+- les **20 premières secondes** (flash, boule de feu, début du champignon) coûtent +5 ms en 1080p et +7 à +10 ms
+  au-dessus (le coût ne suit pas le nombre de pixels : ~16 ms GPU de 1440p à 5120 × 1440) ;
+- à partir de 20 s et jusqu'à 30 min, 10 × 50 Mt ne coûtent plus que +1,2 à +1,5 ms (champignons 1 ms, onde de
+  choc 0,3 à 0,5 ms, reste dans le bruit) ;
+- **à 6 h, les champignons volumétriques coûtent 25,7 ms sur 35,7 à 5120 × 1440** (part de chaque effet : sans
+  `Mushroom` 10,0 ms ; fumée, incendies, trous dans les nuages et onde de choc dans le bruit, ±0,5 ms) : le nuage
+  d'un 50 Mt étalé par le vent couvre une grande partie de l'écran et sa marche de rayon est payée sur chaque pixel,
+  même quasi dissipé. **Premier chantier d'optimisation.**
+- le processus du banc a planté (segfault) à sa fermeture lors du passage `--only-breakdown` à 50 Mt, résultats
+  déjà écrits : probablement les threads du bilan (`NukeImpact`, retombées de 50 Mt) encore en cours à la sortie ;
+  à vérifier en jeu (quitter pendant un calcul).
 
 Mesures historiques (RTX 5080, 1920 × 1080, 2026-10-10, ancien banc : orbite figée, 16 × 1 Mt), avant et après la
 refactorisation et les optimisations :
