@@ -1,3 +1,4 @@
+class_name LaunchControl
 extends HBoxContainer
 ## Colonne « missile » du panneau de contrôle : à gauche les 48 tubes de lancement (SiloPanel) et, en dessous, le choix
 ## de la puissance ; à droite le gros bouton rouge de tir.
@@ -115,15 +116,22 @@ func _on_selection_changed(key: Vector2i) -> void:
 
 
 func _on_fire() -> void:
-	var key := _silos.selected
 	var launcher := get_tree().get_first_node_in_group(NukeLauncher.GROUP) as NukeLauncher
-	if key == SiloPanel.NONE or launcher == null or _station == null:
-		return
-	var aim := launcher.get_aim()
-	if aim.is_empty() or not _station.launch_missile(key.x, key.y):
-		return
+	if launcher:
+		fire_tube(_silos.selected, launcher.get_aim(), _yield_kt)
+
+
+## Tire le missile du tube key sur le point aim ({local, latitude, longitude}, cf. NukeLauncher.get_aim et aim_at)
+## avec la puissance yield_kt. Faux (et rien ne se passe) sans tube, sans point visé, ou si le tube ne peut pas tirer.
+## Aussi utilisé par le banc de mesure (tools/bench).
+func fire_tube(key: Vector2i, aim: Dictionary, yield_kt: float) -> bool:
+	var launcher := get_tree().get_first_node_in_group(NukeLauncher.GROUP) as NukeLauncher
+	if key == SiloPanel.NONE or aim.is_empty() or launcher == null or _station == null:
+		return false
+	if not _station.launch_missile(key.x, key.y):
+		return false
 	var flight_time := _flight_time(launcher.get_earth().global_transform * (aim.local as Vector3))
-	var shot := {"latitude": aim.latitude, "longitude": aim.longitude, "local": aim.local, "yield_kt": _yield_kt,
+	var shot := {"latitude": aim.latitude, "longitude": aim.longitude, "local": aim.local, "yield_kt": yield_kt,
 			"flight_time": flight_time}
 	_pending[key] = shot
 	_silos.mark_empty(key)
@@ -137,6 +145,7 @@ func _on_fire() -> void:
 				return 0.0
 			return (shot.flight as MissileFlight).time_left()
 		return maxf(handoff - (Time.get_ticks_msec() / 1000.0 - fired_at), 0.0) + flight_time)
+	return true
 
 
 func _on_missile_released(silo: int, tube: int, missile: Node3D, velocity: Vector3) -> void:

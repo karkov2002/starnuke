@@ -113,6 +113,7 @@ permet de piloter le jeu exporté.
 | Silos | **48 voyants ronds numérotés de 1 à 48** à droite du panneau, un par tube de lancement, en 2 blocs de 3 × 8 placés comme les deux silos sur la station (vue de dessus, l'avant en haut ; silo 1 à gauche). **Orange** : missile prêt ; clic → **vert** : tube choisi pour le prochain tir (un seul à la fois, nouveau clic pour annuler) ; **gris** : tube vide. **48 missiles en tout**, sans rechargement. Choisir un tube **ouvre sa trappe** (animation Blender) et allume à côté un **gyrophare rouge** à éclats, qui éclaire la trappe et le dessous de la coque ; le tube choisi auparavant referme sa trappe et éteint son gyrophare (de même si on annule le choix). Après le tir, quand le missile a quitté la station, la trappe se referme et le gyrophare s'éteint |
 | Tir nucléaire | **Gros bouton rouge** à droite des silos : lance le missile du **tube choisi (vert)** sur le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie sous les silos (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Le point visé et la puissance sont figés à l'appui. Le missile sort de son tube (animation de lancement, 5 s : trappe, descente, allumage), le tube passe au gris, puis le missile tourne vers la cible en accélérant pendant que son moteur brûle (9 s) et part vers la zone d'impact ; moteur éteint, on le perd de vue ; dans les dernières secondes, sa **rentrée atmosphérique** apparaît au-dessus de la cible, comme une étoile filante, puis l'explosion a lieu. **Durée du vol : de 20 s (cible au nadir) à 2 min (cible à l'horizon)**, proportionnelle à la distance (temps de jeu : le vol se fige en pause et s'accélère avec le temps). Un **chronomètre** par missile, au-dessus du panneau à droite (« Silo 7 · impact dans 0:43 », toujours visible, même hors de la cupola), décompte jusqu'à l'impact, passe au rouge et clignote dans les 10 dernières secondes. Sans tube choisi, ou si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien et le missile reste dans son tube. Voir « Explosions nucléaires » |
 | Bilan des explosions | Fenêtre **« Bilan des explosions »**, ouverte au premier tir (en haut à droite) : pays touchés et pertes, cumulées sur toutes les explosions. **Glisser sa barre de titre** (clic gauche maintenu) pour la déplacer ; bouton **—** / **+** pour la replier ; molette ou barre de défilement pour parcourir la liste |
+| Compteur de performances | **F3** affiche ou masque la ligne en haut à droite (visible par défaut, outil de développement, non traduite) : images par seconde, temps CPU et GPU moyens par image, appels de dessin, mémoire vidéo (moyennes sur 0,5 s). Nœud `FpsOverlay` de `scenes/orbit_view.tscn`, script `scripts/ui/fps_overlay.gd` ; voir « Performances » |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
 Les touches sont définies par leur **position physique** sur le clavier (actions `move_forward`, `move_back`,
@@ -156,6 +157,13 @@ quand il n'y a plus d'explosion (« Effacer » du panneau de debug).
   `NukeEffect.grid`, via `NukeTally`, sans recalcul) : les chiffres montent sous les yeux. Les lignes sont mises à jour sur place
   et ne sont recréées que si l'ordre des pays change (infobulles et défilement stables). Avec le scrubber du panneau
   de debug, elle suit le temps rejoué.
+
+**Compteur de performances** (nœud `FpsOverlay` de `scenes/orbit_view.tscn`, script `scripts/ui/fps_overlay.gd`,
+`CanvasLayer` de couche 100, outil de développement) : une ligne en haut à droite, « 144 fps · CPU 6,9 ms · GPU 5,2 ms
+· 790 draw · VRAM 2 450 Mo », moyennes sur 0,5 s de temps réel (indépendantes de la pause et de la vitesse du
+temps). Le temps GPU vient de `RenderingServer.viewport_set_measure_render_time` sur le viewport principal (comme le
+banc de mesure), les appels de dessin et la mémoire vidéo de `Performance`. **F3** le masque ou l'affiche. Texte non
+traduit (outil de développement, comme la console et le panneau de debug).
 
 **Règles de l'orbite appliquées par les contrôles :**
 - changer l'altitude conserve le point survolé et le sens de passage (montant / descendant) ; la période change
@@ -669,13 +677,55 @@ calculé par `NukeImpact` dans un `WorkerThreadPool`, puis remis à l'explosion 
 
 ### Performances
 
-Banc de mesure : `tools/bench/nuke_bench.tscn` (`godot --path . res://tools/bench/nuke_bench.tscn -- <résultats.txt>`).
-Il charge la scène principale, coupe la synchro verticale, fige l'orbite, tire 0 à 16 explosions de 1 Mt dans le
-champ de vision (graine fixe), et mesure le temps CPU par image (moyen et pire), le temps GPU (RenderingServer), la
-durée des tirs et la pire image qui suit, puis 4 × 50 Mt, puis la part GPU de chaque effet (en le coupant). **Ne rien
-faire tourner d'autre pendant la mesure** (une partie lancée depuis l'éditeur partage le GPU et fausse tout).
+**Compteur à l'écran** : le nœud `FpsOverlay` (voir « Contrôles », F3) affiche en permanence images/s, temps CPU et
+GPU par image, appels de dessin et mémoire vidéo.
 
-Mesures (RTX 5080, 1920 × 1080, 2026-10-10), avant et après la refactorisation et les optimisations :
+**Banc de mesure de référence** : `tools/bench/bench.tscn` (`godot --path . res://tools/bench/bench.tscn
+[-- <résultats.md>]` ; sans argument, le fichier va dans `tools/bench/results/bench_<date>.md`, versionné : c'est la
+trace des mesures de référence, à comparer après chaque optimisation). Il charge la scène principale, coupe la
+synchro verticale, met la fenêtre sans bordure à chaque résolution mesurée (1920 × 1080, 2560 × 1440, 3440 × 1440,
+5120 × 1440 ; rendu 3D à l'échelle 1, pas de 3840 × 2160 : l'écran de référence fait 1440 px de haut) et y joue trois
+scénarios, chacun depuis le même état (`Orbit.restart` à midi au-dessus de Madrid, plus d'explosion) :
+1. **orbite simple** : temps x1, aucune explosion, 4 s ;
+2. **8 missiles** tirés d'un coup depuis les tubes de la station (`LaunchControl.fire_tube`, cibles à ±2° du point
+   visé, graine fixe), chaque image rangée dans sa phase : sortie du tube (animation de la station), propulsion,
+   croisière, rentrée (dès qu'un missile y est), puis 4 s d'explosions à l'arrivée ;
+3. **10 explosions de 1 Mt** tirées d'un coup (`launch_at`), orbite figée, toutes figées (`time_override_s`) à 5 s,
+   60 s, 10 min, 30 min et 6 h, 120 images chacune (après 30 images de chauffe).
+Pour chaque mesure : images/s, temps CPU par image (moyen et pire : temps entre deux images, qui inclut l'attente du
+GPU), temps GPU (`RenderingServer.viewport_get_measured_render_time_gpu`), appels de dessin ; en notes, la durée des
+appels de tir et la pire image qui suit ; enfin, à la dernière résolution, la part GPU de chaque effet (en le
+coupant). Durée : ~6 min. **Ne rien faire tourner d'autre pendant la mesure** : fermer l'éditeur Godot (ou au moins
+ne pas y lancer de partie), il partage le GPU.
+
+**Référence du gel fonctionnel (2026-10-16)** : `tools/bench/results/bench_2026-10-16_reference.md` (RTX 5080,
+Godot 4.7.2, D3D12, éditeur fermé). Extrait (images/s, temps GPU moyen par image) :
+
+| Résolution | Orbite simple | 8 missiles : rentrée | Explosions à l'arrivée (0–4 s) | 10 × 1 Mt à 1 min | 10 × 1 Mt à 6 h |
+|---|---|---|---|---|---|
+| 1920 × 1080 | 259 im/s (3,7 ms) | 235 im/s (4,1 ms) | 161 im/s (6,1 ms) | 228 im/s (4,3 ms) | 260 im/s (3,7 ms) |
+| 2560 × 1440 | 163 im/s (6,0 ms) | 148 im/s (6,6 ms) | 114 im/s (8,7 ms) | 151 im/s (6,5 ms) | 164 im/s (6,0 ms) |
+| 3440 × 1440 | 131 im/s (7,5 ms) | 122 im/s (8,1 ms) | 98 im/s (10,1 ms) | 121 im/s (8,1 ms) | 133 im/s (7,4 ms) |
+| 5120 × 1440 | 101 im/s (9,7 ms) | 95 im/s (10,4 ms) | 85 im/s (11,7 ms) | 104 im/s (9,5 ms) | 108 im/s (9,1 ms) |
+
+Ce que la référence montre :
+- le jeu est **limité par le GPU** (temps CPU ≈ temps GPU + 0,15 ms) et le coût de base suit le nombre de pixels de
+  Terre et d'atmosphère à l'écran (3,7 ms en 1080p, 9,7 ms en 5120 × 1440 : la largeur 32:9 ajoute surtout du ciel
+  noir, bon marché) ; ~790 appels de dessin en orbite simple (station) ;
+- les **explosions figées coûtent peu** (10 × 1 Mt : +0,5 ms au plus en 1080p, +0,25 ms pour les champignons à
+  5120 × 1440 ; onde de choc, trous dans les nuages, incendies et fumée dans le bruit de mesure, ±0,2 ms) : avec la
+  visée par défaut, elles sont petites à l'écran (près de l'horizon) ;
+- les **4 premières secondes** d'une explosion (flash, boule de feu) sont l'effet le plus cher : +2,3 ms en 1080p ;
+- **à-coups** : pire image de 146 ms à la première rentrée / première explosion de la partie (compilation des
+  shaders), puis 34 à 37 ms à chaque arrivée de salve ; 23 ms à la première sortie de tube (duplication du missile),
+  dont les appels de dessin passent à ~1 350 ; un tir de 10 explosions coûte 14 ms d'appels puis une pire image
+  de 9 à 10 ms ;
+- **l'éditeur Godot ouvert fausse tout**, même sans partie lancée : sa vue 3D redessine en continu les shaders
+  animés et ajoutait ~10 ms par image (55 im/s au lieu de 259 en 1080p au premier passage). Le fermer avant de
+  mesurer.
+
+Mesures historiques (RTX 5080, 1920 × 1080, 2026-10-10, ancien banc : orbite figée, 16 × 1 Mt), avant et après la
+refactorisation et les optimisations :
 
 | | Avant | Après |
 |---|---|---|

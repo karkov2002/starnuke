@@ -26,7 +26,8 @@ sous le vent, `nuke/shaders/nuke_smoke.gdshaderinc`) puis trace au sol définiti
 gravats), black-out jamais réparé, sans plafond de nombre (`NukeGroundFX` : textures de données + maille de 1°).
 Explosions à 500 m d'altitude par défaut (`NukeScaling.DEFAULT_BURST_HEIGHT_KM`), pas de cratère. Après
 la première demi-heure physique (accélérée), le temps des explosions suit l'horloge du jeu (`NukeClock`).
-Organisation du code des explosions (une responsabilité par classe) et banc de performances (`tools/bench/nuke_bench.tscn`) : README,
+Organisation du code des explosions (une responsabilité par classe) et banc de performances (`tools/bench/bench.tscn`,
+résultats de référence dans `tools/bench/results/`, compteur à l'écran `scripts/ui/fps_overlay.gd`, F3) : README,
 « Explosions nucléaires », sections « Organisation du code » et « Performances ».
 L'architecture (échelle 1/10 000 de la Terre, mécanique orbitale `scripts/orbit.gd`, atmosphère, nuages volumétriques,
 tuiles HD, sources des textures) est décrite dans le README. Toute la scène est placée autour d'une station fixe :

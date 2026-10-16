@@ -83,6 +83,17 @@ func get_aim() -> Dictionary:
 	return {"local": local, "latitude": lat_lon.x, "longitude": lat_lon.y}
 
 
+## Point de coordonnées données (degrés), dans la même forme que get_aim : {local (repère de Earth), latitude,
+## longitude}.
+func aim_at(latitude_deg: float, longitude_deg: float) -> Dictionary:
+	var lat := deg_to_rad(latitude_deg)
+	var lon := deg_to_rad(longitude_deg)
+	# ECEF vers le repère du maillage (SphereMesh : +Y nord, +Z vers −180°), cf. NukeEffect.place.
+	var up := Vector3(-cos(lat) * sin(lon), sin(lat), -cos(lat) * cos(lon))
+	return {"local": up * OrbitSimulation.EARTH_RADIUS_KM * OrbitSimulation.SCENE_UNITS_PER_KM,
+			"latitude": latitude_deg, "longitude": longitude_deg}
+
+
 ## Tire sur le point visé. Retourne null (et ne fait rien) si la vue ne vise pas la Terre.
 func launch(yield_kt: float) -> NukeEffect:
 	var aim := get_aim()
