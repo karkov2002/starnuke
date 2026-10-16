@@ -12,10 +12,11 @@ extends Node
 ## Les écrans ultra-larges sont gérés par l'étirement « expand » du projet : la vue 3D garde son champ vertical et
 ## s'élargit, l'interface s'étend sur toute la largeur.
 ##
-## Luminosité (brightness, 0,5 à 1,5) : multiplicateur d'exposition des attributs de caméra partagés
+## Luminosité (brightness, 0,5 à 1,5) : facteur du multiplicateur d'exposition des attributs de caméra partagés
 ## (materials/camera_attributes.tres, CameraAttributesPractical.exposure_multiplier), appliqué à toutes les vues 3D
-## (menu et jeu). L'exposition automatique s'adapte à la luminosité moyenne de l'image : en 32:9, l'image contient plus
-## de ciel noir qu'en 16:9 et l'exposition monte (Terre plus claire) ; ce réglage permet de compenser.
+## (menu et jeu). L'exposition elle-même est calculée par le nœud Exposure de orbit_view.tscn (ExposureControl :
+## jour / nuit au point regardé, soleil dans le champ, éblouissement du flash), qui multiplie par ce réglage ;
+## _apply_brightness ne sert qu'en l'absence de ce nœud.
 ##
 ## Langue : TranslationServer, fichiers de langue locale/strings.csv (textes du jeu) et locale/countries.csv (noms
 ## de pays) ; anglais par défaut.

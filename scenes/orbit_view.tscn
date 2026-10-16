@@ -16,6 +16,7 @@
 [ext_resource type="Script" uid="uid://d05ylm4i06cum" path="res://scripts/observer.gd" id="14_obs"]
 [ext_resource type="Script" uid="uid://u8bs354yxugh" path="res://scripts/ui/pause_menu.gd" id="15_pause"]
 [ext_resource type="Script" uid="uid://bgi6yfr881t3f" path="res://scripts/ui/fps_overlay.gd" id="16_wdqx1"]
+[ext_resource type="Script" path="res://scripts/exposure_control.gd" id="17_expo"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -116,3 +117,6 @@ script = ExtResource("15_pause")
 
 [node name="FpsOverlay" type="CanvasLayer" parent="." unique_id=1603348556]
 script = ExtResource("16_wdqx1")
+
+[node name="Exposure" type="Node" parent="."]
+script = ExtResource("17_expo")

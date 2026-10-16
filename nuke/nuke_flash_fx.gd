@@ -36,6 +36,8 @@ var _adapted := 0.0 # flux auquel l'œil s'est adapté (soleils)
 var _materials: Array[ShaderMaterial] = []
 var _light: DirectionalLight3D
 var _was_active := false
+## Nœud Exposure (scripts/exposure_control.gd, groupe exposure_control), s'il existe.
+var _exposure: Node
 
 
 func setup(launcher: NukeLauncher, world_environment: WorldEnvironment, earth: Node3D, station: Node3D) -> void:
@@ -48,6 +50,7 @@ func setup(launcher: NukeLauncher, world_environment: WorldEnvironment, earth: N
 		_base_bloom = _environment.glow_bloom
 	if _camera_attributes:
 		_base_exposure = _camera_attributes.exposure_multiplier
+	_exposure = get_tree().get_first_node_in_group(&"exposure_control")
 	_materials = NukeFXMaterials.find(earth, &"nuke_flash_count")
 	if station:
 		for node in station.find_children("*", "GeometryInstance3D", true, false):
@@ -118,5 +121,8 @@ func _process(delta: float) -> void:
 	if _environment:
 		_environment.glow_intensity = _base_glow + glow_gain * g
 		_environment.glow_bloom = _base_bloom + bloom_gain * dazzle
-	if _camera_attributes:
+	# Exposition : via le contrôle d'exposition s'il existe (il la recalcule à chaque image), sinon directement.
+	if _exposure:
+		_exposure.set(&"dazzle", 1.0 + exposure_gain * dazzle)
+	elif _camera_attributes:
 		_camera_attributes.exposure_multiplier = _base_exposure * (1.0 + exposure_gain * dazzle)

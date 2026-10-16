@@ -46,11 +46,10 @@ permet de piloter le jeu exporté.
   **Video**, **Audio**, **Controls**, **Game** ; Audio et Controls sont à venir (onglets désactivés, infobulle
   « Coming soon »). **Back** ou Échap pour revenir. Chaque choix est appliqué et sauvé aussitôt.
   - **Video** : mode d'affichage (**fenêtré** / **plein écran**), **résolution** et **luminosité** (50 à 150 %,
-    `GameSettings.brightness`, sauvée dans `user://settings.cfg` : multiplicateur d'exposition des attributs de
-    caméra partagés `materials/camera_attributes.tres`, appliqué au menu et au jeu). L'exposition automatique
-    s'adapte à la luminosité moyenne de l'image : en 32:9, l'image contient plus de ciel noir qu'en 16:9 (jeu lancé
-    dans l'éditeur) et l'exposition monte, la Terre paraît plus claire ; la luminosité permet de compenser. L'écran
-    des paramètres a un fond translucide : on juge le réglage sur la vue 3D derrière.
+    `GameSettings.brightness`, sauvée dans `user://settings.cfg` : facteur du multiplicateur d'exposition des
+    attributs de caméra partagés `materials/camera_attributes.tres`, appliqué au menu et au jeu par le nœud
+    `Exposure`, voir « Exposition » dans « Organisation de la scène »). L'écran des paramètres a un fond
+    translucide : on juge le réglage sur la vue 3D derrière.
     - Fenêtré : la résolution est la taille de la fenêtre, centrée dans la zone utile de l'écran ; une fenêtre qui
       n'y tient pas avec sa bordure et sa barre de titre (résolution native, par exemple) est maximisée.
     - **Jeu lancé depuis l'éditeur** : par défaut, Godot 4.7 l'intègre dans l'onglet « Jeu » (lancé avec `--wid` et
@@ -395,15 +394,24 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
   (et les reflets les plus intenses) dépasse nettement le seuil : il produit un halo progressif. Comme c'est un
   effet d'image, ce halo déborde sur les montants des fenêtres, comme dans l'œil ou un objectif. Il disparaît dès que
   le disque est masqué par la station ou par la Terre.
-- **Exposition automatique** (`materials/camera_attributes.tres`, affecté au `WorldEnvironment`) : Godot ajuste
-  l'exposition d'après la luminance moyenne de l'image HDR (exposition = `auto_exposure_scale` / moyenne).
-  - **Jour** : `auto_exposure_scale` = 0,22 est la luminance moyenne d'une vue de jour typique ; la vue de jour
-    garde donc la même luminosité qu'avant.
-  - **Face au soleil** : le disque visible domine la moyenne, et l'exposition baisse d'environ 5 fois. La Terre
-    s'assombrit et les étoiles s'effacent.
-  - **Nuit** : la moyenne s'effondre et l'exposition remonte, plafonnée à × 2,5
-    (`auto_exposure_min_sensitivity` = 70,4, soit une luminance minimale de 0,088). Au-delà, l'intérieur de la
-    Cupola, éclairé par la seule lumière ambiante, paraissait en plein jour.
+- **Exposition** (nœud `Exposure`, `scripts/exposure_control.gd`, classe `ExposureControl` ; attributs de caméra
+  `materials/camera_attributes.tres` affectés au `WorldEnvironment`, exposition automatique de Godot **coupée**).
+  L'exposition automatique se réglait sur la luminance moyenne de toute l'image : en 32:9, ou en plein écran, le
+  ciel noir pèse davantage qu'en 16:9, la moyenne chute et l'exposition monte — Terre et station brûlées à
+  5120 × 1440 alors que la fenêtre 16:9 était correcte ; et elle était instable d'un lancement à l'autre (luminance
+  moyenne de la même vue de jour : 86 à 100 ; de nuit : 45 à 135). Désormais l'exposition ne dépend que de ce qui
+  est regardé, comme un œil adapté à l'extérieur, indépendamment du cadrage :
+  - **jour / nuit** : d'après la hauteur du soleil au point de la Terre visé par le centre de la vue (sinon le point
+    survolé) : × 1 quand elle dépasse 8°, × 3 sous −12° (nuit : villes et étoiles, l'intérieur de la Cupola reste
+    sombre), interpolation géométrique entre les deux (crépuscule), lissage de 1 s. Calibré pour retrouver le rendu
+    de l'exposition automatique en 16:9 (`tools/bench/exposure_probe.tscn` : captures avec l'exposition automatique
+    puis à plusieurs multiplicateurs fixes, luminance moyenne par ffmpeg) ; vérifié à 1920 × 1080 et 5120 × 1440 :
+    même luminance sur le même champ (le centre 2560 × 1440 de l'image 32:9) ;
+  - **face au soleil** : quand le disque solaire est dans le champ (demi-diagonale, bord progressif sur ±10°) et
+    au-dessus du limbe terrestre, l'exposition est divisée par 5 : la Terre s'assombrit et les étoiles s'effacent
+    (ce que faisait l'exposition automatique, dominée par le disque) ;
+  - **multiplicateur final** = luminosité des paramètres (`GameSettings.brightness`) × facteur ci-dessus ×
+    éblouissement du flash (`NukeFlashFX` fournit `dazzle`, voir « Lumière et effets d'écran du flash »).
   - **Lumière ambiante** : celle de l'Environment n'éclaire que la station. La surface terrestre l'ignore
     (`render_mode ambient_light_disabled` dans `earth_surface.gdshader`) : remontée de × 2,5 la nuit, elle
     rendait les continents visibles. La face nocturne n'a que ses émissions (villes, lueur des terres, ciel au
