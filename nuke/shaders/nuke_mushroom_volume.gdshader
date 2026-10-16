@@ -33,6 +33,10 @@ uniform mat4 local_to_world;
 uniform mat4 local_to_planet_km;
 uniform vec3 box_min = vec3(-1.0, 0.0, -1.0);
 uniform vec3 box_max = vec3(1.0, 1.0, 1.0);
+// Boîte cœur : contient le nuage une fois la dérive retirée (box_min..box_max = boîte cœur ⊕ toutes les dérives des
+// hauteurs occupées ; avec le cisaillement du vent, elle peut faire des centaines de km de plus que le nuage).
+uniform vec3 core_min = vec3(-1.0, 0.0, -1.0);
+uniform vec3 core_max = vec3(1.0, 1.0, 1.0);
 // Forme (unités normalisées).
 uniform float cap_center = 0.8;
 uniform float cap_radius = 0.6;
@@ -84,7 +88,12 @@ uniform float ambient_intensity = 0.22;
 uniform float phase_forward = 0.6;
 uniform float phase_backward = -0.25;
 uniform float phase_backward_weight = 0.3;
+// Pas de la marche : max_steps sur toute la traversée de la boîte englobante ; la marche ne parcourt que la partie
+// du rayon qui traverse la boîte cœur (saut du vide), avec le même pas, et au moins min_steps pas.
 uniform int max_steps = 64;
+uniform int min_steps = 16;
+// Saut du vide (désactivable pour comparer, cf. tools/bench/mushroom_probe.gd).
+uniform bool skip_empty = true;
 uniform int light_steps = 5;
 // Premier pas de la marche vers le soleil (unités normalisées ; 0,3 km comme les nuages, fourni par le script).
 uniform float light_first_step = 0.01;
@@ -225,17 +234,21 @@ float density(vec3 p, bool detail, out float core) {
 	// Bruit : seulement noise_shear du cisaillement autour du centre du chapeau (sinon, étiré sur des dizaines de km,
 	// il se décorrèle d'un pas de la marche à l'autre : grain et stries). La tige garde le sien (elle penche).
 	vec3 qn = q + (1.0 - noise_shear) * (1.0 - stem_weight) * (shift - nuke_drift(cap_center));
+	core = clamp(s, 0.0, 1.0) * (1.0 - stem_weight);
+	float hole = smoothstep(0.0, ground_fade, q.y) * fade;
+	if (breakup > 0.0) {
+		// Le nuage dilué se fragmente en lambeaux : trous à grande échelle, qui grandissent avec breakup. Testés
+		// avant le bruit fin (une lecture au lieu de trois) : dans un trou, rien d'autre n'est calculé.
+		hole *= smoothstep(0.5 * breakup, 1.5 * breakup + 1e-3, noise3(qn * 2.0 + seed * 2.3 + vec3(0.0, 0.0, 0.3 * boil)));
+		if (hole <= 0.0) {
+			return 0.0;
+		}
+	}
 	float n = detail ? fbm(noise_coords(qn, stem_weight)) : noise3(noise_coords(qn, stem_weight) * 0.5);
 	// Bords gazeux : la forme est rongée par le bruit sur une bande de largeur edge_softness.
 	float d = clamp((s + edge_softness * (n - 0.35)) / edge_softness, 0.0, 1.0);
 	d = d * d * (3.0 - 2.0 * d);
-	d *= smoothstep(0.0, ground_fade, q.y) * fade;
-	if (breakup > 0.0) {
-		// Le nuage dilué se fragmente en lambeaux : trous à grande échelle, qui grandissent avec breakup.
-		d *= smoothstep(0.5 * breakup, 1.5 * breakup + 1e-3, noise3(qn * 2.0 + seed * 2.3 + vec3(0.0, 0.0, 0.3 * boil)));
-	}
-	core = clamp(s, 0.0, 1.0) * (1.0 - stem_weight);
-	return d;
+	return d * hole;
 }
 
 vec2 ray_box(vec3 ro, vec3 rd) {
@@ -245,6 +258,72 @@ vec2 ray_box(vec3 ro, vec3 rd) {
 	vec3 tmin = min(t0, t1);
 	vec3 tmax = max(t0, t1);
 	return vec2(max(max(tmin.x, tmin.y), tmin.z), min(min(tmax.x, tmax.y), tmax.z));
+}
+
+// Étend [ta, tb] à l'intervalle de t ∈ [ts0, ts1] où q(t) = a + b t est dans la boîte cœur (en x et z ; la hauteur
+// est déjà bornée par la boîte englobante).
+void core_slab(vec3 a, vec3 b, float ts0, float ts1, inout float ta, inout float tb) {
+	vec2 bz = b.xz;
+	bz.x = abs(bz.x) > 1e-7 ? bz.x : 1e-7;
+	bz.y = abs(bz.y) > 1e-7 ? bz.y : 1e-7;
+	vec2 inv = 1.0 / bz;
+	vec2 u0 = (core_min.xz - a.xz) * inv;
+	vec2 u1 = (core_max.xz - a.xz) * inv;
+	vec2 umin = min(u0, u1);
+	vec2 umax = max(u0, u1);
+	float enter = max(max(umin.x, umin.y), ts0);
+	float leave = min(min(umax.x, umax.y), ts1);
+	if (leave > enter) {
+		ta = min(ta, enter);
+		tb = max(tb, leave);
+	}
+}
+
+// Intervalle [ta, tb] du rayon (entre t0 et t1, dans la boîte englobante) où le point sans dérive, ro + rd t −
+// nuke_drift(y), est dans la boîte cœur : exact, car la dérive est linéaire par morceaux en y (32 hauteurs), donc le
+// point sans dérive est linéaire en t sur chaque morceau. tb < ta : le rayon manque le nuage.
+vec2 core_interval(vec3 ro, vec3 rd, float t0, float t1) {
+	float ta = 1e9;
+	float tb = -1e9;
+	float dy = max(drift_top, 1e-4) / 31.0;
+	if (abs(rd.y) < 1e-6) {
+		vec3 shift = nuke_drift(ro.y);
+		core_slab(ro - shift, rd, t0, t1, ta, tb);
+		return vec2(ta, tb);
+	}
+	float y0 = ro.y + rd.y * t0;
+	float y1 = ro.y + rd.y * t1;
+	float ylo = max(min(y0, y1), 0.0);
+	float yhi = max(y0, y1);
+	int i_lo = clamp(int(floor(ylo / dy)), 0, 30);
+	int i_hi = clamp(int(floor(min(yhi, drift_top) / dy)), 0, 30);
+	for (int i = i_lo; i <= i_hi; i++) {
+		float ya = float(i) * dy;
+		float yb = ya + dy;
+		float tsa = (ya - ro.y) / rd.y;
+		float tsb = (yb - ro.y) / rd.y;
+		float ts0 = max(min(tsa, tsb), t0);
+		float ts1 = min(max(tsa, tsb), t1);
+		if (ts1 <= ts0) {
+			continue;
+		}
+		// Sur ce morceau, dérive = d_i + (d_{i+1} − d_i) · f, f = (y − ya) / dy = f0 + k t.
+		vec3 di = drift_profile[i];
+		vec3 dd = drift_profile[i + 1] - di;
+		float f0 = (ro.y - ya) / dy;
+		float k = rd.y / dy;
+		core_slab(ro - di - dd * f0, rd - dd * k, ts0, ts1, ta, tb);
+	}
+	// Au-dessus de drift_top : dérive constante (dernier échantillon).
+	if (yhi > drift_top) {
+		float tt = (drift_top - ro.y) / rd.y;
+		float ts0 = rd.y > 0.0 ? max(tt, t0) : t0;
+		float ts1 = rd.y > 0.0 ? t1 : min(tt, t1);
+		if (ts1 > ts0) {
+			core_slab(ro - drift_profile[31], rd, ts0, ts1, ta, tb);
+		}
+	}
+	return vec2(ta, tb);
 }
 
 float henyey_greenstein(float c, float g) {
@@ -268,7 +347,19 @@ void fragment() {
 		discard;
 	}
 	float len = t1 - t0;
-	float dt = len / float(max_steps);
+	// Saut du vide : seule la partie du rayon qui traverse la boîte cœur (dérive retirée) est parcourue, avec le pas
+	// de la traversée complète (len / max_steps), au moins min_steps pas.
+	int steps = max_steps;
+	if (skip_empty) {
+		vec2 core = core_interval(ro, rd, t0, t1);
+		if (core.y <= core.x) {
+			discard;
+		}
+		t0 = core.x;
+		t1 = core.y;
+		steps = clamp(int(ceil(float(max_steps) * (t1 - t0) / len)), min_steps, max_steps);
+	}
+	float dt = (t1 - t0) / float(steps);
 	float jitter = fract(52.9829189 * fract(dot(FRAGCOORD.xy, vec2(0.06711056, 0.00583715))));
 	vec3 l = normalize(sun_dir_local);
 	float mu = dot(rd, l);
@@ -283,7 +374,7 @@ void fragment() {
 	float transmittance = 1.0;
 	vec3 scattered = vec3(0.0);
 	float depth_t = -1.0;
-	for (int i = 0; i < max_steps; i++) {
+	for (int i = 0; i < steps; i++) {
 		float t = t0 + (float(i) + jitter) * dt;
 		vec3 p = ro + rd * t;
 		float core;

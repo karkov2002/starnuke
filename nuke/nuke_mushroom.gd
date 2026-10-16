@@ -53,6 +53,10 @@ const RINGS := 96
 const SEGMENTS := 128
 ## Fragmentation du nuage dilué (breakup du shader volumétrique) : BREAKUP_MAX × (1 − √fade).
 const BREAKUP_MAX := 0.55
+## Pas de la marche vers le soleil (auto-ombrage) selon la densité fade : (seuil, pas), du plus dense au plus dilué.
+## Un voile dilué n'a presque plus d'ombre propre (mesure : 2 pas au lieu de 5 à 3 % de densité, PSNR > 65 dB), et
+## cette marche est ~45 % du coût du volume à ce stade.
+const LIGHT_STEPS_BY_FADE: Array[Vector2] = [Vector2(0.25, 5.0), Vector2(0.08, 3.0), Vector2(0.0, 2.0)]
 const SHAPE_NOISE := preload("res://materials/cloud_shape_noise.tres")
 const VOLUME_SHADER := preload("res://nuke/shaders/nuke_mushroom_volume.gdshader")
 
@@ -299,6 +303,10 @@ func _update(delta: float) -> void:
 		m.set_shader_parameter("boil", boil_rate * t)
 		m.set_shader_parameter("fade", fade)
 		m.set_shader_parameter("breakup", BREAKUP_MAX * (1.0 - sqrt(fade)))
+		for level in LIGHT_STEPS_BY_FADE:
+			if fade >= level.x:
+				m.set_shader_parameter("light_steps", int(level.y))
+				break
 		m.set_shader_parameter("warp_vertical", 1.0 / spread)
 		m.set_shader_parameter("extinction", volume_extinction_per_km * top_km)
 		m.set_shader_parameter("light_first_step", 0.3 / top_km)
@@ -313,6 +321,9 @@ func _update(delta: float) -> void:
 				fposmod(params.longitude_deg * 0.377, 7.0), fposmod(params.yield_kt * 0.0013, 7.0)))
 		m.set_shader_parameter("box_min", box_min)
 		m.set_shader_parameter("box_max", box_max)
+		# Boîte cœur (sans la dérive) : le shader ne marche que là où le rayon, dérive retirée, la traverse.
+		m.set_shader_parameter("core_min", Vector3(-extent, y_low, -extent))
+		m.set_shader_parameter("core_max", Vector3(extent, y_high, extent))
 		_volume.transform = Transform3D(Basis.from_scale(0.5 * (box_max - box_min)), 0.5 * (box_min + box_max))
 	# Particules : vitesse du temps physique (pause, temps réel, accélération de l'horloge) et lumière du soleil au
 	# milieu du nuage (atmosphère traversée vers le soleil ; nulle de nuit).

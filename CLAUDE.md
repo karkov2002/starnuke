@@ -27,8 +27,10 @@ gravats), black-out jamais réparé, sans plafond de nombre (`NukeGroundFX` : te
 Explosions à 500 m d'altitude par défaut (`NukeScaling.DEFAULT_BURST_HEIGHT_KM`), pas de cratère. Après
 la première demi-heure physique (accélérée), le temps des explosions suit l'horloge du jeu (`NukeClock`).
 Organisation du code des explosions (une responsabilité par classe) et banc de performances (`tools/bench/bench.tscn`,
-résultats de référence dans `tools/bench/results/`, compteur à l'écran `scripts/ui/fps_overlay.gd`, F3) : README,
-« Explosions nucléaires », sections « Organisation du code » et « Performances ».
+résultats de référence dans `tools/bench/results/`, sonde des champignons `tools/bench/mushroom_probe.tscn`, compteur
+à l'écran `scripts/ui/fps_overlay.gd`, F3) : README, « Explosions nucléaires », sections « Organisation du code » et
+« Performances ». Mesurer l'éditeur Godot fermé (il partage le GPU) ; la base GPU varie de ±1 ms entre lancements :
+comparer en A/B dans le même lancement.
 L'architecture (échelle 1/10 000 de la Terre, mécanique orbitale `scripts/orbit.gd`, atmosphère, nuages volumétriques,
 tuiles HD, sources des textures) est décrite dans le README. Toute la scène est placée autour d'une station fixe :
 c'est la Terre que `Orbit` déplace et oriente à chaque image. L'horloge est une vraie date UTC (le jeu se passe en

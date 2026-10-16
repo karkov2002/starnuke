@@ -698,7 +698,11 @@ Pour chaque mesure : images/s, temps CPU par image (moyen et pire : temps entre 
 GPU), temps GPU (`RenderingServer.viewport_get_measured_render_time_gpu`), appels de dessin ; en notes, la durée des
 appels de tir et la pire image qui suit ; enfin, à la dernière résolution, la part GPU de chaque effet (en le
 coupant), à 60 s et à 6 h (`--only-breakdown` : seulement cette partie, ~1 min). Durée : ~10 min. Une capture
-d'écran par mesure dans `user://bench_shots/` (hors dépôt) pour vérifier ce qui a été mesuré. **Ne rien faire tourner d'autre pendant la mesure** : fermer l'éditeur Godot (ou au moins
+d'écran par mesure dans `user://bench_shots/` (hors dépôt) pour vérifier ce qui a été mesuré. Les temps GPU de
+base varient de ±1 ms d'un lancement à l'autre (fréquences du GPU) : pour juger un réglage fin, comparer dans le
+même lancement (A/B), comme le fait la sonde des champignons (`tools/bench/mushroom_probe.tscn`, 10 × 50 Mt figés à
+1 min, 30 min, 2 h et 6 h : boîtes englobantes, couverture écran, temps GPU avec/sans chaque volume et pour chaque
+réglage du shader, captures `probe_*.png` à comparer par PSNR avec ffmpeg). **Ne rien faire tourner d'autre pendant la mesure** : fermer l'éditeur Godot (ou au moins
 ne pas y lancer de partie), il partage le GPU.
 
 **Référence du gel fonctionnel (2026-10-16)** : `tools/bench/results/bench_2026-10-16_reference.md` (RTX 5080,
@@ -741,10 +745,26 @@ c'est avec les grosses bombes que le jeu s'écroule. Images/s (temps GPU moyen) 
   au-dessus (le coût ne suit pas le nombre de pixels : ~16 ms GPU de 1440p à 5120 × 1440) ;
 - à partir de 20 s et jusqu'à 30 min, 10 × 50 Mt ne coûtent plus que +1,2 à +1,5 ms (champignons 1 ms, onde de
   choc 0,3 à 0,5 ms, reste dans le bruit) ;
-- **à 6 h, les champignons volumétriques coûtent 25,7 ms sur 35,7 à 5120 × 1440** (part de chaque effet : sans
-  `Mushroom` 10,0 ms ; fumée, incendies, trous dans les nuages et onde de choc dans le bruit, ±0,5 ms) : le nuage
-  d'un 50 Mt étalé par le vent couvre une grande partie de l'écran et sa marche de rayon est payée sur chaque pixel,
-  même quasi dissipé. **Premier chantier d'optimisation.**
+- **à 6 h, les champignons volumétriques coûtaient 25,7 ms sur 35,7 à 5120 × 1440** (part de chaque effet : sans
+  `Mushroom` 10,0 ms ; fumée, incendies, trous dans les nuages et onde de choc dans le bruit, ±0,5 ms). Cause
+  trouvée avec la sonde `tools/bench/mushroom_probe.tscn` (boîtes englobantes en km, couverture écran, temps GPU
+  avec un seul volume, A/B des réglages du shader dans le même état, captures) : pas la marche de rayon en soi,
+  mais une boîte englobante de ~1 400 km (cisaillement du vent entre le bas et le haut du chapeau) rasterisée sur
+  30 à 100 % de l'écran par champignon, marchée en 64 pas presque tous dans le vide. **Corrigé le jour même**
+  (saut du vide exact dans le shader, pas de lumière selon la dilution, trous testés en premier ; voir
+  « Champignon ») : à 6 h, 7,6 puis 6,6 ms au lieu de 25,7 (image identique, PSNR > 62 dB), soit 17,6 ms par image
+  au lieu de 35,7 (57 im/s au lieu de 29). Résultats complets : `bench_2026-10-16_champignons_50Mt.md` (même
+  banc, même jour) ; images/s (temps GPU), référence → après :
+
+  | Résolution | 10 × 50 Mt à 1 min | 10 × 50 Mt à 6 h | 8 × 50 Mt, 20–60 s après l'arrivée |
+  |---|---|---|---|
+  | 1920 × 1080 | 183 (5,3 ms) → 194 (5,0 ms) | 68 (14,6 ms) → **150 (6,5 ms)** | 187 (5,2) → 192 (5,1) |
+  | 2560 × 1440 | 124 (8,0) → 133 (7,4) | 42 (23,6) → **93 (10,7)** | 122 (8,0) → 121 (8,1) |
+  | 3440 × 1440 | 107 (9,2) → 102 (9,7) | 34 (29,4) → **75 (13,2)** | 105 (9,4) → 100 (9,8) |
+  | 5120 × 1440 | 92 (10,8) → 84 (11,8) | 29 (34,8) → **62 (16,1)** | 88 (11,1) → 88 (11,2) |
+
+  Hors 6 h, les écarts (±1 ms) sont ceux de deux lancements (la base « orbite simple » a elle-même bougé de
+  0,1 à 0,5 ms) ; l'A/B de la sonde dans le même état donne 5,38 contre 5,32 ms à 1 min (pas de régression).
 - le processus du banc a planté (segfault) à sa fermeture lors du passage `--only-breakdown` à 50 Mt, résultats
   déjà écrits : probablement les threads du bilan (`NukeImpact`, retombées de 50 Mt) encore en cours à la sortie ;
   à vérifier en jeu (quitter pendant un calcul).
@@ -1048,8 +1068,20 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
     - Éclairage comme les nuages de la couche : marche vers le soleil (5 pas doublés depuis 0,3 km, auto-ombrage,
       loi de Beer et diffusion multiple approchée), phase double de Henyey-Greenstein, soleil filtré par
       l'atmosphère, ciel ambiant. La lueur de la boule de feu est émise au cœur du chapeau. Extinction : 1 km⁻¹
-      (`volume_extinction_per_km`).
-    - 64 pas par rayon, décalage d'échantillonnage fixe par pixel (pas de bruit temporel) : pas de scintillement.
+      (`volume_extinction_per_km`). **Pas de lumière selon la dilution** (`NukeMushroom.LIGHT_STEPS_BY_FADE`) : 5
+      tant que la densité `fade` ≥ 0,25, 3 au-dessus de 0,08, 2 en dessous — un voile dilué n'a presque plus d'ombre
+      propre (à 3 % de densité, 2 pas au lieu de 5 : PSNR > 65 dB, pour ~45 % du coût du volume à ce stade).
+    - 64 pas par rayon sur la traversée de la boîte englobante, décalage d'échantillonnage fixe par pixel (pas de
+      bruit temporel) : pas de scintillement. **Saut du vide** (`core_interval` du shader, `skip_empty`) : le script
+      fournit aussi la **boîte cœur** (`core_min`/`core_max`, le nuage sans sa dérive) ; la boîte englobante est
+      cette boîte cœur étendue à toutes les dérives des hauteurs occupées, et le cisaillement du vent (vent différent
+      au-dessus et au-dessous du chapeau) peut la rendre énorme : à 6 h d'un 50 Mt, ~1 400 km de long pour un chapeau
+      de ~110 km, surtout vide. La dérive étant linéaire par morceaux en hauteur (32 échantillons), le point « sans
+      dérive » est linéaire en t sur chaque morceau : le shader calcule exactement l'intervalle du rayon qui traverse
+      la boîte cœur (test de boîte 2D par morceau) et ne marche que là, avec le pas de la traversée complète (au
+      moins `min_steps` = 16 pas) ; un rayon qui la manque est rejeté sans aucune lecture de texture. Rendu
+      identique (même champ de densité), mesure à 6 h d'un 50 Mt : volumes 12 → 4 ms en 1080p. Les trous de
+      fragmentation (`breakup`) sont testés avant le bruit fin : dans un trou, rien d'autre n'est calculé.
     - **Perspective aérienne** (`aerial_perspective` dans le shader) : la couleur du champignon est atténuée par l'air
       traversé entre la caméra et lui (premier point dense), et le voile de l'air diffusé y est ajouté, avec le même
       modèle que `shaders/atmosphere.gdshader` (Rayleigh, Mie, ozone, étirement ×2,5, intensité solaire 9 ; 12 pas
@@ -1067,8 +1099,8 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
       le sol, nuages masqués » (gris) et « nuages » (blanc), selon le décalage d'échantillonnage. À 0,8, les deux
       aspects sont proches (mesure : 302 pixels changeant brutalement en 2 s de temps physique à 1 h 30 d'un 10 Mt,
       contre 2).
-    - Coût mesuré : ~91 i/s avec un 50 Mt et un 1 Mt à l'écran (contre 120 i/s, plafond de la synchro verticale,
-      sans champignon).
+    - Coût mesuré (2026-10-16, après le saut du vide, 10 × 50 Mt figés, 5120 × 1440) : ~1,3 ms à 1 min, ~6,6 ms à
+      6 h (25,7 ms avant ; voir « Performances » ; sonde `tools/bench/mushroom_probe.tscn`).
     - Les sections « Maillage de révolution », « Shader » et le nuage de base `BaseSurge` ci-dessous décrivent le
       rendu par maillage, conservé pour comparaison (`volumetric = false`) ; formes, Curves, couleurs, roulement et
       dérive sont partagés.
