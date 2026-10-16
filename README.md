@@ -416,7 +416,8 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
     (ce que faisait l'exposition automatique, dominée par le disque) ;
   - **multiplicateur final** = luminosité des paramètres (`GameSettings.brightness`) × facteur ci-dessus ×
     éblouissement du flash (`NukeFlashFX` fournit `dazzle`, voir « Lumière et effets d'écran du flash »),
-    ÷ (1 + 4 × flux de flash reçu par la caméra, en soleils ; `flash_adapt_gain`), lissé comme le reste : l'œil
+    ÷ (1 + 8 × flux de flash reçu par la caméra, en soleils ; `flash_adapt_gain`), avec une adaptation rapide vers
+    le sombre (0,25 s, `darkening_s`) et lente vers le clair (1 s, `adaptation_s`) : l'œil
     s'adapte à la scène qu'un flash éclaire, qui s'assombrit autour de lui — ce que faisait l'exposition
     automatique ; sans ce terme, un 50 Mt éclairait toute la scène au lieu de rester concentré.
   - **Lumière ambiante** : celle de l'Environment n'éclaire que la station. La surface terrestre l'ignore

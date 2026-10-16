@@ -32,8 +32,10 @@ const GROUP := &"exposure_control"
 ## de part et d'autre du bord du champ (demi-diagonale).
 @export var sun_dimming := 5.0
 @export var sun_dimming_deg := 10.0
-## Constante de temps de l'adaptation (s, temps réel).
+## Constantes de temps de l'adaptation (s, temps réel) : vers le clair (scène qui s'assombrit : lente, comme l'œil)
+## et vers le sombre (scène qui s'éclaire, flash : rapide — c'est elle qui garde un flash concentré).
 @export var adaptation_s := 1.0
+@export var darkening_s := 0.25
 
 ## Facteur d'éblouissement du flash (1 = aucun) et flux de flash reçu par la caméra (soleils), fournis par
 ## NukeFlashFX. L'éblouissement est bref et appliqué tel quel ; le flux reçu abaisse l'exposition (lissée, comme
@@ -42,7 +44,7 @@ const GROUP := &"exposure_control"
 var dazzle := 1.0
 var flash_received := 0.0
 ## Baisse de l'exposition par soleil de flux de flash reçu : facteur 1 / (1 + flash_adapt_gain × flux).
-@export var flash_adapt_gain := 4.0
+@export var flash_adapt_gain := 8.0
 
 var _orbit: OrbitSimulation
 var _earth: Node3D
@@ -66,7 +68,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	var target := log(_target_factor())
-	_log_factor += (target - _log_factor) * (1.0 - exp(-delta / maxf(adaptation_s, 1e-3)))
+	var tau := darkening_s if target < _log_factor else adaptation_s
+	_log_factor += (target - _log_factor) * (1.0 - exp(-delta / maxf(tau, 1e-3)))
 	_apply()
 
 
