@@ -415,7 +415,10 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
     au-dessus du limbe terrestre, l'exposition est divisée par 5 : la Terre s'assombrit et les étoiles s'effacent
     (ce que faisait l'exposition automatique, dominée par le disque) ;
   - **multiplicateur final** = luminosité des paramètres (`GameSettings.brightness`) × facteur ci-dessus ×
-    éblouissement du flash (`NukeFlashFX` fournit `dazzle`, voir « Lumière et effets d'écran du flash »).
+    éblouissement du flash (`NukeFlashFX` fournit `dazzle`, voir « Lumière et effets d'écran du flash »),
+    ÷ (1 + 4 × flux de flash reçu par la caméra, en soleils ; `flash_adapt_gain`), lissé comme le reste : l'œil
+    s'adapte à la scène qu'un flash éclaire, qui s'assombrit autour de lui — ce que faisait l'exposition
+    automatique ; sans ce terme, un 50 Mt éclairait toute la scène au lieu de rester concentré.
   - **Lumière ambiante** : celle de l'Environment n'éclaire que la station. La surface terrestre l'ignore
     (`render_mode ambient_light_disabled` dans `earth_surface.gdshader`) : remontée de × 2,5 la nuit, elle
     rendait les continents visibles. La face nocturne n'a que ses émissions (villes, lueur des terres, ciel au

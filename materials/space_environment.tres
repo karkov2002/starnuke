@@ -1,11 +1,30 @@
 [gd_resource type="Environment" format=3 uid="uid://4sxmnw5qdcy4"]
 
 [ext_resource type="Texture2D" uid="uid://cd2ltss8bclo0" path="res://assets/textures/starmap_4k.exr" id="1"]
-[ext_resource type="Shader" path="res://shaders/space_sky.gdshader" id="2"]
+[ext_resource type="Shader" uid="uid://b3y3ogv87k5gf" path="res://shaders/space_sky.gdshader" id="2"]
 
 [sub_resource type="ShaderMaterial" id="sky_mat"]
 shader = ExtResource("2")
 shader_parameter/panorama = ExtResource("1")
+shader_parameter/panorama_energy = 0.4
+shader_parameter/sun_direction = Vector3(0, 1, 0)
+shader_parameter/observer_km = Vector3(0, 6771, 0)
+shader_parameter/sun_angular_radius_deg = 0.2666
+shader_parameter/sun_color = Color(1, 0.98, 0.95, 1)
+shader_parameter/sun_disc_energy = 40000.0
+shader_parameter/limb_darkening = Vector3(0.5, 0.6, 0.75)
+shader_parameter/sun_steps = 24
+shader_parameter/planet_radius_km = 6371.0
+shader_parameter/atmosphere_thickness_km = 100.0
+shader_parameter/height_scale = 2.5
+shader_parameter/rayleigh_beta = Vector3(0.005802, 0.013558, 0.0331)
+shader_parameter/rayleigh_height_km = 8.0
+shader_parameter/mie_beta = 0.003996
+shader_parameter/mie_extinction_ratio = 1.11
+shader_parameter/mie_height_km = 1.2
+shader_parameter/ozone_beta = Vector3(0.00065, 0.001881, 8.5e-05)
+shader_parameter/ozone_center_km = 25.0
+shader_parameter/ozone_half_width_km = 15.0
 
 [sub_resource type="Sky" id="sky"]
 sky_material = SubResource("sky_mat")
@@ -19,15 +38,14 @@ ambient_light_energy = 0.15
 reflected_light_source = 1
 tonemap_mode = 3
 glow_enabled = true
-glow_intensity = 0.8
-glow_bloom = 0.12
-glow_hdr_threshold = 0.9
-glow_hdr_luminance_cap = 1000.0
-glow_blend_mode = 0
 glow_levels/1 = 0.6
 glow_levels/2 = 0.5
-glow_levels/3 = 0.4
 glow_levels/4 = 0.3
 glow_levels/5 = 0.25
 glow_levels/6 = 0.2
 glow_levels/7 = 0.15
+glow_intensity = 0.8
+glow_bloom = 0.12
+glow_blend_mode = 0
+glow_hdr_threshold = 0.9
+glow_hdr_luminance_cap = 1000.0

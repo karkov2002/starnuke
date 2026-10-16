@@ -35,8 +35,14 @@ const GROUP := &"exposure_control"
 ## Constante de temps de l'adaptation (s, temps réel).
 @export var adaptation_s := 1.0
 
-## Facteur d'éblouissement du flash (1 = aucun), fourni par NukeFlashFX.
+## Facteur d'éblouissement du flash (1 = aucun) et flux de flash reçu par la caméra (soleils), fournis par
+## NukeFlashFX. L'éblouissement est bref et appliqué tel quel ; le flux reçu abaisse l'exposition (lissée, comme
+## l'œil s'adapte à une scène qui s'éclaire) : c'est ce que faisait l'exposition automatique, et sans cela un flash
+## éclaire toute la scène au lieu de rester concentré.
 var dazzle := 1.0
+var flash_received := 0.0
+## Baisse de l'exposition par soleil de flux de flash reçu : facteur 1 / (1 + flash_adapt_gain × flux).
+@export var flash_adapt_gain := 4.0
 
 var _orbit: OrbitSimulation
 var _earth: Node3D
@@ -79,7 +85,7 @@ func _target_factor() -> float:
 	var elevation := _sun_elevation_deg()
 	var night := 1.0 - smoothstep(night_elevation_deg, day_elevation_deg, elevation)
 	var factor := exp(lerpf(log(day_multiplier), log(night_multiplier), night))
-	return factor / lerpf(1.0, sun_dimming, _sun_in_view())
+	return factor / lerpf(1.0, sun_dimming, _sun_in_view()) / (1.0 + flash_adapt_gain * maxf(flash_received, 0.0))
 
 
 ## Part (0 à 1) de l'éblouissement par le disque solaire : 1 quand il est dans le champ (demi-diagonale) et

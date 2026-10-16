@@ -75,6 +75,8 @@ func _process(delta: float) -> void:
 			flashes.append(flash)
 	if flashes.is_empty() and not _was_active:
 		_adapted = 0.0
+		if _exposure:
+			_exposure.set(&"flash_received", 0.0)
 		return
 	_was_active = not flashes.is_empty()
 	flashes.sort_custom(func(a: NukeFlash, b: NukeFlash) -> bool: return a.flux_ref > b.flux_ref)
@@ -124,5 +126,6 @@ func _process(delta: float) -> void:
 	# Exposition : via le contrôle d'exposition s'il existe (il la recalcule à chaque image), sinon directement.
 	if _exposure:
 		_exposure.set(&"dazzle", 1.0 + exposure_gain * dazzle)
+		_exposure.set(&"flash_received", received)
 	elif _camera_attributes:
 		_camera_attributes.exposure_multiplier = _base_exposure * (1.0 + exposure_gain * dazzle)
