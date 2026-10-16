@@ -23,6 +23,14 @@ const EFFECT_SCENE := preload("res://nuke/nuke_effect.tscn")
 @export var station_path: NodePath = ^"../Station"
 
 var _earth: Node3D
+## Tâche de préchargement des cartes de vent, attendue à la sortie (rien ne doit tourner pendant la destruction).
+var _preload_task := -1
+
+
+func _exit_tree() -> void:
+	if _preload_task != -1:
+		WorkerThreadPool.wait_for_task_completion(_preload_task)
+		_preload_task = -1
 
 
 func _ready() -> void:
@@ -33,7 +41,7 @@ func _ready() -> void:
 	for path in [OceanMask.PATH, CountryMask.PATH, PowerPlants.PATH]:
 		if ResourceLoader.exists(path):
 			ResourceLoader.load_threaded_request(path)
-	WorkerThreadPool.add_task(NukeWind.preload_maps)
+	_preload_task = WorkerThreadPool.add_task(NukeWind.preload_maps)
 	NukeClock.orbit = get_node_or_null(orbit_path) as OrbitSimulation
 	var flash_fx := NukeFlashFX.new()
 	flash_fx.name = "FlashFX"

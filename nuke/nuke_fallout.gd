@@ -81,6 +81,8 @@ static func estimate(params: NukeParams, blast_radii: PackedFloat64Array) -> Dic
 	var last_row := PopulationGrid.row_of(maxf(lat0 - reach_km / NukeCasualties.KM_PER_DEGREE, -89.0))
 	first_row -= first_row % BLOCK
 	for row in range(first_row, last_row + 1, BLOCK):
+		if NukeCasualties.abort:
+			return {}
 		var lat := PopulationGrid.cell_latitude(row) - 0.5 * (BLOCK - 1) / float(PopulationGrid.CELLS_PER_DEGREE)
 		var km_x := NukeCasualties.KM_PER_DEGREE * maxf(cos(deg_to_rad(lat)), 1e-3)
 		var dy_km := (lat - lat0) * NukeCasualties.KM_PER_DEGREE

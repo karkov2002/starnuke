@@ -10,23 +10,46 @@ extends Node
 ## en console (NukeReportText). L'écriture en console coûte plusieurs ms par ligne (sortie de l'éditeur) : elle se fait dans le
 ## thread de calcul, jamais pendant une image.
 ## Tant que les résultats manquent, NukeEffect.impact_pending / fallout_pending le signalent (fenêtre de bilan).
+##
+## Fin de partie ou du jeu (_exit_tree) : un bilan de 50 Mt prend plusieurs secondes (dix d'un coup : ~12 s) ; les
+## tâches sont abandonnées (NukeCasualties.abort, testé à chaque ligne de la grille) puis attendues — les tâches
+## finies aussi, sinon elles ne sont jamais libérées — pour que rien ne tourne plus pendant la destruction de la scène
+## (sinon : attente à la fermeture, puis plantage).
+
+## Tâches en cours ou terminées non encore attendues (identifiants WorkerThreadPool).
+var _tasks: Array[int] = []
 
 
 func setup(launcher: NukeLauncher) -> void:
 	launcher.detonated.connect(_on_detonated)
 
 
+func _exit_tree() -> void:
+	NukeCasualties.abort = true
+	for task in _tasks:
+		WorkerThreadPool.wait_for_task_completion(task)
+	_tasks.clear()
+	NukeCasualties.abort = false
+
+
 func _on_detonated(effect: NukeEffect) -> void:
 	var params := effect.params
 	effect.impact_pending = true
 	effect.fallout_pending = NukeScaling.low_burst(params.yield_kt, params.burst_height_km) > 0.01
-	WorkerThreadPool.add_task(_compute.bind(effect.get_instance_id(), params))
+	# Les tâches finies sont attendues (libérées) au passage.
+	for i in range(_tasks.size() - 1, -1, -1):
+		if WorkerThreadPool.is_task_completed(_tasks[i]):
+			WorkerThreadPool.wait_for_task_completion(_tasks[i])
+			_tasks.remove_at(i)
+	_tasks.append(WorkerThreadPool.add_task(_compute.bind(effect.get_instance_id(), params)))
 
 
 ## Dans un thread : calculs et textes. Les résultats sont remis à l'explosion par _apply (fil principal), désignée par
-## son identifiant : elle a pu être effacée entre-temps.
+## son identifiant : elle a pu être effacée entre-temps. Abandon (NukeCasualties.abort) : résultats partiels jetés.
 func _compute(effect_id: int, params: NukeParams) -> void:
 	var casualties := NukeCasualties.estimate(params)
+	if NukeCasualties.abort:
+		return
 	var grid := NukeGridImpact.assess(params)
 	var smoke := NukeScaling.smoke_yield_kg_m2(params)
 	_apply.call_deferred(effect_id, {"casualties": casualties, "grid": grid, "smoke": smoke})
@@ -34,6 +57,8 @@ func _compute(effect_id: int, params: NukeParams) -> void:
 			NukeReportText.grid(grid)])
 	if NukeScaling.low_burst(params.yield_kt, params.burst_height_km) > 0.01:
 		var fallout := NukeFallout.estimate(params, casualties.radii_km)
+		if NukeCasualties.abort:
+			return
 		_apply.call_deferred(effect_id, {"fallout": fallout})
 		print(NukeReportText.fallout(fallout, params))
 

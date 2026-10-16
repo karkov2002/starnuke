@@ -34,6 +34,10 @@ const PHASE_DELAYED := 0.2
 const PHASE_DELAYED_TAU_S := 21600.0
 const KM_PER_DEGREE := 111.195
 
+## Abandon des calculs en cours (estimate, NukeFallout.estimate), testé à chaque ligne de la grille : levé par
+## NukeImpact à la fin de la partie, avant d'attendre ses tâches.
+static var abort := false
+
 
 ## Estimation pour une explosion (bilan final du souffle et de la chaleur). Retour : {killed, injured, exposed
 ## (population au-dessus de 1 psi), radii_km (rayon de chaque tranche, même ordre que BANDS), ring_arrival_s (arrivée de
@@ -60,6 +64,8 @@ static func estimate(params: NukeParams) -> Dictionary:
 	var first_row := PopulationGrid.row_of(minf(lat0 + reach / KM_PER_DEGREE, 90.0))
 	var last_row := PopulationGrid.row_of(maxf(lat0 - reach / KM_PER_DEGREE, -90.0))
 	for row in range(first_row, last_row + 1):
+		if abort:
+			return result
 		var lat := PopulationGrid.cell_latitude(row)
 		var km_x := KM_PER_DEGREE * maxf(cos(deg_to_rad(lat)), 1e-3)
 		var km_y := KM_PER_DEGREE

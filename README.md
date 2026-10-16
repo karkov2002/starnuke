@@ -673,7 +673,16 @@ Une responsabilité par classe (principe « S » de SOLID). Trois familles :
 
 Un tir ne fait que créer la scène de l'explosion (~1 ms) : tout le bilan (pertes, réseau électrique, retombées) est
 calculé par `NukeImpact` dans un `WorkerThreadPool`, puis remis à l'explosion dans le fil principal ; la console est
-écrite depuis ce thread.
+écrite depuis ce thread. Un bilan de 50 Mt prend plusieurs secondes (dix d'un coup : ~12 s, retombées sur plus de
+1 000 km de ligne chaude) : à la fin de la partie ou du jeu (`NukeImpact._exit_tree`), les calculs sont **abandonnés**
+(`NukeCasualties.abort`, drapeau testé à chaque ligne de la grille par `NukeCasualties.estimate` et
+`NukeFallout.estimate`, résultats partiels jetés) puis **attendus** (`WorkerThreadPool.wait_for_task_completion`,
+aussi pour les tâches finies, libérées au passage), comme le préchargement des cartes de vent (`NukeLauncher`) :
+plus rien ne tourne pendant la destruction de la scène. Avant cela, quitter pendant un calcul faisait attendre la
+fermeture jusqu'à la fin des bilans, puis plantait (accès à des objets détruits) ; les tâches terminées jamais
+attendues plantaient aussi la sortie. Reproduction :
+`tools/bench/quit_probe.tscn` (10 × 50 Mt figés à 6 h puis `quit()` selon une variante : `none`, `clear`, `free`,
+`wait`, `t60`, `hide`).
 
 ### Performances
 
@@ -765,9 +774,12 @@ c'est avec les grosses bombes que le jeu s'écroule. Images/s (temps GPU moyen) 
 
   Hors 6 h, les écarts (±1 ms) sont ceux de deux lancements (la base « orbite simple » a elle-même bougé de
   0,1 à 0,5 ms) ; l'A/B de la sonde dans le même état donne 5,38 contre 5,32 ms à 1 min (pas de régression).
-- le processus du banc a planté (segfault) à sa fermeture lors du passage `--only-breakdown` à 50 Mt, résultats
-  déjà écrits : probablement les threads du bilan (`NukeImpact`, retombées de 50 Mt) encore en cours à la sortie ;
-  à vérifier en jeu (quitter pendant un calcul).
+- le processus plantait (segfault) ou restait bloqué à sa fermeture pendant un bilan de 50 Mt (banc
+  `--only-breakdown`, sondes, et en jeu : quitter pendant « bilan : calcul en cours… ») : corrigé le jour même par
+  l'abandon et l'attente des tâches de `NukeImpact` à la sortie (voir « Organisation du code ») ; sortie en 4 à 5 s
+  dans tous les cas (`tools/bench/quit_probe.tscn`). Les bilans eux-mêmes prennent ~12 s pour 10 × 50 Mt en tâches
+  de fond (grille de population sous mutex, retombées sur plus de 1 000 km) : acceptable, « bilan : calcul en
+  cours… » le signale.
 
 Mesures historiques (RTX 5080, 1920 × 1080, 2026-10-10, ancien banc : orbite figée, 16 × 1 Mt), avant et après la
 refactorisation et les optimisations :
