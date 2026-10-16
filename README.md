@@ -750,8 +750,29 @@ c'est avec les grosses bombes que le jeu s'écroule. Images/s (temps GPU moyen) 
 | 3440 × 1440 | 125 (7,9 ms) | 62 (16,1 ms) | 59 (16,8 ms) | 105 (9,4 ms) | 107 (9,2 ms) | 34 (29,4 ms) |
 | 5120 × 1440 | 102 (9,6 ms) | 61 (16,2 ms) | 58 (17,0 ms) | 88 (11,1 ms) | 92 (10,8 ms) | 29 (34,8 ms) |
 
-- les **20 premières secondes** (flash, boule de feu, début du champignon) coûtent +5 ms en 1080p et +7 à +10 ms
-  au-dessus (le coût ne suit pas le nombre de pixels : ~16 ms GPU de 1440p à 5120 × 1440) ;
+- les **20 premières secondes** (flash, boule de feu, début du champignon) coûtaient +5 ms en 1080p et +7 à +10 ms
+  au-dessus (le coût ne suit pas le nombre de pixels : ~16 ms GPU de 1440p à 5120 × 1440). Sonde
+  `tools/bench/flash_probe.tscn` (10 × 50 Mt figés à 3, 10 et 20 s, chaque composante coupée à tour de rôle dans le
+  même état) : tout vient de la **lumière du flash dans les nuages** (`nuke_flash_volume`, appelé à chaque pas de la
+  marche des nuages : 3,5 ms sur 8,2 à 1080p), et dans celle-ci de la marche d'auto-ombrage vers le flash (4
+  échantillons de densité par flash et par pas) ; lumière au sol, éblouissement, boule de feu, lumière sur la
+  station, onde de choc : rien de mesurable. **Corrigé** : une seule marche par pas, vers le flash le plus brillant,
+  partagée par les autres (`nuke_flash_shadow_shared`, voir « Lumière et effets d'écran du flash ») : 8,2 → 5,7 ms,
+  PSNR 53–61 dB. Réduire les pas de la marche (2 ou 0) dégradait l'image (28–48 dB) ; l'air à 2 pas ne gagnait que
+  0,2 ms. Pièges de mesure rencontrés : l'exposition automatique et l'adaptation « œil » de `NukeFlashFX` (temps
+  réel) décalent toute l'image entre deux captures — les geler avant de comparer (la sonde le fait) ; et le
+  partage entre flashs « de directions proches » ne partageait jamais : à quelques km d'altitude, deux flashs sont
+  vus sous des directions très différentes par les nuages (rien à voir avec le soleil). Banc complet après
+  (`bench_2026-10-16_flash_50Mt.md`, base « orbite simple » 0,3 à 1 ms plus lente ce passage-là : GPU chauffé),
+  8 × 50 Mt à l'arrivée, images/s (GPU), référence → après :
+
+  | Résolution | 0–4 s | 4–20 s |
+  |---|---|---|
+  | 1920 × 1080 | 108 (9,2 ms) → **149 (6,5 ms)** | 104 (9,5) → **145 (6,7)** |
+  | 2560 × 1440 | 62 (15,9) → **97 (10,1)** | 61 (16,4) → **83 (11,9)** |
+  | 3440 × 1440 | 62 (16,1) → **81 (12,2)** | 59 (16,8) → **70 (14,1)** |
+  | 5120 × 1440 | 61 (16,2) → **75 (13,2)** | 58 (17,0) → **72 (13,6)** |
+  ;
 - à partir de 20 s et jusqu'à 30 min, 10 × 50 Mt ne coûtent plus que +1,2 à +1,5 ms (champignons 1 ms, onde de
   choc 0,3 à 0,5 ms, reste dans le bruit) ;
 - **à 6 h, les champignons volumétriques coûtaient 25,7 ms sur 35,7 à 5120 × 1440** (part de chaque effet : sans
@@ -1433,7 +1454,13 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
       comme de nuit). L'horizon local est respecté (exact sur une sphère), l'ombre des nuages est calculée sur le
       segment sol → flash (4 échantillons), et une petite part est diffusée par l'air (3 %, portée 60 km).
     - Les **nuages** reçoivent le même flux × transmittance de l'air, nul si la Terre s'interpose, avec
-      auto-ombrage (marche vers le flash) et diffusion isotrope.
+      auto-ombrage (marche vers le flash : 4 pas doublés depuis 0,3 km, `nuke_flash_shadow_steps`) et diffusion
+      isotrope. Appelé à chaque pas de la marche des nuages, c'est le poste le plus cher des 20 premières secondes
+      d'une salve ; **la marche d'auto-ombrage est faite une seule fois par pas, vers le flash le plus brillant, et
+      partagée par les autres flashs** (`nuke_flash_shadow_shared`) : elle ne couvre que ~4,5 km autour de
+      l'échantillon, c'est la densité locale qui compte, peu la direction, et les flashs moins brillants pèsent
+      moins (10 × 50 Mt, 1080p : 8,2 → 5,7 ms, PSNR 53–61 dB ; voir « Performances »). L'intégrale de l'air
+      (`nuke_flash_air_steps`, 8 pas) est bon marché.
     - Unité : le « soleil » (le sol reçoit `nuke_flash_ground_gain` = 2, comme la lumière `Sun`). L'éclairement
       est plafonné à 2 000 près de la boule de feu.
   - **station** : `DirectionalLight3D` dirigée depuis le flash le plus intense (à 400 km la source est à l'infini
