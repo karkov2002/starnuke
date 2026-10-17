@@ -119,7 +119,7 @@ func _ready() -> void:
 		await _frames(2)
 		# Élimination sur toute la scène : chaque nœud masqué tour à tour, capture.
 		var scene_root: Node = _earth.get_parent()
-		for path: String in ["Station", "Earth/CloudLayer", "Earth/Surface", "Earth/AtmosphereSky", "Earth/AtmosphereGround", "Sun", "OrbitControls", "NukeReport", "FpsOverlay"]:
+		for path: String in ["Station", "Earth/CloudLayer", "Earth/Surface", "Earth/AtmosphereSky", "Earth/AtmosphereGround", "Sun", "Hud", "NukeReport", "FpsOverlay"]:
 			var node: Node = scene_root.get_node(path)
 			node.set(&"visible", false)
 			await _frames(5)

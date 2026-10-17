@@ -1,0 +1,79 @@
+class_name TabletDisplay
+extends Control
+## Interface de l'écran de la tablette (scripts/tablet.gd), dessinée dans son SubViewport, construite en code :
+## - en haut, la date et l'heure UTC et l'heure solaire du point survolé ;
+## - au milieu, une copie réduite de la carte du poste de pilotage (OrbitalMap : trace au sol, station, point de
+##   manœuvre et trace fantôme) et la commande de poussée de la manœuvre prévue (BurnControl : compte à rebours, gros
+##   bouton BURN bleu, jauge) ;
+## - en bas, la commande de tir (LaunchControl : 48 silos, puissance, gros bouton rouge), agrandie de LAUNCH_SCALE
+##   (ses boutons ont une taille fixe en pixels).
+## Taille : celle du SubViewport (proportions de la dalle de la tablette).
+
+const MARGIN := 18.0
+const FONT_SIZE := 22
+const LAUNCH_SCALE := 1.4
+
+var orbit: OrbitSimulation
+var flight_computer: FlightComputer
+
+var _clock: Label
+
+
+func _ready() -> void:
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+	theme = PilotDisplay.make_theme(FONT_SIZE)
+	var background := ColorRect.new()
+	background.color = Color(0.015, 0.02, 0.03)
+	background.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(background)
+
+	var column := VBoxContainer.new()
+	column.position = Vector2(MARGIN, MARGIN * 0.6)
+	column.size = size - Vector2(2.0 * MARGIN, 1.6 * MARGIN)
+	column.add_theme_constant_override("separation", 10)
+	add_child(column)
+
+	_clock = Label.new()
+	_clock.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_clock.add_theme_font_size_override("font_size", 28)
+	_clock.add_theme_color_override("font_color", PilotDisplay.COLOR_TEXT)
+	column.add_child(_clock)
+
+	var middle := HBoxContainer.new()
+	middle.add_theme_constant_override("separation", 16)
+	column.add_child(middle)
+	var map_height := size.y * 0.5
+	var map := OrbitalMap.new()
+	map.orbit = orbit
+	map.flight_computer = flight_computer
+	map.size = Vector2(map_height * OrbitalMap.ASPECT, map_height)
+	map.custom_minimum_size = map.size
+	middle.add_child(map)
+	var burn := BurnControl.new()
+	burn.flight_computer = flight_computer
+	burn.large = true
+	burn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	burn.alignment = BoxContainer.ALIGNMENT_CENTER
+	middle.add_child(burn)
+
+	column.add_child(HSeparator.new())
+	# Commande de tir agrandie : un conteneur à sa taille agrandie, le panneau mis à l'échelle dedans.
+	var launch := LaunchControl.new()
+	launch.name = "Launch"
+	launch.scale = Vector2.ONE * LAUNCH_SCALE
+	var holder := Control.new()
+	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	holder.add_child(launch)
+	column.add_child(holder)
+	launch.resized.connect(func() -> void: holder.custom_minimum_size = launch.size * LAUNCH_SCALE)
+
+
+func _process(_delta: float) -> void:
+	if orbit == null:
+		return
+	var now := orbit.get_utc_datetime()
+	var point := orbit.get_subsatellite_point()
+	var date := tr("HUD_DATE").format({"day": "%02d" % now.day, "month": "%02d" % now.month, "year": now.year})
+	var solar := orbit.get_local_solar_hour(point.y)
+	_clock.text = tr("HUD_TIME").format({"date": date, "time": "%02d:%02d:%02d" % [now.hour, now.minute, now.second],
+			"solar": "%02d:%02d" % [floori(solar), floori(solar * 60.0) % 60]})

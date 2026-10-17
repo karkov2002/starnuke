@@ -37,7 +37,7 @@ permet de piloter le jeu exporté.
   paramètres, par-dessus) et **Quit** dans la moitié droite ; à gauche, **la station vue de l'extérieur, côté
   soleil et légèrement en plongée, au-dessus de la Terre qui défile** (en temps réel). Ce décor est la scène du jeu elle-même, chargée
   en tâche de fond dès l'ouverture du menu (`ResourceLoader.load_threaded_request`, quelques secondes, fond noir en
-  attendant) puis affichée en fondu (2 s), sans son interface ni le tir (`OrbitControls`, `NukeReport`,
+  attendant) puis affichée en fondu (2 s), sans son interface ni le tir (`Hud`, `NukeReport`, `PilotConsole`, tablette,
   `NukeLauncher` retirés), observateur désactivé, caméra extérieure (`BACKDROP_CAMERA_*` ; décalage horizontal
   pour placer station et Terre à gauche). Le même chargement sert à **Start Game** : s'il n'est pas terminé, le
   menu laisse place à « Loading in progress… » (clé `MENU_LOADING`, points animés et pourcentage), qui reste
@@ -108,18 +108,18 @@ permet de piloter le jeu exporté.
 |---|---|
 | Orienter la vue | Maintenir le **clic droit** et déplacer la souris (lacet et tangage autour des axes de la tête) ; **A / E** (AZERTY, Q / E en QWERTY) : **roulis** gauche / droite autour de l'axe du regard (60°/s, mise en rotation et arrêt progressifs). Orientation libre comme en apesanteur : pas de « haut » imposé, tangage non limité |
 | Se déplacer dans la station | **Z / S** (W / S en QWERTY) ou **flèches haut / bas** : avancer / reculer dans la direction du regard (y compris vers le haut ou le bas, apesanteur) ; **Q / D** (A / D en QWERTY) ou **flèches gauche / droite** : déplacement latéral. 1,5 m/s ; inertie d'apesanteur : démarrage et arrêt en douceur (~1 s), on continue sur sa lancée un instant après avoir relâché la touche ; collisions avec les parois, les vitres et les objets intérieurs (tubes des silos…) |
-| Curseur | Libre le reste du temps (clic gauche sur le panneau de contrôle) |
-| Altitude, inclinaison de l'orbite | Au **poste de pilotage** : manœuvre au prochain nœud (inclinaison visée **0 à 80°**, altitude visée **400 à 800 km**), exécutée en mode **Auto** ou en maintenant le bouton **BURN** bleu (mode **Manuel**, aussi sur le panneau de la cupola) ; voir « Poste de pilotage ». Réglage direct (outil de développement) : section « Orbite » du **panneau de debug (F4)**, altitude 200 à 800 km, inclinaison 0 à 80° bornée par la latitude courante (voir ci-dessous) |
-| Date et heure (UTC) | Champ **date** (AAAA-MM-JJ, valider par Entrée), boutons **−1 j / +1 j**, curseur de l'**heure** du jour. La station reste au-dessus du même point ; le soleil, les étoiles et les nuages (poussés par le vent) se placent selon la nouvelle heure. Départ : **15 juillet 2035** |
-| Vitesse du temps | Boutons **Pause, x1, x2, x4, x8, x16** |
-| Redémarrer | Boutons **By day** / **By night** (« De jour » / « De nuit » en français) : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
+| Curseur | Libre le reste du temps (clic gauche sur la tablette, la barre du temps, l'écran du poste de pilotage) |
+| Tablette | **Tab** (action `tablet`, touche physique) : sort ou range la **tablette** tenue en bas de la vue (elle glisse depuis le bas en 0,35 s) ; on clique directement sur son écran. Elle affiche la date et l'heure, une carte réduite, la commande de poussée (**BURN** bleu) et les silos avec le tir. Ignorée pendant la saisie d'un texte et au poste de pilotage (elle s'y range). Voir « Tablette » |
+| Vitesse du temps | **Barre toujours visible en haut au centre** : pause (deux barres) puis ×1 à ×16 en icônes de flèches (1 à 5 flèches ; infobulle : le facteur) ; la vitesse en cours est allumée. Le poste de pilotage et le BURN ramènent à ×1 |
+| Altitude, inclinaison de l'orbite | Au **poste de pilotage** : manœuvre au prochain nœud (inclinaison visée **0 à 80°**, altitude visée **400 à 800 km**), exécutée en mode **Auto** ou en maintenant le bouton **BURN** bleu (mode **Manuel**, aussi sur la tablette) ; voir « Poste de pilotage ». Réglage direct (outil de développement) : section « Orbite » du **panneau de debug (F4)**, altitude 200 à 800 km, inclinaison 0 à 80° bornée par la latitude courante (voir ci-dessous) |
+| Date, heure (UTC), redémarrer | Outils de développement, dans le **panneau de debug (F4)** : champ **date** (AAAA-MM-JJ, valider par Entrée), boutons **−1 j / +1 j**, curseur de l'**heure** du jour (la station reste au-dessus du même point ; le soleil, les étoiles et les nuages se placent selon la nouvelle heure ; départ : **15 juillet 2035**) ; **Redémarrer (Europe) De jour / De nuit** : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
 | Poste de pilotage | Grand écran de la console du module Commande (à l'avant) : le survoler à moins de 2,5 m affiche **« Contrôle orbital »** au curseur ; **clic gauche** dessus : position **« poste de pilotage »** (la vue se cadre face à l'écran, déplacements et rotation de la tête suspendus) ; **clic droit** : on quitte le poste (retour à la position d'avant). L'écran ne réagit à la souris qu'en position « poste de pilotage ». Voir « Poste de pilotage » |
 | Lampe torche | **L** (action `torch`, touche physique) : allume ou éteint une lampe torche tenue par l'observateur (nœud `Observer/Camera/Torch`, `scripts/torch.gd` : `SpotLight3D` de 32°, portée 10 m, lumière chaude, ombres portées — elle ne traverse pas les parois), qui éclaire devant soi, avec un léger tremblement de la main (bruit lisse, ±0,7°, 1,6 Hz, amplifié en déplacement) ; précieuse quand la station est éteinte (« plus de lumière ») |
 | Pause | **Échap** (action `pause`, touche physique ; un nouvel appui sur Échap reprend la partie) : fige le jeu (orbite, missiles en vol, explosions, animations : `SceneTree.paused`) et ouvre l'écran des paramètres par-dessus la vue figée (fond translucide), avec deux boutons : **Retour** (ou Échap) reprend la partie, **Quitter la partie** demande confirmation (**Oui** / **Non**, « Non » sélectionné par défaut) puis revient à l'écran de démarrage (la partie est perdue). Ignoré pendant la saisie de la date. Nœud `PauseMenu` de `orbit_view.tscn` (`scripts/ui/pause_menu.gd`, actif pendant la pause), `SettingsMenu.in_game` |
-| Silos | **48 voyants ronds numérotés de 1 à 48** à droite du panneau, un par tube de lancement, en 2 blocs de 3 × 8 placés comme les deux silos sur la station (vue de dessus, l'avant en haut ; silo 1 à gauche). **Orange** : missile prêt ; clic → **vert** : tube choisi pour le prochain tir (un seul à la fois, nouveau clic pour annuler) ; **gris** : tube vide. **48 missiles en tout**, sans rechargement. Choisir un tube **ouvre sa trappe** (animation Blender) et allume à côté un **gyrophare rouge** à éclats, qui éclaire la trappe et le dessous de la coque ; le tube choisi auparavant referme sa trappe et éteint son gyrophare (de même si on annule le choix). Après le tir, quand le missile a quitté la station, la trappe se referme et le gyrophare s'éteint |
-| Tir nucléaire | **Gros bouton rouge** à droite des silos : lance le missile du **tube choisi (vert)** sur le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie sous les silos (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Le point visé et la puissance sont figés à l'appui. Le missile sort de son tube (animation de lancement, 5 s : trappe, descente, allumage), le tube passe au gris, puis le missile tourne vers la cible en accélérant pendant que son moteur brûle (9 s) et part vers la zone d'impact ; moteur éteint, on le perd de vue ; dans les dernières secondes, sa **rentrée atmosphérique** apparaît au-dessus de la cible, comme une étoile filante, puis l'explosion a lieu. **Durée du vol : de 20 s (cible au nadir) à 2 min (cible à l'horizon)**, proportionnelle à la distance (temps de jeu : le vol se fige en pause et s'accélère avec le temps). Un **chronomètre** par missile, au-dessus du panneau à droite (« Silo 7 · impact dans 0:43 », toujours visible, même hors de la cupola), décompte jusqu'à l'impact, passe au rouge et clignote dans les 10 dernières secondes. Sans tube choisi, ou si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien et le missile reste dans son tube. Voir « Explosions nucléaires » |
+| Silos | **48 voyants ronds numérotés de 1 à 48** en bas de la tablette, un par tube de lancement, en 2 blocs de 3 × 8 placés comme les deux silos sur la station (vue de dessus, l'avant en haut ; silo 1 à gauche). **Orange** : missile prêt ; clic → **vert** : tube choisi pour le prochain tir (un seul à la fois, nouveau clic pour annuler) ; **gris** : tube vide. **48 missiles en tout**, sans rechargement. Choisir un tube **ouvre sa trappe** (animation Blender) et allume à côté un **gyrophare rouge** à éclats, qui éclaire la trappe et le dessous de la coque ; le tube choisi auparavant referme sa trappe et éteint son gyrophare (de même si on annule le choix). Après le tir, quand le missile a quitté la station, la trappe se referme et le gyrophare s'éteint |
+| Tir nucléaire | **Gros bouton rouge** à droite des silos (tablette), **depuis la cupola seulement** : lance le missile du **tube choisi (vert)** sur le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie sous les silos (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Le point visé et la puissance sont figés à l'appui. Le missile sort de son tube (animation de lancement, 5 s : trappe, descente, allumage), le tube passe au gris, puis le missile tourne vers la cible en accélérant pendant que son moteur brûle (9 s) et part vers la zone d'impact ; moteur éteint, on le perd de vue ; dans les dernières secondes, sa **rentrée atmosphérique** apparaît au-dessus de la cible, comme une étoile filante, puis l'explosion a lieu. **Durée du vol : de 20 s (cible au nadir) à 2 min (cible à l'horizon)**, proportionnelle à la distance (temps de jeu : le vol se fige en pause et s'accélère avec le temps). Un **chronomètre** par missile, en bas à droite de l'écran (« Silo 7 · impact dans 0:43 », toujours visible, même hors de la cupola), décompte jusqu'à l'impact, passe au rouge et clignote dans les 10 dernières secondes. Sans tube choisi, ou si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien et le missile reste dans son tube. Voir « Explosions nucléaires » |
 | Bilan des explosions | Fenêtre **« Bilan des explosions »**, ouverte au premier tir (en haut à droite) : pays touchés et pertes, cumulées sur toutes les explosions. **Glisser sa barre de titre** (clic gauche maintenu) pour la déplacer ; bouton **—** / **+** pour la replier ; molette ou barre de défilement pour parcourir la liste |
-| Compteur de performances et panneau de debug | **F4** ouvre ou masque le **panneau de debug des explosions** dans la partie en cours (outil de développement, en français : puissance, coordonnées, scrubber du temps, alerte de la station, altitude et inclinaison directes de l'orbite ; voir « Scène de debug » dans « Explosions nucléaires »). **F3** affiche ou masque la ligne en haut à droite (visible par défaut, outil de développement, non traduite) : images par seconde, temps CPU et GPU moyens par image, appels de dessin, mémoire vidéo (moyennes sur 0,5 s). Nœud `FpsOverlay` de `scenes/orbit_view.tscn`, script `scripts/ui/fps_overlay.gd` ; voir « Performances » |
+| Compteur de performances et panneau de debug | **F4** ouvre ou masque le **panneau de debug des explosions** dans la partie en cours (outil de développement, en français : puissance, coordonnées, scrubber du temps, alerte de la station, altitude et inclinaison directes de l'orbite, date et heure UTC, redémarrage ; voir « Scène de debug » dans « Explosions nucléaires »). **F3** affiche ou masque la ligne en haut à droite (visible par défaut, outil de développement, non traduite) : images par seconde, temps CPU et GPU moyens par image, appels de dessin, mémoire vidéo (moyennes sur 0,5 s). Nœud `FpsOverlay` de `scenes/orbit_view.tscn`, script `scripts/ui/fps_overlay.gd` ; voir « Performances » |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
 Les touches sont définies par leur **position physique** sur le clavier (actions `move_forward`, `move_back`,
@@ -130,16 +130,42 @@ puis la vitesse est lissée vers la commande lissée, ce qui donne une courbe en
 (constantes de temps : 0,25 s en translation, 0,2 s en roulis). La souris garde un léger lissage (0,08 s) pour rester
 précise à la visée.
 
-**Le panneau de contrôle et le réticule de tir n'apparaissent que dans la cupola** (sphère de 1,6 m autour du repère
-`Point_Vue_Cupola`, `Station.is_in_cupola`) : en sortant de la cupola ils disparaissent en fondu (0,5 s), et
-réapparaissent en fondu en y revenant. Hors de la cupola, on ne peut donc pas tirer.
+**Le réticule de tir n'apparaît que dans la cupola** (sphère de 1,6 m autour du repère `Point_Vue_Cupola`,
+`Station.is_in_cupola`) : en sortant de la cupola il disparaît en fondu (0,5 s), et réapparaît en fondu en y
+revenant. **Hors de la cupola, on ne peut pas tirer** : le bouton rouge de la tablette ne fait rien
+(`LaunchControl`).
 
-**Panneau de contrôle** (`scenes/ui/orbit_controls.tscn`, script `scripts/orbit_controls.gd`), en bas au centre.
-Il affiche la date et l'heure UTC et l'heure solaire locale du point survolé, avec les réglages de date, d'heure et
-de vitesse du temps et le redémarrage, ainsi que la commande de poussée (BURN) de la manœuvre prévue au poste de
-pilotage. L'orbite ne s'y règle plus : elle se pilote au poste de pilotage (l'altitude
-et l'inclinaison directes sont passées dans le panneau de debug, F4). Le panneau a une largeur fixe et ne bouge pas
-quand les valeurs changent. Sa dernière colonne (bouton de tir et puissance) vient de `nuke/`.
+**Interface à l'écran** (nœud `Hud` de `scenes/orbit_view.tscn`, `scripts/ui/hud.gd`, construite en code) : barre de
+vitesse du temps en haut au centre (`scripts/ui/time_bar.gd`, icônes dessinées), réticule de tir
+(`nuke/aim_reticle.gd`) et chronomètres des missiles (`nuke/impact_timers.gd`, ajoutés par `LaunchControl`). Au
+poste de pilotage, la barre du temps reste cliquable (on peut accélérer le temps en attendant le point de
+manœuvre). Il remplace l'ancien panneau de contrôle de la cupola, dont les commandes sont passées sur la tablette et
+dans le panneau de debug.
+
+## Tablette
+
+Tablette de 12 pouces (28 × 19 cm, coque en aluminium anodisé gris sidéral aux coins arrondis, verre noir, caméra
+frontale, boutons sur les tranches) tenue par l'observateur. Modèle `assets/tablet/tablet.glb`, construit par
+`tools/blender/build_tablet.py` dans un Blender lancé en arrière-plan (`blender --background --factory-startup
+--python tools/blender/build_tablet.py -- <glb> <blend> [aperçu.png]`), qui enregistre aussi
+`E:\Blender\tablette.blend` pour la retoucher. Objets : `Tablette_Coque`, `Ecran_Tablette` (dalle, UV 0–1),
+`Tablette_Objectif`, `Tablette_Boutons`.
+
+- **Nœud `Observer/Camera/Tablet`** (`scripts/tablet.gd`) : enfant de la caméra, il suit la vue. **Tab** la sort
+  ou la range (glissement de 0,35 s depuis le bas de la vue ; rangée, elle est masquée et son interface n'est plus
+  redessinée). Sortie, elle occupe 38 % de la hauteur de la vue (cadrage calculé d'après le champ de la caméra), son
+  bord bas à 5 % du bas de la vue, son haut sous le centre (le réticule reste visible), inclinée pour faire face à
+  l'œil. Éclairée par les lampes intérieures (calque `Station.INTERIOR_LAYER`) et le soleil, sans ombre portée.
+- **Écran** : l'interface est dessinée dans un `SubViewport` de 560 px de haut (proche de la taille affichée, pour un
+  texte lisible) et affichée par `shaders/pilot_screen.gdshader` (le même que l'écran du poste : émission brute ; un
+  `StandardMaterial3D` émet en nits avec les unités de lumière physiques du projet, ce qui blanchissait l'écran).
+  Les clics et mouvements de la souris sur l'écran (rayon de la caméra intersecté avec la dalle, repérée par ses UV)
+  sont transmis à l'interface ; un relâchement hors de l'écran aussi (bouton maintenu) ; le clic droit reste à la
+  caméra (tourner la tête).
+- **Interface** (`scripts/ui/tablet_display.gd`) : en haut, date et heure UTC et heure solaire du point survolé ; au
+  milieu, carte réduite (la même `OrbitalMap` que le poste de pilotage : trace au sol, station, point de manœuvre,
+  trace fantôme) et commande de poussée (`BurnControl` : compte à rebours, BURN bleu, jauge) ; en bas, la commande
+  de tir (`LaunchControl` : silos, puissance, gros bouton rouge), agrandie × 1,4 (boutons de taille fixe).
 
 **Fenêtre « Bilan des explosions »** (nœud `NukeReport` de `scenes/orbit_view.tscn`, script
 `nuke/nuke_report_panel.gd`, construite en code). Elle apparaît au premier tir, en haut à droite, et disparaît
@@ -212,8 +238,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   ascendant / descendant dans 31:10 » au passage de l'équateur, « Point de manœuvre dans 09:30 » ailleurs ; temps de
   jeu), gros bouton **BURN bleu** (même dessin que le bouton de tir, `nuke/big_red_button.gd`, en mode maintenu ;
   terne hors de la fenêtre), jauge de 0 à 150 % de la durée requise (zone verte 95–105 %, remplissage bleu, orange
-  au-delà) et message d'état (résultat de la poussée affiché 6 s). La même commande de poussée, compacte, est sur le
-  **panneau de la cupola** : on peut lancer le BURN de la manœuvre prévue depuis la cupola.
+  au-delà) et message d'état (résultat de la poussée affiché 6 s). La même commande de poussée est sur la
+  **tablette** : on peut lancer le BURN de la manœuvre prévue de partout.
 - **Trois leviers pour survoler un point** (règle de jeu) :
   - **attendre** : la Terre tourne sous l'orbite, la trace au sol recule vers l'ouest à chaque tour (−23,5° par tour
     à 400 km et 51,6°) ; toutes les longitudes défilent en moins d'un jour ;
@@ -1665,7 +1691,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   - signal `detonated(effect)` ; `get_effects()`, `clear_effects()`. Les explosions restent en place jusqu'à la
     fin de la partie (persistance du monde) : seul `clear_effects()` (debug, banc de mesure) les retire.
   - Au démarrage, il lie `NukeClock` au nœud `Orbit` (`orbit_path`).
-- **Interface** : colonne `Launch` du panneau de contrôle (`nuke/launch_control.gd`, chaîne de tir : tube choisi →
+- **Interface** : commande `Launch` de la tablette (`nuke/launch_control.gd`, tir depuis la cupola seulement, chaîne de tir : tube choisi →
   `Station.launch_missile` → `missile_released` → vol `MissileFlight` (durée selon la distance, chronomètres
   `nuke/impact_timers.gd`) → `NukeLauncher.launch_at` sur le point
   visé à l'appui) : panneau des silos (`nuke/silo_panel.gd`, voyants `nuke/silo_button.gd` dessinés à la main) et,

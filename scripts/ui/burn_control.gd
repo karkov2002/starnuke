@@ -1,7 +1,7 @@
 class_name BurnControl
 extends VBoxContainer
-## Commande de poussée, partagée par l'écran du poste de pilotage (PilotDisplay) et le panneau de la cupola
-## (OrbitControls) : nœud de la manœuvre et compte à rebours, gros bouton BURN bleu (BigRedButton maintenu, même
+## Commande de poussée, partagée par l'écran du poste de pilotage (PilotDisplay) et la tablette (TabletDisplay) :
+## point de manœuvre et compte à rebours, gros bouton BURN bleu (BigRedButton maintenu, même
 ## dessin que le bouton de tir), jauge de la poussée et message d'état. Logique : FlightComputer.
 ## Jauge : de 0 à 150 % de la durée requise ; zone verte de la poussée parfaite (95 à 105 %) ; remplissage bleu,
 ## orange au-delà de la zone verte.
@@ -15,7 +15,7 @@ const COLOR_BAD := Color(1.0, 0.55, 0.15)
 const RESULT_S := 6.0
 
 var flight_computer: FlightComputer
-## Grand format (écran du poste) ou compact (panneau de la cupola) : fixé avant l'ajout à l'arbre.
+## Grand format (écran du poste, tablette) ou compact : fixé avant l'ajout à l'arbre.
 var large := false
 
 var _node_label: Label

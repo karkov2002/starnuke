@@ -10,7 +10,8 @@
 [ext_resource type="PackedScene" path="res://scenes/station_spatiale.tscn" id="7_0pmab"]
 [ext_resource type="Script" uid="uid://nmhxi1tug17e" path="res://scripts/orbit.gd" id="8_3kqp2"]
 [ext_resource type="Material" path="res://materials/atmosphere_ground.tres" id="8_pecem"]
-[ext_resource type="PackedScene" uid="uid://dknqs7e8wshht" path="res://scenes/ui/orbit_controls.tscn" id="10_e78ee"]
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="10_hud"]
+[ext_resource type="Script" path="res://scripts/tablet.gd" id="22_tab"]
 [ext_resource type="CameraAttributesPractical" path="res://materials/camera_attributes.tres" id="11_cam"]
 [ext_resource type="Script" uid="uid://cuu53raq5g4v5" path="res://nuke/nuke_launcher.gd" id="12_nuam2"]
 [ext_resource type="Script" uid="uid://cufsohnqhvy1c" path="res://nuke/nuke_report_panel.gd" id="13_tq5ei"]
@@ -87,6 +88,9 @@ spot_angle = 32.0
 spot_angle_attenuation = 1.2
 script = ExtResource("5_i8rd8")
 
+[node name="Tablet" type="Node3D" parent="Observer/Camera" unique_id=1734502211]
+script = ExtResource("22_tab")
+
 [node name="Station" type="Node3D" parent="." unique_id=241936533]
 
 [node name="StationSpatiale" parent="Station" unique_id=1547329906 instance=ExtResource("7_0pmab")]
@@ -119,7 +123,8 @@ mesh = SubResource("SphereMesh_pecem")
 [node name="Orbit" type="Node" parent="." unique_id=219774249]
 script = ExtResource("8_3kqp2")
 
-[node name="OrbitControls" parent="." unique_id=1118273847 instance=ExtResource("10_e78ee")]
+[node name="Hud" type="CanvasLayer" parent="." unique_id=1118273847]
+script = ExtResource("10_hud")
 
 [node name="NukeLauncher" type="Node" parent="." unique_id=1883274914]
 script = ExtResource("12_nuam2")

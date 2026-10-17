@@ -1,7 +1,8 @@
 class_name LaunchControl
 extends HBoxContainer
-## Colonne « missile » du panneau de contrôle : à gauche les 48 tubes de lancement (SiloPanel) et, en dessous, le choix
-## de la puissance ; à droite le gros bouton rouge de tir.
+## Commande de tir de la tablette (scripts/ui/tablet_display.gd) : à gauche les 48 tubes de lancement (SiloPanel) et,
+## en dessous, le choix de la puissance ; à droite le gros bouton rouge de tir. On ne tire que depuis la cupola
+## (Station.is_in_cupola, là où le réticule est affiché) : ailleurs, le bouton rouge ne fait rien.
 ##
 ## Tir : on choisit un tube (vert) puis on appuie sur le bouton rouge. Le point visé (centre de la vue, cf.
 ## NukeLauncher.get_aim) et la puissance sont figés à l'appui ; le missile du tube sort par l'animation de lancement
@@ -67,22 +68,26 @@ func _ready() -> void:
 	_connect_station.call_deferred()
 
 
-## Chronomètres en bas à droite de l'écran, au-dessus du panneau, dans la couche d'interface du panneau.
+## Chronomètres en bas à droite de l'écran, dans l'interface à l'écran (Hud ; à défaut, la couche d'interface du
+## panneau ou la scène).
 func _add_timers() -> void:
-	var layer: Node = get_parent()
-	while layer and not layer is CanvasLayer:
-		layer = layer.get_parent()
+	var layer: Node = get_tree().get_first_node_in_group(&"hud")
+	if layer == null:
+		layer = get_parent()
+		while layer and not layer is CanvasLayer:
+			layer = layer.get_parent()
 	(layer if layer else get_tree().current_scene).add_child(_timers)
 	_timers.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	_timers.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_timers.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_timers.offset_right = -60.0
-	_timers.offset_bottom = -180.0
+	_timers.offset_right = -40.0
+	_timers.offset_bottom = -40.0
 
 
 ## Durée du vol (s, temps de jeu) vers un point de la scène, proportionnelle à sa distance (du nadir à l'horizon).
 func _flight_time(target_scene: Vector3) -> float:
-	var camera := get_viewport().get_camera_3d()
+	# Caméra de la vue principale (ce panneau est dessiné dans le SubViewport de la tablette).
+	var camera := get_tree().root.get_camera_3d()
 	var orbit := NukeClock.orbit
 	if camera == null or orbit == null:
 		return flight_time_range.x
@@ -117,6 +122,9 @@ func _on_selection_changed(key: Vector2i) -> void:
 
 func _on_fire() -> void:
 	var launcher := get_tree().get_first_node_in_group(NukeLauncher.GROUP) as NukeLauncher
+	var camera := get_tree().root.get_camera_3d()
+	if _station and camera and not _station.is_in_cupola(camera.global_position):
+		return
 	if launcher:
 		fire_tube(_silos.selected, launcher.get_aim(), _yield_kt)
 

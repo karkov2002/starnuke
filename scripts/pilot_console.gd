@@ -6,7 +6,8 @@ extends Node
 ## - Survol de l'écran à portée (reach_m) : bulle « Contrôle orbital » au curseur.
 ## - Clic gauche sur l'écran : position « poste de pilotage » (la vue se cadre face à l'écran, déplacements et
 ##   rotation de la tête suspendus, temps ramené à ×1) ; les clics et mouvements de la souris sur l'écran sont transmis à l'interface.
-##   L'interface ne réagit qu'en position « poste de pilotage ».
+##   L'interface ne réagit qu'en position « poste de pilotage ». La barre de vitesse du temps (Hud) reste cliquable.
+##   La tablette se range d'elle-même (seated_changed).
 ## - Clic droit : on quitte le poste (retour à la position et à l'orientation d'avant).
 
 signal seated_changed(seated: bool)
@@ -121,6 +122,10 @@ func _input(event: InputEvent) -> void:
 		return
 	_mouse_position = mouse.position
 	if not _seated and not _moving:
+		return
+	# La barre de vitesse du temps reste utilisable au poste.
+	var hud := get_tree().get_first_node_in_group(Hud.GROUP) as Hud
+	if hud and hud.is_over_controls(mouse.position):
 		return
 	get_viewport().set_input_as_handled()
 	if _moving:

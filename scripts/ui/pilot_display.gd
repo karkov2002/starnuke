@@ -33,7 +33,7 @@ var _mode_buttons: Array[Button] = []
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	theme = _make_theme()
+	theme = make_theme(FONT_SIZE)
 	var background := ColorRect.new()
 	background.color = Color.BLACK
 	background.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -205,10 +205,10 @@ func _frame_style() -> StyleBoxFlat:
 	return style
 
 
-## Thème de l'écran : gros caractères, curseurs et boutons verts lisibles de loin (la dalle fait 1,6 m).
-func _make_theme() -> Theme:
+## Thème des écrans (poste de pilotage, tablette) : curseurs et boutons verts lisibles de loin.
+static func make_theme(font_size: int) -> Theme:
 	var result := Theme.new()
-	result.default_font_size = FONT_SIZE
+	result.default_font_size = font_size
 	var track := StyleBoxFlat.new()
 	track.bg_color = Color(0.12, 0.2, 0.14)
 	track.set_corner_radius_all(4)

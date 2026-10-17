@@ -5,7 +5,7 @@ extends Control
 ## langue (locale/strings.csv), traduites automatiquement.
 ##
 ## Décor : la scène du jeu elle-même (Terre, nuages, atmosphère, station), chargée en tâche de fond dès l'ouverture
-## du menu puis affichée en fondu, sans son interface ni le tir (OrbitControls, NukeReport, NukeLauncher retirés),
+## du menu puis affichée en fondu, sans son interface ni le tir (Hud, NukeReport, NukeLauncher, PilotConsole, tablette retirés),
 ## observateur désactivé, filmée par une caméra extérieure (BACKDROP_CAMERA_*), en temps réel (BACKDROP_TIME_SCALE).
 ## Le même chargement sert au lancement de la partie : « Commencer la partie » n'attend plus que la fin du chargement
 ## s'il n'est pas terminé.
@@ -22,7 +22,8 @@ const BACKDROP_CAMERA_FOV := 55.0
 const BACKDROP_TIME_SCALE := 1.0
 const BACKDROP_FADE_S := 2.0
 ## Nœuds de la scène du jeu retirés du décor (interface, tir).
-const BACKDROP_REMOVED: Array[String] = ["OrbitControls", "NukeReport", "NukeLauncher", "PauseMenu"]
+const BACKDROP_REMOVED: Array[String] = ["Hud", "NukeReport", "NukeLauncher", "PauseMenu", "PilotConsole",
+		"Observer/Camera/Tablet"]
 
 var _menu: Control
 var _start_button: Button
@@ -83,7 +84,7 @@ func _build_backdrop() -> void:
 	for removed in BACKDROP_REMOVED:
 		var node := backdrop.get_node_or_null(removed)
 		if node:
-			backdrop.remove_child(node)
+			node.get_parent().remove_child(node)
 			node.free()
 	var observer := backdrop.get_node_or_null("Observer")
 	if observer:

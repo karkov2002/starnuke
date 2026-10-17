@@ -1,7 +1,8 @@
 shader_type spatial;
-// Grand écran du poste de pilotage (Interactif_Ecran_Principal, scripts/pilot_console.gd) : affiche l'interface de
-// pilotage dessinée dans un SubViewport. Les UV du modèle sont inutilisables (projection en boîte) : la position
-// dans l'image vient de la position du sommet dans le rectangle de la dalle (repère du maillage), mesuré au démarrage.
+// Écrans affichant une interface dessinée dans un SubViewport : grand écran du poste de pilotage
+// (Interactif_Ecran_Principal, scripts/pilot_console.gd) et tablette (scripts/tablet.gd). La position dans l'image
+// vient de la position du sommet dans le rectangle de la dalle (repère du maillage), mesuré au démarrage (les UV de
+// l'écran du poste sont inutilisables : projection en boîte). Émission brute (pas en nits).
 
 uniform sampler2D screen_texture : source_color, filter_linear;
 // Coin haut gauche de la dalle et ses deux côtés (vers la droite, vers le bas), dans le repère du maillage.
