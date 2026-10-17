@@ -138,6 +138,8 @@ THUMB_BASE_AT = Vector((0.148, 0.004, -0.085))
 # bordure (à 9,5 mm de la tranche) : plus près, il chevauchait la tranche et semblait à côté de la tablette ; il mord
 # de quelques mm sur le bord de l'écran (marge réservée par l'interface, TabletDisplay.THUMB_PADDING).
 THUMB_TIP_AT = Vector((0.1305, -BACK - 0.0085, -0.030))
+# Torsion de la dernière phalange du pouce (degrés), pour laisser voir un peu l'ongle (5e argument pour essayer).
+THUMB_TWIST_DEG = float(args[4]) if len(args) > 4 else -50.0
 KEEP_GROUPS = ("lowerarm02.R", "wrist.R", "metacarpal", "finger")
 
 
@@ -213,6 +215,18 @@ def make_mpfb_hand():
     ik = pose["finger1-3.R"].constraints.new('IK')
     ik.target = goal
     ik.chain_count = 3
+    update()
+    # Pose du pouce figée (contrainte retirée), puis légère torsion de la dernière phalange sur son axe : l'ongle se
+    # tourne un peu vers le joueur sans déplacer la base du pouce ni le contact avec la tablette.
+    solved = {n: pose[n].matrix.copy() for n in ("finger1-1.R", "finger1-2.R", "finger1-3.R")}
+    pose["finger1-3.R"].constraints.remove(ik)
+    for name, matrix in solved.items():
+        pose[name].matrix = matrix
+        update()
+    tip = pose["finger1-3.R"]
+    pivot = tip.head.copy()
+    twist = Matrix.Rotation(math.radians(THUMB_TWIST_DEG), 4, (tip.tail - tip.head).normalized())
+    tip.matrix = Matrix.Translation(pivot) @ twist @ Matrix.Translation(-pivot) @ tip.matrix
     update()
     reached = to_target @ tail("finger1-3.R")
     print("Pouce : bout à %s, cible %s, écart %.1f mm" % (tuple(round(c, 4) for c in reached),
@@ -342,7 +356,8 @@ if PREVIEW:
     bpy.ops.render.render(write_still=True)
     # Vue du joueur (de face, l'œil en haut à gauche de la tablette) et vue de la tranche droite (le pouce).
     for suffix, location, target in [("_joueur", (-0.12, -0.42, 0.12), (0.03, 0.0, -0.02)),
-                                     ("_cote", (0.40, -0.06, -0.03), (0.13, 0.0, -0.05))]:
+                                     ("_cote", (0.40, -0.06, -0.03), (0.13, 0.0, -0.05)),
+                                     ("_pouce", (0.03, -0.16, 0.06), (0.135, 0.0, -0.05))]:
         camera.location = location
         direction = Vector(target) - camera.location
         camera.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()

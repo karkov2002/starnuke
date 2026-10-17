@@ -155,7 +155,8 @@ Godot.** Objets : `Tablette_Coque`, `Ecran_Tablette` (dalle, UV 0–1), `Tablett
 l'extension Blender **MPFB2** (à installer dans Blender), texture de peau CC0
 (`assets/makehuman/skins/young_caucasian_male/young_lightskinned_male_diffuse.png`). Prise : la tranche droite repose
 dans le creux entre le pouce et l'index (base du pouce contre la tranche), doigts tendus à plat contre le dos, pouce
-amené par cinématique inverse sur la bordure avant à côté de l'écran ; la tablette (5,5 mm, épaisseur choisie pour
+amené par cinématique inverse sur la bordure avant à côté de l'écran, sa dernière phalange tournée de 50° sur son
+axe pour laisser voir l'ongle (sinon le pouce paraissait coupé) ; la tablette (5,5 mm, épaisseur choisie pour
 tenir dans l'ouverture de la main) est centrée entre le pouce et les doigts (contact à 0,3 mm près). `Manche` :
 avant-bras dans la manche bleu marine d'une combinaison de vol, dans l'axe de l'avant-bras, hors du champ. La main arrive et repart
 avec la tablette ; sortie, **seul le pouce reste visible** (la paume est derrière, le poignet et le bras sous le bas
