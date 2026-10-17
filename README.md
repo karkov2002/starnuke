@@ -109,8 +109,7 @@ permet de piloter le jeu exporté.
 | Orienter la vue | Maintenir le **clic droit** et déplacer la souris (lacet et tangage autour des axes de la tête) ; **A / E** (AZERTY, Q / E en QWERTY) : **roulis** gauche / droite autour de l'axe du regard (60°/s, mise en rotation et arrêt progressifs). Orientation libre comme en apesanteur : pas de « haut » imposé, tangage non limité |
 | Se déplacer dans la station | **Z / S** (W / S en QWERTY) ou **flèches haut / bas** : avancer / reculer dans la direction du regard (y compris vers le haut ou le bas, apesanteur) ; **Q / D** (A / D en QWERTY) ou **flèches gauche / droite** : déplacement latéral. 1,5 m/s ; inertie d'apesanteur : démarrage et arrêt en douceur (~1 s), on continue sur sa lancée un instant après avoir relâché la touche ; collisions avec les parois, les vitres et les objets intérieurs (tubes des silos…) |
 | Curseur | Libre le reste du temps (clic gauche sur le panneau de contrôle) |
-| Altitude | Curseur du panneau, **200 à 800 km** (clic, glisser ou molette) |
-| Inclinaison de l'orbite | Curseur du panneau, **0 à 70°**, bornée par la latitude courante (voir ci-dessous) |
+| Altitude, inclinaison de l'orbite | Au **poste de pilotage** : manœuvre au prochain nœud (inclinaison visée **0 à 80°**, altitude visée **400 à 800 km**, voir « Poste de pilotage »). Réglage direct (outil de développement) : section « Orbite » du **panneau de debug (F4)**, altitude 200 à 800 km, inclinaison 0 à 80° bornée par la latitude courante (voir ci-dessous) |
 | Date et heure (UTC) | Champ **date** (AAAA-MM-JJ, valider par Entrée), boutons **−1 j / +1 j**, curseur de l'**heure** du jour. La station reste au-dessus du même point ; le soleil, les étoiles et les nuages (poussés par le vent) se placent selon la nouvelle heure. Départ : **15 juillet 2035** |
 | Vitesse du temps | Boutons **Pause, x1, x2, x4, x8, x16** |
 | Redémarrer | Boutons **By day** / **By night** (« De jour » / « De nuit » en français) : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
@@ -120,7 +119,7 @@ permet de piloter le jeu exporté.
 | Silos | **48 voyants ronds numérotés de 1 à 48** à droite du panneau, un par tube de lancement, en 2 blocs de 3 × 8 placés comme les deux silos sur la station (vue de dessus, l'avant en haut ; silo 1 à gauche). **Orange** : missile prêt ; clic → **vert** : tube choisi pour le prochain tir (un seul à la fois, nouveau clic pour annuler) ; **gris** : tube vide. **48 missiles en tout**, sans rechargement. Choisir un tube **ouvre sa trappe** (animation Blender) et allume à côté un **gyrophare rouge** à éclats, qui éclaire la trappe et le dessous de la coque ; le tube choisi auparavant referme sa trappe et éteint son gyrophare (de même si on annule le choix). Après le tir, quand le missile a quitté la station, la trappe se referme et le gyrophare s'éteint |
 | Tir nucléaire | **Gros bouton rouge** à droite des silos : lance le missile du **tube choisi (vert)** sur le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie sous les silos (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Le point visé et la puissance sont figés à l'appui. Le missile sort de son tube (animation de lancement, 5 s : trappe, descente, allumage), le tube passe au gris, puis le missile tourne vers la cible en accélérant pendant que son moteur brûle (9 s) et part vers la zone d'impact ; moteur éteint, on le perd de vue ; dans les dernières secondes, sa **rentrée atmosphérique** apparaît au-dessus de la cible, comme une étoile filante, puis l'explosion a lieu. **Durée du vol : de 20 s (cible au nadir) à 2 min (cible à l'horizon)**, proportionnelle à la distance (temps de jeu : le vol se fige en pause et s'accélère avec le temps). Un **chronomètre** par missile, au-dessus du panneau à droite (« Silo 7 · impact dans 0:43 », toujours visible, même hors de la cupola), décompte jusqu'à l'impact, passe au rouge et clignote dans les 10 dernières secondes. Sans tube choisi, ou si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien et le missile reste dans son tube. Voir « Explosions nucléaires » |
 | Bilan des explosions | Fenêtre **« Bilan des explosions »**, ouverte au premier tir (en haut à droite) : pays touchés et pertes, cumulées sur toutes les explosions. **Glisser sa barre de titre** (clic gauche maintenu) pour la déplacer ; bouton **—** / **+** pour la replier ; molette ou barre de défilement pour parcourir la liste |
-| Compteur de performances et panneau de debug | **F4** ouvre ou masque le **panneau de debug des explosions** dans la partie en cours (outil de développement, en français : puissance, coordonnées, scrubber du temps, alerte de la station ; voir « Scène de debug » dans « Explosions nucléaires »). **F3** affiche ou masque la ligne en haut à droite (visible par défaut, outil de développement, non traduite) : images par seconde, temps CPU et GPU moyens par image, appels de dessin, mémoire vidéo (moyennes sur 0,5 s). Nœud `FpsOverlay` de `scenes/orbit_view.tscn`, script `scripts/ui/fps_overlay.gd` ; voir « Performances » |
+| Compteur de performances et panneau de debug | **F4** ouvre ou masque le **panneau de debug des explosions** dans la partie en cours (outil de développement, en français : puissance, coordonnées, scrubber du temps, alerte de la station, altitude et inclinaison directes de l'orbite ; voir « Scène de debug » dans « Explosions nucléaires »). **F3** affiche ou masque la ligne en haut à droite (visible par défaut, outil de développement, non traduite) : images par seconde, temps CPU et GPU moyens par image, appels de dessin, mémoire vidéo (moyennes sur 0,5 s). Nœud `FpsOverlay` de `scenes/orbit_view.tscn`, script `scripts/ui/fps_overlay.gd` ; voir « Performances » |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
 Les touches sont définies par leur **position physique** sur le clavier (actions `move_forward`, `move_back`,
@@ -136,10 +135,10 @@ précise à la visée.
 réapparaissent en fondu en y revenant. Hors de la cupola, on ne peut donc pas tirer.
 
 **Panneau de contrôle** (`scenes/ui/orbit_controls.tscn`, script `scripts/orbit_controls.gd`), en bas au centre.
-Il affiche l'altitude et la période orbitale, l'inclinaison et le point survolé (latitude, longitude), ainsi que
-la date et l'heure UTC et l'heure solaire locale du point survolé. Les curseurs agissent en direct sur le nœud `Orbit`. Hors manipulation, ils affichent les
-valeurs réellement appliquées. Le panneau a une largeur fixe et ne bouge pas quand les valeurs changent. Sa
-dernière colonne (bouton de tir et puissance) vient de `nuke/`.
+Il affiche la date et l'heure UTC et l'heure solaire locale du point survolé, avec les réglages de date, d'heure et
+de vitesse du temps et le redémarrage. L'orbite ne s'y règle plus : elle se pilote au poste de pilotage (l'altitude
+et l'inclinaison directes sont passées dans le panneau de debug, F4). Le panneau a une largeur fixe et ne bouge pas
+quand les valeurs changent. Sa dernière colonne (bouton de tir et puissance) vient de `nuke/`.
 
 **Fenêtre « Bilan des explosions »** (nœud `NukeReport` de `scenes/orbit_view.tscn`, script
 `nuke/nuke_report_panel.gd`, construite en code). Elle apparaît au premier tir, en haut à droite, et disparaît
@@ -172,7 +171,8 @@ temps). Le temps GPU vient de `RenderingServer.viewport_set_measure_render_time`
 banc de mesure), les appels de dessin et la mémoire vidéo de `Performance`. **F3** le masque ou l'affiche. Texte non
 traduit (outil de développement, comme la console et le panneau de debug).
 
-**Règles de l'orbite appliquées par les contrôles :**
+**Règles de l'orbite appliquées par les réglages directs** (panneau de debug ; les manœuvres du poste de pilotage
+se font au nœud, voir « Poste de pilotage ») **:**
 - changer l'altitude conserve le point survolé et le sens de passage (montant / descendant) ; la période change
   avec l'altitude ;
 - changer l'inclinaison se fait au point courant (comme un changement de plan orbital). Elle **ne peut pas être
@@ -194,22 +194,44 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   faces `Ecran_15` tournées vers l'observateur), et gère le poste :
   - survol de la dalle (rayon de la caméra par le curseur, intersecté avec le rectangle de la dalle) à moins de
     2,5 m : bulle « Contrôle orbital » au curseur ;
-  - clic gauche sur la dalle : position « poste de pilotage ». L'œil glisse en 0,6 s face au centre de la dalle, à
+  - clic gauche sur la dalle : position « poste de pilotage », **temps ramené à ×1** (les manœuvres se jouent en
+    temps réel). L'œil glisse en 0,6 s face au centre de la dalle, à
     la distance où elle occupe 90 % de la vue (en hauteur ou en largeur selon les proportions de la fenêtre) ;
     l'observateur (`Observer`, corps et tête) est suspendu : ni déplacement, ni rotation, ni roulis. Toute la souris
     est alors prise par le poste : les mouvements et clics sur la dalle sont transmis à l'interface (position
     convertie en pixels de l'image), les autres sont ignorés (pas de tir, pas de clic sur le reste de l'interface).
     Indication en bas de la vue : « Clic droit : quitter le poste de pilotage » ;
   - clic droit : retour en 0,6 s à la position et à l'orientation d'avant, l'observateur reprend la main.
-- **Interface** (`scripts/ui/pilot_display.gd`, construite en code) : carte à gauche, colonne d'informations à droite
-  (heure UTC, position, altitude, inclinaison, période, vitesse orbitale).
+- **Interface** (`scripts/ui/pilot_display.gd`, construite en code) : carte à gauche ; à droite, l'orbite actuelle
+  (heure UTC, position, altitude, inclinaison, période, vitesse orbitale) puis la **manœuvre** : curseurs de
+  l'**inclinaison visée** (0 à 80°) et de l'**altitude visée** (400 à 800 km), Δv de la manœuvre, bouton
+  **Annuler** (cible ramenée sur l'orbite actuelle) et **compte à rebours du prochain nœud** (« Nœud ascendant /
+  descendant dans 31:10 », temps de jeu).
+- **Règles de la manœuvre** (`scripts/flight_computer.gd`, nœud `FlightComputer`) :
+  - tant que la cible diffère de l'orbite réelle (plus de 0,05° ou 0,5 km), une manœuvre est prévue et son orbite,
+    la **trace fantôme**, est affichée ;
+  - la manœuvre se fait **au prochain nœud** (passage à l'équateur, toutes les demi-périodes, ~46 min) : là, la
+    latitude est nulle et toute inclinaison est possible. L'orbite fantôme passe par ce point, avec l'inclinaison et
+    l'altitude visées, dans le même sens (montant au nœud ascendant, descendant au nœud descendant) ; un changement
+    de plan au nœud fait tourner l'orbite autour de la ligne des nœuds, qui reste en place (même Ω). L'orbite reste
+    **circulaire** ;
+  - Δv affiché : changement de plan 2·v·sin(Δi/2) plus transfert de Hohmann entre les deux altitudes (somme des deux
+    impulsions) ; ~4,2 km/s pour passer de 51,6° à 20°, les changements de plan sont coûteux.
+- **Trace fantôme** : sur la carte, trace au sol de l'orbite fantôme en **pointillés cyan** sur une période, à partir
+  du nœud (losange cyan, toujours affiché) ; en 3D, **anneau en pointillés cyan autour de la Terre**
+  (`scripts/ghost_track.gd`, nœud `GhostTrack`, `MeshInstance3D` + `ImmediateMesh` en lignes, 720 segments, un sur
+  deux tracés par paires). L'anneau est construit dans le repère inertiel ECI (orbite fixe dans l'espace) et, à
+  chaque image après `Orbit`, placé au centre de la Terre et tourné par `Orbit.get_eci_to_world()` : la Terre tourne
+  dessous, sa trace au sol reste cohérente. Rendu non éclairé, couleur × 3 (HDR) pour rester visible sur la Terre
+  éclairée ; caché quand aucune manœuvre n'est prévue.
 - **Carte** (`scripts/ui/orbital_map.gd`) : projection de **Mercator de 80° N à 80° S** (rapport largeur / hauteur
   2π / (2·ln tan(45° + 40°)) ≈ 1,29), lignes blanches sur fond noir : contours des pays et des continents
   (`assets/world_map_lines.res`, Natural Earth 1:50 M, `scripts/world_map_lines.gd`, généré par
   `tools/build_map_lines.gd` ; sommets à au moins 0,05° les uns des autres). Méridiens et parallèles tous les 10° et
   équateur en gris. Trace au sol de l'orbite en vert (sinusoïde déformée par la projection et décalée vers l'ouest à
   chaque tour par la rotation de la Terre) : demi-période passée en vert sombre, 1,5 période à venir en vert vif,
-  coupée à l'antiméridien ; station en jaune (flèche dans le sens du déplacement, cerclée). Le fond (≈ 85 000
+  coupée à l'antiméridien ; station en jaune (flèche dans le sens du déplacement, cerclée) ; prochain nœud et trace
+  fantôme en cyan (voir ci-dessus). Le fond (≈ 85 000
   segments) est rendu **une seule fois** dans la texture d'un `SubViewport` (`UPDATE_ONCE`, MSAA 4×) : redessiner
   autant de lignes lissées à chaque image coûtait ~20 ms de CPU (35 im/s) ; la trace et la station sont redessinées à
   chaque image.
@@ -544,11 +566,15 @@ v = acos(d.y)/π, d'où d = (y_ECI, z_ECI, x_ECI). `sky_rotation` reçoit la rot
 **Conditions initiales** : `start_latitude_deg`, `start_longitude_deg` et `start_ascending` (40,4° N, 3,7° O,
 montante : l'Espagne, au-dessus de Madrid). L'orbite est calculée pour y passer (`pass_over`).
 
-**API pour le gameplay** (classe `OrbitSimulation` ; altitude, inclinaison et temps sont reliés au panneau) :
+**API pour le gameplay** (classe `OrbitSimulation`, groupe `orbit` ; le temps est relié au panneau, altitude et
+inclinaison au poste de pilotage et au panneau de debug) :
 | Méthode / propriété | Rôle |
 |---|---|
 | `altitude_km` (200–800) | Change l'altitude ; le point survolé et le sens de passage sont conservés. |
-| `inclination_deg` (0–70°) | Change l'inclinaison au point courant (comme une manœuvre de changement de plan) ; bornée à ≥ \|latitude courante\|. |
+| `inclination_deg` (0–80°) | Change l'inclinaison au point courant (comme une manœuvre de changement de plan) ; bornée à ≥ \|latitude courante\|. |
+| `get_next_node_time_s()`, `is_ascending_node_at(t)` | Temps simulé du prochain passage à l'équateur (u multiple de π ; orbite équatoriale : maintenant), nœud ascendant ou descendant. |
+| `circular_position_eci(rayon, i, Ω, u)`, `mean_motion_at(altitude)` | Position sur une orbite circulaire quelconque, vitesse angulaire (orbite fantôme du poste de pilotage). |
+| `get_eci_to_world()`, `ecef_to_world` | Rotations ECI → scène et ECEF → scène de la dernière image (objets fixes dans l'espace inertiel autour de la Terre). |
 | `pass_over(lat, lon, ascending)` | Recalcule Ω et la phase pour être, maintenant, à la verticale de (lat, lon). Exige \|lat\| ≤ inclinaison. |
 | `restart(heure_solaire)` | Temps remis à zéro, station au-dessus du point de départ, le même jour, à l'heure solaire locale donnée (12 = midi, 0 = minuit). Utilisé par les boutons Restart. |
 | `set_utc_unix_s(s)`, `get_utc_unix_s()`, `get_utc_datetime()` | Date et heure UTC (secondes Unix) ; le changement garde la station au-dessus du même point. |
@@ -558,10 +584,10 @@ montante : l'Espagne, au-dessus de Madrid). L'orbite est calculée pour y passer
 | `get_period_s()`, `get_orbital_speed_km_s()`, `get_raan_deg()`, `is_ascending()` | Grandeurs orbitales. |
 | `time_scale`, `sim_time_s` | Accélération / temps simulé. |
 
-**Inclinaison maximale (70°) et pôles** : la trace au sol monte jusqu'à la latitude égale à l'inclinaison, et la vue
-porte ~20° plus loin, donc presque jusqu'au pôle à 70°. Aux plus hautes latitudes, la fenêtre de tuiles HD (découpée
-en latitude/longitude) devient étroite : au-delà de ~65° de latitude, le sol loin du nadir peut être un peu moins
-net. Pour survoler les pôles sans perte, il faudrait un découpage en « cube-sphère » (voir plus bas).
+**Inclinaison maximale (80°) et pôles** : la trace au sol monte jusqu'à la latitude égale à l'inclinaison (80° :
+limite de la carte Mercator du poste de pilotage), et la vue porte ~20° plus loin, donc jusqu'au pôle. Aux plus
+hautes latitudes, la fenêtre de tuiles HD (découpée en latitude/longitude) devient étroite : au-delà de ~65° de
+latitude, le sol loin du nadir peut être un peu moins net (la limite était de 70° avant le poste de pilotage). Pour survoler les pôles sans perte, il faudrait un découpage en « cube-sphère » (voir plus bas).
 
 ### Nuages volumétriques (`shaders/cloud_volume.gdshader`, `shaders/cloud_density.gdshaderinc`)
 
@@ -657,7 +683,7 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
   fichiers dans le paquet (filtre d'export de fichiers non-ressources ou distribution à côté de l'exécutable).
 - **Pôles** : le découpage latitude/longitude (équirectangulaire) dégénère aux pôles. Les tuiles y deviennent des
   bandes très étroites, la fenêtre 5 × 5 ne couvre presque plus rien, et le maillage `SphereMesh` pince ses UV.
-  D'où la limite d'inclinaison à 70°. La technique standard pour survoler les pôles sans dégrader la vue est la
+  D'où une Terre moins nette au-delà de ~70° de latitude (inclinaison maximale : 80°). La technique standard pour survoler les pôles sans dégrader la vue est la
   **cube-sphère** : on projette la Terre sur les 6 faces d'un cube (chaque face découpée en tuiles carrées
   quasi uniformes), avec un maillage de sphère issu du cube et des coordonnées calculées par pixel à partir de la
   direction. Il n'y a alors plus de singularité nulle part. Cela demande de reprojeter les tuiles NASA (outil

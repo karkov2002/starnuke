@@ -20,19 +20,21 @@ extends Node
 
 signal orbit_changed
 
+const GROUP := &"orbit"
 const MU_KM3_S2 := 398600.4418
 const EARTH_RADIUS_KM := 6371.0
 const EARTH_ROTATION_RAD_S := 7.2921159e-5 # rotation sidérale
 const SCENE_UNITS_PER_KM := 0.1
 const MIN_ALTITUDE_KM := 200.0
 const MAX_ALTITUDE_KM := 800.0
-## Au-delà, la fenêtre de tuiles HD (en longitude/latitude) se déforme trop près des pôles.
-const MAX_INCLINATION_DEG := 70.0
+## Limite de la carte de l'écran de pilotage (Mercator ±80°). Au-delà de ~70° de latitude, la fenêtre de tuiles HD
+## (en longitude/latitude) couvre moins bien la vue : la Terre y est un peu moins nette.
+const MAX_INCLINATION_DEG := 80.0
 
 @export_group("Orbite")
 @export_range(200.0, 800.0, 1.0, "suffix:km") var altitude_km := 400.0:
 	set = set_altitude_km
-@export_range(0.0, 70.0, 0.1, "suffix:°") var inclination_deg := 51.6:
+@export_range(0.0, 80.0, 0.1, "suffix:°") var inclination_deg := 51.6:
 	set = set_inclination_deg
 ## Facteur d'accélération du temps (1 = temps réel).
 @export var time_scale := 1.0
@@ -57,6 +59,8 @@ const MAX_INCLINATION_DEG := 70.0
 
 ## Temps simulé écoulé depuis le démarrage (s).
 var sim_time_s := 0.0
+## Rotation du repère ECEF vers la scène, à la dernière image (voir _update_scene).
+var ecef_to_world := Basis.IDENTITY
 ## Instant UTC (secondes depuis le 1er janvier 1970) correspondant à sim_time_s = 0.
 var epoch_unix_s := 0.0
 
@@ -71,6 +75,7 @@ var _environment: Environment
 
 
 func _ready() -> void:
+	add_to_group(GROUP)
 	_earth = get_node(earth_path)
 	_station = get_node(station_path)
 	_observer = get_node(observer_path)
@@ -213,12 +218,46 @@ func get_argument_of_latitude(time_s: float) -> float:
 
 
 func get_position_eci(time_s: float) -> Vector3:
-	var u := get_argument_of_latitude(time_s)
-	var i := deg_to_rad(inclination_deg)
-	return get_semi_major_axis_km() * Vector3(
-		cos(_raan) * cos(u) - sin(_raan) * sin(u) * cos(i),
-		sin(_raan) * cos(u) + cos(_raan) * sin(u) * cos(i),
-		sin(u) * sin(i))
+	return circular_position_eci(get_semi_major_axis_km(), deg_to_rad(inclination_deg), _raan,
+			get_argument_of_latitude(time_s))
+
+
+## Position ECI (km) sur une orbite circulaire quelconque : rayon, inclinaison i, ascension droite du nœud
+## ascendant Ω, argument de latitude u (angles en radians).
+static func circular_position_eci(radius_km: float, inclination: float, raan: float, arg_lat: float) -> Vector3:
+	return radius_km * Vector3(
+		cos(raan) * cos(arg_lat) - sin(raan) * sin(arg_lat) * cos(inclination),
+		sin(raan) * cos(arg_lat) + cos(raan) * sin(arg_lat) * cos(inclination),
+		sin(arg_lat) * sin(inclination))
+
+
+## Vitesse angulaire (rad/s) d'une orbite circulaire à l'altitude donnée.
+static func mean_motion_at(altitude: float) -> float:
+	var a := EARTH_RADIUS_KM + altitude
+	return sqrt(MU_KM3_S2 / (a * a * a))
+
+
+## Temps simulé (s) du prochain passage à l'équateur (nœud ascendant ou descendant) strictement après after_s.
+## Orbite équatoriale (inclinaison < 0,01°) : la station est toujours sur l'équateur, after_s est renvoyé.
+func get_next_node_time_s(after_s := sim_time_s) -> float:
+	if inclination_deg < 0.01:
+		return after_s
+	var n := get_mean_motion()
+	var u := get_argument_of_latitude(after_s)
+	var u_next := (floorf(u / PI) + 1.0) * PI
+	return after_s + (u_next - u) / n
+
+
+## Le nœud du temps time_s (passage à l'équateur) est-il ascendant (vers le nord) ?
+func is_ascending_node_at(time_s: float) -> bool:
+	return posmod(roundi(get_argument_of_latitude(time_s) / PI), 2) == 0
+
+
+## Rotation ECI -> scène à la dernière image (rotation de la Terre comprise) : pour placer des objets fixes dans le
+## repère inertiel (orbites) autour de la Terre.
+func get_eci_to_world() -> Basis:
+	var theta := get_sidereal_angle(sim_time_s)
+	return ecef_to_world * Basis(Vector3(cos(theta), -sin(theta), 0), Vector3(sin(theta), cos(theta), 0), Vector3(0, 0, 1))
 
 
 ## Direction de la vitesse inertielle (unitaire).
@@ -346,7 +385,7 @@ func _update_scene() -> void:
 	var forward_w := -_station.global_basis.z.normalized()
 	forward_w = (forward_w - zenith_w * zenith_w.dot(forward_w)).normalized()
 	var world_frame := Basis(zenith_w, forward_w, zenith_w.cross(forward_w))
-	var ecef_to_world := world_frame * ecef_frame.transposed()
+	ecef_to_world = world_frame * ecef_frame.transposed()
 
 	# Repère du maillage de la Terre (SphereMesh : +Y = nord, u = 0 vers +Z = longitude −180°) vers ECEF.
 	var mesh_to_ecef := Basis(Vector3(0, -1, 0), Vector3(0, 0, 1), Vector3(-1, 0, 0))

@@ -5,7 +5,7 @@ extends Node
 ## dessinée dans un SubViewport, shaders/pilot_screen.gdshader).
 ## - Survol de l'écran à portée (reach_m) : bulle « Contrôle orbital » au curseur.
 ## - Clic gauche sur l'écran : position « poste de pilotage » (la vue se cadre face à l'écran, déplacements et
-##   rotation de la tête suspendus) ; les clics et mouvements de la souris sur l'écran sont transmis à l'interface.
+##   rotation de la tête suspendus, temps ramené à ×1) ; les clics et mouvements de la souris sur l'écran sont transmis à l'interface.
 ##   L'interface ne réagit qu'en position « poste de pilotage ».
 ## - Clic droit : on quitte le poste (retour à la position et à l'orientation d'avant).
 
@@ -19,6 +19,7 @@ const VIEWPORT_HEIGHT := 1000
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
 @export var observer_path: NodePath = ^"../Observer"
 @export var orbit_path: NodePath = ^"../Orbit"
+@export var flight_computer_path: NodePath = ^"../FlightComputer"
 ## Distance maximale (m) entre l'œil et l'écran pour le survol et le clic.
 @export var reach_m := 2.5
 ## Part de la hauteur (ou de la largeur) de la vue occupée par l'écran en position « poste de pilotage ».
@@ -29,6 +30,7 @@ const VIEWPORT_HEIGHT := 1000
 @export var screen_energy := 1.0
 
 var _observer: Node3D
+var _orbit: OrbitSimulation
 var _camera: Camera3D
 var _screen: MeshInstance3D
 var _viewport: SubViewport
@@ -69,7 +71,9 @@ func _ready() -> void:
 	add_child(_viewport)
 	_display = PilotDisplay.new()
 	_display.size = Vector2(_viewport.size)
-	_display.orbit = get_node(orbit_path) as OrbitSimulation
+	_orbit = get_node(orbit_path) as OrbitSimulation
+	_display.orbit = _orbit
+	_display.flight_computer = get_node(flight_computer_path) as FlightComputer
 	_viewport.add_child(_display)
 	_apply_screen_material()
 	_build_hints()
@@ -161,6 +165,8 @@ func _sit() -> void:
 	var look := Basis.looking_at(-toward_viewer, -v.normalized())
 	var local_rotation := (_observer.global_basis.inverse() * look).get_rotation_quaternion()
 	_set_observer_active(false)
+	# Au poste, le temps repasse à ×1 (les manœuvres se jouent en temps réel).
+	_orbit.time_scale = 1.0
 	_seated = true
 	_move_to(eye, local_rotation, func() -> void: _moving = false)
 	seated_changed.emit(true)

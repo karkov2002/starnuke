@@ -19,6 +19,8 @@
 [ext_resource type="Script" uid="uid://bgi6yfr881t3f" path="res://scripts/ui/fps_overlay.gd" id="16_wdqx1"]
 [ext_resource type="Script" uid="uid://dvxsvn2icyohm" path="res://scripts/exposure_control.gd" id="17_expo"]
 [ext_resource type="Script" uid="uid://ce2csaftt2o2t" path="res://scripts/pilot_console.gd" id="19_uophr"]
+[ext_resource type="Script" uid="uid://c4f5bdffakcce" path="res://scripts/flight_computer.gd" id="20_75yn7"]
+[ext_resource type="Script" uid="uid://8k2ktko5qj80" path="res://scripts/ghost_track.gd" id="21_ll3fm"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -133,6 +135,12 @@ script = ExtResource("16_wdqx1")
 
 [node name="Exposure" type="Node" parent="." unique_id=925671815]
 script = ExtResource("17_expo")
+
+[node name="FlightComputer" type="Node" parent="." unique_id=1615376048]
+script = ExtResource("20_75yn7")
+
+[node name="GhostTrack" type="MeshInstance3D" parent="." unique_id=1187155440]
+script = ExtResource("21_ll3fm")
 
 [node name="PilotConsole" type="Node" parent="." unique_id=391993888]
 script = ExtResource("19_uophr")

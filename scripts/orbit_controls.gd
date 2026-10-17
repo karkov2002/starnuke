@@ -1,8 +1,8 @@
 extends CanvasLayer
-## Panneau de contrôle de l'orbite, en bas au centre de l'écran : altitude (200–800 km), inclinaison (0–70°),
-## date et heure UTC (champ date, ±1 jour, curseur d'heure), vitesse du temps (pause, x1 à x16) et redémarrage
-## au-dessus de l'Europe à midi / minuit. Les curseurs pilotent le nœud Orbit en direct ; hors manipulation,
-## ils affichent les valeurs réellement appliquées (l'inclinaison est bornée par la latitude courante).
+## Panneau de contrôle de la cupola, en bas au centre de l'écran : date et heure UTC (champ date, ±1 jour, curseur
+## d'heure), vitesse du temps (pause, x1 à x16), redémarrage au-dessus de l'Europe à midi / minuit, et tir
+## (nuke/launch_control.gd). L'orbite ne s'y règle plus : elle se pilote au poste de pilotage (PilotConsole) ;
+## altitude et inclinaison directes restent dans le panneau de debug (F4, outil de développement).
 
 ## Le panneau (et le réticule de tir) n'apparaît que quand l'observateur est dans la cupola (Station.is_in_cupola) :
 ## fondu d'apparition et de disparition en FADE_S.
@@ -15,8 +15,6 @@ const FADE_S := 0.5
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
 
 var _orbit: OrbitSimulation
-var _dragging_altitude := false
-var _dragging_inclination := false
 var _dragging_hour := false
 var _time_buttons: Array[Button] = []
 var _date_edit: LineEdit
@@ -26,10 +24,6 @@ var _in_cupola := true
 var _fade: Tween
 
 @onready var _panel: PanelContainer = $Panel
-@onready var _altitude_label: Label = $Panel/Row/Altitude/AltitudeLabel
-@onready var _altitude_slider: HSlider = $Panel/Row/Altitude/AltitudeSlider
-@onready var _inclination_label: Label = $Panel/Row/Inclination/InclinationLabel
-@onready var _inclination_slider: HSlider = $Panel/Row/Inclination/InclinationSlider
 @onready var _time_label: Label = $Panel/Row/Time/TimeLabel
 @onready var _time_buttons_box: HBoxContainer = $Panel/Row/Time/TimeButtons
 
@@ -42,27 +36,12 @@ func _ready() -> void:
 	_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_panel.add_theme_stylebox_override("panel", _make_panel_style())
 	$Panel/Row.add_theme_constant_override("separation", 32)
-	# Largeurs fixes : le panneau ne doit pas changer de taille quand les valeurs affichées changent.
-	for column: Control in [$Panel/Row/Altitude, $Panel/Row/Inclination]:
-		column.custom_minimum_size.x = 330.0
+	# Largeur fixe : le panneau ne doit pas changer de taille quand les valeurs affichées changent.
 	$Panel/Row/Time.custom_minimum_size.x = 380.0
-	for label: Label in [_altitude_label, _inclination_label, _time_label]:
-		label.clip_text = true
-		# Textes composés à chaque image (tr() + format) : pas de traduction automatique.
-		label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_time_label.clip_text = true
+	# Texte composé à chaque image (tr() + format) : pas de traduction automatique.
+	_time_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_time_buttons_box.add_theme_constant_override("separation", 4)
-
-	_altitude_slider.min_value = OrbitSimulation.MIN_ALTITUDE_KM
-	_altitude_slider.max_value = OrbitSimulation.MAX_ALTITUDE_KM
-	_altitude_slider.value_changed.connect(func(value: float) -> void: _orbit.altitude_km = value)
-	_altitude_slider.drag_started.connect(func() -> void: _dragging_altitude = true)
-	_altitude_slider.drag_ended.connect(func(_changed: bool) -> void: _dragging_altitude = false)
-
-	_inclination_slider.min_value = 0.0
-	_inclination_slider.max_value = OrbitSimulation.MAX_INCLINATION_DEG
-	_inclination_slider.value_changed.connect(func(value: float) -> void: _orbit.inclination_deg = value)
-	_inclination_slider.drag_started.connect(func() -> void: _dragging_inclination = true)
-	_inclination_slider.drag_ended.connect(func(_changed: bool) -> void: _dragging_inclination = false)
 
 	$Panel/Row/Restart/RestartButtons.add_theme_constant_override("separation", 4)
 	$Panel/Row/Restart/RestartButtons/DayButton.pressed.connect(func() -> void: _orbit.restart(12.0))
@@ -85,18 +64,10 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	_update_visibility()
-	if not _dragging_altitude:
-		_altitude_slider.set_value_no_signal(_orbit.altitude_km)
-	if not _dragging_inclination:
-		_inclination_slider.set_value_no_signal(_orbit.inclination_deg)
 	for i in TIME_SCALES.size():
 		_time_buttons[i].set_pressed_no_signal(is_equal_approx(_orbit.time_scale, TIME_SCALES[i]))
 
 	var point: Vector2 = _orbit.get_subsatellite_point()
-	_altitude_label.text = tr("HUD_ALTITUDE").format({"altitude": roundi(_orbit.altitude_km),
-			"period": "%.1f" % (_orbit.get_period_s() / 60.0)})
-	_inclination_label.text = tr("HUD_INCLINATION").format({"inclination": "%.1f" % _orbit.inclination_deg,
-			"latitude": _format_angle(point.x, "DIR_N", "DIR_S"), "longitude": _format_angle(point.y, "DIR_E", "DIR_W")})
 
 	var now := _orbit.get_utc_datetime()
 	var date := tr("HUD_DATE").format({"day": "%02d" % now.day, "month": "%02d" % now.month, "year": now.year})
@@ -205,11 +176,6 @@ func _format_hour(hour: float) -> String:
 	var minutes := int(hour * 60.0) % 1440
 	@warning_ignore("integer_division")
 	return "%02d:%02d" % [minutes / 60, minutes % 60]
-
-
-## « 42.0° N » : positive et negative sont les clés de langue des directions (DIR_N, DIR_S…).
-func _format_angle(value: float, positive: String, negative: String) -> String:
-	return "%.1f° %s" % [absf(value), tr(positive if value >= 0.0 else negative)]
 
 
 func _make_panel_style() -> StyleBoxFlat:

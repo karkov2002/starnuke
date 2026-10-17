@@ -2,8 +2,9 @@ class_name OrbitalMap
 extends Control
 ## Carte du monde de l'écran de pilotage (scripts/ui/pilot_display.gd), en projection de Mercator de MAX_LAT_DEG nord
 ## à MAX_LAT_DEG sud : contours des pays en lignes blanches sur fond noir (WorldMapLines, Natural Earth), méridiens et
-## parallèles tous les 10° et équateur en gris, trace au sol de l'orbite en vert (passée en vert sombre) et position
-## de la station.
+## parallèles tous les 10° et équateur en gris, trace au sol de l'orbite en vert (passée en vert sombre), position
+## de la station, prochain nœud (passage à l'équateur, losange cyan) et, si une manœuvre est prévue, trace au sol
+## de l'orbite fantôme en pointillés cyan (FlightComputer), sur une période à partir du nœud.
 ## Deux calques : le fond fixe (grille, pays : ~85 000 segments), rendu une seule fois dans la texture d'un
 ## SubViewport (redessiner autant de lignes lissées à chaque image coûtait ~20 ms de CPU), et le calque mobile (trace,
 ## station), redessiné à chaque image. Rapport largeur / hauteur fixe : ASPECT ; la taille est fixée avant l'ajout
@@ -23,11 +24,15 @@ const COLOR_EQUATOR := Color(0.6, 0.6, 0.6, 0.9)
 const COLOR_TRACK := Color(0.2, 1.0, 0.35)
 const COLOR_TRACK_PAST := Color(0.15, 0.55, 0.22)
 const COLOR_STATION := Color(1.0, 0.95, 0.4)
+const COLOR_GHOST := Color(0.3, 0.85, 1.0)
+## Pointillés de la trace fantôme : DASH pas de la trace tracés, puis DASH pas vides.
+const DASH := 2
 
 ## Rapport largeur / hauteur de la carte : 360° de longitude sur ±MAX_LAT_DEG en Mercator.
 static var ASPECT := TAU / (2.0 * mercator(MAX_LAT_DEG))
 
 var orbit: OrbitSimulation
+var flight_computer: FlightComputer
 
 var _base: Control
 var _overlay: Control
@@ -108,11 +113,24 @@ func _draw_overlay() -> void:
 	var period := orbit.get_period_s()
 	_draw_track(_overlay, orbit.get_subsatellite_point, now - TRACK_PAST * period, now, COLOR_TRACK_PAST, 2.0)
 	_draw_track(_overlay, orbit.get_subsatellite_point, now, now + TRACK_AHEAD * period, COLOR_TRACK, 2.5)
+	if flight_computer:
+		if flight_computer.has_plan():
+			var ghost := flight_computer.get_ghost()
+			var ghost_at := func(t: float) -> Vector2: return flight_computer.ghost_ground_point(ghost, t)
+			_draw_track(_overlay, ghost_at, ghost.node_time_s, ghost.node_time_s + TAU / ghost.mean_motion, COLOR_GHOST,
+					2.5, true)
+		var node := orbit.get_subsatellite_point(flight_computer.get_node_time_s())
+		var at := project(node.x, node.y)
+		var r := 11.0
+		_overlay.draw_colored_polygon(PackedVector2Array([at + Vector2(0, -r), at + Vector2(r, 0), at + Vector2(0, r),
+				at + Vector2(-r, 0)]), COLOR_GHOST)
 	_draw_station(_overlay)
 
 
-## Trace au sol de point_at(t) -> Vector2(lat, lon) entre from_s et to_s, coupée au passage de l'antiméridien.
-func _draw_track(layer: Control, point_at: Callable, from_s: float, to_s: float, color: Color, width: float) -> void:
+## Trace au sol de point_at(t) -> Vector2(lat, lon) entre from_s et to_s, coupée au passage de l'antiméridien,
+## pleine ou en pointillés.
+func _draw_track(layer: Control, point_at: Callable, from_s: float, to_s: float, color: Color, width: float,
+		dashed := false) -> void:
 	var segment := PackedVector2Array()
 	var previous := Vector2(NAN, NAN)
 	var t := from_s
@@ -124,16 +142,30 @@ func _draw_track(layer: Control, point_at: Callable, from_s: float, to_s: float,
 			var edge := 180.0 if previous.y > 0.0 else -180.0
 			var lat_edge := (previous.x + point.x) * 0.5
 			segment.append(project(lat_edge, edge))
-			if segment.size() >= 2:
-				layer.draw_polyline(segment, color, width, true)
+			_stroke(layer, segment, color, width, dashed)
 			segment = PackedVector2Array([project(lat_edge, -edge)])
 		segment.append(project(point.x, point.y))
 		previous = point
 		if t >= to_s:
 			break
 		t += TRACK_STEP_S
-	if segment.size() >= 2:
-		layer.draw_polyline(segment, color, width, true)
+	_stroke(layer, segment, color, width, dashed)
+
+
+func _stroke(layer: Control, points: PackedVector2Array, color: Color, width: float, dashed: bool) -> void:
+	if points.size() < 2:
+		return
+	if not dashed:
+		layer.draw_polyline(points, color, width, true)
+		return
+	var dashes := PackedVector2Array()
+	for k in points.size() - 1:
+		@warning_ignore("integer_division")
+		if (k / DASH) % 2 == 0:
+			dashes.append(points[k])
+			dashes.append(points[k + 1])
+	if not dashes.is_empty():
+		layer.draw_multiline(dashes, color, width, true)
 
 
 func _draw_station(layer: Control) -> void:

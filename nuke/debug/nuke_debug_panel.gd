@@ -5,7 +5,10 @@ extends CanvasLayer
 ## - scrubber du temps physique de la dernière explosion : « Rejouer » fige toutes les explosions au temps du
 ##   curseur (time_override_s), sinon le curseur suit le temps réel de l'effet ;
 ## - « Effacer » supprime toutes les explosions ; « Marqueurs » affiche les marqueurs de taille (NukeEffect) ;
-## - menu « Alerte » : niveau d'alerte de la station (couleur des luminaires intérieurs, Station.set_alert).
+## - menu « Alerte » : niveau d'alerte de la station (couleur des luminaires intérieurs, Station.set_alert) ;
+## - orbite (partie en cours seulement) : altitude (200–800 km) et inclinaison (0–80°) appliquées directement au
+##   nœud Orbit, au point courant, sans manœuvre (outil de développement : en jeu, l'orbite se pilote au poste de
+##   pilotage). L'inclinaison est bornée par la latitude courante.
 
 const SCRUB_MAX_S := 432000.0
 ## Le curseur va jusqu'à 5 jours (incendies, qui s'étendent sur plusieurs jours) et n'est pas linéaire (t = SCRUB_MAX_S · v⁵) :
@@ -23,6 +26,9 @@ var _scrub_label: Label
 var _replay: CheckBox
 var _markers: CheckBox
 var _last: NukeEffect
+var _orbit_label: Label
+var _altitude: HSlider
+var _inclination: HSlider
 
 
 func _ready() -> void:
@@ -103,6 +109,17 @@ func _ready() -> void:
 	_scrub.drag_started.connect(func() -> void: _replay.button_pressed = true)
 	box.add_child(_scrub)
 
+	if _get_orbit():
+		box.add_child(HSeparator.new())
+		_orbit_label = Label.new()
+		box.add_child(_orbit_label)
+		_altitude = _make_slider(OrbitSimulation.MIN_ALTITUDE_KM, OrbitSimulation.MAX_ALTITUDE_KM, 1.0,
+				func(value: float) -> void: _get_orbit().altitude_km = value)
+		box.add_child(_altitude)
+		_inclination = _make_slider(0.0, OrbitSimulation.MAX_INCLINATION_DEG, 0.1,
+				func(value: float) -> void: _get_orbit().inclination_deg = value)
+		box.add_child(_inclination)
+
 	_on_yield_changed(_yield_slider.value)
 
 
@@ -112,6 +129,30 @@ func _process(_delta: float) -> void:
 	if _last and not _replay.button_pressed:
 		_scrub.set_value_no_signal(pow(minf(_last.get_time_s() / SCRUB_MAX_S, 1.0), 1.0 / SCRUB_POWER))
 	_scrub_label.text = "t = %s" % _format_duration(_scrub_time()) if _last else "t = —"
+	var orbit := _get_orbit()
+	if orbit and _orbit_label:
+		_orbit_label.text = "Orbite : altitude %d km · inclinaison %.1f°" % [roundi(orbit.altitude_km), orbit.inclination_deg]
+		# Hors manipulation, les curseurs affichent les valeurs réellement appliquées.
+		for pair: Array in [[_altitude, orbit.altitude_km], [_inclination, orbit.inclination_deg]]:
+			var slider: HSlider = pair[0]
+			if not slider.has_meta(&"dragging"):
+				slider.set_value_no_signal(pair[1])
+
+
+func _get_orbit() -> OrbitSimulation:
+	return get_tree().get_first_node_in_group(OrbitSimulation.GROUP) as OrbitSimulation
+
+
+func _make_slider(min_value: float, max_value: float, step: float, action: Callable) -> HSlider:
+	var slider := HSlider.new()
+	slider.min_value = min_value
+	slider.max_value = max_value
+	slider.step = step
+	slider.focus_mode = Control.FOCUS_NONE
+	slider.value_changed.connect(action)
+	slider.drag_started.connect(func() -> void: slider.set_meta(&"dragging", true))
+	slider.drag_ended.connect(func(_changed: bool) -> void: slider.remove_meta(&"dragging"))
+	return slider
 
 
 func _launcher() -> NukeLauncher:
