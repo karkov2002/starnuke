@@ -183,8 +183,16 @@ traduit (outil de développement, comme la console et le panneau de debug).
 ## Station spatiale (modèle Blender)
 
 Modèle `assets/station/station_spatiale.glb` (Blender, ~60 Mo, textures intégrées ; conventions dans
-`assets/station/LISEZMOI_GODOT.md`). **Ne jamais modifier le .glb** : il est réexporté depuis Blender avec les mêmes
-noms de nœuds ; tout réglage passe par son `.import`, le script de post-import et la scène héritée.
+`assets/station/LISEZMOI_GODOT.md`). **Ne jamais retoucher le .glb à la main** : il n'est produit que par l'export Blender, avec les mêmes
+noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script de post-import et la scène héritée.
+- **Export depuis Blender** (`tools/blender/export_station.py`, envoyé au Blender ouvert par `tools/blender_exec.ps1`,
+  extension « MCP » de Blender Lab sur le port 9876) : pose de repos (image 1), lumières de travail `Soleil` et
+  `Reflet_Terre` masquées, GLB sans caméras ni Draco, lumières intérieures, extras, modificateurs appliqués mais
+  **jamais les transformations** (les pivots `Pivot_*`, `Charniere_*`, `Radiateur_*_Articulation_*` portent les axes
+  des animations et des Tweens), une piste NLA = une animation (`Fermeture_Ecoutilles`, `Ouverture_Trappes`,
+  `Lancement_Missile`, `Balayage_Antennes`, `Rotation_Panneaux`, `Retraction_Radiateurs`, contrôlées avant export),
+  copie de la notice `LISEZMOI_GODOT.md`. Orientation : axe des modules = +X (Commande vers +X), Terre vers −Y.
+  Règle : pas de réexport vers le projet sans le feu vert de l'utilisateur.
 - **Import** (`station_spatiale.glb.import`) : échelle 1 (mètres), racine `StationSpatiale`, collisions par
   suffixes de noms (`-col` : collision statique concave + maillage ; `-convcolonly` : collision convexe seule),
   LOD générés, animations à 24 i/s, **Rotation_Panneaux** (plus jouée : suivi du soleil, voir plus bas) et **Balayage_Antennes** en boucle (les autres jouées

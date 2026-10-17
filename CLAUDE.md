@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 « Star Nuke » — projet de jeu **Godot 4.7** (moteur de rendu Forward Plus, physique 3D Jolt, pilote D3D12 sous Windows).
 État actuel : un POC de vue orbitale. Scène principale : l'écran de démarrage `res://scenes/ui/main_menu.tscn` (Start Game,
-Settings, Quit), qui charge la vue orbitale `res://scenes/orbit_view.tscn` (Terre + ciel étoilé + station Blender `scenes/station_spatiale.tscn`, script `scripts/station.gd`, sous le nœud `Station` ; l'ancienne `scenes/iss_cupola.tscn` est gardée). Modèle `assets/station/station_spatiale.glb` : ne jamais le modifier (réexporté depuis Blender), régler via son `.import`, `tools/import/station_import.gd` et la scène héritée.
+Settings, Quit), qui charge la vue orbitale `res://scenes/orbit_view.tscn` (Terre + ciel étoilé + station Blender `scenes/station_spatiale.tscn`, script `scripts/station.gd`, sous le nœud `Station` ; l'ancienne `scenes/iss_cupola.tscn` est gardée). Modèle `assets/station/station_spatiale.glb` : jamais retouché à la main, il n'est produit que par l'export Blender (`tools/blender/export_station.py`) ; réglages côté Godot via son `.import`, `tools/import/station_import.gd` et la scène héritée.
 Paramètres du joueur (vidéo, langue) : autoload `GameSettings` (`scripts/game_settings.gd`), sauvés dans `user://settings.cfg`,
 écran `scenes/ui/settings_menu.tscn` (README, « Écran de démarrage, paramètres et langues »). Exposition : le nœud `Exposure`
 (`scripts/exposure_control.gd`) impose la **sensibilité de l'exposition automatique Godot (min = max)** d'après le
@@ -62,8 +62,11 @@ le même identifiant d'`ext_resource`) : pour une deuxième instance, écrire le
   les fichiers `.tscn` à la main. Il nécessite que l'éditeur Godot soit ouvert sur le projet.
 - Blender ouvert sur `E:\Blender\nuke_station.blend` avec l'extension officielle « MCP » de Blender Lab (serveur TCP
   `localhost:9876`) : lui envoyer du Python avec `tools/blender_exec.ps1` (`-Code '...'` ou `-File script.py` ; le
-  code assigne `result`). Lecture libre ; toute modification du modèle se fait dans Blender à la demande de
-  l'utilisateur, qui réexporte le `.glb` lui-même.
+  code assigne `result`). Mêmes capacités que depuis Claude Desktop. Chaîne : modifier le modèle dans Blender
+  (contrôle par rendu), exporter avec `tools/blender/export_station.py` (réglages figés : pivots jamais appliqués,
+  une piste NLA = une animation, extras, suffixes `-col`/`-convcolonly`, sans Draco), rescan Godot, capture en jeu.
+  **Règle : pas de réexport vers le projet Godot sans le feu vert explicite de l'utilisateur** (modifier et rendre
+  dans Blender reste libre). Chaque réexport est commité, en précisant ce qui a changé dans le `.blend`.
 - Aucun outil de build, lint ou test n'est configuré. Le jeu se lance depuis l'éditeur Godot (ou via le MCP).
 
 ## Conventions
