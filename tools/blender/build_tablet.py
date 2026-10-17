@@ -1,23 +1,26 @@
 # Outil hors-jeu : modélise la tablette de l'observateur (scripts/tablet.gd) dans un Blender lancé en arrière-plan
 # (sans toucher au Blender ouvert ni à la station), l'enregistre et l'exporte pour Godot.
-# Usage :
-#   blender --background --factory-startup --python tools/blender/build_tablet.py -- <tablet.glb> <tablette.blend> [aperçu.png]
+# Usage (sans --factory-startup : l'extension MPFB2 de MakeHuman doit être installée dans Blender) :
+#   blender --background --python tools/blender/build_tablet.py -- <tablet.glb> <tablette.blend> <peau.png> [aperçu.png]
+# <peau.png> : texture de peau MakeHuman (paquet « MakeHuman system assets », CC0 :
+# https://files.makehumancommunity.org/asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip,
+# skins/young_caucasian_male/young_lightskinned_male_diffuse.png).
 # Repères Blender : largeur X, épaisseur Y (écran vers −Y), hauteur Z ; à l'export glTF (+Y en haut), l'écran regarde
 # +Z dans Godot : vers la caméra quand la tablette est tenue devant elle. Dimensions d'une tablette de 12 pouces.
 # Objets : Tablette_Coque (coque arrondie en aluminium anodisé, face avant en verre noir), Ecran_Tablette (dalle de
 # l'écran, UV 0–1 : u vers la droite, v vers le bas de l'image ; matériau remplacé dans Godot par l'interface),
 # Tablette_Objectif (caméra frontale), Tablette_Boutons (marche/arrêt, volume), Main_Droite (main droite qui tient
-# le coin inférieur droit : paume et doigts à plat contre le dos, pouce passé par-dessus la tranche droite, posé sur
-# la bordure avant à côté de l'écran ; modélisée par le modificateur Skin sur un squelette de sommets à rayons, puis
-# lissée) et Manche (avant-bras dans la manche bleu marine d'une combinaison de vol, qui descend hors du champ).
+# le coin inférieur droit : main et bas de l'avant-bras d'un humain MakeHuman généré par MPFB2, doigts tendus à plat
+# contre le dos, pouce amené par cinématique inverse sur la bordure avant à côté de l'écran, texture de peau CC0) et
+# Manche (avant-bras dans la manche bleu marine d'une combinaison de vol, qui descend hors du champ).
 import bpy, bmesh, sys, math
 from mathutils import Vector
 
 args = sys.argv[sys.argv.index("--") + 1:]
-GLB, BLEND = args[0], args[1]
-PREVIEW = args[2] if len(args) > 2 else ""
+GLB, BLEND, SKIN = args[0], args[1], args[2]
+PREVIEW = args[3] if len(args) > 3 else ""
 
-WIDTH, HEIGHT, THICK = 0.280, 0.190, 0.0085
+WIDTH, HEIGHT, THICK = 0.280, 0.190, 0.0055
 CORNER = 0.016          # rayon des coins
 RIM = 0.0026            # arrondi du pourtour
 BEZEL = 0.0115          # bordure noire autour de l'écran
@@ -119,11 +122,140 @@ bpy.ops.object.join()
 bpy.context.active_object.name = "Tablette_Boutons"
 
 
-# Main droite : squelette (sommets, arêtes, rayons x / y des sommets) habillé par le modificateur Skin, puis lissé.
-skin_mat = material("Main_Peau", (0.78, 0.56, 0.45), 0.0, 0.48)
-skin_mat.node_tree.nodes["Principled BSDF"].inputs["Subsurface Weight"].default_value = 0.25
+# Main droite : main et bas de l'avant-bras d'un humain MakeHuman (extension MPFB2, CC0), posés sur la tablette.
 sleeve_mat = material("Main_Manche", (0.05, 0.07, 0.14), 0.0, 0.85)
 BACK = THICK / 2  # dos de la tablette (y > 0), face avant en −BACK
+# Repère visé : doigts vers le haut et la gauche, de l'auriculaire vers l'index vers la droite et le haut, paume
+# tournée vers la tablette (−Y) ; poignet sous le coin inférieur droit, derrière.
+FINGERS_DIR = Vector((-0.5, 0.0, 0.866))
+ACROSS_DIR = Vector((0.866, 0.0, 0.5))
+# Prise naturelle : la tranche droite repose dans le creux entre le pouce et l'index. La base du pouce (articulation
+# métacarpo-phalangienne, tête de l'os finger1-2.R) est posée contre la tranche ; paume et doigts derrière, pouce
+# replié vers l'avant sur la bordure (avant : main entière derrière, le pouce devait faire tout le tour de la tranche
+# et se déformait).
+THUMB_BASE_AT = Vector((0.148, 0.004, -0.085))
+# Bout du pouce sur la bordure avant, à droite de l'écran (os : axe du pouce, ~9 mm sous la peau). Bien sur la
+# bordure (à 9,5 mm de la tranche) : plus près, il chevauchait la tranche et semblait à côté de la tablette ; il mord
+# de quelques mm sur le bord de l'écran (marge réservée par l'interface, TabletDisplay.THUMB_PADDING).
+THUMB_TIP_AT = Vector((0.1305, -BACK - 0.0085, -0.030))
+KEEP_GROUPS = ("lowerarm02.R", "wrist.R", "metacarpal", "finger")
+
+
+def make_mpfb_hand():
+    import addon_utils
+    from mathutils import Matrix
+    addon_utils.enable("bl_ext.blender_org.mpfb", default_set=True, persistent=False)
+    from bl_ext.blender_org.mpfb.services import HumanService
+    human = HumanService.create_human(scale=0.1)
+    rig = HumanService.add_builtin_rig(human, "default")
+    pose = rig.pose.bones
+
+    def head(name):
+        return rig.matrix_world @ pose[name].head
+
+    def tail(name):
+        return rig.matrix_world @ pose[name].tail
+
+    def update():
+        bpy.context.view_layer.update()
+
+    # Doigts tendus dans l'axe de leur métacarpe (main à plat contre le dos de la tablette).
+    for finger, metacarpal in [(2, 1), (3, 2), (4, 3), (5, 4)]:
+        wanted = (tail("metacarpal%d.R" % metacarpal) - head("metacarpal%d.R" % metacarpal)).normalized()
+        for joint in (1, 2, 3):
+            bone = pose["finger%d-%d.R" % (finger, joint)]
+            current = (tail(bone.name) - head(bone.name)).normalized()
+            turn = current.rotation_difference(wanted).to_matrix().to_4x4()
+            pivot = bone.head.copy()
+            bone.matrix = Matrix.Translation(pivot) @ turn @ Matrix.Translation(-pivot) @ bone.matrix
+            update()
+
+    # Rotation et translation de la main vers le repère visé, d'après le poignet et les jointures.
+    wrist = head("wrist.R")
+    forward = (head("finger3-1.R") - wrist).normalized()
+    across = head("finger2-1.R") - head("finger5-1.R")
+    across = (across - forward * across.dot(forward)).normalized()
+    source = Matrix((across, -forward.cross(across), forward)).transposed()
+    target = Matrix((ACROSS_DIR, -FINGERS_DIR.cross(ACROSS_DIR), FINGERS_DIR)).transposed()
+    rotation = target @ source.transposed()
+    offset = THUMB_BASE_AT - rotation @ head("finger1-2.R")
+    to_target = Matrix.Translation(offset) @ rotation.to_4x4()
+
+    def evaluated_mesh():
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        mesh = bpy.data.meshes.new_from_object(human.evaluated_get(depsgraph), preserve_all_data_layers=True,
+                                               depsgraph=depsgraph)
+        mesh.transform(to_target @ human.matrix_world)
+        return mesh
+
+    def group_weight(mesh, vertex, names):
+        total = 0.0
+        for g in vertex.groups:
+            name = human.vertex_groups[g.group].name
+            if name.endswith(".R") and any(name.startswith(n) for n in names):
+                total += g.weight
+        return total
+
+    # Paume et doigts au contact du dos de la tablette.
+    probe = evaluated_mesh()
+    palm_y = min(v.co.y for v in probe.vertices if group_weight(probe, v, ("metacarpal", "finger2", "finger3",
+            "finger4", "finger5")) > 0.5)
+    bpy.data.meshes.remove(probe)
+    offset.y += BACK + 0.0006 - palm_y
+    to_target = Matrix.Translation(offset) @ rotation.to_4x4()
+    print("Base du pouce : %s ; poignet : %s" % (tuple(round(c, 4) for c in to_target @ head("finger1-2.R")),
+            tuple(round(c, 4) for c in to_target @ head("wrist.R"))))
+
+    # Pouce : cinématique inverse vers son point sur la bordure avant (ramené dans le repère de l'humain).
+    goal = bpy.data.objects.new("Cible_Pouce", None)
+    bpy.context.collection.objects.link(goal)
+    goal.location = to_target.inverted() @ THUMB_TIP_AT
+    ik = pose["finger1-3.R"].constraints.new('IK')
+    ik.target = goal
+    ik.chain_count = 3
+    update()
+    reached = to_target @ tail("finger1-3.R")
+    print("Pouce : bout à %s, cible %s, écart %.1f mm" % (tuple(round(c, 4) for c in reached),
+            tuple(round(c, 4) for c in THUMB_TIP_AT), (reached - THUMB_TIP_AT).length * 1000.0))
+
+    mesh = evaluated_mesh()
+    # La tablette recule entre le pouce et les doigts, centrée entre eux : la main est avancée (−Y) pour que le pouce
+    # (sommets en deçà de la tranche passés derrière le verre) et les doigts (écart au dos) aient le même jeu.
+    def in_slab(c):
+        return c.x < WIDTH / 2 - 0.004 and c.z > -HEIGHT / 2 + 0.004
+
+    thumb = [v.co for v in mesh.vertices if group_weight(mesh, v, ("finger1-2", "finger1-3")) > 0.5]
+    depth = max([c.y + BACK for c in thumb if in_slab(c) and -BACK < c.y < BACK] + [0.0])
+    fingers = [v.co for v in mesh.vertices if group_weight(mesh, v, ("finger2", "finger3", "finger4", "finger5")) > 0.5
+               and in_slab(v.co)]
+    gap = min(c.y for c in fingers) - BACK
+    palm = [v.co for v in mesh.vertices if group_weight(mesh, v, ("metacarpal", "finger1-1")) > 0.5 and in_slab(v.co)]
+    print("Avant recul : pouce %.1f mm dans le verre, doigts à %.1f mm du dos, paume à %.1f mm du dos"
+            % (depth * 1000.0, gap * 1000.0, (min(c.y for c in palm) - BACK) * 1000.0))
+    shift = (depth + gap) * 0.5
+    mesh.transform(Matrix.Translation((0.0, -shift, 0.0)))
+    print("Tablette reculée de %.1f mm entre le pouce et les doigts : jeu au pouce %.1f mm, aux doigts %.1f mm"
+            % (shift * 1000.0, (shift - depth) * 1000.0, (gap - shift) * 1000.0))
+    arm_dir = (rotation @ (head("lowerarm02.R") - head("wrist.R"))).normalized()
+    wrist_at = to_target @ head("wrist.R") - Vector((0.0, shift, 0.0))
+    # Ne garder que la main et le bas de l'avant-bras.
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    deform = bm.verts.layers.deform.active
+    names = [g.name for g in human.vertex_groups]
+    drop = []
+    for v in bm.verts:
+        total = sum(w for g, w in v[deform].items() if names[g].endswith(".R")
+                    and any(names[g].startswith(n) for n in KEEP_GROUPS))
+        if total < 0.5:
+            drop.append(v)
+    bmesh.ops.delete(bm, geom=drop, context='VERTS')
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.name = "Main_Droite"
+    for o in (human, rig, goal):
+        bpy.data.objects.remove(o)
+    return mesh, arm_dir, wrist_at
 
 
 def skin_object(name, points, edges, mat, levels=2):
@@ -144,61 +276,33 @@ def skin_object(name, points, edges, mat, levels=2):
     return obj
 
 
-hand_points = []
-hand_edges = []
+hand_mesh, arm_dir, wrist_at = make_mpfb_hand()
+hand = bpy.data.objects.new("Main_Droite", hand_mesh)
+bpy.context.collection.objects.link(hand)
+skin_mat = bpy.data.materials.new("Main_Peau")
+skin_mat.use_nodes = True
+principled = skin_mat.node_tree.nodes["Principled BSDF"]
+principled.inputs["Roughness"].default_value = 0.5
+skin_image = skin_mat.node_tree.nodes.new("ShaderNodeTexImage")
+skin_image.image = bpy.data.images.load(SKIN)
+skin_mat.node_tree.links.new(skin_image.outputs["Color"], principled.inputs["Base Color"])
+hand_mesh.materials.clear()
+hand_mesh.materials.append(skin_mat)
+for poly in hand_mesh.polygons:
+    poly.material_index = 0
+    poly.use_smooth = True
+hand.modifiers.new("Lissage", 'SUBSURF').levels = 1
 
-
-def chain(start_index, pts):
-    # Ajoute une chaîne de sommets reliée au sommet start_index ; renvoie l'indice du dernier.
-    previous = start_index
-    for co, radius in pts:
-        hand_points.append((co, radius))
-        index = len(hand_points) - 1
-        if previous is not None:
-            hand_edges.append((previous, index))
-        previous = index
-    return previous
-
-# Avant-bras (racine, dans la manche) et poignet, sous le coin, derrière ; base et centre de la paume derrière la
-# tablette.
-forearm = chain(None, [((0.124, 0.040, -0.165), (0.026, 0.021))])
-wrist = chain(forearm, [((0.112, 0.032, -0.128), (0.025, 0.018))])
-palm_base = chain(wrist, [((0.100, 0.026, -0.102), (0.030, 0.016))])
-palm = chain(palm_base, [((0.086, 0.022, -0.074), (0.034, 0.014))])
-# Doigts serrés, presque parallèles, vers le haut et la gauche, à plat contre le dos ; jointures alignées en travers
-# de la paume (index au plus près du pouce, à droite).
-up_left = Vector((-0.5, 0.0, 0.866))
-across = Vector((0.866, 0.0, 0.5))
-palm_center = Vector(hand_points[palm][0])
-fingers = [(0.028, -0.03, 0.078), (0.009, 0.0, 0.088), (-0.010, 0.03, 0.082), (-0.028, 0.07, 0.064)]
-for offset, spread, length in fingers:  # (décalage en travers, écart angulaire en radians, longueur)
-    d = (up_left + across * spread).normalized()
-    k = palm_center + up_left * 0.040 + across * offset
-    y_rest = BACK + 0.0078
-    pts = [((k.x, y_rest + 0.002, k.z), (0.0098, 0.0088))]
-    for step, radius in [(0.42, 0.0090), (0.72, 0.0082), (1.0, 0.0070)]:
-        p = k + d * length * step
-        pts.append(((p.x, y_rest, p.z), (radius, radius * 0.92)))
-    chain(palm, pts)
-# Pouce : de la paume, par-dessus la tranche droite, puis à plat sur la bordure avant, vers le haut.
-FRONT = -BACK - 0.0085
-chain(palm_base, [((0.124, 0.022, -0.086), (0.015, 0.013)),
-                  ((0.147, 0.006, -0.072), (0.0115, 0.0105)),
-                  ((0.1395, FRONT, -0.055), (0.0098, 0.0090)),
-                  ((0.1365, FRONT, -0.037), (0.0090, 0.0082)),
-                  ((0.1350, FRONT + 0.0006, -0.028), (0.0072, 0.0066))])
-hand = skin_object("Main_Droite", hand_points, hand_edges, skin_mat, levels=3)
-
-# Avant-bras dans la manche : du poignet (qu'elle recouvre) vers le bas, l'arrière et la droite (hors du champ).
-sleeve = skin_object("Manche", [((0.110, 0.031, -0.122), (0.030, 0.024)),
-                                ((0.128, 0.044, -0.175), (0.036, 0.031)),
-                                ((0.155, 0.066, -0.270), (0.040, 0.035)),
-                                ((0.185, 0.090, -0.380), (0.043, 0.038))], [(0, 1), (1, 2), (2, 3)], sleeve_mat, levels=2)
+# Avant-bras dans la manche : à partir de quelques cm du poignet, dans l'axe de l'avant-bras (hors du champ).
+sleeve_points = [(wrist_at + arm_dir * d, (r, r * 0.85)) for d, r in [(0.035, 0.032), (0.09, 0.036), (0.2, 0.04),
+                                                                     (0.32, 0.043)]]
+sleeve = skin_object("Manche", sleeve_points, [(0, 1), (1, 2), (2, 3)], sleeve_mat, levels=2)
 
 bpy.ops.wm.save_as_mainfile(filepath=BLEND)
-bpy.ops.export_scene.gltf(filepath=GLB, export_format='GLB', export_apply=True, export_yup=True,
-                          export_cameras=False, export_lights=False, export_texcoords=True, export_normals=True,
-                          export_materials='EXPORT', export_draco_mesh_compression_enable=False)
+if GLB != "-":  # « - » : fichier .blend et aperçus seulement (mise au point dans Blender)
+    bpy.ops.export_scene.gltf(filepath=GLB, export_format='GLB', export_apply=True, export_yup=True,
+                              export_cameras=False, export_lights=False, export_texcoords=True, export_normals=True,
+                              export_materials='EXPORT', export_draco_mesh_compression_enable=False)
 
 if PREVIEW:
     scene = bpy.context.scene
@@ -236,4 +340,12 @@ if PREVIEW:
     camera.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
     scene.render.filepath = PREVIEW.replace(".png", "_dos.png")
     bpy.ops.render.render(write_still=True)
+    # Vue du joueur (de face, l'œil en haut à gauche de la tablette) et vue de la tranche droite (le pouce).
+    for suffix, location, target in [("_joueur", (-0.12, -0.42, 0.12), (0.03, 0.0, -0.02)),
+                                     ("_cote", (0.40, -0.06, -0.03), (0.13, 0.0, -0.05))]:
+        camera.location = location
+        direction = Vector(target) - camera.location
+        camera.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
+        scene.render.filepath = PREVIEW.replace(".png", suffix + ".png")
+        bpy.ops.render.render(write_still=True)
 print("OK", GLB)

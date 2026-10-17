@@ -20,7 +20,8 @@ maintenu, `scripts/ui/burn_control.gd`, aussi sur la tablette), décalage du nœ
 l'intersection des plans), précession J2 de Ω ; l'orbite reste circulaire. Altitude et inclinaison directes : panneau de debug F4 seulement. README, « Poste de pilotage ».
 Tablette (touche Tab) : `Observer/Camera/Tablet` (`scripts/tablet.gd`, interface `scripts/ui/tablet_display.gd` : date,
 carte réduite, BURN, silos et tir), modèle `assets/tablet/tablet.glb` produit par `tools/blender/build_tablet.py`
-(Blender en arrière-plan, `E:\Blender\tablette.blend`). Interface à l'écran : `Hud` (`scripts/ui/hud.gd` : barre de
+(Blender en arrière-plan, `E:\Blender\tablette.blend` ; main MakeHuman via l'extension MPFB2, textures CC0 dans
+`assets/makehuman/`, `.gdignore` ; mettre au point dans Blender et faire valider avant d'exporter). Interface à l'écran : `Hud` (`scripts/ui/hud.gd` : barre de
 vitesse du temps toujours visible, réticule dans la cupola). Date, heure et redémarrage : panneau de debug F4. README, « Tablette ».
 Règle : **tous les textes du jeu sont dans les fichiers de langue** `locale/strings.csv` (interface) et `locale/countries.csv`
 (noms de pays, `tools/build_country_names.gd`), 5 langues (en, fr, es, de, it ; anglais par défaut). Jamais de texte

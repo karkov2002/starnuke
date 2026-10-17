@@ -144,15 +144,20 @@ dans le panneau de debug.
 
 ## Tablette
 
-Tablette de 12 pouces (28 × 19 cm, coque en aluminium anodisé gris sidéral aux coins arrondis, verre noir, caméra
+Tablette de 12 pouces (28 × 19 cm, 5,5 mm d'épaisseur, coque en aluminium anodisé gris sidéral aux coins arrondis, verre noir, caméra
 frontale, boutons sur les tranches) tenue par l'observateur. Modèle `assets/tablet/tablet.glb`, construit par
-`tools/blender/build_tablet.py` dans un Blender lancé en arrière-plan (`blender --background --factory-startup
---python tools/blender/build_tablet.py -- <glb> <blend> [aperçu.png]`), qui enregistre aussi
-`E:\Blender\tablette.blend` pour la retoucher. Objets : `Tablette_Coque`, `Ecran_Tablette` (dalle, UV 0–1),
-`Tablette_Objectif`, `Tablette_Boutons`, et la **main droite qui la tient** : `Main_Droite` (paume et doigts serrés à
-plat contre le dos, au coin inférieur droit ; pouce passé par-dessus la tranche droite, posé sur la bordure avant à
-côté de l'écran ; modélisée par le modificateur Skin sur un squelette de sommets à rayons, puis lissée) et `Manche`
-(avant-bras dans la manche bleu marine d'une combinaison de vol, qui descend hors du champ). La main arrive et repart
+`tools/blender/build_tablet.py` dans un Blender lancé en arrière-plan (`blender --background --python
+tools/blender/build_tablet.py -- <glb|-> <blend> <peau.png> [aperçu.png]` ; `-` : sans export, pour la mise au point
+dans Blender ; aperçus de face, de dos, du joueur et de côté), qui enregistre aussi `E:\Blender\tablette.blend` pour
+la retoucher. **Règle : la main est mise au point dans Blender (aperçus) et validée avant d'être exportée vers
+Godot.** Objets : `Tablette_Coque`, `Ecran_Tablette` (dalle, UV 0–1), `Tablette_Objectif`, `Tablette_Boutons`, et la
+**main droite qui la tient** : `Main_Droite`, main et bas de l'avant-bras d'un **humain MakeHuman** généré par
+l'extension Blender **MPFB2** (à installer dans Blender), texture de peau CC0
+(`assets/makehuman/skins/young_caucasian_male/young_lightskinned_male_diffuse.png`). Prise : la tranche droite repose
+dans le creux entre le pouce et l'index (base du pouce contre la tranche), doigts tendus à plat contre le dos, pouce
+amené par cinématique inverse sur la bordure avant à côté de l'écran ; la tablette (5,5 mm, épaisseur choisie pour
+tenir dans l'ouverture de la main) est centrée entre le pouce et les doigts (contact à 0,3 mm près). `Manche` :
+avant-bras dans la manche bleu marine d'une combinaison de vol, dans l'axe de l'avant-bras, hors du champ. La main arrive et repart
 avec la tablette ; sortie, **seul le pouce reste visible** (la paume est derrière, le poignet et le bras sous le bas
 de la vue).
 
@@ -1872,5 +1877,8 @@ Les paragraphes (§) sont ceux des ouvrages ; entre parenthèses, les fichiers d
   (`assets/population_2030.bin`, `tools/build_population.ps1`).
 - Natural Earth. *1:10m Cultural Vectors – Admin 0 – Countries*, version 5 (domaine public). Frontières de fait,
   population estimée et PIB des pays (`assets/country_mask.res`).
+- MakeHuman Community. *MakeHuman system assets* (CC0), via l'extension Blender MPFB2 (GPLv3, ressources CC0) : main
+  qui tient la tablette ; textures du paquet gardées dans `assets/makehuman/` (dossier ignoré par Godot, voir son
+  `LISEZMOI.md`).
 - Natural Earth. *1:50m Cultural Vectors – Admin 0 – Countries* (domaine public). Contours de la carte de l'écran
   de pilotage (`assets/world_map_lines.res`, `tools/build_map_lines.gd`).

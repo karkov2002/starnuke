@@ -16,6 +16,9 @@ const LAUNCH_SCALE := 1.4
 const MAP_MAX_LAT_DEG := 70.0
 ## Hauteur de la carte (part de la hauteur de l'écran).
 const MAP_HEIGHT_SHARE := 0.58
+## Marge supplémentaire à droite (pixels) : le pouce de la main qui tient la tablette, posé sur la bordure de
+## droite, mord sur le bord de l'écran.
+const THUMB_PADDING := 30.0
 
 var orbit: OrbitSimulation
 var flight_computer: FlightComputer
@@ -33,7 +36,7 @@ func _ready() -> void:
 
 	var column := VBoxContainer.new()
 	column.position = Vector2(MARGIN, MARGIN * 0.6)
-	column.size = size - Vector2(2.0 * MARGIN, 1.6 * MARGIN)
+	column.size = size - Vector2(2.0 * MARGIN + THUMB_PADDING, 1.6 * MARGIN)
 	column.add_theme_constant_override("separation", 10)
 	add_child(column)
 
