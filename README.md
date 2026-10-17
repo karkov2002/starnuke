@@ -51,7 +51,9 @@ permet de piloter le jeu exporté.
     `Exposure`, voir « Exposition » dans « Organisation de la scène ») et **éclairage intérieur** (10 à 150 %, **40 % par défaut**,
     `GameSettings.interior_light`, sauvé de même : comme un potentiomètre sur les luminaires de la station,
     `Station` multiplie par ce facteur l'énergie de chaque lampe `Lum_*` **et** l'émission propre des luminaires
-    (matériaux `Int_Lumiere*`, donc aussi leur halo de glow), et le réapplique à chaque changement ; l'exposition
+    (matériaux `Int_Lumiere*`, donc aussi leur halo de glow) ; c'est la valeur de jour : dans l'ombre de la Terre, les
+    luminaires passent en **mode nuit** à 75 % de ce réglage (`Station.night_light_ratio`, fondu avec
+    l'ensoleillement `Orbit.get_sunlight_fraction`, pénombre comprise : 40 % de jour → 30 % de nuit) ; l'exposition
     de l'intérieur étant constante, c'est ce réglage qui règle la clarté des parois et l'éblouissement des lampes). L'écran des paramètres a un fond
     translucide : on juge le réglage sur la vue 3D derrière.
     - Fenêtré : la résolution est la taille de la fenêtre, centrée dans la zone utile de l'écran ; une fenêtre qui
@@ -310,7 +312,8 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
   - **Éclairage intérieur** (réglages dans le groupe « Éclairage intérieur » de `Station`) : les 28 lampes
     ponctuelles du modèle (`Lum_*`, importées à 6 522 d'énergie et 4 096 m de portée) sont recalibrées au démarrage :
     blanc 4 500 K (luminaires LED de l'ISS en mode jour), énergie 1,2 × le paramètre « Éclairage intérieur »
-    (`GameSettings.interior_light`, voir « Écran de démarrage, paramètres et langues »), portée 5,5 m,
+    (`GameSettings.interior_light`, voir « Écran de démarrage, paramètres et langues ») × 0,75 dans l'ombre de la
+    Terre (mode nuit, `night_light_ratio`), portée 5,5 m,
     atténuation 1,3, reflets 0,4, **sans ombres**. Sans ombres, une lampe traverse les parois : elles n'éclairent donc que les surfaces intérieures,
     sur le calque `INTERIOR_LAYER` (bit 11, `light_cull_mask`). Est intérieur un matériau dont le nom commence par
     `Int_` ou `Ecran_` ; hublots et vitrages sont des deux côtés ; tout le reste est extérieur. Les 14 coques mixtes

@@ -59,6 +59,8 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 ## Lumière du soleil et Terre de la scène (direction du soleil, verticale locale). Sans Terre : +Y de la station.
 @export var sun_path: NodePath = ^"../../Sun"
 @export var earth_path: NodePath = ^"../../Earth"
+## Orbite (ensoleillement de la station, pour le mode nuit des luminaires).
+@export var orbit_path: NodePath = ^"../../Orbit"
 ## Vitesse maximale des panneaux (degrés par seconde) : le suivi normal est bien plus lent (un tour par orbite) ; la
 ## limite évite un saut quand la date ou l'heure change.
 @export var panel_max_speed_deg := 6.0
@@ -88,6 +90,9 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 ## ~4 500 K), sans ombres. Elles n'éclairent que les surfaces intérieures (calque INTERIOR_LAYER) : sans ombres, elles
 ## traverseraient sinon la coque et l'éclaireraient de l'extérieur.
 @export var interior_light_energy := 1.2
+## Mode nuit des luminaires : part du réglage « Éclairage intérieur » quand la station est dans l'ombre de la Terre
+## (Orbit.get_sunlight_fraction, pénombre comprise) : 40 % de jour → 30 % de nuit, comme l'ISS tamise la nuit.
+@export var night_light_ratio := 0.75
 @export var interior_light_range := 5.5
 @export var interior_light_attenuation := 1.3
 @export var interior_light_temperature := 4500.0
@@ -114,6 +119,11 @@ var _missile_pristine: Node3D
 var _panel_pivots: Array[Node3D] = []
 ## Vector2i(silo, tube) -> gyrophare (Node3D : Lampe, Lumiere)
 var _beacons := {}
+var _orbit: OrbitSimulation
+## Luminaires intérieurs (lampes Lum_* et matériaux Int_Lumiere*), listés une fois, et facteur appliqué.
+var _interior_lights: Array[OmniLight3D] = []
+var _lamp_materials: Array[BaseMaterial3D] = []
+var _light_factor := -1.0
 var _beacon_time := 0.0
 ## Angle courant des panneaux (radians autour de Z) ; NAN avant la première image (placement direct).
 var _panel_angle := NAN
@@ -121,7 +131,7 @@ var _panel_angle := NAN
 
 func _ready() -> void:
 	add_to_group(GROUP)
-	GameSettings.changed.connect(_apply_interior_light)
+	_orbit = get_node_or_null(orbit_path) as OrbitSimulation
 	var imported := find_children("*", "AnimationPlayer", true, false)
 	if imported.is_empty():
 		push_error("Station : pas d'AnimationPlayer dans le modèle")
@@ -153,6 +163,7 @@ func _exit_tree() -> void:
 
 
 func _process(delta: float) -> void:
+	_update_interior_light()
 	if track_sun_panels:
 		_track_sun(delta)
 	if not _beacons.is_empty():
@@ -674,18 +685,7 @@ func _setup_interior_lighting() -> void:
 		light.light_temperature = interior_light_temperature
 		light.light_specular = interior_light_specular
 		light.shadow_enabled = interior_shadows
-	_apply_interior_light()
-
-
-## Puissance des lampes intérieures, comme un potentiomètre : réglage du modèle × GameSettings.interior_light
-## (paramètre « Éclairage intérieur »), sur la lumière projetée (Lum_*) et sur l'émission propre des luminaires
-## (matériaux Int_Lumiere*, dont le halo de glow suit l'émission). Les matériaux du modèle sont partagés et
-## persistent d'une partie à l'autre : l'émission d'origine est gardée en métadonnée. Réappliquée à chaque
-## changement de paramètre.
-func _apply_interior_light() -> void:
-	var factor := GameSettings.interior_light
-	for light: OmniLight3D in find_children("Lum_*", "OmniLight3D", true, false):
-		light.light_energy = interior_light_energy * factor
+		_interior_lights.append(light)
 	var done := {}
 	for mesh_instance: MeshInstance3D in find_children("*", "MeshInstance3D", true, false):
 		if mesh_instance.mesh == null:
@@ -698,7 +698,25 @@ func _apply_interior_light() -> void:
 			done[material] = true
 			if not material.has_meta(&"base_emission"):
 				material.set_meta(&"base_emission", material.emission_energy_multiplier)
-			material.emission_energy_multiplier = float(material.get_meta(&"base_emission")) * factor
+			_lamp_materials.append(material)
+	_update_interior_light()
+
+
+## Puissance des luminaires intérieurs, comme un potentiomètre : réglage du modèle × GameSettings.interior_light
+## (paramètre « Éclairage intérieur », valeur de jour) × night_light_ratio dans l'ombre de la Terre (fondu avec
+## l'ensoleillement), sur la lumière projetée (Lum_*) et sur l'émission propre des luminaires (matériaux Int_Lumiere*,
+## dont le halo de glow suit l'émission). Les matériaux du modèle sont partagés et persistent d'une partie à l'autre :
+## l'émission d'origine est gardée en métadonnée. Appliquée à chaque image seulement si le facteur a changé.
+func _update_interior_light() -> void:
+	var sunlight := _orbit.get_sunlight_fraction() if _orbit else 1.0
+	var factor := GameSettings.interior_light * lerpf(night_light_ratio, 1.0, sunlight)
+	if absf(factor - _light_factor) < 0.002:
+		return
+	_light_factor = factor
+	for light in _interior_lights:
+		light.light_energy = interior_light_energy * factor
+	for material in _lamp_materials:
+		material.emission_energy_multiplier = float(material.get_meta(&"base_emission")) * factor
 
 
 ## Vitrage de la cupola sans reflet spéculaire : le reflet de l'environnement (disque solaire du ciel) ignore l'ombre
