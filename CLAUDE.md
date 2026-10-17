@@ -60,6 +60,10 @@ le même identifiant d'`ext_resource`) : pour une deuxième instance, écrire le
 - Un serveur MCP Godot (`godot-mcp-server`, lancé via `npx`) est configuré dans `.mcp.json`. Le privilégier pour créer/modifier
   des scènes et nœuds, lancer une scène (`run_scene`), lire les erreurs/logs et prendre des captures, plutôt que d'éditer
   les fichiers `.tscn` à la main. Il nécessite que l'éditeur Godot soit ouvert sur le projet.
+- Blender ouvert sur `E:\Blender\nuke_station.blend` avec l'extension officielle « MCP » de Blender Lab (serveur TCP
+  `localhost:9876`) : lui envoyer du Python avec `tools/blender_exec.ps1` (`-Code '...'` ou `-File script.py` ; le
+  code assigne `result`). Lecture libre ; toute modification du modèle se fait dans Blender à la demande de
+  l'utilisateur, qui réexporte le `.glb` lui-même.
 - Aucun outil de build, lint ou test n'est configuré. Le jeu se lance depuis l'éditeur Godot (ou via le MCP).
 
 ## Conventions
