@@ -93,6 +93,15 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 ## Mode nuit des luminaires : part du réglage « Éclairage intérieur » quand la station est dans l'ombre de la Terre
 ## (Orbit.get_sunlight_fraction, pénombre comprise) : 40 % de jour → 30 % de nuit, comme l'ISS tamise la nuit.
 @export var night_light_ratio := 0.75
+## Niveau d'alerte de la station (set_alert) : les luminaires blancs passent en jaune, orange ou rouge (lumière
+## projetée et émission des bandeaux), fondu en alert_fade_s ; en alerte rouge, pulsation lente d'amplitude
+## red_alert_pulse (part de la puissance) et de période red_alert_period_s. Les déclencheurs (situations critiques)
+## sont à définir par le jeu ; le panneau de debug (nuke/debug) permet de les essayer.
+@export var alert_colors: Array[Color] = [Color.WHITE, Color(1.0, 0.85, 0.3), Color(1.0, 0.55, 0.15),
+		Color(1.0, 0.15, 0.08)]
+@export var alert_fade_s := 0.8
+@export var red_alert_pulse := 0.3
+@export var red_alert_period_s := 1.4
 @export var interior_light_range := 5.5
 @export var interior_light_attenuation := 1.3
 @export var interior_light_temperature := 4500.0
@@ -124,6 +133,12 @@ var _orbit: OrbitSimulation
 var _interior_lights: Array[OmniLight3D] = []
 var _lamp_materials: Array[BaseMaterial3D] = []
 var _light_factor := -1.0
+## Alerte : niveau courant, teinte appliquée (fondue) et horloge de la pulsation.
+var _alert := Alert.NONE
+var _alert_tint := Color.WHITE
+var _alert_time := 0.0
+
+enum Alert { NONE, YELLOW, ORANGE, RED }
 var _beacon_time := 0.0
 ## Angle courant des panneaux (radians autour de Z) ; NAN avant la première image (placement direct).
 var _panel_angle := NAN
@@ -163,7 +178,7 @@ func _exit_tree() -> void:
 
 
 func _process(delta: float) -> void:
-	_update_interior_light()
+	_update_interior_light(delta)
 	if track_sun_panels:
 		_track_sun(delta)
 	if not _beacons.is_empty():
@@ -698,25 +713,48 @@ func _setup_interior_lighting() -> void:
 			done[material] = true
 			if not material.has_meta(&"base_emission"):
 				material.set_meta(&"base_emission", material.emission_energy_multiplier)
+				material.set_meta(&"base_emission_color", material.emission)
 			_lamp_materials.append(material)
-	_update_interior_light()
+	_update_interior_light(0.0)
+
+
+## Niveau d'alerte de la station (couleur des luminaires), voir alert_colors.
+func set_alert(level: Alert) -> void:
+	_alert = level
+
+
+func get_alert() -> Alert:
+	return _alert
 
 
 ## Puissance des luminaires intérieurs, comme un potentiomètre : réglage du modèle × GameSettings.interior_light
 ## (paramètre « Éclairage intérieur », valeur de jour) × night_light_ratio dans l'ombre de la Terre (fondu avec
 ## l'ensoleillement), sur la lumière projetée (Lum_*) et sur l'émission propre des luminaires (matériaux Int_Lumiere*,
 ## dont le halo de glow suit l'émission). Les matériaux du modèle sont partagés et persistent d'une partie à l'autre :
-## l'émission d'origine est gardée en métadonnée. Appliquée à chaque image seulement si le facteur a changé.
-func _update_interior_light() -> void:
+## l'émission d'origine est gardée en métadonnée. Teinte d'alerte fondue en alert_fade_s, pulsation en alerte rouge.
+## Appliquée à chaque image seulement si le facteur ou la teinte a changé.
+func _update_interior_light(delta: float) -> void:
 	var sunlight := _orbit.get_sunlight_fraction() if _orbit else 1.0
 	var factor := GameSettings.interior_light * lerpf(night_light_ratio, 1.0, sunlight)
-	if absf(factor - _light_factor) < 0.002:
+	var target := alert_colors[_alert] if _alert < alert_colors.size() else Color.WHITE
+	var tint := _alert_tint.lerp(target, 1.0 - exp(-delta / maxf(alert_fade_s, 1e-3))) if delta > 0.0 else target
+	if _alert == Alert.RED:
+		_alert_time += delta
+		factor *= 1.0 - 0.5 * red_alert_pulse * (1.0 - cos(TAU * _alert_time / maxf(red_alert_period_s, 0.1)))
+	else:
+		_alert_time = 0.0
+	if absf(factor - _light_factor) < 0.002 and tint.is_equal_approx(_alert_tint):
 		return
 	_light_factor = factor
+	_alert_tint = tint
 	for light in _interior_lights:
 		light.light_energy = interior_light_energy * factor
+		light.light_color = tint
 	for material in _lamp_materials:
 		material.emission_energy_multiplier = float(material.get_meta(&"base_emission")) * factor
+		# Seuls les luminaires blancs changent de couleur (les feux rouges des rails gardent la leur).
+		if material.resource_name == "Int_Lumiere":
+			material.emission = (material.get_meta(&"base_emission_color") as Color) * tint
 
 
 ## Vitrage de la cupola sans reflet spéculaire : le reflet de l'environnement (disque solaire du ciel) ignore l'ombre

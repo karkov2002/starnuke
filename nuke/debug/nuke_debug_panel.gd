@@ -4,7 +4,8 @@ extends CanvasLayer
 ## - latitude / longitude de la cible (« Point visé » recopie le centre de la vue), bouton « Tirer » ;
 ## - scrubber du temps physique de la dernière explosion : « Rejouer » fige toutes les explosions au temps du
 ##   curseur (time_override_s), sinon le curseur suit le temps réel de l'effet ;
-## - « Effacer » supprime toutes les explosions ; « Marqueurs » affiche les marqueurs de taille (NukeEffect).
+## - « Effacer » supprime toutes les explosions ; « Marqueurs » affiche les marqueurs de taille (NukeEffect) ;
+## - menu « Alerte » : niveau d'alerte de la station (couleur des luminaires intérieurs, Station.set_alert).
 
 const SCRUB_MAX_S := 432000.0
 ## Le curseur va jusqu'à 5 jours (incendies, qui s'étendent sur plusieurs jours) et n'est pas linéaire (t = SCRUB_MAX_S · v⁵) :
@@ -73,6 +74,16 @@ func _ready() -> void:
 	_markers.focus_mode = Control.FOCUS_NONE
 	_markers.toggled.connect(_on_markers_toggled)
 	actions.add_child(_markers)
+	# Niveau d'alerte de la station (couleur des luminaires intérieurs, Station.set_alert).
+	var alert := OptionButton.new()
+	alert.focus_mode = Control.FOCUS_NONE
+	for level in ["Alerte : aucune", "Alerte jaune", "Alerte orange", "Alerte rouge"]:
+		alert.add_item(level)
+	alert.item_selected.connect(func(index: int) -> void:
+		var station := get_tree().get_first_node_in_group(Station.GROUP) as Station
+		if station:
+			station.set_alert(index as Station.Alert))
+	actions.add_child(alert)
 
 	var scrub_row := HBoxContainer.new()
 	scrub_row.add_theme_constant_override("separation", 6)
