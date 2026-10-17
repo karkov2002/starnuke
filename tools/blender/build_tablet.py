@@ -6,7 +6,10 @@
 # +Z dans Godot : vers la caméra quand la tablette est tenue devant elle. Dimensions d'une tablette de 12 pouces.
 # Objets : Tablette_Coque (coque arrondie en aluminium anodisé, face avant en verre noir), Ecran_Tablette (dalle de
 # l'écran, UV 0–1 : u vers la droite, v vers le bas de l'image ; matériau remplacé dans Godot par l'interface),
-# Tablette_Objectif (caméra frontale), Tablette_Boutons (marche/arrêt, volume).
+# Tablette_Objectif (caméra frontale), Tablette_Boutons (marche/arrêt, volume), Main_Droite (main droite qui tient
+# le coin inférieur droit : paume et doigts à plat contre le dos, pouce passé par-dessus la tranche droite, posé sur
+# la bordure avant à côté de l'écran ; modélisée par le modificateur Skin sur un squelette de sommets à rayons, puis
+# lissée) et Manche (avant-bras dans la manche bleu marine d'une combinaison de vol, qui descend hors du champ).
 import bpy, bmesh, sys, math
 from mathutils import Vector
 
@@ -115,6 +118,83 @@ bpy.context.view_layer.objects.active = buttons[0]
 bpy.ops.object.join()
 bpy.context.active_object.name = "Tablette_Boutons"
 
+
+# Main droite : squelette (sommets, arêtes, rayons x / y des sommets) habillé par le modificateur Skin, puis lissé.
+skin_mat = material("Main_Peau", (0.78, 0.56, 0.45), 0.0, 0.48)
+skin_mat.node_tree.nodes["Principled BSDF"].inputs["Subsurface Weight"].default_value = 0.25
+sleeve_mat = material("Main_Manche", (0.05, 0.07, 0.14), 0.0, 0.85)
+BACK = THICK / 2  # dos de la tablette (y > 0), face avant en −BACK
+
+
+def skin_object(name, points, edges, mat, levels=2):
+    mesh = bpy.data.meshes.new(name)
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    mesh.from_pydata([p[0] for p in points], edges, [])
+    obj.modifiers.new("Skin", 'SKIN').use_smooth_shade = True
+    for i, p in enumerate(points):
+        mesh.skin_vertices[0].data[i].radius = p[1]
+    mesh.skin_vertices[0].data[0].use_root = True
+    sub = obj.modifiers.new("Lissage", 'SUBSURF')
+    sub.levels = levels
+    sub.render_levels = levels
+    mesh.materials.append(mat)
+    for poly in mesh.polygons:
+        poly.use_smooth = True
+    return obj
+
+
+hand_points = []
+hand_edges = []
+
+
+def chain(start_index, pts):
+    # Ajoute une chaîne de sommets reliée au sommet start_index ; renvoie l'indice du dernier.
+    previous = start_index
+    for co, radius in pts:
+        hand_points.append((co, radius))
+        index = len(hand_points) - 1
+        if previous is not None:
+            hand_edges.append((previous, index))
+        previous = index
+    return previous
+
+# Avant-bras (racine, dans la manche) et poignet, sous le coin, derrière ; base et centre de la paume derrière la
+# tablette.
+forearm = chain(None, [((0.124, 0.040, -0.165), (0.026, 0.021))])
+wrist = chain(forearm, [((0.112, 0.032, -0.128), (0.025, 0.018))])
+palm_base = chain(wrist, [((0.100, 0.026, -0.102), (0.030, 0.016))])
+palm = chain(palm_base, [((0.086, 0.022, -0.074), (0.034, 0.014))])
+# Doigts serrés, presque parallèles, vers le haut et la gauche, à plat contre le dos ; jointures alignées en travers
+# de la paume (index au plus près du pouce, à droite).
+up_left = Vector((-0.5, 0.0, 0.866))
+across = Vector((0.866, 0.0, 0.5))
+palm_center = Vector(hand_points[palm][0])
+fingers = [(0.028, -0.03, 0.078), (0.009, 0.0, 0.088), (-0.010, 0.03, 0.082), (-0.028, 0.07, 0.064)]
+for offset, spread, length in fingers:  # (décalage en travers, écart angulaire en radians, longueur)
+    d = (up_left + across * spread).normalized()
+    k = palm_center + up_left * 0.040 + across * offset
+    y_rest = BACK + 0.0078
+    pts = [((k.x, y_rest + 0.002, k.z), (0.0098, 0.0088))]
+    for step, radius in [(0.42, 0.0090), (0.72, 0.0082), (1.0, 0.0070)]:
+        p = k + d * length * step
+        pts.append(((p.x, y_rest, p.z), (radius, radius * 0.92)))
+    chain(palm, pts)
+# Pouce : de la paume, par-dessus la tranche droite, puis à plat sur la bordure avant, vers le haut.
+FRONT = -BACK - 0.0085
+chain(palm_base, [((0.124, 0.022, -0.086), (0.015, 0.013)),
+                  ((0.147, 0.006, -0.072), (0.0115, 0.0105)),
+                  ((0.1395, FRONT, -0.055), (0.0098, 0.0090)),
+                  ((0.1365, FRONT, -0.037), (0.0090, 0.0082)),
+                  ((0.1350, FRONT + 0.0006, -0.028), (0.0072, 0.0066))])
+hand = skin_object("Main_Droite", hand_points, hand_edges, skin_mat, levels=3)
+
+# Avant-bras dans la manche : du poignet (qu'elle recouvre) vers le bas, l'arrière et la droite (hors du champ).
+sleeve = skin_object("Manche", [((0.110, 0.031, -0.122), (0.030, 0.024)),
+                                ((0.128, 0.044, -0.175), (0.036, 0.031)),
+                                ((0.155, 0.066, -0.270), (0.040, 0.035)),
+                                ((0.185, 0.090, -0.380), (0.043, 0.038))], [(0, 1), (1, 2), (2, 3)], sleeve_mat, levels=2)
+
 bpy.ops.wm.save_as_mainfile(filepath=BLEND)
 bpy.ops.export_scene.gltf(filepath=GLB, export_format='GLB', export_apply=True, export_yup=True,
                           export_cameras=False, export_lights=False, export_texcoords=True, export_normals=True,
@@ -149,5 +229,11 @@ if PREVIEW:
     scene.render.resolution_x = 1280
     scene.render.resolution_y = 800
     scene.render.filepath = PREVIEW
+    bpy.ops.render.render(write_still=True)
+    # Deuxième aperçu, de dos et d'en dessous (la main ; de face, seul le pouce dépasse).
+    camera.location = (0.42, 0.38, -0.22)
+    direction = Vector((0.06, 0.0, -0.05)) - camera.location
+    camera.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
+    scene.render.filepath = PREVIEW.replace(".png", "_dos.png")
     bpy.ops.render.render(write_still=True)
 print("OK", GLB)

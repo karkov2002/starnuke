@@ -149,11 +149,18 @@ frontale, boutons sur les tranches) tenue par l'observateur. Modèle `assets/tab
 `tools/blender/build_tablet.py` dans un Blender lancé en arrière-plan (`blender --background --factory-startup
 --python tools/blender/build_tablet.py -- <glb> <blend> [aperçu.png]`), qui enregistre aussi
 `E:\Blender\tablette.blend` pour la retoucher. Objets : `Tablette_Coque`, `Ecran_Tablette` (dalle, UV 0–1),
-`Tablette_Objectif`, `Tablette_Boutons`.
+`Tablette_Objectif`, `Tablette_Boutons`, et la **main droite qui la tient** : `Main_Droite` (paume et doigts serrés à
+plat contre le dos, au coin inférieur droit ; pouce passé par-dessus la tranche droite, posé sur la bordure avant à
+côté de l'écran ; modélisée par le modificateur Skin sur un squelette de sommets à rayons, puis lissée) et `Manche`
+(avant-bras dans la manche bleu marine d'une combinaison de vol, qui descend hors du champ). La main arrive et repart
+avec la tablette ; sortie, **seul le pouce reste visible** (la paume est derrière, le poignet et le bras sous le bas
+de la vue).
 
 - **Nœud `Observer/Camera/Tablet`** (`scripts/tablet.gd`) : enfant de la caméra, il suit la vue. Sortie, elle est
   **en bas à droite** de la vue (pas centrée) : 38 % de la hauteur de la vue (cadrage calculé d'après le champ de la
-  caméra et les proportions de la fenêtre), son bord droit à 7 % du bord droit, son bord bas à 5 % du bas, son haut
+  caméra et les proportions de la fenêtre), son bord droit à 10 % du bord droit (le coin inférieur droit, qui dépasse
+  avec la perspective, et le pouce restent dans le champ), son bord bas au bas de la vue (marge de 3,5 % avant
+  l'inclinaison vers l'œil, qui abaisse ce bord ; la main et le bras sont dessous), son haut
   sous le centre (le réticule reste visible), à moitié tournée vers l'œil (tout à fait, en bord de vue, elle
   paraissait de biais). Rangée, elle est masquée et son interface n'est plus redessinée. Éclairée par les lampes
   intérieures (calque `Station.INTERIOR_LAYER`) et le soleil, sans ombre portée.
@@ -173,7 +180,8 @@ frontale, boutons sur les tranches) tenue par l'observateur. Modèle `assets/tab
   milieu, carte réduite (la même `OrbitalMap` que le poste de pilotage : trace au sol, station, point de manœuvre,
   trace fantôme), **de 70° N à 70° S** pour être plus large (rapport 1,81 au lieu de 1,29 ; la carte du poste reste
   à ±80°), et, dans une colonne étroite à droite, la commande de poussée (`BurnControl` en colonne : compte à
-  rebours, BURN bleu et **jauge verticale**, remplie du bas vers le haut) ; en bas, la commande de tir
+  rebours, BURN bleu et message empilés, **jauge verticale** à leur droite sur toute la hauteur du bloc, remplie du
+  bas vers le haut, pour un dosage précis) ; en bas, la commande de tir
   (`LaunchControl` : silos, **petits boutons de puissance** — à terme, chaque silo aura sa bombe et sa puissance —,
   gros bouton rouge), agrandie × 1,4 (boutons de taille fixe).
 

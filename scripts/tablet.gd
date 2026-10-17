@@ -2,7 +2,8 @@ class_name Tablet
 extends Node3D
 ## Tablette de l'observateur (nœud Observer/Camera/Tablet de scenes/orbit_view.tscn) : modèle Blender
 ## assets/tablet/tablet.glb (tools/blender/build_tablet.py), tenu en bas à droite de la vue, écran tourné vers l'œil,
-## comme dans la main. Son écran (objet Ecran_Tablette, UV 0–1) affiche l'interface TabletDisplay, dessinée dans un
+## par la main droite modélisée avec elle (Main_Droite, Manche : elle arrive avec la tablette ; sortie, seul le pouce,
+## posé sur la bordure de droite, reste dans le champ). Son écran (objet Ecran_Tablette, UV 0–1) affiche l'interface TabletDisplay, dessinée dans un
 ## SubViewport : date et heure, carte réduite, BURN, silos et tir.
 ## - Touche Tab (action tablet) : la main amène la tablette devant les yeux (ARRIVE_S) ou la range (STOW_S) ; rangée,
 ##   elle est masquée. Ignorée pendant la saisie d'un texte et au poste de pilotage (la tablette s'y range d'elle-même).
@@ -44,10 +45,13 @@ const LAG_MAX_RAD := 0.06
 ## Part de la hauteur de la vue occupée par la tablette sortie.
 ## (Le haut de la tablette reste sous le centre de la vue : le réticule de tir reste visible.)
 @export_range(0.2, 0.9) var view_fill := 0.38
-## Marge entre le bas de la tablette et le bas de la vue (part de la hauteur de la vue).
-@export var bottom_margin := 0.05
-## Marge entre le bord droit de la tablette et celui de la vue (part de la largeur de la vue).
-@export var right_margin := 0.07
+## Marge entre le bas de la tablette et le bas de la vue (part de la hauteur de la vue, avant l'inclinaison vers
+## l'œil, qui abaisse le bord bas) : réglée pour que ce bord arrive au bas de la vue ; la main et le bras, dessous et
+## derrière, sont hors du champ (seul le pouce, sur la bordure de droite, reste visible ; l'écran reste entier).
+@export var bottom_margin := 0.035
+## Marge entre le bord droit de la tablette et celui de la vue (part de la largeur de la vue, avant la perspective, qui
+## fait dépasser le coin inférieur droit) : le pouce, sur la bordure de droite, reste dans le champ.
+@export var right_margin := 0.1
 ## Luminosité de l'écran (émission).
 @export var screen_energy := 1.0
 

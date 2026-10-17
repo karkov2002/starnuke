@@ -5,8 +5,8 @@ extends VBoxContainer
 ## dessin que le bouton de tir), jauge de la poussée et message d'état. Logique : FlightComputer.
 ## Jauge : de 0 à 150 % de la durée requise ; zone verte de la poussée parfaite (95 à 105 %) ; remplissage bleu,
 ## orange au-delà de la zone verte. Deux dispositions : jauge horizontale sous le bouton (poste de pilotage), ou
-## colonne étroite (column_layout, tablette) : compte à rebours au-dessus, jauge verticale (remplie du bas vers le haut) à
-## côté du bouton.
+## colonne étroite (column_layout, tablette) : compte à rebours, bouton et message empilés, jauge verticale (remplie du
+## bas vers le haut) à leur droite, sur toute la hauteur du bloc (précision du dosage).
 
 const COLOR_BURN := Color(0.12, 0.38, 0.95)
 const COLOR_GHOST := Color(0.3, 0.85, 1.0)
@@ -40,14 +40,27 @@ func _ready() -> void:
 	info.add_child(_node_label)
 	_countdown = _make_label(COLOR_GHOST, 60 if large else 26)
 	info.add_child(_countdown)
+	# En colonne : [compte à rebours, bouton, message] à gauche, jauge sur toute la hauteur à droite.
+	var stack: BoxContainer = self
+	var body: HBoxContainer = null
+	if column_layout:
+		body = HBoxContainer.new()
+		body.add_theme_constant_override("separation", 10)
+		body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		add_child(body)
+		stack = VBoxContainer.new()
+		stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		stack.alignment = BoxContainer.ALIGNMENT_CENTER
+		stack.add_theme_constant_override("separation", 6)
+		body.add_child(stack)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	if column_layout:
-		add_child(info)
+		stack.add_child(info)
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
 	else:
 		row.add_child(info)
-	add_child(row)
+	stack.add_child(row)
 	_button = BigRedButton.new()
 	_button.cap_color = COLOR_BURN
 	_button.hold = true
@@ -63,14 +76,15 @@ func _ready() -> void:
 	_gauge = Control.new()
 	_gauge.draw.connect(_draw_gauge)
 	if column_layout:
-		_gauge.custom_minimum_size = Vector2(24.0, _button.custom_minimum_size.y * 1.3)
-		row.add_child(_gauge)
+		_gauge.custom_minimum_size = Vector2(30.0, 0.0)
+		_gauge.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		body.add_child(_gauge)
 	else:
 		_gauge.custom_minimum_size = Vector2(0.0, 26.0 if large else 12.0)
 		add_child(_gauge)
 	_status = _make_label(COLOR_DIM, 0)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(_status)
+	stack.add_child(_status)
 
 
 func _process(_delta: float) -> void:
