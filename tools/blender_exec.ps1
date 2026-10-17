@@ -5,8 +5,8 @@
 # "stderr"}. Le code assigne `result` pour renvoyer une valeur (sérialisée en JSON, `repr` sinon).
 # Usage, depuis PowerShell (un code passé en -Code contient espaces et guillemets : l'appeler avec « & » plutôt
 # que par un powershell.exe imbriqué, qui redécoupe les arguments ; pour un script long, -File script.py) :
-#   & .	oolslender_exec.ps1 -Code 'import bpy; result = bpy.data.filepath'
-#   & .	oolslender_exec.ps1 -File script.py [-Server 127.0.0.1] [-Port 9876] [-TimeoutS 60]
+#   & ./tools/blender_exec.ps1 -Code 'import bpy; result = bpy.data.filepath'
+#   & ./tools/blender_exec.ps1 -File script.py [-Server 127.0.0.1] [-Port 9876] [-TimeoutS 60]
 param(
     [string]$Code = "",
     [string]$File = "",
