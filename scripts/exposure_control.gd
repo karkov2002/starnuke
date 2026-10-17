@@ -27,11 +27,17 @@ const GROUP := &"exposure_control"
 @export var earth_path: NodePath = ^"../Earth"
 @export var sun_path: NodePath = ^"../Sun"
 @export var world_environment_path: NodePath = ^"../WorldEnvironment"
+@export var station_path: NodePath = ^"../Station/StationSpatiale"
 ## Sensibilité (ISO) de jour à luminosité 100 % et facteur 1 ; l'exposition en est l'inverse.
 @export var base_sensitivity := 200.0
-## Facteurs d'exposition de jour et de nuit (×1 : sensibilité base_sensitivity).
+## Facteurs d'exposition de jour et de nuit (×1 : sensibilité base_sensitivity), et de l'intérieur de la station
+## (lumières artificielles constantes : la même exposition de jour comme de nuit, sinon l'intérieur sature la nuit).
+## L'écran est partagé entre Terre et intérieur selon la part des rayons d'une grille VIEW_GRID × VIEW_GRID qui
+## touchent la Terre ; le facteur est interpolé (géométriquement) entre les deux.
 @export var day_multiplier := 1.0
 @export var night_multiplier := 2.85
+@export var interior_multiplier := 1.0
+const VIEW_GRID := 3
 ## Hauteur du soleil (degrés) au point regardé : plein jour au-dessus, pleine nuit en dessous.
 @export var day_elevation_deg := 8.0
 @export var night_elevation_deg := -12.0
@@ -56,6 +62,8 @@ var flash_received := 0.0
 var _orbit: OrbitSimulation
 var _earth: Node3D
 var _sun: DirectionalLight3D
+## Station (scripts/station.gd), pour savoir si l'observateur est dans la cupola.
+var _station: Node
 var _attributes: CameraAttributes
 var _log_factor := 0.0
 
@@ -66,6 +74,7 @@ func _ready() -> void:
 	_orbit = get_node_or_null(orbit_path) as OrbitSimulation
 	_earth = get_node_or_null(earth_path) as Node3D
 	_sun = get_node_or_null(sun_path) as DirectionalLight3D
+	_station = get_node_or_null(station_path)
 	var world_environment := get_node_or_null(world_environment_path) as WorldEnvironment
 	if world_environment:
 		_attributes = world_environment.camera_attributes
@@ -97,12 +106,17 @@ func _apply() -> void:
 	practical.exposure_multiplier = 1.0
 
 
-## Facteur cible d'après la hauteur du soleil au point regardé, divisé par l'éblouissement du soleil dans le champ.
+## Facteur cible : intérieur de la station (interior_multiplier) fondu, selon la part de l'écran occupée par la Terre,
+## avec le facteur jour / nuit du point regardé ; divisé par l'éblouissement du soleil dans le champ (depuis la cupola
+## seulement : ailleurs la coque le cache) et par l'adaptation au flash.
 func _target_factor() -> float:
-	var elevation := _sun_elevation_deg()
-	var night := 1.0 - smoothstep(night_elevation_deg, day_elevation_deg, elevation)
-	var factor := exp(lerpf(log(day_multiplier), log(night_multiplier), night))
-	return factor / lerpf(1.0, sun_dimming, _sun_in_view()) / (1.0 + flash_adapt_gain * maxf(flash_received, 0.0))
+	var view := _earth_view()
+	var night := 1.0 - smoothstep(night_elevation_deg, day_elevation_deg, view.elevation)
+	var earth_factor := lerpf(log(day_multiplier), log(night_multiplier), night)
+	# Les montants de la cupola occupent une part fixe de l'écran : la Terre domine dès qu'elle en couvre ~60 %.
+	var factor := exp(lerpf(log(interior_multiplier), earth_factor, smoothstep(0.0, 0.6, view.fraction)))
+	var sun := _sun_in_view() if _in_cupola() else 0.0
+	return factor / lerpf(1.0, sun_dimming, sun) / (1.0 + flash_adapt_gain * maxf(flash_received, 0.0))
 
 
 ## Part (0 à 1) de l'éblouissement par le disque solaire : 1 quand il est dans le champ (demi-diagonale) et
@@ -112,9 +126,13 @@ func _sun_in_view() -> float:
 	if camera == null or _sun == null or _earth == null:
 		return 0.0
 	var sun_dir := _sun.global_basis.z.normalized()
+	# Les fenêtres de la cupola donnent vers la Terre : un soleil au-dessus de l'horizontale de la station est caché
+	# par la coque (sinon, viser le plafond avec le soleil derrière assombrissait la vue).
+	var oc := camera.global_position - _earth.global_position
+	if sun_dir.dot(-oc.normalized()) < -0.05:
+		return 0.0
 	# Soleil derrière la Terre : le rayon caméra → soleil traverse la sphère.
 	var radius := OrbitSimulation.EARTH_RADIUS_KM * OrbitSimulation.SCENE_UNITS_PER_KM
-	var oc := camera.global_position - _earth.global_position
 	var b := oc.dot(sun_dir)
 	if b < 0.0 and b * b - (oc.length_squared() - radius * radius) > 0.0:
 		return 0.0
@@ -127,28 +145,41 @@ func _sun_in_view() -> float:
 
 
 ## Hauteur du soleil (degrés) au point de la Terre visé par le centre de la vue, sinon au point survolé.
-func _sun_elevation_deg() -> float:
-	if _earth == null or _sun == null:
-		return 90.0
-	var up := Vector3.ZERO
+## Vue de la Terre : {fraction : part des rayons de la grille VIEW_GRID × VIEW_GRID qui touchent la Terre,
+## elevation : hauteur du soleil (degrés) au point moyen touché (sinon au point survolé)}.
+func _earth_view() -> Dictionary:
 	var camera := get_viewport().get_camera_3d()
-	if camera:
-		var center := get_viewport().get_visible_rect().size * 0.5
-		var origin := camera.project_ray_origin(center)
-		var direction := camera.project_ray_normal(center)
-		var radius := OrbitSimulation.EARTH_RADIUS_KM * OrbitSimulation.SCENE_UNITS_PER_KM
-		var oc := origin - _earth.global_position
-		var b := oc.dot(direction)
-		var discriminant := b * b - (oc.length_squared() - radius * radius)
-		if discriminant >= 0.0:
+	if _earth == null or _sun == null or camera == null:
+		return {"fraction": 1.0, "elevation": 90.0}
+	var size := get_viewport().get_visible_rect().size
+	var radius := OrbitSimulation.EARTH_RADIUS_KM * OrbitSimulation.SCENE_UNITS_PER_KM
+	var hits := 0
+	var up := Vector3.ZERO
+	for i in VIEW_GRID:
+		for j in VIEW_GRID:
+			var point := Vector2((i + 0.5) / VIEW_GRID, (j + 0.5) / VIEW_GRID) * size
+			var origin := camera.project_ray_origin(point)
+			var direction := camera.project_ray_normal(point)
+			var oc := origin - _earth.global_position
+			var b := oc.dot(direction)
+			var discriminant := b * b - (oc.length_squared() - radius * radius)
+			if discriminant < 0.0:
+				continue
 			var t := -b - sqrt(discriminant)
 			if t > 0.0:
-				up = (oc + direction * t).normalized()
-	if up == Vector3.ZERO:
+				hits += 1
+				up += (oc + direction * t).normalized()
+	if hits == 0:
 		# Point survolé : la station est au zénith de ce point.
-		var station_up := (get_viewport().get_camera_3d().global_position - _earth.global_position) if camera \
-				else Vector3.UP
-		up = station_up.normalized()
+		up = camera.global_position - _earth.global_position
 	# La lumière Sun regarde vers −sun : +Z de sa base pointe vers le soleil.
 	var sun_dir := _sun.global_basis.z.normalized()
-	return rad_to_deg(asin(clampf(up.dot(sun_dir), -1.0, 1.0)))
+	var elevation := rad_to_deg(asin(clampf(up.normalized().dot(sun_dir), -1.0, 1.0)))
+	return {"fraction": float(hits) / float(VIEW_GRID * VIEW_GRID), "elevation": elevation}
+
+
+## L'observateur est-il dans la cupola (Station.is_in_cupola) ? Sinon (intérieur de la station), le soleil n'est
+## jamais en vue.
+func _in_cupola() -> bool:
+	var camera := get_viewport().get_camera_3d()
+	return _station != null and camera != null and _station.call(&"is_in_cupola", camera.global_position)

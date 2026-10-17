@@ -418,9 +418,16 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
     le clair et 0,25 s vers le sombre (`adaptation_s`, `darkening_s`, comme l'œil). Vérifié à 1920 × 1080 et en
     vrai plein écran 5120 × 1440 : même luminance sur le même champ (le centre 2560 × 1440 de l'image 32:9), de
     jour (71,3 / 70,8) comme de nuit (38,0 / 37,6 ; `tools/bench/exposure_probe.tscn`) ;
-  - **face au soleil** : quand le disque solaire est dans le champ (demi-diagonale, bord progressif sur ±10°) et
-    au-dessus du limbe terrestre, l'exposition est divisée par 5 (`sun_dimming`) : la Terre s'assombrit et les
-    étoiles s'effacent (ce que faisait l'exposition automatique, dominée par le disque) ;
+  - **intérieur de la station** : l'écran est partagé entre la Terre et l'intérieur selon la part des rayons
+    d'une grille 3 × 3 qui touchent la Terre (`_earth_view`, la Terre domine dès ~60 %) ; la part « intérieur »
+    garde la sensibilité de jour (`interior_multiplier` × 1 : lumières artificielles constantes) — sans cela, la
+    règle jour / nuit saturait l'intérieur la nuit (sonde `tools/bench/exposure_views_probe.tscn` : Terre,
+    plafond de la cupola, intérieur, de jour et de nuit) ;
+  - **face au soleil** : depuis la cupola seulement (`Station.is_in_cupola`), quand le disque solaire est dans le
+    champ (demi-diagonale, bord progressif sur ±10°), au-dessus du limbe terrestre et sous l'horizontale de la
+    station (les fenêtres donnent vers la Terre ; un soleil derrière la coque est caché — viser le plafond
+    assombrissait la vue), l'exposition est divisée par 5 (`sun_dimming`) : la Terre s'assombrit et les étoiles
+    s'effacent (ce que faisait l'exposition automatique, dominée par le disque) ;
   - **facteur final** = luminosité des paramètres (`GameSettings.brightness`, 100 % = sensibilité 200 de jour) ×
     facteur jour / nuit × éblouissement du flash (`NukeFlashFX` fournit `dazzle`, voir « Lumière et effets d'écran
     du flash ») ÷ (1 + 8 × flux de flash reçu par la caméra, en soleils ; `flash_adapt_gain`) : l'œil s'adapte à la
