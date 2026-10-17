@@ -141,6 +141,8 @@ var _environment: Environment
 ## Luminaires intérieurs (lampes Lum_* et matériaux Int_Lumiere*), listés une fois, et facteur appliqué.
 var _interior_lights: Array[OmniLight3D] = []
 var _lamp_materials: Array[BaseMaterial3D] = []
+## Écrans (matériaux Ecran_*, émissifs) : éteints avec « plus de lumière ».
+var _screen_materials: Array[BaseMaterial3D] = []
 var _light_factor := -1.0
 ## Alerte : niveau courant, teinte appliquée (fondue) et horloge de la pulsation.
 var _alert := Alert.NONE
@@ -148,6 +150,10 @@ var _alert_tint := Color.WHITE
 var _alert_time := 0.0
 ## Part de l'extinction (0 : luminaires normaux, 1 : « plus de lumière »), fondue.
 var _dark := 0.0
+## Dernières valeurs appliquées aux lumières et matériaux.
+var _applied_factor := -1.0
+var _applied_tint := Color.BLACK
+var _applied_dark := -1.0
 
 enum Alert { NONE, YELLOW, ORANGE, RED, BLACKOUT }
 var _beacon_time := 0.0
@@ -724,14 +730,21 @@ func _setup_interior_lighting() -> void:
 			continue
 		for s in mesh_instance.mesh.get_surface_count():
 			var material := mesh_instance.get_active_material(s) as BaseMaterial3D
-			if material == null or not material.emission_enabled or not material.resource_name.begins_with("Int_Lumiere") \
-					or done.has(material):
+			if material == null or not material.emission_enabled or done.has(material):
+				continue
+			var lamp := material.resource_name.begins_with("Int_Lumiere")
+			var screen := material.resource_name.begins_with("Ecran_")
+			if not lamp and not screen:
 				continue
 			done[material] = true
 			if not material.has_meta(&"base_emission"):
 				material.set_meta(&"base_emission", material.emission_energy_multiplier)
 				material.set_meta(&"base_emission_color", material.emission)
-			_lamp_materials.append(material)
+				material.set_meta(&"base_albedo", material.albedo_color)
+			if lamp:
+				_lamp_materials.append(material)
+			else:
+				_screen_materials.append(material)
 	_update_interior_light(0.0)
 
 
@@ -753,8 +766,11 @@ func get_alert() -> Alert:
 func _update_interior_light(delta: float) -> void:
 	var sunlight := _orbit.get_sunlight_fraction() if _orbit else 1.0
 	var factor := GameSettings.interior_light * lerpf(night_light_ratio, 1.0, sunlight)
+	# Fondus (teinte, extinction) : l'état avance à chaque image et s'accroche à la cible une fois tout près — sinon,
+	# à haute cadence, les petits pas par image bloquaient le fondu à mi-course.
 	var target := alert_colors[_alert] if _alert < alert_colors.size() else Color.WHITE
-	var tint := _alert_tint.lerp(target, 1.0 - exp(-delta / maxf(alert_fade_s, 1e-3))) if delta > 0.0 else target
+	var blend := 1.0 - exp(-delta / maxf(alert_fade_s, 1e-3)) if delta > 0.0 else 1.0
+	_alert_tint = target if _alert_tint.is_equal_approx(target) else _alert_tint.lerp(target, blend)
 	if _alert == Alert.RED:
 		_alert_time += delta
 		factor *= 1.0 - 0.5 * red_alert_pulse * (1.0 - cos(TAU * _alert_time / maxf(red_alert_period_s, 0.1)))
@@ -762,13 +778,17 @@ func _update_interior_light(delta: float) -> void:
 		_alert_time = 0.0
 	# Extinction (« plus de lumière ») : les luminaires s'éteignent pendant que les LED de secours s'allument.
 	var dark_target := 1.0 if _alert == Alert.BLACKOUT else 0.0
-	var dark := lerpf(_dark, dark_target, 1.0 - exp(-delta / maxf(alert_fade_s, 1e-3))) if delta > 0.0 else dark_target
+	_dark = dark_target if absf(_dark - dark_target) < 0.001 else lerpf(_dark, dark_target, blend)
+	var tint := _alert_tint
+	var dark := _dark
 	factor *= 1.0 - dark
-	if absf(factor - _light_factor) < 0.002 and tint.is_equal_approx(_alert_tint) and absf(dark - _dark) < 0.002:
+	# Application seulement si quelque chose a changé depuis la dernière application.
+	if absf(factor - _applied_factor) < 0.001 and tint.is_equal_approx(_applied_tint) and absf(dark - _applied_dark) < 0.001:
 		return
+	_applied_factor = factor
+	_applied_tint = tint
+	_applied_dark = dark
 	_light_factor = factor
-	_alert_tint = tint
-	_dark = dark
 	if _environment:
 		_environment.ambient_light_energy = float(_environment.get_meta(&"base_ambient_energy")) * (1.0 - dark)
 	for i in _interior_lights.size():
@@ -781,6 +801,11 @@ func _update_interior_light(delta: float) -> void:
 		# Seuls les luminaires blancs changent de couleur (les feux rouges des rails gardent la leur).
 		if material.resource_name == "Int_Lumiere":
 			material.emission = (material.get_meta(&"base_emission_color") as Color) * tint
+		# Éteint, un luminaire est gris sombre (son albédo blanc paraîtrait encore allumé sous les LED de secours).
+		material.albedo_color = (material.get_meta(&"base_albedo") as Color).lerp(Color(0.06, 0.06, 0.06), dark)
+	for material in _screen_materials:
+		material.emission_energy_multiplier = float(material.get_meta(&"base_emission")) * (1.0 - dark)
+		material.albedo_color = (material.get_meta(&"base_albedo") as Color).lerp(Color(0.02, 0.02, 0.02), dark)
 
 
 ## Vitrage de la cupola sans reflet spéculaire : le reflet de l'environnement (disque solaire du ciel) ignore l'ombre

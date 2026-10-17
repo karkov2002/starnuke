@@ -323,8 +323,10 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
       Cinquième niveau, **« plus de lumière »** (`BLACKOUT`) : bandeaux et lampes s'éteignent (même fondu), sauf
       une lampe sur quatre (`emergency_light_every`) qui reste en LED de secours, très faible (énergie 0,06,
       `emergency_light_energy`) et froide (`emergency_light_color`), pour deviner les modules ; la lumière ambiante
-      de l'`Environment` (qui n'éclaire que la station) s'éteint avec le même fondu ; les voyants du modèle
-      (`Int_Voyant_*`, émissifs) restent allumés. Les déclencheurs (quelles situations déclenchent quel
+      de l'`Environment` (qui n'éclaire que la station) et les **écrans** (`Ecran_*`, émission coupée, dalle
+      presque noire) s'éteignent avec le même fondu, et les bandeaux éteints deviennent gris sombre (leur albédo
+      blanc paraîtrait allumé sous les LED) ; seuls les voyants du modèle (`Int_Voyant_*`, émissifs) restent
+      allumés. Les déclencheurs (quelles situations déclenchent quel
       niveau) restent à définir ; le panneau de debug (`nuke/debug/`, F4 en jeu) permet d'essayer chaque niveau. Sans ombres, une lampe traverse les parois : elles n'éclairent donc que les surfaces intérieures,
     sur le calque `INTERIOR_LAYER` (bit 11, `light_cull_mask`). Est intérieur un matériau dont le nom commence par
     `Int_` ou `Ecran_` ; hublots et vitrages sont des deux côtés ; tout le reste est extérieur. Les 14 coques mixtes
