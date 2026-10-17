@@ -43,6 +43,8 @@ const MIN_3D_SCALE := 0.25
 const CAMERA_ATTRIBUTES := "res://materials/camera_attributes.tres"
 const BRIGHTNESS_RANGE := Vector2(0.25, 1.5)
 const INTERIOR_LIGHT_RANGE := Vector2(0.1, 1.5)
+## Puissance par défaut des lampes de la station (30 % : validé à l'œil le 2026-10-17 ; 100 % = réglage du modèle).
+const DEFAULT_INTERIOR_LIGHT := 0.3
 
 var window_mode := WindowMode.FULLSCREEN
 ## Résolution choisie ; Vector2i.ZERO : celle de l'écran.
@@ -50,8 +52,8 @@ var resolution := Vector2i.ZERO
 var locale := DEFAULT_LOCALE
 ## Multiplicateur de luminosité (1 = exposition automatique seule).
 var brightness := 1.0
-## Puissance de l'éclairage intérieur de la station (1 = réglage du modèle).
-var interior_light := 1.0
+## Puissance de l'éclairage intérieur de la station (1 = réglage du modèle, 0,3 par défaut).
+var interior_light := DEFAULT_INTERIOR_LIGHT
 
 
 func _ready() -> void:
@@ -195,7 +197,7 @@ func _load() -> void:
 			else WindowMode.FULLSCREEN
 	resolution = config.get_value("video", "resolution", Vector2i.ZERO)
 	brightness = clampf(float(config.get_value("video", "brightness", 1.0)), BRIGHTNESS_RANGE.x, BRIGHTNESS_RANGE.y)
-	interior_light = clampf(float(config.get_value("video", "interior_light", 1.0)), INTERIOR_LIGHT_RANGE.x,
+	interior_light = clampf(float(config.get_value("video", "interior_light", DEFAULT_INTERIOR_LIGHT)), INTERIOR_LIGHT_RANGE.x,
 			INTERIOR_LIGHT_RANGE.y)
 	locale = config.get_value("game", "locale", DEFAULT_LOCALE)
 	if not locale in LOCALES:
