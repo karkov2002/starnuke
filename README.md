@@ -48,7 +48,7 @@ permet de piloter le jeu exporté.
   - **Video** : mode d'affichage (**fenêtré** / **plein écran**), **résolution** et **luminosité** (25 à 150 %,
     `GameSettings.brightness`, sauvée dans `user://settings.cfg` : facteur du multiplicateur d'exposition des
     attributs de caméra partagés `materials/camera_attributes.tres`, appliqué au menu et au jeu par le nœud
-    `Exposure`, voir « Exposition » dans « Organisation de la scène ») et **éclairage intérieur** (10 à 150 %, **30 % par défaut**,
+    `Exposure`, voir « Exposition » dans « Organisation de la scène ») et **éclairage intérieur** (10 à 150 %, **40 % par défaut**,
     `GameSettings.interior_light`, sauvé de même : comme un potentiomètre sur les luminaires de la station,
     `Station` multiplie par ce facteur l'énergie de chaque lampe `Lum_*` **et** l'émission propre des luminaires
     (matériaux `Int_Lumiere*`, donc aussi leur halo de glow), et le réapplique à chaque changement ; l'exposition
