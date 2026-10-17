@@ -3,9 +3,15 @@ extends CanvasLayer
 ## Compteur de performances en haut à droite de l'écran (outil de développement, nœud FpsOverlay de orbit_view.tscn) :
 ## images par seconde, temps CPU moyen par image, temps GPU moyen (RenderingServer, mesure du viewport principal),
 ## nombre d'appels de dessin et mémoire vidéo. Moyennes sur REFRESH_S. F3 l'affiche ou le masque.
+## F4 ouvre ou masque le panneau de debug des explosions (nuke/debug/nuke_debug_panel.gd) dans la partie en cours,
+## sans passer par la scène nuke/debug/nuke_debug.tscn de l'éditeur.
 
 const REFRESH_S := 0.5
 const KEY_TOGGLE := KEY_F3
+const KEY_DEBUG_PANEL := KEY_F4
+const DEBUG_PANEL_SCRIPT := preload("res://nuke/debug/nuke_debug_panel.gd")
+
+var _debug_panel: CanvasLayer
 
 var _label: Label
 var _frames := 0
@@ -32,8 +38,20 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_TOGGLE:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if event.physical_keycode == KEY_TOGGLE:
 		visible = not visible
+		get_viewport().set_input_as_handled()
+	elif event.physical_keycode == KEY_DEBUG_PANEL:
+		if _debug_panel == null:
+			_debug_panel = CanvasLayer.new()
+			_debug_panel.name = "DebugPanel"
+			_debug_panel.layer = 2
+			_debug_panel.set_script(DEBUG_PANEL_SCRIPT)
+			get_parent().add_child(_debug_panel)
+		else:
+			_debug_panel.visible = not _debug_panel.visible
 		get_viewport().set_input_as_handled()
 
 
