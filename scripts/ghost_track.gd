@@ -14,8 +14,9 @@ const DASH_OFF := 2
 @export var flight_computer_path: NodePath = ^"../FlightComputer"
 @export var earth_path: NodePath = ^"../Earth"
 @export var color := Color(0.3, 0.85, 1.0)
-## Luminosité (rendu non éclairé, au-delà de 1 en HDR pour rester visible sur la Terre éclairée).
-@export var energy := 3.0
+## Luminosité (rendu non éclairé, au-delà de 1 en HDR pour rester visible sur la Terre éclairée ; à 3, l'exposition
+## automatique de nuit, qui remonte l'image, faisait baver les tirets en halos).
+@export var energy := 1.5
 
 var _computer: FlightComputer
 var _earth: Node3D

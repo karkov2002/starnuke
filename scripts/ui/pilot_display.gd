@@ -2,9 +2,10 @@ class_name PilotDisplay
 extends Control
 ## Interface du grand écran du poste de pilotage, dessinée dans le SubViewport de PilotConsole
 ## (scripts/pilot_console.gd) : carte du monde en Mercator (OrbitalMap) à gauche ; à droite, l'orbite actuelle, puis
-## la manœuvre : curseurs de l'inclinaison et de l'altitude visées (FlightComputer, trace fantôme), compte à rebours
-## du prochain nœud (passage à l'équateur, où se fait la manœuvre), Δv, bouton « Annuler » (cible ramenée sur
-## l'orbite actuelle). Construite en code ; taille : celle du SubViewport (proportions de la dalle).
+## la manœuvre : curseurs de l'inclinaison et de l'altitude visées (FlightComputer, trace fantôme), Δv, bouton
+## « Annuler » (cible ramenée sur l'orbite actuelle), mode Auto / Manuel et commande de poussée (BurnControl :
+## compte à rebours du nœud, bouton BURN, jauge). Construite en code ; taille : celle du SubViewport (proportions de
+## la dalle).
 
 const MARGIN := 24.0
 const FONT_SIZE := 30
@@ -22,9 +23,8 @@ var _inclination_slider: HSlider
 var _altitude_slider: HSlider
 var _target_inclination: Label
 var _target_altitude: Label
-var _node_label: Label
-var _countdown: Label
 var _delta_v: Label
+var _mode_buttons: Array[Button] = []
 
 
 func _ready() -> void:
@@ -90,11 +90,26 @@ func _ready() -> void:
 	cancel.pressed.connect(func() -> void: flight_computer.reset_target())
 	delta_row.add_child(cancel)
 
-	_node_label = _make_value(COLOR_DIM)
-	column.add_child(_node_label)
-	_countdown = _make_value(COLOR_GHOST)
-	_countdown.add_theme_font_size_override("font_size", 64)
-	column.add_child(_countdown)
+	var modes := HBoxContainer.new()
+	modes.add_theme_constant_override("separation", 8)
+	column.add_child(modes)
+	var group := ButtonGroup.new()
+	for entry: Array in [[FlightComputer.Mode.AUTO, "PILOT_MODE_AUTO"], [FlightComputer.Mode.MANUAL, "PILOT_MODE_MANUAL"]]:
+		var button := Button.new()
+		button.text = entry[1]
+		button.toggle_mode = true
+		button.button_group = group
+		button.focus_mode = Control.FOCUS_NONE
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(func() -> void: flight_computer.set_mode(entry[0]))
+		button.set_meta(&"mode", entry[0])
+		modes.add_child(button)
+		_mode_buttons.append(button)
+
+	var burn := BurnControl.new()
+	burn.flight_computer = flight_computer
+	burn.large = true
+	column.add_child(burn)
 
 
 func _process(_delta: float) -> void:
@@ -114,8 +129,8 @@ func _process(_delta: float) -> void:
 	_target_inclination.text = "%.1f°" % flight_computer.target_inclination_deg
 	_target_altitude.text = "%d km" % roundi(flight_computer.target_altitude_km)
 	_delta_v.text = "%d m/s" % roundi(flight_computer.get_delta_v_km_s() * 1000.0) if flight_computer.has_plan() else "—"
-	_node_label.text = tr("PILOT_NODE_ASCENDING" if flight_computer.is_node_ascending() else "PILOT_NODE_DESCENDING")
-	_countdown.text = _format_countdown(flight_computer.get_countdown_s())
+	for button in _mode_buttons:
+		button.set_pressed_no_signal(button.get_meta(&"mode") == flight_computer.mode)
 
 
 ## Ligne « nom … valeur » d'une cible ; renvoie le label de la valeur.
@@ -155,14 +170,6 @@ func _make_slider(min_value: float, max_value: float, step: float) -> HSlider:
 	slider.focus_mode = Control.FOCUS_NONE
 	slider.custom_minimum_size.y = 44.0
 	return slider
-
-
-## « 12:34 » (minutes:secondes de temps de jeu), « 1:02:03 » au-delà d'une heure.
-func _format_countdown(seconds: float) -> String:
-	var s := maxf(ceilf(seconds), 0.0)
-	if s >= 3600.0:
-		return "%d:%02d:%02d" % [floori(s / 3600.0), floori(s / 60.0) % 60, int(s) % 60]
-	return "%02d:%02d" % [floori(s / 60.0), int(s) % 60]
 
 
 ## « 42.0° N » : positive et negative sont les clés de langue des directions (DIR_N, DIR_S…).

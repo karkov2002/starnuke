@@ -109,7 +109,7 @@ permet de piloter le jeu exporté.
 | Orienter la vue | Maintenir le **clic droit** et déplacer la souris (lacet et tangage autour des axes de la tête) ; **A / E** (AZERTY, Q / E en QWERTY) : **roulis** gauche / droite autour de l'axe du regard (60°/s, mise en rotation et arrêt progressifs). Orientation libre comme en apesanteur : pas de « haut » imposé, tangage non limité |
 | Se déplacer dans la station | **Z / S** (W / S en QWERTY) ou **flèches haut / bas** : avancer / reculer dans la direction du regard (y compris vers le haut ou le bas, apesanteur) ; **Q / D** (A / D en QWERTY) ou **flèches gauche / droite** : déplacement latéral. 1,5 m/s ; inertie d'apesanteur : démarrage et arrêt en douceur (~1 s), on continue sur sa lancée un instant après avoir relâché la touche ; collisions avec les parois, les vitres et les objets intérieurs (tubes des silos…) |
 | Curseur | Libre le reste du temps (clic gauche sur le panneau de contrôle) |
-| Altitude, inclinaison de l'orbite | Au **poste de pilotage** : manœuvre au prochain nœud (inclinaison visée **0 à 80°**, altitude visée **400 à 800 km**, voir « Poste de pilotage »). Réglage direct (outil de développement) : section « Orbite » du **panneau de debug (F4)**, altitude 200 à 800 km, inclinaison 0 à 80° bornée par la latitude courante (voir ci-dessous) |
+| Altitude, inclinaison de l'orbite | Au **poste de pilotage** : manœuvre au prochain nœud (inclinaison visée **0 à 80°**, altitude visée **400 à 800 km**), exécutée en mode **Auto** ou en maintenant le bouton **BURN** bleu (mode **Manuel**, aussi sur le panneau de la cupola) ; voir « Poste de pilotage ». Réglage direct (outil de développement) : section « Orbite » du **panneau de debug (F4)**, altitude 200 à 800 km, inclinaison 0 à 80° bornée par la latitude courante (voir ci-dessous) |
 | Date et heure (UTC) | Champ **date** (AAAA-MM-JJ, valider par Entrée), boutons **−1 j / +1 j**, curseur de l'**heure** du jour. La station reste au-dessus du même point ; le soleil, les étoiles et les nuages (poussés par le vent) se placent selon la nouvelle heure. Départ : **15 juillet 2035** |
 | Vitesse du temps | Boutons **Pause, x1, x2, x4, x8, x16** |
 | Redémarrer | Boutons **By day** / **By night** (« De jour » / « De nuit » en français) : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
@@ -136,7 +136,8 @@ réapparaissent en fondu en y revenant. Hors de la cupola, on ne peut donc pas t
 
 **Panneau de contrôle** (`scenes/ui/orbit_controls.tscn`, script `scripts/orbit_controls.gd`), en bas au centre.
 Il affiche la date et l'heure UTC et l'heure solaire locale du point survolé, avec les réglages de date, d'heure et
-de vitesse du temps et le redémarrage. L'orbite ne s'y règle plus : elle se pilote au poste de pilotage (l'altitude
+de vitesse du temps et le redémarrage, ainsi que la commande de poussée (BURN) de la manœuvre prévue au poste de
+pilotage. L'orbite ne s'y règle plus : elle se pilote au poste de pilotage (l'altitude
 et l'inclinaison directes sont passées dans le panneau de debug, F4). Le panneau a une largeur fixe et ne bouge pas
 quand les valeurs changent. Sa dernière colonne (bouton de tir et puissance) vient de `nuke/`.
 
@@ -205,8 +206,12 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 - **Interface** (`scripts/ui/pilot_display.gd`, construite en code) : carte à gauche ; à droite, l'orbite actuelle
   (heure UTC, position, altitude, inclinaison, période, vitesse orbitale) puis la **manœuvre** : curseurs de
   l'**inclinaison visée** (0 à 80°) et de l'**altitude visée** (400 à 800 km), Δv de la manœuvre, bouton
-  **Annuler** (cible ramenée sur l'orbite actuelle) et **compte à rebours du prochain nœud** (« Nœud ascendant /
-  descendant dans 31:10 », temps de jeu).
+  **Annuler** (cible ramenée sur l'orbite actuelle), boutons **Auto / Manuel** et la **commande de poussée**
+  (`scripts/ui/burn_control.gd`) : compte à rebours du nœud (« Nœud ascendant / descendant dans 31:10 », temps de
+  jeu), gros bouton **BURN bleu** (même dessin que le bouton de tir, `nuke/big_red_button.gd`, en mode maintenu ;
+  terne hors de la fenêtre du nœud), jauge de 0 à 150 % de la durée requise (zone verte 95–105 %, remplissage bleu,
+  orange au-delà) et message d'état (résultat de la poussée affiché 6 s). La même commande de poussée, compacte, est
+  sur le **panneau de la cupola** : on peut lancer le BURN de la manœuvre prévue depuis la cupola.
 - **Règles de la manœuvre** (`scripts/flight_computer.gd`, nœud `FlightComputer`) :
   - tant que la cible diffère de l'orbite réelle (plus de 0,05° ou 0,5 km), une manœuvre est prévue et son orbite,
     la **trace fantôme**, est affichée ;
@@ -216,14 +221,29 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
     de plan au nœud fait tourner l'orbite autour de la ligne des nœuds, qui reste en place (même Ω). L'orbite reste
     **circulaire** ;
   - Δv affiché : changement de plan 2·v·sin(Δi/2) plus transfert de Hohmann entre les deux altitudes (somme des deux
-    impulsions) ; ~4,2 km/s pour passer de 51,6° à 20°, les changements de plan sont coûteux.
+    impulsions) ; ~4,2 km/s pour passer de 51,6° à 20°, les changements de plan sont coûteux ;
+  - **fenêtre du nœud** : la poussée n'est possible que de 5 s réelles avant à 5 s réelles après le passage du nœud
+    (5 s × la vitesse du temps en temps de jeu, au plus 60 s) ; le compte à rebours passe au vert, puis reste à 00:00
+    tant que la fenêtre du nœud passé est ouverte ;
+  - **mode Auto** : au passage du nœud, l'orbite prend exactement l'inclinaison et l'altitude visées (message
+    « Pilote automatique : manœuvre au nœud » en attendant) ;
+  - **mode Manuel** (par défaut) : maintenir le bouton **BURN** (temps ramené à ×1). Durée requise : 1,5 s +
+    2,5 s × √(Δv en km/s), au plus 8 s (~2,3 s pour 100 m/s, ~6,6 s pour 4,2 km/s), affichée dans la fenêtre
+    (« Fenêtre ouverte : maintenir BURN 3.9 s »). La poussée s'applique **progressivement** pendant l'appui : l'orbite
+    passe de l'orbite de départ vers la cible au rythme de la jauge (au-delà de 100 %, elle dépasse la cible) ; à
+    150 %, la poussée s'arrête d'elle-même. Relâché entre **95 et 105 %** : **poussée parfaite**, l'orbite prend
+    exactement la cible. Sinon, **sous-poussée** ou **sur-poussée** : la part appliquée reste, plus des **erreurs
+    aléatoires** proportionnelles à l'écart de dosage (jusqu'à ±2° d'inclinaison et ±60 km d'altitude pour 100 %
+    d'écart) ; l'orbite reste circulaire. La cible ne change pas : la manœuvre reste prévue (trace fantôme) et se
+    corrige au nœud suivant. Quitter le poste pendant la poussée la relâche.
 - **Trace fantôme** : sur la carte, trace au sol de l'orbite fantôme en **pointillés cyan** sur une période, à partir
   du nœud (losange cyan, toujours affiché) ; en 3D, **anneau en pointillés cyan autour de la Terre**
   (`scripts/ghost_track.gd`, nœud `GhostTrack`, `MeshInstance3D` + `ImmediateMesh` en lignes, 720 segments, un sur
   deux tracés par paires). L'anneau est construit dans le repère inertiel ECI (orbite fixe dans l'espace) et, à
   chaque image après `Orbit`, placé au centre de la Terre et tourné par `Orbit.get_eci_to_world()` : la Terre tourne
-  dessous, sa trace au sol reste cohérente. Rendu non éclairé, couleur × 3 (HDR) pour rester visible sur la Terre
-  éclairée ; caché quand aucune manœuvre n'est prévue.
+  dessous, sa trace au sol reste cohérente. Rendu non éclairé, couleur × 1,5 (HDR) pour rester visible sur la Terre
+  éclairée (à × 3, l'exposition automatique de nuit faisait baver les tirets en halos) ; caché quand aucune manœuvre
+  n'est prévue.
 - **Carte** (`scripts/ui/orbital_map.gd`) : projection de **Mercator de 80° N à 80° S** (rapport largeur / hauteur
   2π / (2·ln tan(45° + 40°)) ≈ 1,29), lignes blanches sur fond noir : contours des pays et des continents
   (`assets/world_map_lines.res`, Natural Earth 1:50 M, `scripts/world_map_lines.gd`, généré par

@@ -31,6 +31,7 @@ const VIEWPORT_HEIGHT := 1000
 
 var _observer: Node3D
 var _orbit: OrbitSimulation
+var _flight_computer: FlightComputer
 var _camera: Camera3D
 var _screen: MeshInstance3D
 var _viewport: SubViewport
@@ -43,6 +44,8 @@ var _seated := false
 var _moving := false
 ## Dernière position du curseur reçue (repère de la vue du jeu).
 var _mouse_position := Vector2.ZERO
+## Dernier point de l'écran (0–1) transmis à l'interface.
+var _last_uv := Vector2(0.5, 0.5)
 var _return_position := Vector3.ZERO
 var _return_rotation := Quaternion.IDENTITY
 var _tween: Tween
@@ -73,7 +76,8 @@ func _ready() -> void:
 	_display.size = Vector2(_viewport.size)
 	_orbit = get_node(orbit_path) as OrbitSimulation
 	_display.orbit = _orbit
-	_display.flight_computer = get_node(flight_computer_path) as FlightComputer
+	_flight_computer = get_node(flight_computer_path) as FlightComputer
+	_display.flight_computer = _flight_computer
 	_viewport.add_child(_display)
 	_apply_screen_material()
 	_build_hints()
@@ -81,6 +85,13 @@ func _ready() -> void:
 
 func is_seated() -> bool:
 	return _seated
+
+
+# En pause (menu Échap), _process s'arrête : les indications ne doivent pas rester figées par-dessus le menu.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PAUSED and _hover_label:
+		_hover_label.visible = false
+		_exit_hint.visible = false
 
 
 func _process(_delta: float) -> void:
@@ -120,7 +131,12 @@ func _input(event: InputEvent) -> void:
 		return
 	var uv := _screen_uv(mouse.position, INF)
 	if uv == Vector2(-1, -1):
-		return
+		# Relâchement hors de l'écran : transmis quand même (au dernier point), sinon un bouton maintenu (BURN) ou un
+		# curseur resterait tenu.
+		if button == null or button.pressed:
+			return
+		uv = _last_uv
+	_last_uv = uv
 	var forwarded := mouse.duplicate() as InputEventMouse
 	forwarded.position = uv * Vector2(_viewport.size)
 	forwarded.global_position = forwarded.position
@@ -173,6 +189,8 @@ func _sit() -> void:
 
 
 func _stand_up() -> void:
+	# Quitter le poste relâche BURN.
+	_flight_computer.end_burn()
 	_seated = false
 	_move_to(_return_position, _return_rotation, func() -> void:
 		_moving = false

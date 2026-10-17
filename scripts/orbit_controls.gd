@@ -1,6 +1,7 @@
 extends CanvasLayer
 ## Panneau de contrôle de la cupola, en bas au centre de l'écran : date et heure UTC (champ date, ±1 jour, curseur
-## d'heure), vitesse du temps (pause, x1 à x16), redémarrage au-dessus de l'Europe à midi / minuit, et tir
+## d'heure), vitesse du temps (pause, x1 à x16), redémarrage au-dessus de l'Europe à midi / minuit, commande de
+## poussée de la manœuvre prévue au poste de pilotage (BurnControl : compte à rebours du nœud, BURN, jauge) et tir
 ## (nuke/launch_control.gd). L'orbite ne s'y règle plus : elle se pilote au poste de pilotage (PilotConsole) ;
 ## altitude et inclinaison directes restent dans le panneau de debug (F4, outil de développement).
 
@@ -13,6 +14,7 @@ const FADE_S := 0.5
 
 @export var orbit_path: NodePath = ^"../Orbit"
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
+@export var flight_computer_path: NodePath = ^"../FlightComputer"
 
 var _orbit: OrbitSimulation
 var _dragging_hour := false
@@ -48,6 +50,14 @@ func _ready() -> void:
 	$Panel/Row/Restart/RestartButtons/NightButton.pressed.connect(func() -> void: _orbit.restart(0.0))
 
 	_build_date_row()
+
+	var computer := get_node_or_null(flight_computer_path) as FlightComputer
+	if computer:
+		var burn := BurnControl.new()
+		burn.flight_computer = computer
+		burn.custom_minimum_size.x = 250.0
+		$Panel/Row.add_child(burn)
+		$Panel/Row.move_child(burn, $Panel/Row/Restart.get_index() + 1)
 
 	var group := ButtonGroup.new()
 	for factor: float in TIME_SCALES:
