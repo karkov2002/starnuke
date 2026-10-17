@@ -4,7 +4,9 @@ extends VBoxContainer
 ## point de manœuvre et compte à rebours, gros bouton BURN bleu (BigRedButton maintenu, même
 ## dessin que le bouton de tir), jauge de la poussée et message d'état. Logique : FlightComputer.
 ## Jauge : de 0 à 150 % de la durée requise ; zone verte de la poussée parfaite (95 à 105 %) ; remplissage bleu,
-## orange au-delà de la zone verte.
+## orange au-delà de la zone verte. Deux dispositions : jauge horizontale sous le bouton (poste de pilotage), ou
+## colonne étroite (column_layout, tablette) : compte à rebours au-dessus, jauge verticale (remplie du bas vers le haut) à
+## côté du bouton.
 
 const COLOR_BURN := Color(0.12, 0.38, 0.95)
 const COLOR_GHOST := Color(0.3, 0.85, 1.0)
@@ -17,6 +19,8 @@ const RESULT_S := 6.0
 var flight_computer: FlightComputer
 ## Grand format (écran du poste, tablette) ou compact : fixé avant l'ajout à l'arbre.
 var large := false
+## Colonne étroite à jauge verticale : fixé avant l'ajout à l'arbre.
+var column_layout := false
 
 var _node_label: Label
 var _countdown: Label
@@ -27,18 +31,23 @@ var _status: Label
 
 func _ready() -> void:
 	add_theme_constant_override("separation", 6 if large else 2)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	add_child(row)
 	var info := VBoxContainer.new()
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info.alignment = BoxContainer.ALIGNMENT_CENTER
 	info.add_theme_constant_override("separation", 0)
-	row.add_child(info)
 	_node_label = _make_label(COLOR_DIM, 0)
+	_node_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info.add_child(_node_label)
 	_countdown = _make_label(COLOR_GHOST, 60 if large else 26)
 	info.add_child(_countdown)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	if column_layout:
+		add_child(info)
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+	else:
+		row.add_child(info)
+	add_child(row)
 	_button = BigRedButton.new()
 	_button.cap_color = COLOR_BURN
 	_button.hold = true
@@ -52,9 +61,13 @@ func _ready() -> void:
 	_button.released.connect(func() -> void: flight_computer.end_burn())
 	row.add_child(_button)
 	_gauge = Control.new()
-	_gauge.custom_minimum_size = Vector2(0.0, 26.0 if large else 12.0)
 	_gauge.draw.connect(_draw_gauge)
-	add_child(_gauge)
+	if column_layout:
+		_gauge.custom_minimum_size = Vector2(24.0, _button.custom_minimum_size.y * 1.3)
+		row.add_child(_gauge)
+	else:
+		_gauge.custom_minimum_size = Vector2(0.0, 26.0 if large else 12.0)
+		add_child(_gauge)
 	_status = _make_label(COLOR_DIM, 0)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(_status)
@@ -106,11 +119,9 @@ func _status_text(computer: FlightComputer) -> Array:
 
 func _draw_gauge() -> void:
 	var rect := Rect2(Vector2.ZERO, _gauge.size)
-	var scale_x := rect.size.x / FlightComputer.MAX_BURN_RATIO
 	_gauge.draw_rect(rect, Color(0.08, 0.1, 0.14))
-	var perfect := Rect2((1.0 - FlightComputer.PERFECT_TOLERANCE) * scale_x, 0.0,
-			2.0 * FlightComputer.PERFECT_TOLERANCE * scale_x, rect.size.y)
-	_gauge.draw_rect(perfect, Color(COLOR_GOOD, 0.45))
+	var tolerance := FlightComputer.PERFECT_TOLERANCE
+	_gauge.draw_rect(_gauge_span(1.0 - tolerance, 1.0 + tolerance, 0.0), Color(COLOR_GOOD, 0.45))
 	var computer := flight_computer
 	var ratio := 0.0
 	if computer.burning:
@@ -118,11 +129,23 @@ func _draw_gauge() -> void:
 	elif not computer.last_burn.is_empty() and Time.get_ticks_msec() - int(computer.last_burn.ticks_ms) < RESULT_S * 1000.0:
 		ratio = computer.last_burn.ratio
 	if ratio > 0.0:
-		var color := COLOR_BAD if ratio > 1.0 + FlightComputer.PERFECT_TOLERANCE else COLOR_BURN.lightened(0.25)
-		var inset := rect.size.y * 0.2
-		_gauge.draw_rect(Rect2(0.0, inset, minf(ratio, FlightComputer.MAX_BURN_RATIO) * scale_x, rect.size.y - 2.0 * inset), color)
-	_gauge.draw_line(Vector2(scale_x, 0.0), Vector2(scale_x, rect.size.y), Color.WHITE, 2.0)
+		var color := COLOR_BAD if ratio > 1.0 + tolerance else COLOR_BURN.lightened(0.25)
+		_gauge.draw_rect(_gauge_span(0.0, minf(ratio, FlightComputer.MAX_BURN_RATIO), 0.2), color)
+	var target := _gauge_span(1.0, 1.0, 0.0)
+	_gauge.draw_line(target.position, target.end, Color.WHITE, 2.0)
 	_gauge.draw_rect(rect, Color(0.4, 0.5, 0.6), false, 1.0)
+
+
+## Rectangle de la jauge entre deux rapports durée tenue / durée requise (0 à MAX_BURN_RATIO), rétréci de inset
+## (part de l'épaisseur) de chaque côté : de gauche à droite, ou du bas vers le haut (column_layout).
+func _gauge_span(from_ratio: float, to_ratio: float, inset: float) -> Rect2:
+	var extent := _gauge.size
+	if column_layout:
+		var unit := extent.y / FlightComputer.MAX_BURN_RATIO
+		return Rect2(extent.x * inset, extent.y - to_ratio * unit, extent.x * (1.0 - 2.0 * inset),
+				(to_ratio - from_ratio) * unit)
+	var unit_x := extent.x / FlightComputer.MAX_BURN_RATIO
+	return Rect2(from_ratio * unit_x, extent.y * inset, (to_ratio - from_ratio) * unit_x, extent.y * (1.0 - 2.0 * inset))
 
 
 func _make_label(color: Color, font_size: int) -> Label:

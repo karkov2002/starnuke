@@ -1,14 +1,14 @@
 class_name OrbitalMap
 extends Control
-## Carte du monde de l'écran de pilotage (scripts/ui/pilot_display.gd), en projection de Mercator de MAX_LAT_DEG nord
-## à MAX_LAT_DEG sud : contours des pays en lignes blanches sur fond noir (WorldMapLines, Natural Earth), méridiens et
-## parallèles tous les 10° et équateur en gris, trace au sol de l'orbite en vert (passée en vert sombre), position
+## Carte du monde de l'écran de pilotage (scripts/ui/pilot_display.gd) et de la tablette, en projection de Mercator de
+## max_lat_deg nord à max_lat_deg sud (80° au poste, 70° sur la tablette, plus large) : contours des pays en lignes
+## blanches sur fond noir (WorldMapLines, Natural Earth), méridiens et parallèles tous les 10° et équateur en gris, trace au sol de l'orbite en vert (passée en vert sombre), position
 ## de la station, prochain nœud (passage à l'équateur, losange cyan) et, si une manœuvre est prévue, trace au sol
 ## de l'orbite fantôme en pointillés cyan (FlightComputer), sur une période à partir du nœud.
 ## Deux calques : le fond fixe (grille, pays : ~85 000 segments), rendu une seule fois dans la texture d'un
 ## SubViewport (redessiner autant de lignes lissées à chaque image coûtait ~20 ms de CPU), et le calque mobile (trace,
-## station), redessiné à chaque image. Rapport largeur / hauteur fixe : ASPECT ; la taille est fixée avant l'ajout
-## à l'arbre.
+## station), redessiné à chaque image. Rapport largeur / hauteur fixe : aspect_for(max_lat_deg) ; la taille et
+## max_lat_deg sont fixées avant l'ajout à l'arbre.
 
 const MAX_LAT_DEG := 80.0
 const GRID_STEP_DEG := 10.0
@@ -28,9 +28,11 @@ const COLOR_GHOST := Color(0.3, 0.85, 1.0)
 ## Pointillés de la trace fantôme : DASH pas de la trace tracés, puis DASH pas vides.
 const DASH := 2
 
-## Rapport largeur / hauteur de la carte : 360° de longitude sur ±MAX_LAT_DEG en Mercator.
-static var ASPECT := TAU / (2.0 * mercator(MAX_LAT_DEG))
+## Rapport largeur / hauteur de la carte du poste (±MAX_LAT_DEG).
+static var ASPECT := aspect_for(MAX_LAT_DEG)
 
+## Latitude des bords haut et bas (degrés).
+var max_lat_deg := MAX_LAT_DEG
 var orbit: OrbitSimulation
 var flight_computer: FlightComputer
 
@@ -66,6 +68,11 @@ func _process(_delta: float) -> void:
 	_overlay.queue_redraw()
 
 
+## Rapport largeur / hauteur d'une carte de Mercator de 360° de longitude sur ±max_lat (degrés).
+static func aspect_for(max_lat: float) -> float:
+	return TAU / (2.0 * mercator(max_lat))
+
+
 ## Ordonnée de Mercator (sans unité) d'une latitude en degrés.
 static func mercator(lat_deg: float) -> float:
 	return log(tan(PI / 4.0 + deg_to_rad(clampf(lat_deg, -89.0, 89.0)) / 2.0))
@@ -74,7 +81,7 @@ static func mercator(lat_deg: float) -> float:
 ## Point de la carte (pixels locaux) d'une position (latitude, longitude) en degrés.
 func project(lat_deg: float, lon_deg: float) -> Vector2:
 	return Vector2((lon_deg + 180.0) / 360.0 * size.x,
-			size.y * 0.5 * (1.0 - mercator(lat_deg) / mercator(MAX_LAT_DEG)))
+			size.y * 0.5 * (1.0 - mercator(lat_deg) / mercator(max_lat_deg)))
 
 
 func _draw_base() -> void:
@@ -84,8 +91,8 @@ func _draw_base() -> void:
 		var x := project(0.0, lon).x
 		_base.draw_line(Vector2(x, 0.0), Vector2(x, size.y), COLOR_GRID, 1.0)
 		lon += GRID_STEP_DEG
-	var lat := -MAX_LAT_DEG
-	while lat <= MAX_LAT_DEG:
+	var lat := -max_lat_deg
+	while lat <= max_lat_deg:
 		var y := project(lat, 0.0).y
 		var color := COLOR_EQUATOR if is_zero_approx(lat) else COLOR_GRID
 		_base.draw_line(Vector2(0.0, y), Vector2(size.x, y), color, 2.0 if is_zero_approx(lat) else 1.0)

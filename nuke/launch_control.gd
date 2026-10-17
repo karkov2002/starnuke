@@ -15,6 +15,9 @@ extends HBoxContainer
 ## tout, un par tube : un tube vide ne se recharge pas.
 
 @export var default_yield_kt := 1000.0
+## Boutons de puissance réduits (tablette) : petits caractères, sans largeur minimale. Fixé avant l'ajout à l'arbre.
+## (À terme, chaque silo aura sa bombe et sa puissance : ce choix disparaîtra.)
+var compact_yields := false
 ## Durée du vol (s, temps de jeu) : visée au nadir, visée à l'horizon (règle de jeu : plus rapide que la réalité, où
 ## une frappe depuis l'orbite prend plusieurs minutes, pour garder la tension d'une attente de torpille).
 @export var flight_time_range := Vector2(20.0, 120.0)
@@ -53,10 +56,21 @@ func _ready() -> void:
 		choice.toggle_mode = true
 		choice.button_group = group
 		choice.focus_mode = Control.FOCUS_NONE
-		choice.custom_minimum_size.x = 56.0
 		choice.button_pressed = is_equal_approx(kt, _yield_kt)
 		choice.pressed.connect(func() -> void: _yield_kt = kt)
 		row.add_child(choice)
+		if compact_yields:
+			# Styles du thème hérité (lus une fois le bouton dans l'arbre), marges réduites.
+			choice.add_theme_font_size_override("font_size", 10)
+			for state: String in ["normal", "hover", "pressed", "disabled"]:
+				var box := choice.get_theme_stylebox(state).duplicate() as StyleBox
+				box.content_margin_left = 4.0
+				box.content_margin_right = 4.0
+				box.content_margin_top = 1.0
+				box.content_margin_bottom = 1.0
+				choice.add_theme_stylebox_override(state, box)
+		else:
+			choice.custom_minimum_size.x = 56.0
 
 	var button := BigRedButton.new()
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER

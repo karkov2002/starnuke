@@ -3,15 +3,19 @@ extends Control
 ## Interface de l'écran de la tablette (scripts/tablet.gd), dessinée dans son SubViewport, construite en code :
 ## - en haut, la date et l'heure UTC et l'heure solaire du point survolé ;
 ## - au milieu, une copie réduite de la carte du poste de pilotage (OrbitalMap : trace au sol, station, point de
-##   manœuvre et trace fantôme) et la commande de poussée de la manœuvre prévue (BurnControl : compte à rebours, gros
-##   bouton BURN bleu, jauge) ;
-## - en bas, la commande de tir (LaunchControl : 48 silos, puissance, gros bouton rouge), agrandie de LAUNCH_SCALE
-##   (ses boutons ont une taille fixe en pixels).
+##   manœuvre et trace fantôme), de MAP_MAX_LAT_DEG nord à sud pour être plus large, et, dans une colonne étroite à
+##   droite, la commande de poussée de la manœuvre prévue (BurnControl vertical : compte à rebours, gros bouton BURN
+##   bleu et jauge verticale) ;
+## - en bas, la commande de tir (LaunchControl : 48 silos, petits boutons de puissance, gros bouton rouge), agrandie de
+##   LAUNCH_SCALE (ses boutons ont une taille fixe en pixels).
 ## Taille : celle du SubViewport (proportions de la dalle de la tablette).
 
 const MARGIN := 18.0
 const FONT_SIZE := 22
 const LAUNCH_SCALE := 1.4
+const MAP_MAX_LAT_DEG := 70.0
+## Hauteur de la carte (part de la hauteur de l'écran).
+const MAP_HEIGHT_SHARE := 0.58
 
 var orbit: OrbitSimulation
 var flight_computer: FlightComputer
@@ -42,16 +46,18 @@ func _ready() -> void:
 	var middle := HBoxContainer.new()
 	middle.add_theme_constant_override("separation", 16)
 	column.add_child(middle)
-	var map_height := size.y * 0.5
+	var map_height := size.y * MAP_HEIGHT_SHARE
 	var map := OrbitalMap.new()
 	map.orbit = orbit
 	map.flight_computer = flight_computer
-	map.size = Vector2(map_height * OrbitalMap.ASPECT, map_height)
+	map.max_lat_deg = MAP_MAX_LAT_DEG
+	map.size = Vector2(map_height * OrbitalMap.aspect_for(MAP_MAX_LAT_DEG), map_height)
 	map.custom_minimum_size = map.size
 	middle.add_child(map)
 	var burn := BurnControl.new()
 	burn.flight_computer = flight_computer
 	burn.large = true
+	burn.column_layout = true
 	burn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	burn.alignment = BoxContainer.ALIGNMENT_CENTER
 	middle.add_child(burn)
@@ -60,6 +66,7 @@ func _ready() -> void:
 	# Commande de tir agrandie : un conteneur à sa taille agrandie, le panneau mis à l'échelle dedans.
 	var launch := LaunchControl.new()
 	launch.name = "Launch"
+	launch.compact_yields = true
 	launch.scale = Vector2.ONE * LAUNCH_SCALE
 	var holder := Control.new()
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

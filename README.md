@@ -151,11 +151,18 @@ frontale, boutons sur les tranches) tenue par l'observateur. Modèle `assets/tab
 `E:\Blender\tablette.blend` pour la retoucher. Objets : `Tablette_Coque`, `Ecran_Tablette` (dalle, UV 0–1),
 `Tablette_Objectif`, `Tablette_Boutons`.
 
-- **Nœud `Observer/Camera/Tablet`** (`scripts/tablet.gd`) : enfant de la caméra, il suit la vue. **Tab** la sort
-  ou la range (glissement de 0,35 s depuis le bas de la vue ; rangée, elle est masquée et son interface n'est plus
-  redessinée). Sortie, elle occupe 38 % de la hauteur de la vue (cadrage calculé d'après le champ de la caméra), son
-  bord bas à 5 % du bas de la vue, son haut sous le centre (le réticule reste visible), inclinée pour faire face à
-  l'œil. Éclairée par les lampes intérieures (calque `Station.INTERIOR_LAYER`) et le soleil, sans ombre portée.
+- **Nœud `Observer/Camera/Tablet`** (`scripts/tablet.gd`) : enfant de la caméra, il suit la vue. Sortie, elle est
+  **en bas à droite** de la vue (pas centrée) : 38 % de la hauteur de la vue (cadrage calculé d'après le champ de la
+  caméra et les proportions de la fenêtre), son bord droit à 7 % du bord droit, son bord bas à 5 % du bas, son haut
+  sous le centre (le réticule reste visible), à moitié tournée vers l'œil (tout à fait, en bord de vue, elle
+  paraissait de biais). Rangée, elle est masquée et son interface n'est plus redessinée. Éclairée par les lampes
+  intérieures (calque `Station.INTERIOR_LAYER`) et le soleil, sans ombre portée.
+- **Tenue en main** : **Tab** la fait apporter par la main (0,6 s) : elle arrive du bas à droite, plus près des yeux,
+  en décrivant une boucle (courbe de Bézier cubique : montée sur le côté droit, léger dépassement vers la gauche et
+  le haut, puis sa place, avec la décélération de la main) en se redressant (au départ inclinée de 32°, tournée de
+  40° vers la droite et penchée de 25°) ; Tab la range par le chemin inverse (0,4 s). Sortie, elle **respire**
+  (balancement lent de ~2 mm et 0,35°) et **suit la tête avec un temps de retard** : quand on tourne la vue, elle
+  traîne d'une part de la rotation (au plus 3,4°) puis rattrape (0,16 s).
 - **Écran** : l'interface est dessinée dans un `SubViewport` de 560 px de haut (proche de la taille affichée, pour un
   texte lisible) et affichée par `shaders/pilot_screen.gdshader` (le même que l'écran du poste : émission brute ; un
   `StandardMaterial3D` émet en nits avec les unités de lumière physiques du projet, ce qui blanchissait l'écran).
@@ -164,8 +171,11 @@ frontale, boutons sur les tranches) tenue par l'observateur. Modèle `assets/tab
   caméra (tourner la tête).
 - **Interface** (`scripts/ui/tablet_display.gd`) : en haut, date et heure UTC et heure solaire du point survolé ; au
   milieu, carte réduite (la même `OrbitalMap` que le poste de pilotage : trace au sol, station, point de manœuvre,
-  trace fantôme) et commande de poussée (`BurnControl` : compte à rebours, BURN bleu, jauge) ; en bas, la commande
-  de tir (`LaunchControl` : silos, puissance, gros bouton rouge), agrandie × 1,4 (boutons de taille fixe).
+  trace fantôme), **de 70° N à 70° S** pour être plus large (rapport 1,81 au lieu de 1,29 ; la carte du poste reste
+  à ±80°), et, dans une colonne étroite à droite, la commande de poussée (`BurnControl` en colonne : compte à
+  rebours, BURN bleu et **jauge verticale**, remplie du bas vers le haut) ; en bas, la commande de tir
+  (`LaunchControl` : silos, **petits boutons de puissance** — à terme, chaque silo aura sa bombe et sa puissance —,
+  gros bouton rouge), agrandie × 1,4 (boutons de taille fixe).
 
 **Fenêtre « Bilan des explosions »** (nœud `NukeReport` de `scenes/orbit_view.tscn`, script
 `nuke/nuke_report_panel.gd`, construite en code). Elle apparaît au premier tir, en haut à droite, et disparaît

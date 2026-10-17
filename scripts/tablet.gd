@@ -1,23 +1,42 @@
 class_name Tablet
 extends Node3D
 ## Tablette de l'observateur (nœud Observer/Camera/Tablet de scenes/orbit_view.tscn) : modèle Blender
-## assets/tablet/tablet.glb (tools/blender/build_tablet.py), tenu en bas de la vue, écran tourné vers l'œil. Son écran
-## (objet Ecran_Tablette, UV 0–1) affiche l'interface TabletDisplay, dessinée dans un SubViewport : date et heure,
-## carte réduite, BURN, silos et tir.
-## - Touche Tab (action tablet) : la tablette glisse depuis le bas de la vue (SLIDE_S) ou s'y range ; rangée, elle est
-##   masquée. Ignorée pendant la saisie d'un texte et au poste de pilotage (la tablette s'y range d'elle-même).
+## assets/tablet/tablet.glb (tools/blender/build_tablet.py), tenu en bas à droite de la vue, écran tourné vers l'œil,
+## comme dans la main. Son écran (objet Ecran_Tablette, UV 0–1) affiche l'interface TabletDisplay, dessinée dans un
+## SubViewport : date et heure, carte réduite, BURN, silos et tir.
+## - Touche Tab (action tablet) : la main amène la tablette devant les yeux (ARRIVE_S) ou la range (STOW_S) ; rangée,
+##   elle est masquée. Ignorée pendant la saisie d'un texte et au poste de pilotage (la tablette s'y range d'elle-même).
+## - Mouvement de la main : la tablette arrive du bas à droite en décrivant une boucle (courbe de Bézier : elle monte
+##   sur le côté, dépasse un peu sa place puis s'y pose), en se redressant (inclinée, tournée vers la droite au
+##   départ) ; rangée par le chemin inverse. Sortie, elle respire légèrement (balancement lent de quelques
+##   millimètres) et suit la tête avec un temps de retard (elle traîne un peu quand on tourne la vue, puis rattrape).
 ## - Sortie, les clics et mouvements de la souris sur son écran sont transmis à l'interface (rayon de la caméra par le
 ##   curseur, intersecté avec la dalle) ; ailleurs, la souris garde son rôle (clic droit : tourner la tête).
-## Position : écran occupant view_fill de la hauteur de la vue (selon le champ de la caméra), son bord bas à
-## bottom_margin du bas de la vue, incliné pour faire face à l'œil. Éclairée par les lampes intérieures (calque
-## Station.INTERIOR_LAYER) comme le reste de l'habitacle.
+## Position : écran occupant view_fill de la hauteur de la vue (selon le champ de la caméra), son bord droit à
+## right_margin du bord droit de la vue, son bord bas à bottom_margin du bas, tourné vers l'œil. Éclairée par les
+## lampes intérieures (calque Station.INTERIOR_LAYER) comme le reste de l'habitacle.
 
 const MODEL := preload("res://assets/tablet/tablet.glb")
 const SCREEN_NODE := "Ecran_Tablette"
 const BODY_NODE := "Tablette_Coque"
 ## Hauteur de l'image de l'interface (pixels) : proche de la taille affichée, pour garder un texte lisible.
 const VIEWPORT_HEIGHT := 560
-const SLIDE_S := 0.35
+## Part de la rotation vers l'œil à l'arrivée (1 : face à l'œil, 0 : parallèle au plan de la vue).
+const FACING_SHARE := 0.5
+const ARRIVE_S := 0.6
+const STOW_S := 0.4
+## Orientation de départ (main baissée sur le côté) : inclinaison (roulis), tournée vers la droite (lacet), penchée
+## vers l'avant (tangage), en degrés.
+const START_ROLL_DEG := -32.0
+const START_YAW_DEG := 40.0
+const START_PITCH_DEG := 25.0
+## Respiration : amplitude (m, degrés) et périodes (s).
+const BREATH_M := 0.0018
+const BREATH_DEG := 0.35
+## Retard sur la tête : part de la rotation de la vue rendue (la tablette traîne), constante de retour (s), maximum.
+const LAG_GAIN := 0.5
+const LAG_TAU_S := 0.16
+const LAG_MAX_RAD := 0.06
 
 @export var orbit_path: NodePath = ^"../../../Orbit"
 @export var flight_computer_path: NodePath = ^"../../../FlightComputer"
@@ -27,6 +46,8 @@ const SLIDE_S := 0.35
 @export_range(0.2, 0.9) var view_fill := 0.38
 ## Marge entre le bas de la tablette et le bas de la vue (part de la hauteur de la vue).
 @export var bottom_margin := 0.05
+## Marge entre le bord droit de la tablette et celui de la vue (part de la largeur de la vue).
+@export var right_margin := 0.07
 ## Luminosité de l'écran (émission).
 @export var screen_energy := 1.0
 
@@ -39,8 +60,13 @@ var _console: PilotConsole
 var _top_left := Vector3.ZERO
 var _axis_u := Vector3.ZERO
 var _axis_v := Vector3.ZERO
-## Hauteur de la coque (m), pour le cadrage.
+## Dimensions de la coque (m), pour le cadrage.
 var _height := 0.19
+var _width := 0.28
+## Retard sur la tête (lacet, tangage en radians) et orientation de la caméra à l'image précédente.
+var _lag := Vector2.ZERO
+var _previous_view := Basis.IDENTITY
+var _time := 0.0
 ## 0 : rangée (masquée), 1 : sortie.
 var _out := 0.0
 var _wanted := false
@@ -52,6 +78,8 @@ var _last_uv := Vector2(0.5, 0.5)
 
 func _ready() -> void:
 	_camera = get_parent() as Camera3D
+	if _camera:
+		_previous_view = _camera.global_basis.orthonormalized()
 	_console = get_node_or_null(pilot_console_path) as PilotConsole
 	if _console:
 		_console.seated_changed.connect(func(seated: bool) -> void:
@@ -65,6 +93,7 @@ func _ready() -> void:
 	var body := _model.find_child(BODY_NODE, true, false) as MeshInstance3D
 	if body:
 		_height = body.get_aabb().size.y
+		_width = body.get_aabb().size.x
 	_screen = _model.find_child(SCREEN_NODE, true, false) as MeshInstance3D
 	if _screen == null or not _measure_screen():
 		push_error("Tablet : écran %s introuvable dans %s" % [SCREEN_NODE, MODEL.resource_path])
@@ -95,7 +124,15 @@ func _ready() -> void:
 	_update_pose()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_time += delta
+	# Retard sur la tête : la rotation de la vue depuis l'image précédente est rendue en partie à la tablette, qui
+	# revient ensuite d'elle-même (constante LAG_TAU_S).
+	var view := _camera.global_basis.orthonormalized() if _camera else Basis.IDENTITY
+	var turn := (_previous_view.inverse() * view).get_euler()
+	_previous_view = view
+	_lag = (_lag - Vector2(turn.y, turn.x) * LAG_GAIN) * exp(-delta / LAG_TAU_S)
+	_lag = _lag.clampf(-LAG_MAX_RAD, LAG_MAX_RAD)
 	if visible:
 		_update_pose()
 	# Rangée, l'interface n'est pas redessinée.
@@ -144,9 +181,11 @@ func _set_wanted(out: bool) -> void:
 	if _tween:
 		_tween.kill()
 	visible = true
-	_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT if out else Tween.EASE_IN)
+	# Progression linéaire : l'accélération et la décélération de la main sont dans _update_pose (une même courbe,
+	# parcourue à l'envers pour ranger).
+	_tween = create_tween()
 	var target := 1.0 if out else 0.0
-	_tween.tween_method(_set_out, _out, target, SLIDE_S * absf(target - _out))
+	_tween.tween_method(_set_out, _out, target, (ARRIVE_S if out else STOW_S) * absf(target - _out))
 	if not out:
 		_tween.tween_callback(func() -> void: visible = false)
 
@@ -156,20 +195,44 @@ func _set_out(value: float) -> void:
 	_update_pose()
 
 
-## Position dans le repère de la caméra : sortie (_out = 1) en bas de la vue face à l'œil, rangée (_out = 0) sous la
-## vue.
+## Position dans le repère de la caméra : sortie (_out = 1) en bas à droite de la vue, face à l'œil ; rangée
+## (_out = 0) sous la vue à droite, main baissée. Entre les deux, la boucle de la main (voir en tête).
 func _update_pose() -> void:
 	if _camera == null:
 		return
 	var half_tan := tan(deg_to_rad(_camera.fov) * 0.5)
 	var distance := _height / (view_fill * 2.0 * half_tan)
 	var view_height := 2.0 * distance * half_tan
-	var shown_y := (-0.5 + bottom_margin + view_fill * 0.5) * view_height
-	var hidden_y := shown_y - (view_fill + bottom_margin + 0.1) * view_height
-	var y := lerpf(hidden_y, shown_y, _out)
-	# Écran (+Z du modèle) tourné vers l'œil.
-	var facing := -atan2(-shown_y, distance)
-	transform = Transform3D(Basis(Vector3.RIGHT, facing), Vector3(0.0, y, -distance))
+	var view_width := view_height * get_viewport().get_visible_rect().size.aspect()
+	var shown := Vector3((0.5 - right_margin) * view_width - _width * 0.5,
+			(-0.5 + bottom_margin + view_fill * 0.5) * view_height, -distance)
+	# Boucle : départ sous la vue à droite et plus près, montée sur le côté droit, léger dépassement vers la gauche
+	# et le haut, puis la place. Décélération de la main à l'arrivée (cubique).
+	var start := shown + Vector3(0.45 * view_width, -0.75 * view_height, 0.25 * distance)
+	var side := shown + Vector3(0.4 * view_width, -0.05 * view_height, 0.1 * distance)
+	var overshoot := shown + Vector3(-0.05 * view_width, 0.04 * view_height, 0.0)
+	var progress := 1.0 - pow(1.0 - _out, 3.0)
+	var position_now := _bezier(start, side, overshoot, shown, progress)
+	# Écran (+Z du modèle) à moitié tourné vers l'œil à l'arrivée (tout à fait, en bord de vue, il paraissait de
+	# biais : une tablette tenue sur le côté reste presque parallèle au visage) ; au départ, incliné et tourné vers la
+	# droite.
+	var final_basis := Basis(Quaternion.IDENTITY.slerp(Basis.looking_at(shown, Vector3.UP).get_rotation_quaternion(),
+			FACING_SHARE))
+	var start_basis := final_basis * Basis.from_euler(Vector3(deg_to_rad(START_PITCH_DEG), deg_to_rad(START_YAW_DEG),
+			deg_to_rad(START_ROLL_DEG)))
+	var rotation_now := Basis(start_basis.get_rotation_quaternion().slerp(final_basis.get_rotation_quaternion(),
+			smoothstep(0.0, 0.85, _out)))
+	# Respiration, à pleine sortie.
+	var breath := Vector3(sin(_time * 0.9 + 1.0), sin(_time * 1.3), 0.0) * BREATH_M * _out
+	var sway := Basis(Vector3.BACK, deg_to_rad(BREATH_DEG) * sin(_time * 0.7) * _out)
+	# Retard sur la tête : rotation autour de l'œil.
+	var lag := Basis(Vector3.UP, _lag.x) * Basis(Vector3.RIGHT, _lag.y)
+	transform = Transform3D(lag, Vector3.ZERO) * Transform3D(rotation_now * sway, position_now + breath)
+
+
+static func _bezier(a: Vector3, b: Vector3, c: Vector3, d: Vector3, t: float) -> Vector3:
+	var u := 1.0 - t
+	return a * u * u * u + b * 3.0 * u * u * t + c * 3.0 * u * t * t + d * t * t * t
 
 
 ## Point de l'écran (0–1) sous le curseur, (-1, -1) hors de l'écran.
