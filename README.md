@@ -49,9 +49,10 @@ permet de piloter le jeu exporté.
     `GameSettings.brightness`, sauvée dans `user://settings.cfg` : facteur du multiplicateur d'exposition des
     attributs de caméra partagés `materials/camera_attributes.tres`, appliqué au menu et au jeu par le nœud
     `Exposure`, voir « Exposition » dans « Organisation de la scène ») et **éclairage intérieur** (10 à 150 %,
-    `GameSettings.interior_light`, sauvé de même : puissance des 28 lampes de la station, `Station` multiplie
-    l'énergie de chaque lampe `Lum_*` par ce facteur et le réapplique à chaque changement ; l'exposition de
-    l'intérieur étant constante, c'est ce réglage qui règle la clarté des parois). L'écran des paramètres a un fond
+    `GameSettings.interior_light`, sauvé de même : comme un potentiomètre sur les luminaires de la station,
+    `Station` multiplie par ce facteur l'énergie de chaque lampe `Lum_*` **et** l'émission propre des luminaires
+    (matériaux `Int_Lumiere*`, donc aussi leur halo de glow), et le réapplique à chaque changement ; l'exposition
+    de l'intérieur étant constante, c'est ce réglage qui règle la clarté des parois et l'éblouissement des lampes). L'écran des paramètres a un fond
     translucide : on juge le réglage sur la vue 3D derrière.
     - Fenêtré : la résolution est la taille de la fenêtre, centrée dans la zone utile de l'écran ; une fenêtre qui
       n'y tient pas avec sa bordure et sa barre de titre (résolution native, par exemple) est maximisée.

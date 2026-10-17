@@ -667,20 +667,38 @@ func _setup_interior_lighting() -> void:
 			mesh_instance.add_child(inside)
 	for light: OmniLight3D in find_children("Lum_*", "OmniLight3D", true, false):
 		light.light_cull_mask = INTERIOR_LAYER
-		light.light_energy = interior_light_energy * GameSettings.interior_light
+		light.light_energy = interior_light_energy
 		light.omni_range = interior_light_range
 		light.omni_attenuation = interior_light_attenuation
 		light.light_color = Color.WHITE
 		light.light_temperature = interior_light_temperature
 		light.light_specular = interior_light_specular
 		light.shadow_enabled = interior_shadows
+	_apply_interior_light()
 
 
-## Puissance des lampes intérieures : réglage du modèle × GameSettings.interior_light (paramètre « Éclairage
-## intérieur »), réappliquée à chaque changement de paramètre.
+## Puissance des lampes intérieures, comme un potentiomètre : réglage du modèle × GameSettings.interior_light
+## (paramètre « Éclairage intérieur »), sur la lumière projetée (Lum_*) et sur l'émission propre des luminaires
+## (matériaux Int_Lumiere*, dont le halo de glow suit l'émission). Les matériaux du modèle sont partagés et
+## persistent d'une partie à l'autre : l'émission d'origine est gardée en métadonnée. Réappliquée à chaque
+## changement de paramètre.
 func _apply_interior_light() -> void:
+	var factor := GameSettings.interior_light
 	for light: OmniLight3D in find_children("Lum_*", "OmniLight3D", true, false):
-		light.light_energy = interior_light_energy * GameSettings.interior_light
+		light.light_energy = interior_light_energy * factor
+	var done := {}
+	for mesh_instance: MeshInstance3D in find_children("*", "MeshInstance3D", true, false):
+		if mesh_instance.mesh == null:
+			continue
+		for s in mesh_instance.mesh.get_surface_count():
+			var material := mesh_instance.get_active_material(s) as BaseMaterial3D
+			if material == null or not material.emission_enabled or not material.resource_name.begins_with("Int_Lumiere") \
+					or done.has(material):
+				continue
+			done[material] = true
+			if not material.has_meta(&"base_emission"):
+				material.set_meta(&"base_emission", material.emission_energy_multiplier)
+			material.emission_energy_multiplier = float(material.get_meta(&"base_emission")) * factor
 
 
 ## Vitrage de la cupola sans reflet spéculaire : le reflet de l'environnement (disque solaire du ciel) ignore l'ombre
