@@ -1,10 +1,11 @@
 class_name GhostTrack
 extends MeshInstance3D
 ## Anneau 3D en pointillés de l'orbite fantôme (FlightComputer.get_ghost) autour de la Terre : visible tant qu'une
-## manœuvre est prévue. Le maillage (ImmediateMesh, lignes) est construit dans le repère inertiel ECI, à l'échelle de
-## la scène, et reconstruit quand la manœuvre change ; à chaque image, après Orbit (process_priority), il est placé
-## au centre de la Terre et tourné du repère ECI vers la scène : l'anneau reste fixe dans l'espace pendant que la
-## Terre tourne dessous, et sa trace au sol reste cohérente.
+## manœuvre est prévue. Le maillage (ImmediateMesh, lignes) est construit dans le repère inertiel ECI pour Ω = 0, à
+## l'échelle de la scène, et reconstruit quand le rayon ou l'inclinaison changent ; à chaque image, après Orbit
+## (process_priority), il est placé au centre de la Terre, tourné de Ω (qui dérive lentement : précession J2) puis
+## du repère ECI vers la scène : l'anneau reste fixe dans l'espace pendant que la Terre tourne dessous, et sa trace
+## au sol reste cohérente.
 
 const SEGMENTS := 720
 ## Pointillés : DASH_ON segments tracés, puis DASH_OFF segments vides (1 segment = 0,5° d'orbite, ~60 km).
@@ -21,8 +22,8 @@ const DASH_OFF := 2
 var _computer: FlightComputer
 var _earth: Node3D
 var _immediate := ImmediateMesh.new()
-## Éléments de l'anneau dessiné (rayon, inclinaison, Ω) : reconstruit seulement s'ils changent.
-var _built := Vector3(-1.0, -1.0, -1.0)
+## Éléments de l'anneau dessiné (rayon, inclinaison) : reconstruit seulement s'ils changent.
+var _built := Vector2(-1.0, -1.0)
 
 
 func _ready() -> void:
@@ -44,11 +45,13 @@ func _process(_delta: float) -> void:
 	if not visible:
 		return
 	var ghost := _computer.get_ghost()
-	var key := Vector3(ghost.radius_km, ghost.inclination, ghost.raan)
+	var key := Vector2(ghost.radius_km, ghost.inclination)
 	if not key.is_equal_approx(_built):
 		_build(ghost)
 		_built = key
-	global_transform = Transform3D(_computer.get_orbit().get_eci_to_world(), _earth.global_position)
+	var orbit := _computer.get_orbit()
+	var raan := FlightComputer.ghost_raan(ghost, orbit.sim_time_s)
+	global_transform = Transform3D(orbit.get_eci_to_world() * Basis(Vector3.BACK, raan), _earth.global_position)
 
 
 func _build(ghost: Dictionary) -> void:
@@ -59,7 +62,7 @@ func _build(ghost: Dictionary) -> void:
 		if k % (DASH_ON + DASH_OFF) >= DASH_ON:
 			continue
 		for arg_lat in [TAU * k / SEGMENTS, TAU * (k + 1) / SEGMENTS]:
-			_immediate.surface_add_vertex(OrbitSimulation.circular_position_eci(radius, ghost.inclination, ghost.raan, arg_lat))
+			_immediate.surface_add_vertex(OrbitSimulation.circular_position_eci(radius, ghost.inclination, 0.0, arg_lat))
 	_immediate.surface_end()
 	# Anneau de ~1 400 unités : boîte englobante large pour ne pas être écarté par le frustum.
 	custom_aabb = AABB(Vector3.ONE * -radius, Vector3.ONE * 2.0 * radius)

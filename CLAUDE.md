@@ -16,7 +16,8 @@ Poste de pilotage : nœud `PilotConsole` (`scripts/pilot_console.gd`), grand éc
 (interface 2D dans un `SubViewport`, `scripts/ui/pilot_display.gd`, carte Mercator `scripts/ui/orbital_map.gd`,
 contours `assets/world_map_lines.res` générés par `tools/build_map_lines.gd`), manœuvres au nœud par `FlightComputer`
 (`scripts/flight_computer.gd`), anneau 3D de l'orbite visée `GhostTrack` (`scripts/ghost_track.gd`), poussée Auto / Manuel (BURN bleu
-maintenu, `scripts/ui/burn_control.gd`, aussi sur le panneau de la cupola) ; l'orbite reste circulaire. Altitude et inclinaison directes : panneau de debug F4 seulement. README, « Poste de pilotage ».
+maintenu, `scripts/ui/burn_control.gd`, aussi sur le panneau de la cupola), décalage du nœud (poussée à
+l'intersection des plans), précession J2 de Ω ; l'orbite reste circulaire. Altitude et inclinaison directes : panneau de debug F4 seulement. README, « Poste de pilotage ».
 Règle : **tous les textes du jeu sont dans les fichiers de langue** `locale/strings.csv` (interface) et `locale/countries.csv`
 (noms de pays, `tools/build_country_names.gd`), 5 langues (en, fr, es, de, it ; anglais par défaut). Jamais de texte
 affiché en dur : une clé (traduction automatique des contrôles) ou `tr("CLE").format({...})` ; toute nouvelle clé reçoit

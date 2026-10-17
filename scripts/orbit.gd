@@ -12,6 +12,9 @@ extends Node
 ## Position de la station sur l'orbite (a = rayon terrestre + altitude, i = inclinaison, Ω = ascension droite
 ## du nœud ascendant, u = argument de latitude, qui croît de n = sqrt(μ/a³) rad/s) :
 ##   r_ECI = a·(cosΩ·cos u − sinΩ·sin u·cos i,  sinΩ·cos u + cosΩ·sin u·cos i,  sin u·sin i)
+## Précession nodale (J2, aplatissement de la Terre) : Ω dérive de Ω̇ = −3/2·n·J2·(R/a)²·cos i (−5°/jour pour l'ISS,
+## vers l'ouest pour une orbite prograde) ; Ω(t) = Ω₀ + Ω̇·t (raan_precession). L'effet de J2 sur la vitesse le long
+## de l'orbite (~0,1 %) est négligé.
 ##
 ## Rendu : la station et la caméra sont fixes dans la scène ; c'est la Terre (et le soleil) qu'on place autour
 ## d'elles. Le repère local de la station (zénith = +Y local, direction de vol = −Z local du nœud Station) est
@@ -24,6 +27,8 @@ const GROUP := &"orbit"
 const MU_KM3_S2 := 398600.4418
 const EARTH_RADIUS_KM := 6371.0
 const EARTH_ROTATION_RAD_S := 7.2921159e-5 # rotation sidérale
+## Coefficient d'aplatissement de la Terre (harmonique zonal J2, WGS 84 / EGM96).
+const J2 := 1.08263e-3
 const SCENE_UNITS_PER_KM := 0.1
 const MIN_ALTITUDE_KM := 200.0
 const MAX_ALTITUDE_KM := 800.0
@@ -38,6 +43,8 @@ const MAX_INCLINATION_DEG := 80.0
 	set = set_inclination_deg
 ## Facteur d'accélération du temps (1 = temps réel).
 @export var time_scale := 1.0
+## Précession nodale due à J2 (dérive de Ω, voir en tête).
+@export var raan_precession := true
 
 @export_group("Conditions initiales")
 ## Point survolé au démarrage (l'orbite est calculée pour y passer).
@@ -64,8 +71,10 @@ var ecef_to_world := Basis.IDENTITY
 ## Instant UTC (secondes depuis le 1er janvier 1970) correspondant à sim_time_s = 0.
 var epoch_unix_s := 0.0
 
-var _raan := 0.0 # Ω (rad)
+var _raan := 0.0 # Ω à sim_time_s = 0 (rad) ; Ω(t) = _raan + get_raan_rate()·t
 var _arg_lat_epoch := 0.0 # u à sim_time_s = 0 (rad)
+## Affectation brute de l'altitude et de l'inclinaison (set_orbit_plane) : sans conserver le point survolé.
+var _raw := false
 var _earth: Node3D
 var _station: Node3D
 var _observer: Node3D
@@ -99,6 +108,9 @@ func _process(delta: float) -> void:
 #region Paramètres orbitaux
 
 func set_altitude_km(value: float) -> void:
+	if _raw:
+		altitude_km = clampf(value, MIN_ALTITUDE_KM, MAX_ALTITUDE_KM)
+		return
 	var keep := _keep_ground_point()
 	altitude_km = clampf(value, MIN_ALTITUDE_KM, MAX_ALTITUDE_KM)
 	_restore_ground_point(keep)
@@ -107,6 +119,9 @@ func set_altitude_km(value: float) -> void:
 ## Change l'inclinaison au point courant. Elle ne peut pas être inférieure à la latitude actuelle de la station
 ## (une orbite d'inclinaison i ne dépasse jamais la latitude ±i) : la valeur est bornée en conséquence.
 func set_inclination_deg(value: float) -> void:
+	if _raw:
+		inclination_deg = clampf(value, 0.0, MAX_INCLINATION_DEG)
+		return
 	var keep := _keep_ground_point()
 	var min_inclination := 0.0
 	if not keep.is_empty():
@@ -149,8 +164,26 @@ func pass_over(latitude_deg: float, longitude_deg: float, ascending: bool) -> vo
 	# Longitude (inertielle) du point de l'orbite par rapport au nœud ascendant.
 	var node_offset := atan2(cos(i) * sin(u), cos(u))
 	var theta := get_sidereal_angle(sim_time_s)
-	_raan = wrapf(deg_to_rad(longitude_deg) + theta - node_offset, -PI, PI)
+	_raan = wrapf(deg_to_rad(longitude_deg) + theta - node_offset, -PI, PI) - get_raan_rate() * sim_time_s
 	_arg_lat_epoch = u - get_mean_motion() * sim_time_s
+	orbit_changed.emit()
+
+
+## Nouvelle orbite (manœuvre) : inclinaison, Ω au temps time_s (rad) et altitude, la station gardant au temps time_s
+## la direction de sa position projetée sur le nouveau plan (exactement sa position quand elle est sur la droite
+## d'intersection des deux plans : la manœuvre est alors continue). Orbite circulaire.
+func set_orbit_plane(inclination: float, raan_at_time: float, altitude: float, time_s: float) -> void:
+	var r := get_position_eci(time_s)
+	_raw = true
+	altitude_km = altitude
+	inclination_deg = inclination
+	_raw = false
+	var i := deg_to_rad(inclination_deg)
+	var node := Vector3(cos(raan_at_time), sin(raan_at_time), 0.0)
+	var quarter := Vector3(-sin(raan_at_time) * cos(i), cos(raan_at_time) * cos(i), sin(i))
+	var u := atan2(r.dot(quarter), r.dot(node))
+	_raan = raan_at_time - get_raan_rate() * time_s
+	_arg_lat_epoch = u - get_mean_motion() * time_s
 	orbit_changed.emit()
 
 ## Change la date et l'heure (instant UTC en secondes Unix) sans déplacer la station : elle reste au-dessus du même
@@ -209,8 +242,32 @@ func get_orbital_speed_km_s() -> float:
 	return get_semi_major_axis_km() * get_mean_motion()
 
 
-func get_raan_deg() -> float:
-	return rad_to_deg(_raan)
+func get_raan_deg(time_s := sim_time_s) -> float:
+	return rad_to_deg(get_raan(time_s))
+
+
+## Ω (rad) au temps time_s, précession comprise.
+func get_raan(time_s: float) -> float:
+	return _raan + get_raan_rate() * time_s
+
+
+## Dérive de Ω (rad/s) de l'orbite actuelle.
+func get_raan_rate() -> float:
+	return raan_rate_at(altitude_km, inclination_deg) if raan_precession else 0.0
+
+
+## Précession nodale J2 (rad/s) d'une orbite circulaire : −3/2·n·J2·(R/a)²·cos i.
+static func raan_rate_at(altitude: float, inclination: float) -> float:
+	var ratio := EARTH_RADIUS_KM / (EARTH_RADIUS_KM + altitude)
+	return -1.5 * mean_motion_at(altitude) * J2 * ratio * ratio * cos(deg_to_rad(inclination))
+
+
+## Décalage (degrés, négatif vers l'ouest) de la trace au sol d'un tour à l'autre (nœud au sol) : rotation de la
+## Terre pendant une période, moins la précession de Ω. Plus l'orbite est haute, plus la période est longue et plus
+## la trace recule vers l'ouest à chaque tour (phasage par l'altitude).
+func ground_shift_per_orbit_deg(altitude: float, inclination: float) -> float:
+	var rate := raan_rate_at(altitude, inclination) if raan_precession else 0.0
+	return rad_to_deg((rate - EARTH_ROTATION_RAD_S) * TAU / mean_motion_at(altitude))
 
 
 func get_argument_of_latitude(time_s: float) -> float:
@@ -218,7 +275,7 @@ func get_argument_of_latitude(time_s: float) -> float:
 
 
 func get_position_eci(time_s: float) -> Vector3:
-	return circular_position_eci(get_semi_major_axis_km(), deg_to_rad(inclination_deg), _raan,
+	return circular_position_eci(get_semi_major_axis_km(), deg_to_rad(inclination_deg), get_raan(time_s),
 			get_argument_of_latitude(time_s))
 
 
@@ -264,10 +321,16 @@ func get_eci_to_world() -> Basis:
 func get_velocity_direction_eci(time_s: float) -> Vector3:
 	var u := get_argument_of_latitude(time_s)
 	var i := deg_to_rad(inclination_deg)
+	var raan := get_raan(time_s)
 	return Vector3(
-		-cos(_raan) * sin(u) - sin(_raan) * cos(u) * cos(i),
-		-sin(_raan) * sin(u) + cos(_raan) * cos(u) * cos(i),
+		-cos(raan) * sin(u) - sin(raan) * cos(u) * cos(i),
+		-sin(raan) * sin(u) + cos(raan) * cos(u) * cos(i),
 		cos(u) * sin(i))
+
+
+## Normale (unitaire) au plan d'une orbite d'inclinaison et de Ω donnés (radians) : sens du moment cinétique.
+static func plane_normal(inclination: float, raan: float) -> Vector3:
+	return Vector3(sin(raan) * sin(inclination), -cos(raan) * sin(inclination), cos(inclination))
 
 
 func get_position_ecef(time_s: float) -> Vector3:

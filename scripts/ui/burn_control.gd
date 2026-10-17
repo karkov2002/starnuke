@@ -68,7 +68,10 @@ func _process(_delta: float) -> void:
 	if _button.is_held() and not computer.burning:
 		_button.release()
 	_button.disabled = not computer.can_burn() and not computer.burning
-	_node_label.text = tr("PILOT_NODE_ASCENDING" if computer.is_node_ascending() else "PILOT_NODE_DESCENDING")
+	if computer.is_burn_at_node():
+		_node_label.text = tr("PILOT_NODE_ASCENDING" if computer.is_node_ascending() else "PILOT_NODE_DESCENDING")
+	else:
+		_node_label.text = tr("PILOT_BURN_POINT")
 	_countdown.text = _format_countdown(computer.get_countdown_s())
 	_countdown.add_theme_color_override("font_color", COLOR_GOOD if computer.is_in_window() else COLOR_GHOST)
 	var status := _status_text(computer)

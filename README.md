@@ -204,44 +204,62 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
     Indication en bas de la vue : « Clic droit : quitter le poste de pilotage » ;
   - clic droit : retour en 0,6 s à la position et à l'orientation d'avant, l'observateur reprend la main.
 - **Interface** (`scripts/ui/pilot_display.gd`, construite en code) : carte à gauche ; à droite, l'orbite actuelle
-  (heure UTC, position, altitude, inclinaison, période, vitesse orbitale) puis la **manœuvre** : curseurs de
-  l'**inclinaison visée** (0 à 80°) et de l'**altitude visée** (400 à 800 km), Δv de la manœuvre, bouton
-  **Annuler** (cible ramenée sur l'orbite actuelle), boutons **Auto / Manuel** et la **commande de poussée**
-  (`scripts/ui/burn_control.gd`) : compte à rebours du nœud (« Nœud ascendant / descendant dans 31:10 », temps de
+  (heure UTC, position, altitude, inclinaison et **précession J2** de Ω en °/jour, période et **décalage de la trace
+  au sol par tour**, vitesse orbitale) puis la **manœuvre** : curseurs de l'**inclinaison visée** (0 à 80°), de
+  l'**altitude visée** (400 à 800 km, avec le décalage par tour qu'elle donnerait) et du **décalage du nœud** (±20°,
+  E / O), Δv de la manœuvre, bouton **Annuler** (cible ramenée sur l'orbite actuelle), boutons **Auto / Manuel** et
+  la **commande de poussée** (`scripts/ui/burn_control.gd`) : compte à rebours du point de manœuvre (« Nœud
+  ascendant / descendant dans 31:10 » au passage de l'équateur, « Point de manœuvre dans 09:30 » ailleurs ; temps de
   jeu), gros bouton **BURN bleu** (même dessin que le bouton de tir, `nuke/big_red_button.gd`, en mode maintenu ;
-  terne hors de la fenêtre du nœud), jauge de 0 à 150 % de la durée requise (zone verte 95–105 %, remplissage bleu,
-  orange au-delà) et message d'état (résultat de la poussée affiché 6 s). La même commande de poussée, compacte, est
-  sur le **panneau de la cupola** : on peut lancer le BURN de la manœuvre prévue depuis la cupola.
+  terne hors de la fenêtre), jauge de 0 à 150 % de la durée requise (zone verte 95–105 %, remplissage bleu, orange
+  au-delà) et message d'état (résultat de la poussée affiché 6 s). La même commande de poussée, compacte, est sur le
+  **panneau de la cupola** : on peut lancer le BURN de la manœuvre prévue depuis la cupola.
+- **Trois leviers pour survoler un point** (règle de jeu) :
+  - **attendre** : la Terre tourne sous l'orbite, la trace au sol recule vers l'ouest à chaque tour (−23,5° par tour
+    à 400 km et 51,6°) ; toutes les longitudes défilent en moins d'un jour ;
+  - **phasage par l'altitude** (peu coûteux) : une orbite plus haute a une période plus longue, sa trace recule
+    davantage à chaque tour (−23,5°/tour à 400 km, −25,5°/tour à 800 km), et inversement ; les écarts s'additionnent
+    d'un tour à l'autre. L'altitude sert donc aussi à caler le passage au-dessus d'un point ;
+  - **décalage du nœud** (coûteux) : poussée qui fait tourner la ligne des nœuds (Ω) vers l'est ou l'ouest, à
+    inclinaison constante, ~105 m/s par degré à 51,6° ;
+  - s'y ajoute la **précession nodale J2** (aplatissement de la Terre, `Orbit.raan_precession`) : Ω dérive de
+    −3/2·n·J2·(R/a)²·cos i, −5,0°/jour à 400 km et 51,6° (vers l'ouest pour une orbite prograde, nulle à 90°).
 - **Règles de la manœuvre** (`scripts/flight_computer.gd`, nœud `FlightComputer`) :
-  - tant que la cible diffère de l'orbite réelle (plus de 0,05° ou 0,5 km), une manœuvre est prévue et son orbite,
-    la **trace fantôme**, est affichée ;
-  - la manœuvre se fait **au prochain nœud** (passage à l'équateur, toutes les demi-périodes, ~46 min) : là, la
-    latitude est nulle et toute inclinaison est possible. L'orbite fantôme passe par ce point, avec l'inclinaison et
-    l'altitude visées, dans le même sens (montant au nœud ascendant, descendant au nœud descendant) ; un changement
-    de plan au nœud fait tourner l'orbite autour de la ligne des nœuds, qui reste en place (même Ω). L'orbite reste
-    **circulaire** ;
-  - Δv affiché : changement de plan 2·v·sin(Δi/2) plus transfert de Hohmann entre les deux altitudes (somme des deux
-    impulsions) ; ~4,2 km/s pour passer de 51,6° à 20°, les changements de plan sont coûteux ;
-  - **fenêtre du nœud** : la poussée n'est possible que de 5 s réelles avant à 5 s réelles après le passage du nœud
-    (5 s × la vitesse du temps en temps de jeu, au plus 60 s) ; le compte à rebours passe au vert, puis reste à 00:00
-    tant que la fenêtre du nœud passé est ouverte ;
-  - **mode Auto** : au passage du nœud, l'orbite prend exactement l'inclinaison et l'altitude visées (message
-    « Pilote automatique : manœuvre au nœud » en attendant) ;
+  - tant que la cible diffère de l'orbite réelle (plus de 0,05°, 0,5 km ou 0,05° de décalage du nœud), une
+    manœuvre est prévue et son orbite, la **trace fantôme**, est affichée ;
+  - **point de manœuvre** : un changement de plan se fait là où l'orbite actuelle coupe le plan visé (droite
+    d'intersection des deux plans ; deux points par tour, à une demi-période d'écart). Simple changement
+    d'inclinaison : au **nœud** (passage à l'équateur, la ligne des nœuds reste en place) ; simple décalage du nœud :
+    près du **sommet** de l'orbite (latitude maximale) ; manœuvre combinée : entre les deux ; altitude seule : au
+    prochain nœud. La station garde sa position au point de manœuvre (la manœuvre est continue) ; l'orbite
+    fantôme passe par ce point. L'orbite reste **circulaire** ;
+  - Δv affiché : changement de plan 2·v·sin(θ/2) (θ : angle entre les deux plans, inclinaison et décalage du nœud
+    compris) plus transfert de Hohmann entre les deux altitudes (somme des deux impulsions) ; ~4,2 km/s pour passer
+    de 51,6° à 20°, ~1 050 m/s pour décaler le nœud de 10° : les changements de plan sont coûteux ;
+  - **fenêtre** : la poussée n'est possible que de 5 s réelles avant à 5 s réelles après le passage du point de
+    manœuvre (5 s × la vitesse du temps en temps de jeu, au plus 60 s) ; le compte à rebours passe au vert, puis
+    reste à 00:00 tant que la fenêtre du point passé est ouverte ;
+  - **mode Auto** : au passage du point de manœuvre, l'orbite prend exactement la cible (message « Pilote
+    automatique : manœuvre au point de manœuvre » en attendant) ;
   - **mode Manuel** (par défaut) : maintenir le bouton **BURN** (temps ramené à ×1). Durée requise : 1,5 s +
     2,5 s × √(Δv en km/s), au plus 8 s (~2,3 s pour 100 m/s, ~6,6 s pour 4,2 km/s), affichée dans la fenêtre
     (« Fenêtre ouverte : maintenir BURN 3.9 s »). La poussée s'applique **progressivement** pendant l'appui : l'orbite
     passe de l'orbite de départ vers la cible au rythme de la jauge (au-delà de 100 %, elle dépasse la cible) ; à
     150 %, la poussée s'arrête d'elle-même. Relâché entre **95 et 105 %** : **poussée parfaite**, l'orbite prend
-    exactement la cible. Sinon, **sous-poussée** ou **sur-poussée** : la part appliquée reste, plus des **erreurs
-    aléatoires** proportionnelles à l'écart de dosage (jusqu'à ±2° d'inclinaison et ±60 km d'altitude pour 100 %
-    d'écart) ; l'orbite reste circulaire. La cible ne change pas : la manœuvre reste prévue (trace fantôme) et se
-    corrige au nœud suivant. Quitter le poste pendant la poussée la relâche.
+    exactement la cible. Sinon, **sous-poussée** ou **sur-poussée** : la part appliquée reste (inclinaison, altitude
+    et Ω interpolés), plus des **erreurs aléatoires** proportionnelles à l'écart de dosage (jusqu'à ±2°
+    d'inclinaison et ±60 km d'altitude pour 100 % d'écart, appliquées au point courant : l'erreur d'inclinaison est
+    une erreur de cap, la station ne saute pas) ; l'orbite reste circulaire. L'inclinaison et l'altitude visées ne
+    changent pas, le décalage du nœud restant est mis à jour (2,5° restent après une demi-poussée sur 5°) : la
+    manœuvre reste prévue (trace fantôme) et se corrige au point suivant. Quitter le poste pendant la poussée la
+    relâche.
 - **Trace fantôme** : sur la carte, trace au sol de l'orbite fantôme en **pointillés cyan** sur une période, à partir
-  du nœud (losange cyan, toujours affiché) ; en 3D, **anneau en pointillés cyan autour de la Terre**
+  du point de manœuvre (losange cyan, toujours affiché) ; en 3D, **anneau en pointillés cyan autour de la Terre**
   (`scripts/ghost_track.gd`, nœud `GhostTrack`, `MeshInstance3D` + `ImmediateMesh` en lignes, 720 segments, un sur
-  deux tracés par paires). L'anneau est construit dans le repère inertiel ECI (orbite fixe dans l'espace) et, à
-  chaque image après `Orbit`, placé au centre de la Terre et tourné par `Orbit.get_eci_to_world()` : la Terre tourne
-  dessous, sa trace au sol reste cohérente. Rendu non éclairé, couleur × 1,5 (HDR) pour rester visible sur la Terre
+  deux tracés par paires). L'anneau est construit dans le repère inertiel ECI pour Ω = 0 (reconstruit seulement si
+  le rayon ou l'inclinaison changent) et, à chaque image après `Orbit`, placé au centre de la Terre, tourné de Ω
+  (précession comprise) puis par `Orbit.get_eci_to_world()` : la Terre tourne dessous, sa trace au sol reste
+  cohérente. Rendu non éclairé, couleur × 1,5 (HDR) pour rester visible sur la Terre
   éclairée (à × 3, l'exposition automatique de nuit faisait baver les tirets en halos) ; caché quand aucune manœuvre
   n'est prévue.
 - **Carte** (`scripts/ui/orbital_map.gd`) : projection de **Mercator de 80° N à 80° S** (rapport largeur / hauteur
@@ -595,6 +613,9 @@ inclinaison au poste de pilotage et au panneau de debug) :
 | `get_next_node_time_s()`, `is_ascending_node_at(t)` | Temps simulé du prochain passage à l'équateur (u multiple de π ; orbite équatoriale : maintenant), nœud ascendant ou descendant. |
 | `circular_position_eci(rayon, i, Ω, u)`, `mean_motion_at(altitude)` | Position sur une orbite circulaire quelconque, vitesse angulaire (orbite fantôme du poste de pilotage). |
 | `get_eci_to_world()`, `ecef_to_world` | Rotations ECI → scène et ECEF → scène de la dernière image (objets fixes dans l'espace inertiel autour de la Terre). |
+| `set_orbit_plane(i, Ω, altitude, t)` | Manœuvre : nouvelle inclinaison, Ω (au temps t) et altitude ; la station garde au temps t sa position projetée sur le nouveau plan (continue sur la droite d'intersection des deux plans). |
+| `get_raan(t)`, `get_raan_rate()`, `raan_rate_at(altitude, i)`, `raan_precession` | Ω au temps t et sa dérive J2 (rad/s) ; `raan_precession` l'active (par défaut). |
+| `ground_shift_per_orbit_deg(altitude, i)`, `plane_normal(i, Ω)` | Décalage de la trace au sol d'un tour à l'autre (rotation de la Terre pendant une période, moins la précession) ; normale au plan d'une orbite. |
 | `pass_over(lat, lon, ascending)` | Recalcule Ω et la phase pour être, maintenant, à la verticale de (lat, lon). Exige \|lat\| ≤ inclinaison. |
 | `restart(heure_solaire)` | Temps remis à zéro, station au-dessus du point de départ, le même jour, à l'heure solaire locale donnée (12 = midi, 0 = minuit). Utilisé par les boutons Restart. |
 | `set_utc_unix_s(s)`, `get_utc_unix_s()`, `get_utc_datetime()` | Date et heure UTC (secondes Unix) ; le changement garde la station au-dessus du même point. |
@@ -1778,7 +1799,10 @@ Les paragraphes (§) sont ceux des ouvrages ; entre parenthèses, les fichiers d
 - Petit, G. et Luzum, B. (dir.) (2010). *IERS Conventions (2010)*, IERS Technical Note n° 36. Repères céleste et
   terrestre, vitesse de rotation sidérale.
 - National Imagery and Mapping Agency (2000). *Department of Defense World Geodetic System 1984*, TR8350.2,
-  3ᵉ édition. Constante gravitationnelle géocentrique μ = 398 600,4418 km³/s².
+  3ᵉ édition. Constante gravitationnelle géocentrique μ = 398 600,4418 km³/s², J2 = 1,08263 × 10⁻³.
+- Vallado, D. A. (2013). *Fundamentals of Astrodynamics and Applications*, 4ᵉ édition, Microcosm Press.
+  Changements de plan (Δv = 2·v·sin(θ/2), changement de Ω au point d'intersection des plans), transfert de Hohmann,
+  précession nodale J2 (`scripts/flight_computer.gd`, `scripts/orbit.gd`).
 
 ### Images satellites et données géographiques
 

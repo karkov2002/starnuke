@@ -1,14 +1,16 @@
 class_name PilotDisplay
 extends Control
 ## Interface du grand écran du poste de pilotage, dessinée dans le SubViewport de PilotConsole
-## (scripts/pilot_console.gd) : carte du monde en Mercator (OrbitalMap) à gauche ; à droite, l'orbite actuelle, puis
-## la manœuvre : curseurs de l'inclinaison et de l'altitude visées (FlightComputer, trace fantôme), Δv, bouton
+## (scripts/pilot_console.gd) : carte du monde en Mercator (OrbitalMap) à gauche ; à droite, l'orbite actuelle (dont
+## la précession J2 de Ω par jour et le décalage de la trace au sol par tour), puis la manœuvre : curseurs de
+## l'inclinaison, de l'altitude (avec le décalage par tour qu'elle donnerait) et du décalage du nœud visés
+## (FlightComputer, trace fantôme), Δv, bouton
 ## « Annuler » (cible ramenée sur l'orbite actuelle), mode Auto / Manuel et commande de poussée (BurnControl :
 ## compte à rebours du nœud, bouton BURN, jauge). Construite en code ; taille : celle du SubViewport (proportions de
 ## la dalle).
 
 const MARGIN := 24.0
-const FONT_SIZE := 30
+const FONT_SIZE := 26
 const COLOR_TEXT := Color(0.85, 1.0, 0.88)
 const COLOR_DIM := Color(0.45, 0.6, 0.5)
 const COLOR_FRAME := Color(0.35, 0.5, 0.4)
@@ -21,8 +23,10 @@ var _map: OrbitalMap
 var _values := {}
 var _inclination_slider: HSlider
 var _altitude_slider: HSlider
+var _shift_slider: HSlider
 var _target_inclination: Label
 var _target_altitude: Label
+var _target_shift: Label
 var _delta_v: Label
 var _mode_buttons: Array[Button] = []
 
@@ -54,7 +58,7 @@ func _ready() -> void:
 	column.size = Vector2(size.x - column.position.x - MARGIN, map_height)
 	column.add_theme_constant_override("separation", 8)
 	add_child(column)
-	column.add_child(_make_label("PILOT_TITLE", COLOR_TEXT, 40))
+	column.add_child(_make_label("PILOT_TITLE", COLOR_TEXT, 36))
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 18)
@@ -66,17 +70,22 @@ func _ready() -> void:
 		grid.add_child(_values[key])
 
 	column.add_child(HSeparator.new())
-	column.add_child(_make_label("PILOT_MANEUVER", COLOR_GHOST, 34))
+	column.add_child(_make_label("PILOT_MANEUVER", COLOR_GHOST, 30))
 	_target_inclination = _add_target_row(column, "PILOT_TARGET_INCLINATION")
 	_inclination_slider = _make_slider(0.0, OrbitSimulation.MAX_INCLINATION_DEG, 0.1)
 	column.add_child(_inclination_slider)
 	_target_altitude = _add_target_row(column, "PILOT_TARGET_ALTITUDE")
 	_altitude_slider = _make_slider(FlightComputer.MIN_TARGET_ALTITUDE_KM, FlightComputer.MAX_TARGET_ALTITUDE_KM, 1.0)
 	column.add_child(_altitude_slider)
+	_target_shift = _add_target_row(column, "PILOT_TARGET_NODE_SHIFT")
+	_shift_slider = _make_slider(-FlightComputer.MAX_NODE_SHIFT_DEG, FlightComputer.MAX_NODE_SHIFT_DEG, 0.1)
+	column.add_child(_shift_slider)
 	_inclination_slider.value_changed.connect(func(value: float) -> void:
 		flight_computer.set_target(value, flight_computer.target_altitude_km))
 	_altitude_slider.value_changed.connect(func(value: float) -> void:
 		flight_computer.set_target(flight_computer.target_inclination_deg, value))
+	_shift_slider.value_changed.connect(func(value: float) -> void:
+		flight_computer.set_target(flight_computer.target_inclination_deg, flight_computer.target_altitude_km, value))
 
 	var delta_row := HBoxContainer.new()
 	column.add_child(delta_row)
@@ -120,14 +129,20 @@ func _process(_delta: float) -> void:
 	_values.PILOT_UTC.text = "%02d:%02d:%02d" % [now.hour, now.minute, now.second]
 	_values.PILOT_POSITION.text = "%s  %s" % [_format_angle(point.x, "DIR_N", "DIR_S"), _format_angle(point.y, "DIR_E", "DIR_W")]
 	_values.PILOT_ALTITUDE.text = "%d km" % roundi(orbit.altitude_km)
-	_values.PILOT_INCLINATION.text = "%.1f°" % orbit.inclination_deg
-	_values.PILOT_PERIOD.text = "%.1f min" % (orbit.get_period_s() / 60.0)
+	_values.PILOT_INCLINATION.text = "%.1f°  ·  %s" % [orbit.inclination_deg,
+			tr("PILOT_PER_DAY").format({"value": "%+.2f" % rad_to_deg(orbit.get_raan_rate() * 86400.0)})]
+	_values.PILOT_PERIOD.text = "%.1f min  ·  %s" % [orbit.get_period_s() / 60.0,
+			_format_shift(orbit.ground_shift_per_orbit_deg(orbit.altitude_km, orbit.inclination_deg))]
 	_values.PILOT_SPEED.text = "%.2f km/s" % orbit.get_orbital_speed_km_s()
 
 	_inclination_slider.set_value_no_signal(flight_computer.target_inclination_deg)
 	_altitude_slider.set_value_no_signal(flight_computer.target_altitude_km)
+	_shift_slider.set_value_no_signal(flight_computer.target_node_shift_deg)
 	_target_inclination.text = "%.1f°" % flight_computer.target_inclination_deg
-	_target_altitude.text = "%d km" % roundi(flight_computer.target_altitude_km)
+	# Altitude visée et décalage par tour qu'elle donnerait (phasage par l'altitude).
+	_target_altitude.text = "%d km  ·  %s" % [roundi(flight_computer.target_altitude_km),
+			_format_shift(orbit.ground_shift_per_orbit_deg(flight_computer.target_altitude_km, flight_computer.target_inclination_deg))]
+	_target_shift.text = _format_angle(flight_computer.target_node_shift_deg, "DIR_E", "DIR_W")
 	_delta_v.text = "%d m/s" % roundi(flight_computer.get_delta_v_km_s() * 1000.0) if flight_computer.has_plan() else "—"
 	for button in _mode_buttons:
 		button.set_pressed_no_signal(button.get_meta(&"mode") == flight_computer.mode)
@@ -170,6 +185,11 @@ func _make_slider(min_value: float, max_value: float, step: float) -> HSlider:
 	slider.focus_mode = Control.FOCUS_NONE
 	slider.custom_minimum_size.y = 44.0
 	return slider
+
+
+## « −23.21°/tour » : décalage de la trace au sol d'un tour à l'autre.
+func _format_shift(degrees: float) -> String:
+	return tr("PILOT_PER_ORBIT").format({"value": "%+.2f" % degrees})
 
 
 ## « 42.0° N » : positive et negative sont les clés de langue des directions (DIR_N, DIR_S…).
