@@ -12,6 +12,9 @@ Paramètres du joueur (vidéo, langue) : autoload `GameSettings` (`scripts/game_
 (`scripts/exposure_control.gd`) impose la **sensibilité de l'exposition automatique Godot (min = max)** d'après le
 soleil au point regardé et le flash — jamais l'exposition auto libre (dépendante du cadrage : brûlée en 32:9), ni
 `exposure_multiplier` (**sans effet sur le rendu dans ce build**, Godot 4.7 D3D12 ; README, « Exposition »).
+Poste de pilotage : nœud `PilotConsole` (`scripts/pilot_console.gd`), grand écran de la console du module Commande
+(interface 2D dans un `SubViewport`, `scripts/ui/pilot_display.gd`, carte Mercator `scripts/ui/orbital_map.gd`,
+contours `assets/world_map_lines.res` générés par `tools/build_map_lines.gd`) : README, « Poste de pilotage ».
 Règle : **tous les textes du jeu sont dans les fichiers de langue** `locale/strings.csv` (interface) et `locale/countries.csv`
 (noms de pays, `tools/build_country_names.gd`), 5 langues (en, fr, es, de, it ; anglais par défaut). Jamais de texte
 affiché en dur : une clé (traduction automatique des contrôles) ou `tr("CLE").format({...})` ; toute nouvelle clé reçoit

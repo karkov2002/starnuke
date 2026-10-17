@@ -114,6 +114,7 @@ permet de piloter le jeu exporté.
 | Date et heure (UTC) | Champ **date** (AAAA-MM-JJ, valider par Entrée), boutons **−1 j / +1 j**, curseur de l'**heure** du jour. La station reste au-dessus du même point ; le soleil, les étoiles et les nuages (poussés par le vent) se placent selon la nouvelle heure. Départ : **15 juillet 2035** |
 | Vitesse du temps | Boutons **Pause, x1, x2, x4, x8, x16** |
 | Redémarrer | Boutons **By day** / **By night** (« De jour » / « De nuit » en français) : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
+| Poste de pilotage | Grand écran de la console du module Commande (à l'avant) : le survoler à moins de 2,5 m affiche **« Contrôle orbital »** au curseur ; **clic gauche** dessus : position **« poste de pilotage »** (la vue se cadre face à l'écran, déplacements et rotation de la tête suspendus) ; **clic droit** : on quitte le poste (retour à la position d'avant). L'écran ne réagit à la souris qu'en position « poste de pilotage ». Voir « Poste de pilotage » |
 | Lampe torche | **L** (action `torch`, touche physique) : allume ou éteint une lampe torche tenue par l'observateur (nœud `Observer/Camera/Torch`, `scripts/torch.gd` : `SpotLight3D` de 32°, portée 10 m, lumière chaude, ombres portées — elle ne traverse pas les parois), qui éclaire devant soi, avec un léger tremblement de la main (bruit lisse, ±0,7°, 1,6 Hz, amplifié en déplacement) ; précieuse quand la station est éteinte (« plus de lumière ») |
 | Pause | **Échap** (action `pause`, touche physique ; un nouvel appui sur Échap reprend la partie) : fige le jeu (orbite, missiles en vol, explosions, animations : `SceneTree.paused`) et ouvre l'écran des paramètres par-dessus la vue figée (fond translucide), avec deux boutons : **Retour** (ou Échap) reprend la partie, **Quitter la partie** demande confirmation (**Oui** / **Non**, « Non » sélectionné par défaut) puis revient à l'écran de démarrage (la partie est perdue). Ignoré pendant la saisie de la date. Nœud `PauseMenu` de `orbit_view.tscn` (`scripts/ui/pause_menu.gd`, actif pendant la pause), `SettingsMenu.in_game` |
 | Silos | **48 voyants ronds numérotés de 1 à 48** à droite du panneau, un par tube de lancement, en 2 blocs de 3 × 8 placés comme les deux silos sur la station (vue de dessus, l'avant en haut ; silo 1 à gauche). **Orange** : missile prêt ; clic → **vert** : tube choisi pour le prochain tir (un seul à la fois, nouveau clic pour annuler) ; **gris** : tube vide. **48 missiles en tout**, sans rechargement. Choisir un tube **ouvre sa trappe** (animation Blender) et allume à côté un **gyrophare rouge** à éclats, qui éclaire la trappe et le dessous de la coque ; le tube choisi auparavant referme sa trappe et éteint son gyrophare (de même si on annule le choix). Après le tir, quand le missile a quitté la station, la trappe se referme et le gyrophare s'éteint |
@@ -179,6 +180,39 @@ traduit (outil de développement, comme la console et le panneau de debug).
   La valeur demandée est donc remontée à |latitude| si besoin (le curseur se recale). Par exemple, au-dessus de
   Madrid (40,4° N), le minimum est 40,4°.
 - l'accélération du temps agit sur l'orbite, la rotation de la Terre, le soleil et le déplacement des nuages par le vent (pas sur la lente évolution du relief de leurs sommets).
+
+## Poste de pilotage
+
+Le grand écran de la console du module Commande (`Interactif_Ecran_Principal`, dalle au matériau `Ecran_15`,
+1,59 × 0,89 m ; les deux petits écrans latéraux ont été retirés du modèle) est l'écran de **contrôle orbital**,
+une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et affichée par la dalle elle-même.
+
+- **Nœud `PilotConsole`** de `scenes/orbit_view.tscn` (`scripts/pilot_console.gd`) : crée le `SubViewport`
+  (1 000 px de haut, largeur aux proportions de la dalle), remplace le matériau de la dalle par
+  `shaders/pilot_screen.gdshader` (image émise, dalle noire peu réfléchissante ; les UV du modèle étant inutilisables,
+  la position dans l'image vient de la position du sommet dans le rectangle de la dalle, mesuré au démarrage sur les
+  faces `Ecran_15` tournées vers l'observateur), et gère le poste :
+  - survol de la dalle (rayon de la caméra par le curseur, intersecté avec le rectangle de la dalle) à moins de
+    2,5 m : bulle « Contrôle orbital » au curseur ;
+  - clic gauche sur la dalle : position « poste de pilotage ». L'œil glisse en 0,6 s face au centre de la dalle, à
+    la distance où elle occupe 90 % de la vue (en hauteur ou en largeur selon les proportions de la fenêtre) ;
+    l'observateur (`Observer`, corps et tête) est suspendu : ni déplacement, ni rotation, ni roulis. Toute la souris
+    est alors prise par le poste : les mouvements et clics sur la dalle sont transmis à l'interface (position
+    convertie en pixels de l'image), les autres sont ignorés (pas de tir, pas de clic sur le reste de l'interface).
+    Indication en bas de la vue : « Clic droit : quitter le poste de pilotage » ;
+  - clic droit : retour en 0,6 s à la position et à l'orientation d'avant, l'observateur reprend la main.
+- **Interface** (`scripts/ui/pilot_display.gd`, construite en code) : carte à gauche, colonne d'informations à droite
+  (heure UTC, position, altitude, inclinaison, période, vitesse orbitale).
+- **Carte** (`scripts/ui/orbital_map.gd`) : projection de **Mercator de 80° N à 80° S** (rapport largeur / hauteur
+  2π / (2·ln tan(45° + 40°)) ≈ 1,29), lignes blanches sur fond noir : contours des pays et des continents
+  (`assets/world_map_lines.res`, Natural Earth 1:50 M, `scripts/world_map_lines.gd`, généré par
+  `tools/build_map_lines.gd` ; sommets à au moins 0,05° les uns des autres). Méridiens et parallèles tous les 10° et
+  équateur en gris. Trace au sol de l'orbite en vert (sinusoïde déformée par la projection et décalée vers l'ouest à
+  chaque tour par la rotation de la Terre) : demi-période passée en vert sombre, 1,5 période à venir en vert vif,
+  coupée à l'antiméridien ; station en jaune (flèche dans le sens du déplacement, cerclée). Le fond (≈ 85 000
+  segments) est rendu **une seule fois** dans la texture d'un `SubViewport` (`UPDATE_ONCE`, MSAA 4×) : redessiner
+  autant de lignes lissées à chaque image coûtait ~20 ms de CPU (35 im/s) ; la trace et la station sont redessinées à
+  chaque image.
 
 ## Station spatiale (modèle Blender)
 
@@ -1724,3 +1758,5 @@ Les paragraphes (§) sont ceux des ouvrages ; entre parenthèses, les fichiers d
   (`assets/population_2030.bin`, `tools/build_population.ps1`).
 - Natural Earth. *1:10m Cultural Vectors – Admin 0 – Countries*, version 5 (domaine public). Frontières de fait,
   population estimée et PIB des pays (`assets/country_mask.res`).
+- Natural Earth. *1:50m Cultural Vectors – Admin 0 – Countries* (domaine public). Contours de la carte de l'écran
+  de pilotage (`assets/world_map_lines.res`, `tools/build_map_lines.gd`).

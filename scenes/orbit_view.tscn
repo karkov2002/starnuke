@@ -18,6 +18,7 @@
 [ext_resource type="Script" uid="uid://u8bs354yxugh" path="res://scripts/ui/pause_menu.gd" id="15_pause"]
 [ext_resource type="Script" uid="uid://bgi6yfr881t3f" path="res://scripts/ui/fps_overlay.gd" id="16_wdqx1"]
 [ext_resource type="Script" uid="uid://dvxsvn2icyohm" path="res://scripts/exposure_control.gd" id="17_expo"]
+[ext_resource type="Script" uid="uid://ce2csaftt2o2t" path="res://scripts/pilot_console.gd" id="19_uophr"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -132,3 +133,6 @@ script = ExtResource("16_wdqx1")
 
 [node name="Exposure" type="Node" parent="." unique_id=925671815]
 script = ExtResource("17_expo")
+
+[node name="PilotConsole" type="Node" parent="." unique_id=391993888]
+script = ExtResource("19_uophr")
