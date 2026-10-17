@@ -54,7 +54,7 @@ try:
         export_animation_mode='NLA_TRACKS',
         export_force_sampling=True,
         export_yup=True,
-        export_texcoord=True,
+        export_texcoords=True,
         export_normals=True,
         export_materials='EXPORT',
         export_image_format='AUTO',
