@@ -319,9 +319,12 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
       dans les situations critiques, les luminaires blancs de la station passent en **jaune**, **orange** ou
       **rouge** (`alert_colors`, lumière projetée des lampes `Lum_*` et émission des bandeaux `Int_Lumiere` ; les
       feux rouges des rails gardent leur couleur), avec un fondu de 0,8 s (`alert_fade_s`) ; en alerte rouge, la
-      puissance pulse lentement (−30 % d'amplitude, période 1,4 s : `red_alert_pulse`, `red_alert_period_s`). Les
-      déclencheurs (quelles situations déclenchent quel niveau) restent à définir ; le panneau de debug
-      (`nuke/debug/`) permet d'essayer chaque niveau. Sans ombres, une lampe traverse les parois : elles n'éclairent donc que les surfaces intérieures,
+      puissance pulse lentement (−30 % d'amplitude, période 1,4 s : `red_alert_pulse`, `red_alert_period_s`).
+      Cinquième niveau, **« plus de lumière »** (`BLACKOUT`) : bandeaux et lampes s'éteignent (même fondu), sauf
+      une lampe sur quatre (`emergency_light_every`) qui reste en LED de secours, très faible (énergie 0,06,
+      `emergency_light_energy`) et froide (`emergency_light_color`), pour deviner les modules ; les voyants du
+      modèle (`Int_Voyant_*`, émissifs) restent allumés. Les déclencheurs (quelles situations déclenchent quel
+      niveau) restent à définir ; le panneau de debug (`nuke/debug/`, F4 en jeu) permet d'essayer chaque niveau. Sans ombres, une lampe traverse les parois : elles n'éclairent donc que les surfaces intérieures,
     sur le calque `INTERIOR_LAYER` (bit 11, `light_cull_mask`). Est intérieur un matériau dont le nom commence par
     `Int_` ou `Ecran_` ; hublots et vitrages sont des deux côtés ; tout le reste est extérieur. Les 14 coques mixtes
     (surface `Coque_Silo` dehors, `Int_Coque` dedans, dans un même objet) sont doublées : l'original ne montre que
@@ -1563,7 +1566,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   - champs latitude / longitude (Madrid par défaut), bouton **Point visé** (recopie le centre de la vue),
     **Tirer**, **Effacer** ;
   - case **Marqueurs** (marqueurs de taille des explosions) ;
-  - menu **Alerte** (aucune / jaune / orange / rouge) : niveau d'alerte de la station, couleur des luminaires
+  - menu **Alerte** (aucune / jaune / orange / rouge / plus de lumière) : niveau d'alerte de la station, couleur des luminaires
     intérieurs (`Station.set_alert`, voir « Éclairage intérieur ») ;
   - scrubber du temps physique (0 à 6 h, pour voir la dissipation du champignon ; non linéaire : t = 6 h · v⁵, les
     3 premières secondes occupent 17 % de la course, les 10 premières minutes la moitié) : il suit la dernière explosion tirée depuis ce panneau ; le déplacer (ou cocher

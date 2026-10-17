@@ -102,6 +102,12 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 @export var alert_fade_s := 0.8
 @export var red_alert_pulse := 0.3
 @export var red_alert_period_s := 1.4
+## « Plus de lumière » (Alert.BLACKOUT) : bandeaux et lampes éteints, sauf une lampe sur emergency_light_every
+## (LED de secours) à emergency_light_energy, teinte emergency_light_color, qui éclairent très faiblement les modules ;
+## les voyants du modèle (Int_Voyant_*, émissifs) restent allumés. Fondu en alert_fade_s.
+@export var emergency_light_every := 4
+@export var emergency_light_energy := 0.06
+@export var emergency_light_color := Color(0.55, 0.75, 1.0)
 @export var interior_light_range := 5.5
 @export var interior_light_attenuation := 1.3
 @export var interior_light_temperature := 4500.0
@@ -137,8 +143,10 @@ var _light_factor := -1.0
 var _alert := Alert.NONE
 var _alert_tint := Color.WHITE
 var _alert_time := 0.0
+## Part de l'extinction (0 : luminaires normaux, 1 : « plus de lumière »), fondue.
+var _dark := 0.0
 
-enum Alert { NONE, YELLOW, ORANGE, RED }
+enum Alert { NONE, YELLOW, ORANGE, RED, BLACKOUT }
 var _beacon_time := 0.0
 ## Angle courant des panneaux (radians autour de Z) ; NAN avant la première image (placement direct).
 var _panel_angle := NAN
@@ -743,13 +751,20 @@ func _update_interior_light(delta: float) -> void:
 		factor *= 1.0 - 0.5 * red_alert_pulse * (1.0 - cos(TAU * _alert_time / maxf(red_alert_period_s, 0.1)))
 	else:
 		_alert_time = 0.0
-	if absf(factor - _light_factor) < 0.002 and tint.is_equal_approx(_alert_tint):
+	# Extinction (« plus de lumière ») : les luminaires s'éteignent pendant que les LED de secours s'allument.
+	var dark_target := 1.0 if _alert == Alert.BLACKOUT else 0.0
+	var dark := lerpf(_dark, dark_target, 1.0 - exp(-delta / maxf(alert_fade_s, 1e-3))) if delta > 0.0 else dark_target
+	factor *= 1.0 - dark
+	if absf(factor - _light_factor) < 0.002 and tint.is_equal_approx(_alert_tint) and absf(dark - _dark) < 0.002:
 		return
 	_light_factor = factor
 	_alert_tint = tint
-	for light in _interior_lights:
-		light.light_energy = interior_light_energy * factor
-		light.light_color = tint
+	_dark = dark
+	for i in _interior_lights.size():
+		var light := _interior_lights[i]
+		var emergency := dark * emergency_light_energy if i % maxi(emergency_light_every, 1) == 0 else 0.0
+		light.light_energy = interior_light_energy * factor + emergency
+		light.light_color = tint.lerp(emergency_light_color, dark)
 	for material in _lamp_materials:
 		material.emission_energy_multiplier = float(material.get_meta(&"base_emission")) * factor
 		# Seuls les luminaires blancs changent de couleur (les feux rouges des rails gardent la leur).

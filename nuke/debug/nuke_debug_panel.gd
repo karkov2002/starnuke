@@ -77,7 +77,7 @@ func _ready() -> void:
 	# Niveau d'alerte de la station (couleur des luminaires intérieurs, Station.set_alert).
 	var alert := OptionButton.new()
 	alert.focus_mode = Control.FOCUS_NONE
-	for level in ["Alerte : aucune", "Alerte jaune", "Alerte orange", "Alerte rouge"]:
+	for level in ["Alerte : aucune", "Alerte jaune", "Alerte orange", "Alerte rouge", "Plus de lumière"]:
 		alert.add_item(level)
 	alert.item_selected.connect(func(index: int) -> void:
 		var station := get_tree().get_first_node_in_group(Station.GROUP) as Station

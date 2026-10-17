@@ -20,12 +20,13 @@ func _ready() -> void:
 	orbit.restart(0.0)
 	orbit.time_scale = 0.0
 	camera.basis = camera.basis * Basis(Vector3.RIGHT, PI)
-	for level in 4:
+	for level in 5:
 		station.set_alert(level as Station.Alert)
 		await get_tree().create_timer(2.5).timeout
 		_shot("alert_%d.png" % level)
-	await get_tree().create_timer(station.red_alert_period_s * 0.5).timeout
-	_shot("alert_3_demi_periode.png")
+		if level == Station.Alert.RED:
+			await get_tree().create_timer(station.red_alert_period_s * 0.5).timeout
+			_shot("alert_3_demi_periode.png")
 	station.set_alert(Station.Alert.NONE)
 	get_tree().quit()
 
