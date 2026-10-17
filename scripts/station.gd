@@ -61,6 +61,8 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 @export var earth_path: NodePath = ^"../../Earth"
 ## Orbite (ensoleillement de la station, pour le mode nuit des luminaires).
 @export var orbit_path: NodePath = ^"../../Orbit"
+## Environnement (sa lumière ambiante n'éclaire que la station : elle suit l'extinction « plus de lumière »).
+@export var world_environment_path: NodePath = ^"../../WorldEnvironment"
 ## Vitesse maximale des panneaux (degrés par seconde) : le suivi normal est bien plus lent (un tour par orbite) ; la
 ## limite évite un saut quand la date ou l'heure change.
 @export var panel_max_speed_deg := 6.0
@@ -135,6 +137,7 @@ var _panel_pivots: Array[Node3D] = []
 ## Vector2i(silo, tube) -> gyrophare (Node3D : Lampe, Lumiere)
 var _beacons := {}
 var _orbit: OrbitSimulation
+var _environment: Environment
 ## Luminaires intérieurs (lampes Lum_* et matériaux Int_Lumiere*), listés une fois, et facteur appliqué.
 var _interior_lights: Array[OmniLight3D] = []
 var _lamp_materials: Array[BaseMaterial3D] = []
@@ -155,6 +158,12 @@ var _panel_angle := NAN
 func _ready() -> void:
 	add_to_group(GROUP)
 	_orbit = get_node_or_null(orbit_path) as OrbitSimulation
+	var world_environment := get_node_or_null(world_environment_path) as WorldEnvironment
+	if world_environment and world_environment.environment:
+		_environment = world_environment.environment
+		# Ressource partagée d'une partie à l'autre : l'ambiance d'origine est gardée en métadonnée.
+		if not _environment.has_meta(&"base_ambient_energy"):
+			_environment.set_meta(&"base_ambient_energy", _environment.ambient_light_energy)
 	var imported := find_children("*", "AnimationPlayer", true, false)
 	if imported.is_empty():
 		push_error("Station : pas d'AnimationPlayer dans le modèle")
@@ -760,6 +769,8 @@ func _update_interior_light(delta: float) -> void:
 	_light_factor = factor
 	_alert_tint = tint
 	_dark = dark
+	if _environment:
+		_environment.ambient_light_energy = float(_environment.get_meta(&"base_ambient_energy")) * (1.0 - dark)
 	for i in _interior_lights.size():
 		var light := _interior_lights[i]
 		var emergency := dark * emergency_light_energy if i % maxi(emergency_light_every, 1) == 0 else 0.0
