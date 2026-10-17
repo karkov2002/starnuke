@@ -121,6 +121,7 @@ var _panel_angle := NAN
 
 func _ready() -> void:
 	add_to_group(GROUP)
+	GameSettings.changed.connect(_apply_interior_light)
 	var imported := find_children("*", "AnimationPlayer", true, false)
 	if imported.is_empty():
 		push_error("Station : pas d'AnimationPlayer dans le modèle")
@@ -666,13 +667,20 @@ func _setup_interior_lighting() -> void:
 			mesh_instance.add_child(inside)
 	for light: OmniLight3D in find_children("Lum_*", "OmniLight3D", true, false):
 		light.light_cull_mask = INTERIOR_LAYER
-		light.light_energy = interior_light_energy
+		light.light_energy = interior_light_energy * GameSettings.interior_light
 		light.omni_range = interior_light_range
 		light.omni_attenuation = interior_light_attenuation
 		light.light_color = Color.WHITE
 		light.light_temperature = interior_light_temperature
 		light.light_specular = interior_light_specular
 		light.shadow_enabled = interior_shadows
+
+
+## Puissance des lampes intérieures : réglage du modèle × GameSettings.interior_light (paramètre « Éclairage
+## intérieur »), réappliquée à chaque changement de paramètre.
+func _apply_interior_light() -> void:
+	for light: OmniLight3D in find_children("Lum_*", "OmniLight3D", true, false):
+		light.light_energy = interior_light_energy * GameSettings.interior_light
 
 
 ## Vitrage de la cupola sans reflet spéculaire : le reflet de l'environnement (disque solaire du ciel) ignore l'ombre

@@ -42,6 +42,7 @@ const RESOLUTIONS: Array[Vector2i] = [
 const MIN_3D_SCALE := 0.25
 const CAMERA_ATTRIBUTES := "res://materials/camera_attributes.tres"
 const BRIGHTNESS_RANGE := Vector2(0.25, 1.5)
+const INTERIOR_LIGHT_RANGE := Vector2(0.1, 1.5)
 
 var window_mode := WindowMode.FULLSCREEN
 ## Résolution choisie ; Vector2i.ZERO : celle de l'écran.
@@ -49,6 +50,8 @@ var resolution := Vector2i.ZERO
 var locale := DEFAULT_LOCALE
 ## Multiplicateur de luminosité (1 = exposition automatique seule).
 var brightness := 1.0
+## Puissance de l'éclairage intérieur de la station (1 = réglage du modèle).
+var interior_light := 1.0
 
 
 func _ready() -> void:
@@ -62,6 +65,13 @@ func set_brightness(value: float) -> void:
 	brightness = clampf(value, BRIGHTNESS_RANGE.x, BRIGHTNESS_RANGE.y)
 	_apply_brightness()
 	_save()
+
+
+## Puissance des lampes de la station (Station : énergie des lumières Lum_* × ce facteur), appliquée via changed.
+func set_interior_light(value: float) -> void:
+	interior_light = clampf(value, INTERIOR_LIGHT_RANGE.x, INTERIOR_LIGHT_RANGE.y)
+	_save()
+	changed.emit()
 
 
 ## Rien à écrire : le nœud Exposure (ExposureControl) lit brightness à chaque image et impose la sensibilité de
@@ -185,6 +195,8 @@ func _load() -> void:
 			else WindowMode.FULLSCREEN
 	resolution = config.get_value("video", "resolution", Vector2i.ZERO)
 	brightness = clampf(float(config.get_value("video", "brightness", 1.0)), BRIGHTNESS_RANGE.x, BRIGHTNESS_RANGE.y)
+	interior_light = clampf(float(config.get_value("video", "interior_light", 1.0)), INTERIOR_LIGHT_RANGE.x,
+			INTERIOR_LIGHT_RANGE.y)
 	locale = config.get_value("game", "locale", DEFAULT_LOCALE)
 	if not locale in LOCALES:
 		locale = DEFAULT_LOCALE
@@ -195,5 +207,6 @@ func _save() -> void:
 	config.set_value("video", "window_mode", "windowed" if window_mode == WindowMode.WINDOWED else "fullscreen")
 	config.set_value("video", "resolution", resolution)
 	config.set_value("video", "brightness", brightness)
+	config.set_value("video", "interior_light", interior_light)
 	config.set_value("game", "locale", locale)
 	config.save(PATH)

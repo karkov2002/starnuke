@@ -48,7 +48,10 @@ permet de piloter le jeu exporté.
   - **Video** : mode d'affichage (**fenêtré** / **plein écran**), **résolution** et **luminosité** (25 à 150 %,
     `GameSettings.brightness`, sauvée dans `user://settings.cfg` : facteur du multiplicateur d'exposition des
     attributs de caméra partagés `materials/camera_attributes.tres`, appliqué au menu et au jeu par le nœud
-    `Exposure`, voir « Exposition » dans « Organisation de la scène »). L'écran des paramètres a un fond
+    `Exposure`, voir « Exposition » dans « Organisation de la scène ») et **éclairage intérieur** (10 à 150 %,
+    `GameSettings.interior_light`, sauvé de même : puissance des 28 lampes de la station, `Station` multiplie
+    l'énergie de chaque lampe `Lum_*` par ce facteur et le réapplique à chaque changement ; l'exposition de
+    l'intérieur étant constante, c'est ce réglage qui règle la clarté des parois). L'écran des paramètres a un fond
     translucide : on juge le réglage sur la vue 3D derrière.
     - Fenêtré : la résolution est la taille de la fenêtre, centrée dans la zone utile de l'écran ; une fenêtre qui
       n'y tient pas avec sa bordure et sa barre de titre (résolution native, par exemple) est maximisée.
@@ -305,8 +308,9 @@ noms de nœuds ; tout réglage passe par son `.import`, le script de post-import
     `set_all_radiators_deployed`, `set_stealth(enabled)` ; signal `radiator_changed`.
   - **Éclairage intérieur** (réglages dans le groupe « Éclairage intérieur » de `Station`) : les 28 lampes
     ponctuelles du modèle (`Lum_*`, importées à 6 522 d'énergie et 4 096 m de portée) sont recalibrées au démarrage :
-    blanc 4 500 K (luminaires LED de l'ISS en mode jour), énergie 1,2, portée 5,5 m, atténuation 1,3, reflets 0,4,
-    **sans ombres**. Sans ombres, une lampe traverse les parois : elles n'éclairent donc que les surfaces intérieures,
+    blanc 4 500 K (luminaires LED de l'ISS en mode jour), énergie 1,2 × le paramètre « Éclairage intérieur »
+    (`GameSettings.interior_light`, voir « Écran de démarrage, paramètres et langues »), portée 5,5 m,
+    atténuation 1,3, reflets 0,4, **sans ombres**. Sans ombres, une lampe traverse les parois : elles n'éclairent donc que les surfaces intérieures,
     sur le calque `INTERIOR_LAYER` (bit 11, `light_cull_mask`). Est intérieur un matériau dont le nom commence par
     `Int_` ou `Ecran_` ; hublots et vitrages sont des deux côtés ; tout le reste est extérieur. Les 14 coques mixtes
     (surface `Coque_Silo` dehors, `Int_Coque` dedans, dans un même objet) sont doublées : l'original ne montre que

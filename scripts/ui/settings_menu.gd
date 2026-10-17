@@ -25,6 +25,8 @@ var _resolution: OptionButton
 var _resolution_note: Label
 var _brightness: HSlider
 var _brightness_value: Label
+var _interior_light: HSlider
+var _interior_light_value: Label
 var _language: OptionButton
 var _back: Button
 
@@ -163,6 +165,28 @@ func _build_video(page: VBoxContainer) -> void:
 	_brightness.value_changed.connect(func(value: float) -> void:
 		_brightness_value.text = "%d %%" % roundi(value)
 		GameSettings.set_brightness(value / 100.0))
+	# Éclairage intérieur : curseur de 10 à 150 % (puissance des lampes de la station, GameSettings.interior_light).
+	var light_label := Label.new()
+	light_label.text = "VIDEO_INTERIOR_LIGHT"
+	light_label.add_theme_font_size_override("font_size", 20)
+	grid.add_child(light_label)
+	var light_row := HBoxContainer.new()
+	light_row.add_theme_constant_override("separation", 12)
+	grid.add_child(light_row)
+	_interior_light = HSlider.new()
+	_interior_light.min_value = GameSettings.INTERIOR_LIGHT_RANGE.x * 100.0
+	_interior_light.max_value = GameSettings.INTERIOR_LIGHT_RANGE.y * 100.0
+	_interior_light.step = 5.0
+	_interior_light.custom_minimum_size = Vector2(360.0, 44.0)
+	_interior_light.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	light_row.add_child(_interior_light)
+	_interior_light_value = Label.new()
+	_interior_light_value.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_interior_light_value.add_theme_font_size_override("font_size", 20)
+	light_row.add_child(_interior_light_value)
+	_interior_light.value_changed.connect(func(value: float) -> void:
+		_interior_light_value.text = "%d %%" % roundi(value)
+		GameSettings.set_interior_light(value / 100.0))
 	_resolution_note = _add_note(page, "")
 	_resolution_note.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 
@@ -196,6 +220,8 @@ func _refresh() -> void:
 	_language.select(GameSettings.LOCALES.find(GameSettings.locale))
 	_brightness.set_value_no_signal(GameSettings.brightness * 100.0)
 	_brightness_value.text = "%d %%" % roundi(GameSettings.brightness * 100.0)
+	_interior_light.set_value_no_signal(GameSettings.interior_light * 100.0)
+	_interior_light_value.text = "%d %%" % roundi(GameSettings.interior_light * 100.0)
 
 
 func _make_grid(page: VBoxContainer) -> GridContainer:
