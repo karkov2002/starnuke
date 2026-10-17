@@ -18,21 +18,15 @@ func _ready() -> void:
 	await get_tree().create_timer(3.0).timeout
 	orbit.restart(0.0)
 	orbit.time_scale = 0.0
-	var observer := view.get_node("Observer") as Node3D
+	camera.basis = camera.basis * Basis(Vector3.RIGHT, PI * 0.8)
 	station.set_alert(Station.Alert.BLACKOUT)
 	await get_tree().create_timer(4.0).timeout
 	_shot("torch_off.png")
-	var poses := {"plafond": Basis(Vector3.RIGHT, PI * 0.8), "couloir": Basis(Vector3.RIGHT, PI * 0.5), "couloir2": Basis(Vector3.RIGHT, PI * 0.5) * Basis(Vector3.UP, PI)}
-	var rest := camera.basis
 	var key := InputEventKey.new()
 	key.physical_keycode = KEY_L
 	key.pressed = true
 	Input.parse_input_event(key)
 	await get_tree().create_timer(1.0).timeout
-	for pose in poses:
-		camera.basis = rest * poses[pose]
-		await get_tree().create_timer(1.5).timeout
-		_shot("torch_on_%s.png" % pose)
 	_shot("torch_on.png")
 	print("torche visible : %s" % (view.get_node("Observer/Camera/Torch") as Node3D).visible)
 	get_tree().quit()

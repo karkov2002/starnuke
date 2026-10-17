@@ -7,7 +7,6 @@
 [ext_resource type="Environment" uid="uid://4sxmnw5qdcy4" path="res://materials/space_environment.tres" id="5_env"]
 [ext_resource type="Script" uid="uid://msb2y85g7wf7" path="res://scripts/torch.gd" id="5_i8rd8"]
 [ext_resource type="Material" path="res://materials/cloud_volume.tres" id="6_0pmab"]
-[ext_resource type="Script" uid="uid://o83cbrtrota1" path="res://scripts/dust.gd" id="6_uophr"]
 [ext_resource type="PackedScene" path="res://scenes/station_spatiale.tscn" id="7_0pmab"]
 [ext_resource type="Script" uid="uid://nmhxi1tug17e" path="res://scripts/orbit.gd" id="8_3kqp2"]
 [ext_resource type="Material" path="res://materials/atmosphere_ground.tres" id="8_pecem"]
@@ -84,12 +83,6 @@ spot_range = 10.0
 spot_angle = 32.0
 spot_angle_attenuation = 1.2
 script = ExtResource("5_i8rd8")
-
-[node name="Dust" type="GPUParticles3D" parent="Observer" unique_id=153441732]
-amount = 600
-lifetime = 12.0
-preprocess = 12.0
-script = ExtResource("6_uophr")
 
 [node name="Station" type="Node3D" parent="." unique_id=241936533]
 
