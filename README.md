@@ -391,6 +391,30 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
     elle diffuse les vidéos communes. Après retouche d'un maître dans un logiciel vidéo : `build_tv_videos.ps1
     -ConvertOnly` ; après remplacement de `explosion.mp4` : `-Studio` (nouveau rendu du plateau) ; sans option :
     tout est régénéré (rendus Blender compris). Puis rescan dans l'éditeur.
+  - **Bandeau défilant de l'édition spéciale** (`scripts/tv_news.gd`, classe `TvNews`) : en bas de l'écran, dans la
+    **langue de la chaîne** (colonne `lang` de `channels.csv` : langue majoritaire du pays, à défaut celle de ses
+    journaux télévisés — anglais, français, portugais… pour les pays sans langue majoritaire ou dont la langue
+    majoritaire n'est pas traduite ; 65 langues, défilement vers la droite pour l'arabe, l'hébreu, le persan et
+    l'ourdou ; les écritures non latines s'affichent par les polices du système). Contenu, recomposé à chaque passage
+    et aussitôt après chaque tir :
+    1. préfixe « Alerte info : » ;
+    2. nombre d'explosions et puissance cumulée (kt sous 1 Mt, Mt à une décimale au-delà), pays touchés (point zéro
+       sur leur territoire, `NukeTally`) ; « détectée(s) en mer » si aucun pays ;
+    3. morts selon « nos experts » (bilan `NukeTally` à l'instant présent, arrondi à trois chiffres significatifs) ;
+    4. capitales détruites (chaînes hors d'antenne) : sans nouvelles des autorités de ces pays ;
+    5. déclaration du gouvernement du pays qui diffuse : **touché et puissance nucléaire** (États-Unis, Russie,
+       France, Royaume-Uni, Inde, Pakistan, Chine, Israël, Corée du Nord : `TvNews.NUCLEAR_POWERS`) → alerte
+       maximale, riposte à l'étude, consignes à la population ; **touché sans arme nucléaire** → alerte maximale et
+       consignes ; **non touché** → alerte maximale, protection du pays, pensées pour les pays touchés.
+    Chaque phrase a **trois variantes** (même sens, tournures différentes), tirées au hasard à chaque passage. Textes :
+    `assets/tv/news_ticker.csv` (une ligne par clé et variante `CLE.n`, une colonne par langue, plus les réglages de
+    nombres et d'unités par langue : `LIST_SEP`, `THOUSANDS`, `DECIMAL`, `UNIT_KT`, `UNIT_MT` avec `{n}`). Pour les
+    langues à déclinaisons, les noms de pays et de capitales sont placés après deux-points (nominatif, sans faute
+    d'accord). Noms des pays (CLDR d'Unicode, à défaut Wikidata) et des capitales (Wikidata) dans chaque langue :
+    `assets/tv/news_country_names.csv`, `assets/tv/news_capital_names.csv`, téléchargés par
+    `tools/build_tv_news_names.ps1` (cases vides : nom anglais). Ces textes du monde du jeu dépendent du pays qui
+    diffuse, pas de la langue du joueur : ils sont hors des fichiers de langue (`locale/`). Les CSV de `assets/tv/`
+    sont importés en « keep » (sinon l'éditeur les prend pour des fichiers de traduction).
   - Coût : le `SubViewport` de l'écran n'est rendu et la vidéo n'avance que si la caméra est à moins de 12 m.
 
 ## Station spatiale (modèle Blender)

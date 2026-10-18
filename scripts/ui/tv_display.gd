@@ -29,6 +29,12 @@ var _video_path := ""
 var _alert := false
 var _live_label: Label
 var _live_box: PanelContainer
+## Bandeau défilant de l'édition spéciale (TvNews) : texte recomposé à chaque passage complet (bilan à jour,
+## variantes tirées au hasard), défilement vers la gauche (vers la droite pour l'arabe, l'hébreu, le persan, l'ourdou).
+var _ticker: Control
+var _ticker_label: Label
+var _ticker_rtl := false
+var _ticker_rng := RandomNumberGenerator.new()
 var _logo: Label
 var _logo_panel: PanelContainer
 var _lower_third: PanelContainer
@@ -82,6 +88,7 @@ func _ready() -> void:
 	_country_label.add_theme_color_override("font_color", COLOR_TEXT)
 	row.add_child(_country_label)
 	add_child(_lower_third)
+	_build_ticker()
 	# Mire « pas de signal ».
 	_no_signal = Control.new()
 	_no_signal.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -110,9 +117,11 @@ func _process(delta: float) -> void:
 	elif _alert:
 		# Bandeau « Alerte info » qui clignote doucement.
 		_live_box.modulate.a = 0.75 + 0.25 * sin(_time * 6.0)
+		_scroll_ticker(delta)
 	# Placement (tailles connues après la mise en page).
 	_logo_panel.position = Vector2(size.x - _logo_panel.size.x - size.y * 0.04, size.y * 0.04)
-	_lower_third.position = Vector2(size.y * 0.04, size.y - _lower_third.size.y - size.y * 0.05)
+	var bottom := size.y - (_ticker.size.y if _ticker.visible else 0.0)
+	_lower_third.position = Vector2(size.y * 0.04, bottom - _lower_third.size.y - size.y * 0.03)
 
 
 func is_off_air() -> bool:
@@ -130,6 +139,12 @@ func show_channel(code: String) -> void:
 	_no_signal.visible = off
 	_live_label.text = "TV_BREAKING" if _alert else "TV_LIVE"
 	_live_box.modulate.a = 1.0
+	var new_ticker := _alert and (not _ticker.visible or code != String(_ticker.get_meta("channel", "")))
+	_ticker.visible = _alert
+	if new_ticker:
+		_ticker.set_meta("channel", code)
+		_ticker_rng.seed = hash(code) ^ int(_time * 1000.0)
+		_next_ticker_text()
 	if code != "" and console:
 		_logo.text = console.channel_name(code)
 		_country_label.text = tr("COUNTRY_" + code)
@@ -159,6 +174,60 @@ func _play(path: String) -> void:
 
 func refresh() -> void:
 	show_channel(channel)
+
+
+## Bandeau recomposé et relancé depuis le bord (nouveau tir).
+func restart_ticker() -> void:
+	if _alert and _ticker.visible:
+		_next_ticker_text()
+
+
+func _build_ticker() -> void:
+	_ticker = Control.new()
+	_ticker.clip_contents = true
+	_ticker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ticker.size = Vector2(size.x, size.y * 0.075)
+	_ticker.position = Vector2(0.0, size.y - _ticker.size.y)
+	_ticker.visible = false
+	var band := ColorRect.new()
+	band.color = Color(0.45, 0.03, 0.03, 0.92)
+	band.set_anchors_preset(Control.PRESET_FULL_RECT)
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ticker.add_child(band)
+	_ticker_label = Label.new()
+	_ticker_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_ticker_label.add_theme_font_size_override("font_size", int(size.y * 0.045))
+	_ticker_label.add_theme_color_override("font_color", COLOR_TEXT)
+	_ticker_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_ticker_label.size.y = _ticker.size.y
+	_ticker.add_child(_ticker_label)
+	add_child(_ticker)
+
+
+## Nouveau texte (langue de la chaîne), placé à l'entrée du bandeau.
+func _next_ticker_text() -> void:
+	if console == null or channel == "":
+		return
+	var lang := console.channel_lang(channel)
+	_ticker_rtl = TvNews.is_rtl(lang)
+	_ticker_label.language = lang.replace("zh_TW", "zh_Hant")
+	_ticker_label.text_direction = Control.TEXT_DIRECTION_RTL if _ticker_rtl else Control.TEXT_DIRECTION_AUTO
+	_ticker_label.text = console.news_text(channel, _ticker_rng)
+	_ticker_label.reset_size()
+	_ticker_label.size.y = _ticker.size.y
+	_ticker_label.position.x = -_ticker_label.size.x if _ticker_rtl else size.x
+
+
+func _scroll_ticker(delta: float) -> void:
+	var step := size.y * 0.16 * delta
+	if _ticker_rtl:
+		_ticker_label.position.x += step
+		if _ticker_label.position.x > size.x:
+			_next_ticker_text()
+	else:
+		_ticker_label.position.x -= step
+		if _ticker_label.position.x < -_ticker_label.size.x:
+			_next_ticker_text()
 
 
 func _build_menu() -> void:

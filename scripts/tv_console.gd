@@ -106,7 +106,10 @@ func _ready() -> void:
 		_launcher.detonated.connect(func(_effect: NukeEffect) -> void:
 			if _orbit:
 				_last_detonation_unix = _orbit.get_utc_unix_s()
-			_update_off_air())
+			_update_off_air()
+			# Nouveau tir : le bandeau repart tout de suite avec le nouveau bilan (après le calcul des pertes).
+			if _display:
+				_display.restart_ticker.call_deferred())
 	_update_off_air()
 
 
@@ -122,6 +125,26 @@ func channel_codes() -> Array[String]:
 
 func channel_name(code: String) -> String:
 	return String(_channels.get(code, {}).get("name", ""))
+
+
+## Langue de diffusion de la chaîne (colonne lang de channels.csv).
+func channel_lang(code: String) -> String:
+	return String(_channels.get(code, {}).get("lang", "en"))
+
+
+## Aperçu du bandeau d'une chaîne (mise au point, MCP / console).
+func news_preview(code: String) -> String:
+	var rng := RandomNumberGenerator.new()
+	return news_text(code, rng)
+
+
+## Texte du bandeau « Alerte info » de la chaîne, d'après l'état présent des explosions (TvNews).
+func news_text(code: String, rng: RandomNumberGenerator) -> String:
+	var effects: Array[NukeEffect] = _launcher.get_effects() if _launcher else []
+	var off_air: Array[String] = []
+	off_air.assign(_off_air.keys())
+	return TvNews.compose(code, channel_lang(code),
+			{"effects": effects, "tally": NukeTally.compute(effects), "off_air": off_air}, rng)
 
 
 func is_alert() -> bool:
@@ -207,9 +230,9 @@ func _load_channels() -> void:
 	file.get_csv_line()
 	while not file.eof_reached():
 		var row := file.get_csv_line()
-		if row.size() < 4:
+		if row.size() < 5:
 			continue
-		_channels[row[0]] = {"name": row[1], "lat": float(row[2]), "lon": float(row[3])}
+		_channels[row[0]] = {"name": row[1], "lat": float(row[2]), "lon": float(row[3]), "lang": row[4]}
 
 
 ## Pays dont la capitale est sous au moins OFF_AIR_PSI d'une explosion.
