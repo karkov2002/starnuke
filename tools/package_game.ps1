@@ -4,7 +4,8 @@
 #  2. copie des tuiles HD (assets/earth_tiles, earth_night_tiles, earth_cloud_tiles) à côté de l'exécutable : leurs
 #     dossiers ont un .gdignore et ne peuvent pas entrer dans le .pck. Le jeu exporté les trouve quand même : un
 #     fichier res:// absent du .pck est cherché dans le dossier de l'exécutable (<dossier de l'exe>/assets/…) ;
-#  3. archive zip du dossier.
+#  3. copie du dossier playlist/ (musiques, .gdignore : hors du .pck, lu sur le disque par le jeu) ;
+#  4. archive zip du dossier.
 # Le dossier de sortie est vidé des fichiers d'un export précédent (exe, pck, assets). L'éditeur Godot peut rester
 # ouvert. Usage :
 #   powershell -ExecutionPolicy Bypass -File tools/package_game.ps1 [-Output <dossier>] [-Zip <fichier.zip>] [-Godot <godot.exe>]
@@ -19,7 +20,7 @@ New-Item -ItemType Directory -Force $Output | Out-Null
 $Output = (Resolve-Path $Output).Path
 $exe = Join-Path $Output "Star Nuke.exe"
 
-foreach ($old in @("Star Nuke.exe", "Star Nuke.console.exe", "Star Nuke.pck", "assets")) {
+foreach ($old in @("Star Nuke.exe", "Star Nuke.console.exe", "Star Nuke.pck", "assets", "playlist")) {
     $path = Join-Path $Output $old
     if (Test-Path $path) { Remove-Item -Recurse -Force $path }
 }
@@ -39,6 +40,12 @@ foreach ($tiles in @("earth_tiles", "earth_night_tiles", "earth_cloud_tiles")) {
     robocopy $source $target /MIR /XF .gdignore /NFL /NDL /NJH /NJS /NP | Out-Null
     if ($LASTEXITCODE -ge 8) { throw "Copie des tuiles $tiles ratée (robocopy $LASTEXITCODE)" }
 }
+
+# Playlists : dossier playlist/ à côté de l'exécutable (jamais dans le .pck, .gdignore) ; le joueur y ajoute les
+# siennes (un sous-dossier par playlist), lues au lancement par l'autoload Music.
+Write-Host "Playlists"
+robocopy (Join-Path $project "playlist") (Join-Path $Output "playlist") /MIR /XF .gdignore /NFL /NDL /NJH /NJS /NP | Out-Null
+if ($LASTEXITCODE -ge 8) { throw "Copie des playlists ratée (robocopy $LASTEXITCODE)" }
 
 $Zip = [System.IO.Path]::GetFullPath($Zip)
 if (Test-Path $Zip) { Remove-Item -Force $Zip }

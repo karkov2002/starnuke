@@ -19,6 +19,8 @@ peut rester ouvert) construit `../exe/starnuke/` et `../exe/StarNuke.zip` (~1 Go
 - tuiles HD (`assets/earth_tiles`, `earth_night_tiles`, `earth_cloud_tiles`, 3 × 2 592 fichiers) copiées dans
   `assets/` à côté de l'exécutable : leurs dossiers ont un `.gdignore` et ne peuvent pas entrer dans le `.pck`, mais
   un fichier `res://` absent du `.pck` est cherché dans le dossier de l'exécutable, où le jeu les trouve ;
+- dossier `playlist/` (musiques) copié à côté de l'exécutable : jamais dans le `.pck`, le joueur y ajoute ses playlists
+  (voir « Écran de démarrage, paramètres et langues », Audio) ;
 - archive zip du dossier (tar de Windows).
 
 Pour jouer : dézipper, lancer `Star Nuke.exe` (Windows 10/11 64 bits, carte graphique Direct3D 12). Vérifié : jeu
@@ -85,9 +87,12 @@ permet de piloter le jeu exporté.
     Une playlist est un sous-dossier de `playlist/` (son nom est celui du dossier) ; l'autoload `Music`
     (`scripts/music_player.gd`) joue tous ses morceaux (.mp3, .ogg, .wav, ordre alphabétique) puis recommence, dès le
     début de la partie (scène `orbit_view.tscn`, pause comprise) ; il s'arrête à l'écran de démarrage. Changer de
-    playlist en cours de partie lance aussitôt la nouvelle. Playlist « starnuke » : « Deep Space Hiss » 1 et 2. Pour
-    ajouter une playlist : créer `playlist/<nom>/`, y déposer les morceaux, rescan dans l'éditeur (import en
-    `loop=false` : l'enchaînement est fait par `Music`).
+    playlist en cours de partie lance aussitôt la nouvelle. Playlist « starnuke » : « Deep Space Hiss » 1 et 2.
+    **Le dossier `playlist/` est lu sur le disque, jamais importé ni mis dans le `.pck`** (`.gdignore`) : dans le
+    jeu exporté, c'est `playlist/` **à côté de l'exécutable** (copié par `tools/package_game.ps1`), où le joueur
+    ajoute ses propres playlists (un dossier, ses fichiers MP3 / OGG / WAV tels quels, `AudioStreamMP3.load_from_file`
+    et équivalents) ; dans l'éditeur, `playlist/` du projet. La liste est relue à chaque ouverture des paramètres
+    (pas besoin de relancer le jeu) ; un fichier illisible est sauté.
   - **Game** : **langue** (English, Français, Español, Deutsch, Italiano ; anglais par défaut), appliquée en direct.
 - **Sauvegarde** (autoload `GameSettings`, `scripts/game_settings.gd`) : `user://settings.cfg` (sous Windows
   `%APPDATA%/Godot/app_userdata/Star Nuke/settings.cfg`), réappliqué au lancement suivant. Sections `[video]`
