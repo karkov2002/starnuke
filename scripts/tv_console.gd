@@ -143,7 +143,9 @@ func news_preview(code: String) -> String:
 ## Texte du bandeau de la chaîne (TvNews) : explosions, ou infos ordinaires (bourse, météo de la capitale, sport) tant
 ## qu'il n'y en a eu aucune.
 func news_text(code: String, rng: RandomNumberGenerator) -> String:
-	var effects: Array[NukeEffect] = _launcher.get_effects() if _launcher else []
+	var effects: Array[NukeEffect] = []
+	if _launcher:
+		effects = _launcher.get_effects()
 	var off_air: Array[String] = []
 	off_air.assign(_off_air.keys())
 	return TvNews.compose(code, channel_lang(code),
