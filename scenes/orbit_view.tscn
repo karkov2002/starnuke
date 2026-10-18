@@ -23,6 +23,7 @@
 [ext_resource type="Script" uid="uid://8k2ktko5qj80" path="res://scripts/ghost_track.gd" id="21_ll3fm"]
 [ext_resource type="Script" uid="uid://ypeuawkhrcxu" path="res://scripts/tablet.gd" id="22_tab"]
 [ext_resource type="Script" uid="uid://jeip2tbo8cjk" path="res://scripts/hatch_interaction.gd" id="23_c3720"]
+[ext_resource type="Script" uid="uid://xb7bma85q0fm" path="res://scripts/tech_screens.gd" id="24_sepft"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -153,3 +154,6 @@ script = ExtResource("19_uophr")
 
 [node name="HatchInteraction" type="Node" parent="." unique_id=1985292490]
 script = ExtResource("23_c3720")
+
+[node name="TechScreens" type="Node" parent="." unique_id=1942147231]
+script = ExtResource("24_sepft")

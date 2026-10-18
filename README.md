@@ -352,6 +352,16 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
     l'échelle. Les points de trace sont **en cache** sur une grille de 20 s (une trace recalculée à chaque image
     coûtait ~3,5 ms par carte à 4 orbites) ; un point témoin recalculé par image vide le cache si l'orbite change
     (manœuvre, date, altitude). Une carte non affichée (onglet caché, tablette rangée) n'est pas redessinée.
+- **Écrans d'ambiance du module Commande** (`scripts/tech_screens.gd`, nœud `TechScreens` de `orbit_view.tscn`,
+  shader `shaders/tech_screen.gdshader`) : sur les écrans plats et les portables du module (pas sur le grand écran du
+  poste), des programmes « techno-thriller » dessinés en 2D dans cinq `SubViewport` partagés : listage de code et
+  de journaux qui défile (lignes générées une fois au démarrage), station en fil de fer qui tourne sur elle-même
+  (modèle simplifié précalculé : modules, silos, poutre, panneaux), télémétrie (courbes, barregraphes, radar à
+  balayage), détermination d'orbite (Terre, orbite, colonnes hexadécimales) et, sur les bandeaux 13 et 14, spectre
+  radio et oscilloscope. Affectation : table `ASSIGNMENT`. Coût réduit : images redessinées à 15 Hz (`refresh_hz`)
+  et seulement quand la caméra est dans le module Commande ; écrans éteints avec « plus de lumière »
+  (`Station.get_blackout`). Mesure : 120 im/s inchangés dans le module. Les textes affichés sont du pseudo-code et
+  des valeurs techniques, sans langue : ils ne passent pas par les fichiers de langue.
 
 ## Station spatiale (modèle Blender)
 

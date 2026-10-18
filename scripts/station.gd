@@ -691,6 +691,11 @@ func set_stealth(enabled: bool) -> void:
 # --- Zones ----------------------------------------------------------------------------------------------------------
 
 ## Le point (monde) est-il dans la cupola ? (sphère de cupola_zone_radius autour de Point_Vue_Cupola)
+## Part de l'extinction des lumières (0 : normal, 1 : « plus de lumière »), fondue : écrans animés (TechScreens).
+func get_blackout() -> float:
+	return _dark
+
+
 func is_in_cupola(world_position: Vector3) -> bool:
 	var point := get_node_or_null("Point_Vue_Cupola") as Node3D
 	return point != null and point.global_position.distance_to(world_position) < cupola_zone_radius
