@@ -369,16 +369,29 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
     `ScreenSeat`, `scripts/screen_seat.gd`) ; **clic droit** pour quitter, la télévision reste sur la chaîne choisie
     (France par défaut).
   - **Chaînes** : bouton « Chaînes » en haut à gauche de l'écran → liste des pays (ordre alphabétique du nom traduit,
-    `locale/countries.csv`), chacun avec sa chaîne d'information au nom **inventé** mais vraisemblable (197 pays
-    souverains, `assets/tv/channels.csv` : code ISO, nom de la chaîne, coordonnées de la capitale ; les noms de
-    chaînes sont des noms propres, hors fichiers de langue). La chaîne affiche pour l'instant une image fixe
-    provisoire, deux présentateurs sur un plateau (`assets/tv/studio.png`, rendue par
-    `tools/blender/build_tv_studio.py` dans un Blender en arrière-plan), avec le nom de la chaîne en haut à droite et
-    un bandeau « En direct » + pays en bas.
-  - **Règle de jeu** : un pays dont la **capitale est touchée** (dans le rayon de 5 psi d'une explosion,
+    `locale/countries.csv`), chacun avec sa chaîne d'information au nom **inventé** mais vraisemblable (159 pays
+    souverains d'au moins un million d'habitants — les plus petits n'ont pas de chaîne —, `assets/tv/channels.csv` : code ISO, nom de la chaîne, coordonnées de la capitale ; les noms de
+    chaînes sont des noms propres, hors fichiers de langue). La chaîne diffuse une **vidéo en boucle** du plateau
+    (deux présentateurs), avec le nom de la chaîne en haut à droite et un bandeau « En direct » + pays en bas.
+  - **Deux éditions** : **normale** (têtes qui bougent calmement) et **spéciale « Alerte info »** (présentateurs
+    agités qui se tournent vers le mur vidéo, où passe un champignon atomique, bandes rouges qui pulsent ; bandeau
+    rouge clignotant `TV_BREAKING` à la place de « En direct »).
+  - **Règles de jeu** : un pays dont la **capitale est touchée** (dans le rayon de 5 psi d'une explosion,
     `TvConsole.OFF_AIR_PSI`) ne diffuse plus, définitivement (le monde persiste) : sa chaîne passe sur la mire
-    **« Pas de signal »** et la liste la signale « hors d'antenne ». État recalculé à chaque tir et toutes les 2 s.
-  - Coût : le `SubViewport` de l'écran n'est rendu que si la caméra est à moins de 12 m.
+    **« Pas de signal »** et la liste la signale « hors d'antenne ». Après chaque explosion, **toutes les chaînes
+    encore à l'antenne passent en édition spéciale** pendant 24 h de jeu (`ALERT_HOURS`, horloge UTC d'`Orbit`)
+    après la dernière, puis reviennent à l'édition normale. État recalculé à chaque tir et toutes les 2 s.
+  - **Vidéos** (`tools/build_tv_videos.ps1`) : les **maîtres modifiables** sont dans `assets/tv/source/`
+    (`.gdignore`) : `normal.mp4` et `alert.mp4` (H.264, 960 × 600, 25 im/s, boucles de 12 s, sans texte : tout le
+    texte est incrusté par le jeu), `explosion.mp4` (images du mur vidéo, 1000 × 400) et `tv_studio.blend` (scènes
+    `Studio_Normal`, `Studio_Alerte` et `Explosion`, produites par `tools/blender/build_tv_studio.py` dans un Blender
+    en arrière-plan). Le jeu lit des **Ogg Theora** (seul format vidéo de Godot) : `assets/tv/video/normal.ogv` et
+    `alert.ogv`, convertis depuis les maîtres. Une chaîne peut avoir **ses propres vidéos** :
+    `assets/tv/source/<CODE>/normal.mp4` et `alert.mp4` (code ISO du pays) → `assets/tv/video/<CODE>/…ogv` ; sinon
+    elle diffuse les vidéos communes. Après retouche d'un maître dans un logiciel vidéo : `build_tv_videos.ps1
+    -ConvertOnly` ; après remplacement de `explosion.mp4` : `-Studio` (nouveau rendu du plateau) ; sans option :
+    tout est régénéré (rendus Blender compris). Puis rescan dans l'éditeur.
+  - Coût : le `SubViewport` de l'écran n'est rendu et la vidéo n'avance que si la caméra est à moins de 12 m.
 
 ## Station spatiale (modèle Blender)
 

@@ -11,6 +11,8 @@ extends Node
 ##   Règle de jeu : un pays dont la capitale est touchée (au moins OFF_AIR_PSI de surpression d'une explosion) ne
 ##   diffuse plus : sa chaîne passe sur la mire « Pas de signal ». Les explosions persistent : l'état est recalculé à
 ##   chaque tir et toutes les CHECK_S secondes.
+##   Règle de jeu : après une explosion, toutes les chaînes encore à l'antenne passent en édition spéciale « Alerte
+##   info » pendant ALERT_HOURS heures de jeu (horloge UTC d'Orbit) après la dernière, puis reviennent à l'édition normale.
 ## Groupe ScreenSeat.GROUP (comme le poste de pilotage) : la tablette se range et les écoutilles ne se cliquent plus
 ## pendant la vue TV.
 
@@ -21,11 +23,13 @@ const CHANNELS_PATH := "res://assets/tv/channels.csv"
 const VIEWPORT_HEIGHT := 640
 const OFF_AIR_PSI := 5.0
 const CHECK_S := 2.0
+const ALERT_HOURS := 24.0
 const DEFAULT_CHANNEL := "FRA"
 
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
 @export var observer_path: NodePath = ^"../Observer"
 @export var launcher_path: NodePath = ^"../NukeLauncher"
+@export var orbit_path: NodePath = ^"../Orbit"
 @export var reach_m := 2.5
 @export_range(0.5, 1.0) var screen_fill := 0.9
 @export var transition_s := 0.6
@@ -35,6 +39,10 @@ var _observer: Node3D
 var _camera: Camera3D
 var _station: Station
 var _launcher: NukeLauncher
+var _orbit: OrbitSimulation
+## Heure UTC (s) de la dernière explosion (-INF : aucune) ; édition spéciale en cours.
+var _last_detonation_unix := -INF
+var _alert := false
 var _screen: MeshInstance3D
 var _viewport: SubViewport
 var _display: TvDisplay
@@ -64,6 +72,7 @@ func _ready() -> void:
 	_camera = _observer.get_node("Camera") as Camera3D
 	_station = get_node(station_path) as Station
 	_launcher = get_node_or_null(launcher_path) as NukeLauncher
+	_orbit = get_node_or_null(orbit_path) as OrbitSimulation
 	_load_channels()
 	_screen = _station.find_child(SCREEN_NODE, true, false) as MeshInstance3D
 	var surface := _measure_screen()
@@ -94,7 +103,10 @@ func _ready() -> void:
 	_screen.set_surface_override_material(surface, _material)
 	_build_hints()
 	if _launcher:
-		_launcher.detonated.connect(func(_effect: NukeEffect) -> void: _update_off_air())
+		_launcher.detonated.connect(func(_effect: NukeEffect) -> void:
+			if _orbit:
+				_last_detonation_unix = _orbit.get_utc_unix_s()
+			_update_off_air())
 	_update_off_air()
 
 
@@ -110,6 +122,10 @@ func channel_codes() -> Array[String]:
 
 func channel_name(code: String) -> String:
 	return String(_channels.get(code, {}).get("name", ""))
+
+
+func is_alert() -> bool:
+	return _alert
 
 
 func is_off_air(code: String) -> bool:
@@ -138,6 +154,7 @@ func _process(delta: float) -> void:
 	var camera := get_viewport().get_camera_3d()
 	var near := camera != null and camera.global_position.distance_to(_screen.global_position) < 12.0
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if near else SubViewport.UPDATE_DISABLED
+	_display.set_playing(near)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -210,7 +227,10 @@ func _update_off_air() -> void:
 			var c: Dictionary = _channels[code]
 			if _distance_km(p.latitude_deg, p.longitude_deg, c.lat, c.lon) <= radius:
 				off[code] = true
-	if off.hash() != _off_air.hash():
+	var since := _orbit.get_utc_unix_s() - _last_detonation_unix if _orbit else INF
+	var alert := since >= 0.0 and since < ALERT_HOURS * 3600.0
+	if off.hash() != _off_air.hash() or alert != _alert:
+		_alert = alert
 		_off_air = off
 		if _display:
 			_display.refresh()

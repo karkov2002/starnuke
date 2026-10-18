@@ -1,16 +1,19 @@
 class_name TvDisplay
 extends Control
 ## Interface de l'écran de télévision du module Commande (scripts/tv_console.gd), dessinée dans son SubViewport :
-## - la chaîne en cours : image du plateau (assets/tv/studio.png, provisoire : deux présentateurs), nom de la chaîne
-##   en haut à droite (logo), bandeau « En direct » et pays en bas ; ou la mire « Pas de signal » (barres de couleur)
-##   si la capitale du pays a été touchée (TvConsole.is_off_air) ;
+## - la chaîne en cours : vidéo du plateau en boucle (deux présentateurs), édition normale ou, après une explosion
+##   (TvConsole.is_alert), édition spéciale (présentateurs agités, explosion sur le mur vidéo) avec le bandeau rouge
+##   « Alerte info » ; vidéos assets/tv/video/<CODE>/<normal|alert>.ogv si le pays a les siennes, sinon
+##   assets/tv/video/<normal|alert>.ogv (tools/build_tv_videos.ps1). Nom de la chaîne en haut à droite (logo),
+##   bandeau « En direct » et pays en bas ; ou la mire « Pas de signal » (barres de couleur) si la capitale du pays a
+##   été touchée (TvConsole.is_off_air) ;
 ## - en haut à gauche, le bouton « Chaînes », qui ouvre la liste des pays (ordre alphabétique du nom traduit, avec
 ##   le nom de leur chaîne d'information, inventé ; pays hors d'antenne signalés) : un clic choisit la chaîne.
 ## L'interface ne réagit qu'en position « vue TV » (TvConsole transmet alors la souris).
 
 signal channel_selected(code: String)
 
-const STUDIO := preload("res://assets/tv/studio.png")
+const VIDEO_DIR := "res://assets/tv/video/"
 const COLOR_TEXT := Color(0.95, 0.96, 0.98)
 const COLOR_PANEL := Color(0.03, 0.05, 0.09, 0.94)
 const COLOR_ACCENT := Color(0.85, 0.12, 0.1)
@@ -20,7 +23,12 @@ var console: TvConsole
 ## Pays de la chaîne affichée ("" : aucune).
 var channel := ""
 
-var _studio: TextureRect
+var _studio: VideoStreamPlayer
+## Vidéo en cours (chemin) : la lecture ne repart pas de zéro si rien ne change.
+var _video_path := ""
+var _alert := false
+var _live_label: Label
+var _live_box: PanelContainer
 var _logo: Label
 var _logo_panel: PanelContainer
 var _lower_third: PanelContainer
@@ -39,11 +47,11 @@ func _ready() -> void:
 	background.color = Color.BLACK
 	background.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
-	_studio = TextureRect.new()
-	_studio.texture = STUDIO
-	_studio.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_studio.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_studio = VideoStreamPlayer.new()
+	_studio.expand = true
+	_studio.loop = true
 	_studio.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_studio.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_studio)
 	# Logo de la chaîne en haut à droite.
 	_logo_panel = PanelContainer.new()
@@ -60,14 +68,14 @@ func _ready() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 18)
 	_lower_third.add_child(row)
-	var live := Label.new()
-	live.text = "TV_LIVE"
-	live.add_theme_font_size_override("font_size", int(size.y * 0.045))
-	live.add_theme_color_override("font_color", COLOR_TEXT)
-	var live_box := PanelContainer.new()
-	live_box.add_theme_stylebox_override("panel", _box(COLOR_ACCENT, Color(0, 0, 0, 0), 0, 8))
-	live_box.add_child(live)
-	row.add_child(live_box)
+	_live_label = Label.new()
+	_live_label.text = "TV_LIVE"
+	_live_label.add_theme_font_size_override("font_size", int(size.y * 0.045))
+	_live_label.add_theme_color_override("font_color", COLOR_TEXT)
+	_live_box = PanelContainer.new()
+	_live_box.add_theme_stylebox_override("panel", _box(COLOR_ACCENT, Color(0, 0, 0, 0), 0, 8))
+	_live_box.add_child(_live_label)
+	row.add_child(_live_box)
 	_country_label = Label.new()
 	_country_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_country_label.add_theme_font_size_override("font_size", int(size.y * 0.045))
@@ -99,6 +107,9 @@ func _process(delta: float) -> void:
 	_time += delta
 	if is_off_air():
 		_no_signal.queue_redraw()
+	elif _alert:
+		# Bandeau « Alerte info » qui clignote doucement.
+		_live_box.modulate.a = 0.75 + 0.25 * sin(_time * 6.0)
 	# Placement (tailles connues après la mise en page).
 	_logo_panel.position = Vector2(size.x - _logo_panel.size.x - size.y * 0.04, size.y * 0.04)
 	_lower_third.position = Vector2(size.y * 0.04, size.y - _lower_third.size.y - size.y * 0.05)
@@ -112,14 +123,38 @@ func is_off_air() -> bool:
 func show_channel(code: String) -> void:
 	channel = code
 	var off := code == "" or is_off_air()
+	_alert = not off and console != null and console.is_alert()
 	_studio.visible = not off
 	_logo_panel.visible = code != ""
 	_lower_third.visible = not off
 	_no_signal.visible = off
+	_live_label.text = "TV_BREAKING" if _alert else "TV_LIVE"
+	_live_box.modulate.a = 1.0
 	if code != "" and console:
 		_logo.text = console.channel_name(code)
 		_country_label.text = tr("COUNTRY_" + code)
+	_play(_video_for(code, "alert" if _alert else "normal") if not off else "")
 	_refresh_menu()
+
+
+## Lecture suspendue quand l'écran n'est plus rendu (TvConsole : caméra loin).
+func set_playing(playing: bool) -> void:
+	_studio.paused = not playing
+
+
+func _video_for(code: String, edition: String) -> String:
+	var own := "%s%s/%s.ogv" % [VIDEO_DIR, code, edition]
+	return own if ResourceLoader.exists(own) else "%s%s.ogv" % [VIDEO_DIR, edition]
+
+
+func _play(path: String) -> void:
+	if path == _video_path:
+		return
+	_video_path = path
+	_studio.stop()
+	_studio.stream = load(path) as VideoStream if path != "" and ResourceLoader.exists(path) else null
+	if _studio.stream:
+		_studio.play()
 
 
 func refresh() -> void:
