@@ -363,6 +363,10 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   et sa collision `-convcolonly`) est une copie exacte de `Ecoutille_Habitation_AV`, avec sa piste
   `Fermeture_Ecoutilles` (−90° en 40 images) ; elle s'ouvre vers le silo (porte ouverte : elle dépasse un peu
   dans le dôme du silo).
+- **Cadres des écoutilles axiales** (`tools/blender/smooth_hatch_rings.py`, rejouable) : les anneaux métal
+  (r 0,655–0,76 m) et jaune (r 0,755–0,80 m) des cadres d'Habitation AR et AV, Commande AR, Arrimage AV et de
+  l'écoutille cargo (32 segments à section carrée, très facettés) sont refaits en révolution lisse (section aux coins
+  arrondis, 96 segments), comme ceux des écoutilles des silos ; épaisseurs d'origine.
 - **Sas entre modules** (`tools/blender/remove_sas_pads.py`, rejouable) : retrait des 4 plaquettes blanches
   posées au milieu des sas (une par écoutille axiale, loin de sa charnière). Le modèle a ses écoutilles ouvertes
   au repos et la porte ouverte les cachait ; fermées au démarrage du jeu, elles flottaient seules. La plaquette
