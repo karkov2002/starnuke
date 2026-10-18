@@ -369,7 +369,9 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
     `ScreenSeat`, `scripts/screen_seat.gd`) ; **clic droit** pour quitter, la télévision reste sur la chaîne choisie
     (France par défaut).
   - **Chaînes** : bouton « Chaînes » en haut à gauche de l'écran → **guide des chaînes** plein écran, comme sur une
-    vraie télévision : mosaïque défilante (molette) de vignettes (`scripts/ui/channel_tile.gd`) avec logo, numéro de
+    vraie télévision : mosaïque défilante (molette) de vignettes (`scripts/ui/channel_tile.gd`) avec logo, drapeau du
+    pays en haut à droite (`assets/tv/flags/<CODE>.png`, 80 px, drapeaux du projet flag-icons, licence MIT, via
+    flagcdn.com, `tools/build_tv_flags.ps1`), numéro de
     chaîne, nom de la chaîne et pays ; chaîne en cours encadrée, pays hors d'antenne grisés ; bouton « Fermer ».
     Logos générés à partir du nom de la chaîne (toujours les mêmes) : couleur de marque, un des quatre styles (bloc,
     souligné, pastille ronde, bandes obliques) et monogramme (initiales des mots, nombres gardés : « RV24 »).

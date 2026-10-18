@@ -1,7 +1,7 @@
 class_name ChannelTile
 extends Button
-## Vignette d'une chaîne dans la mosaïque du menu de la télévision (TvDisplay) : numéro de chaîne, logo, nom de la
-## chaîne et pays ; grisée avec « hors d'antenne » si la capitale du pays est détruite ; cadre clair sur la chaîne
+## Vignette d'une chaîne dans la mosaïque du menu de la télévision (TvDisplay) : numéro de chaîne, logo, drapeau du
+## pays (en haut à droite du logo), nom de la chaîne et pays ; grisée avec « hors d'antenne » si la capitale du pays est détruite ; cadre clair sur la chaîne
 ## en cours et au survol.
 ##
 ## Logo généré à partir du nom de la chaîne (même nom, même logo à chaque partie) : une couleur de marque tirée d'une
@@ -17,6 +17,8 @@ const BRAND_COLORS: Array[Color] = [
 const ACCENTS: Array[Color] = [Color(1, 1, 1), Color(1.0, 0.82, 0.15), Color(0.95, 0.15, 0.15), Color(0.4, 0.8, 1.0)]
 const COLOR_TEXT := Color(0.95, 0.96, 0.98)
 const COLOR_DIM := Color(0.65, 0.68, 0.74)
+## Drapeaux des pays (tools/build_tv_flags.ps1), nommés par code pays.
+const FLAG_DIR := "res://assets/tv/flags/"
 
 var code := ""
 var number := 0
@@ -29,6 +31,7 @@ var _brand := Color.WHITE
 var _accent := Color.WHITE
 var _style := 0
 var _monogram := ""
+var _flag: Texture2D
 
 
 func setup(channel_code: String, channel_number: int, name: String, country_name: String) -> void:
@@ -43,6 +46,8 @@ func setup(channel_code: String, channel_number: int, name: String, country_name
 		_accent = Color.WHITE
 	_style = absi(h >> 16) % 4
 	_monogram = monogram(name)
+	var flag_path := FLAG_DIR + channel_code + ".png"
+	_flag = load(flag_path) as Texture2D if ResourceLoader.exists(flag_path) else null
 	auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	focus_mode = Control.FOCUS_NONE
 	flat = true
@@ -84,6 +89,13 @@ func _draw() -> void:
 	_box(badge, Color(0, 0, 0, 0.7), 4.0)
 	draw_string(font, Vector2(badge.position.x, badge.position.y + 15.0), digits, HORIZONTAL_ALIGNMENT_CENTER,
 			badge.size.x, 13, Color.WHITE)
+	# Drapeau du pays en haut à droite (liseré sombre : lisible sur les logos clairs comme foncés).
+	if _flag:
+		var height := logo.size.y * 0.3
+		var width := height * _flag.get_width() / float(_flag.get_height())
+		var flag_rect := Rect2(Vector2(logo.end.x - width - 5.0, logo.position.y + 5.0), Vector2(width, height))
+		draw_rect(flag_rect.grow(1.5), Color(0, 0, 0, 0.75))
+		draw_texture_rect(_flag, flag_rect, false, Color(1, 1, 1, 0.45) if off_air else Color.WHITE)
 	var y := logo.end.y + size.y * 0.13
 	draw_string(font, Vector2(pad, y), channel_name, HORIZONTAL_ALIGNMENT_LEFT, size.x - 2.0 * pad, 15,
 			COLOR_DIM if off_air else COLOR_TEXT, TextServer.JUSTIFICATION_NONE)
@@ -98,21 +110,24 @@ func _draw() -> void:
 
 
 func _draw_logo(r: Rect2, font: Font) -> void:
+	# Zone du monogramme : centrée, rétrécie des deux côtés de la largeur du drapeau (entre le numéro et le drapeau).
+	var flag_width := r.size.y * 0.3 * _flag.get_width() / float(_flag.get_height()) + 8.0 if _flag else 0.0
+	var inner := r.grow_individual(-flag_width, 0.0, -flag_width, 0.0)
 	var text_size := r.size.y * 0.5
 	match _style:
 		0: # Bloc plein, monogramme centré.
 			_box(r, _brand, 4.0)
-			_centered(font, r, _monogram, text_size, _accent)
+			_centered(font, inner, _monogram, text_size, _accent)
 		1: # Fond clair, monogramme couleur, bandeau souligné.
 			_box(r, Color(0.94, 0.95, 0.97), 4.0)
-			_centered(font, Rect2(r.position, Vector2(r.size.x, r.size.y * 0.8)), _monogram, text_size, _brand)
+			_centered(font, Rect2(inner.position, Vector2(inner.size.x, r.size.y * 0.8)), _monogram, text_size, _brand)
 			draw_rect(Rect2(r.position + Vector2(0, r.size.y * 0.8), Vector2(r.size.x, r.size.y * 0.2)), _brand)
 		2: # Pastille ronde sur fond sombre.
 			_box(r, Color(0.04, 0.05, 0.08), 4.0)
 			var radius := r.size.y * 0.42
-			draw_circle(r.get_center(), radius, _brand)
-			draw_arc(r.get_center(), radius, 0.0, TAU, 48, _accent, 2.0, true)
-			_centered(font, r, _monogram, text_size * [1.0, 1.0, 1.0, 0.8, 0.62][mini(_monogram.length(), 4)], Color.WHITE)
+			draw_circle(inner.get_center(), radius, _brand)
+			draw_arc(inner.get_center(), radius, 0.0, TAU, 48, _accent, 2.0, true)
+			_centered(font, inner, _monogram, text_size * [1.0, 1.0, 1.0, 0.8, 0.62][mini(_monogram.length(), 4)], Color.WHITE)
 		3: # Bandes obliques, monogramme à gauche.
 			_box(r, _brand.darkened(0.35), 4.0)
 			var x := r.end.x - r.size.y * 1.1
@@ -125,7 +140,11 @@ func _draw_logo(r: Rect2, font: Font) -> void:
 					HORIZONTAL_ALIGNMENT_LEFT, -1, int(text_size), Color.WHITE)
 
 
+## Texte centré dans r, réduit au besoin pour tenir dans 88 % de sa largeur.
 func _centered(font: Font, r: Rect2, text: String, font_size: float, color: Color) -> void:
+	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size)).x
+	if width > r.size.x * 0.88:
+		font_size *= r.size.x * 0.88 / width
 	draw_string(font, Vector2(r.position.x, r.get_center().y + font_size * 0.36), text, HORIZONTAL_ALIGNMENT_CENTER,
 			r.size.x, int(font_size), color)
 
