@@ -2,7 +2,8 @@ class_name LaunchControl
 extends HBoxContainer
 ## Commande de tir de la tablette (scripts/ui/tablet_display.gd) : à gauche les 48 tubes de lancement (SiloPanel) et,
 ## en dessous, le choix de la puissance ; à droite le gros bouton rouge de tir. On ne tire que depuis la cupola
-## (Station.is_in_cupola, là où le réticule est affiché) : ailleurs, le bouton rouge ne fait rien.
+## (Station.is_in_cupola, là où le réticule est affiché) : ailleurs, le bouton rouge est grisé, avec « Actif uniquement
+## dans la coupole » écrit dessus.
 ##
 ## Tir : on choisit un tube (vert) puis on appuie sur le bouton rouge. Le point visé (centre de la vue, cf.
 ## NukeLauncher.get_aim) et la puissance sont figés à l'appui ; le missile du tube sort par l'animation de lancement
@@ -30,6 +31,7 @@ var _armed := SiloPanel.NONE
 ## Vector2i(silo, tube) -> {latitude, longitude, yield_kt} : missiles lancés, en attente de leur sortie de la station.
 var _pending := {}
 var _timers: ImpactTimers
+var _button: BigRedButton
 
 
 func _ready() -> void:
@@ -72,14 +74,25 @@ func _ready() -> void:
 		else:
 			choice.custom_minimum_size.x = 56.0
 
-	var button := BigRedButton.new()
-	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	button.tooltip_text = "HUD_LAUNCH_TOOLTIP"
-	button.pressed.connect(_on_fire)
-	add_child(button)
+	_button = BigRedButton.new()
+	_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_button.tooltip_text = "HUD_LAUNCH_TOOLTIP"
+	_button.pressed.connect(_on_fire)
+	add_child(_button)
 
 	# La station peut être prête après ce panneau (ordre de l'arbre) : construction différée.
 	_connect_station.call_deferred()
+
+
+## Bouton rouge actif seulement dans la cupola ; ailleurs grisé, avec « Actif uniquement dans la coupole » dessus.
+func _process(_delta: float) -> void:
+	var camera := get_tree().root.get_camera_3d()
+	var inside := _station == null or camera == null or _station.is_in_cupola(camera.global_position)
+	if inside != _button.disabled:
+		return
+	_button.disabled = not inside
+	_button.disabled_message = "" if inside else tr("LAUNCH_CUPOLA_ONLY")
+	_button.tooltip_text = "HUD_LAUNCH_TOOLTIP" if inside else "LAUNCH_CUPOLA_ONLY"
 
 
 ## Chronomètres en bas à droite de l'écran, dans l'interface à l'écran (Hud ; à défaut, la couche d'interface du

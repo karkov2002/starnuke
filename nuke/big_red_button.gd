@@ -4,7 +4,7 @@ extends Control
 ## scripts/ui/burn_control.gd) sur un socle sombre. Au clic (bouton gauche, sur le capuchon), le capuchon s'enfonce
 ## et pressed est émis ; il reste un instant en bas puis remonte avec un léger rebond. En mode maintenu (hold), il
 ## reste enfoncé tant que le bouton de la souris est tenu, et released est émis au relâchement. Inactif (disabled) :
-## capuchon terne, sans effet.
+## capuchon terne, sans effet, avec disabled_message écrit dessus s'il est donné.
 
 signal pressed
 signal released
@@ -24,6 +24,13 @@ var disabled := false:
 		disabled = value
 		mouse_default_cursor_shape = Control.CURSOR_ARROW if value else Control.CURSOR_POINTING_HAND
 		queue_redraw()
+
+## Message écrit sur le capuchon quand le bouton est inactif (texte déjà traduit ; vide : aucun).
+var disabled_message := "":
+	set(value):
+		if value != disabled_message:
+			disabled_message = value
+			queue_redraw()
 
 var _sink := 0.0 # 0 = relevé, 1 = enfoncé
 var _hover := false
@@ -110,7 +117,7 @@ func _draw() -> void:
 	var rest := _cap_center()
 	var base := rest + Vector2(0.0, DEPTH)
 	var cap := rest + Vector2(0.0, _sink * DEPTH)
-	var color := cap_color.lerp(Color(0.3, 0.3, 0.32), 0.7) if disabled else cap_color
+	var color := cap_color.lerp(Color(0.32, 0.32, 0.34), 0.9) if disabled else cap_color
 	# Collerette du socle, puis flanc du capuchon (du capuchon jusqu'au socle), puis le dessus.
 	draw_circle(base, r + HOUSING, Color(0.13, 0.13, 0.15), true, -1.0, true)
 	draw_circle(rest + Vector2(0.0, DEPTH * 0.5), r + HOUSING, Color(0.22, 0.22, 0.25), true, -1.0, true)
@@ -122,3 +129,15 @@ func _draw() -> void:
 	draw_circle(cap, r, top, true, -1.0, true)
 	draw_circle(cap, r * 0.82, top.lightened(0.08), true, -1.0, true)
 	draw_circle(cap + Vector2(-0.3, -0.35) * r, r * 0.26, Color(1.0, 1.0, 1.0, 0.22), true, -1.0, true)
+	if disabled and disabled_message != "":
+		# Message centré sur le capuchon, en plusieurs lignes, réduit pour tenir dans le cercle.
+		var font := get_theme_default_font()
+		var width := r * 1.7
+		var font_size := 12
+		while font_size > 7 and font.get_multiline_string_size(disabled_message, HORIZONTAL_ALIGNMENT_CENTER, width,
+				font_size).y > r * 1.4:
+			font_size -= 1
+		var text_size := font.get_multiline_string_size(disabled_message, HORIZONTAL_ALIGNMENT_CENTER, width, font_size)
+		var origin := cap - Vector2(width * 0.5, text_size.y * 0.5) + Vector2(0.0, font.get_ascent(font_size))
+		draw_multiline_string(font, origin, disabled_message, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, -1,
+				Color(1.0, 1.0, 1.0, 0.92))
