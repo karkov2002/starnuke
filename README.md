@@ -460,6 +460,14 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   `Lancement_Missile`, `Balayage_Antennes`, `Rotation_Panneaux`, `Retraction_Radiateurs`, contrôlées avant export),
   copie de la notice `LISEZMOI_GODOT.md`. Orientation : axe des modules = +X (Commande vers +X), Terre vers −Y.
   Règle : pas de réexport vers le projet sans le feu vert de l'utilisateur.
+- **Faces sans coordonnées de texture** (`tools/blender/fix_collapsed_uvs.py`, MODE « report » ou « apply ») : une
+  face dont tous les coins ont la même UV n'a pas de tangente ; dans Godot, la normal map de son matériau l'éclaire
+  alors n'importe comment. Symptôme typique : une surface qui **change de teinte avec la distance** (porte de
+  l'écoutille du cargo sombre de près, claire de loin : les LOD générés à l'import, vus de loin, passent par d'autres
+  sommets). L'outil déplie ces faces (matériaux à nœud Normal Map seulement) par projection en boîte sur l'axe
+  dominant de leur normale, en coordonnées du monde, à la densité des faces correctes du même matériau (~1 m par
+  répétition) ; 56 136 faces de 77 objets corrigées le 18/10/2026 (portes des écoutilles, cloisons, tubes des silos,
+  coque). À relancer après l'ajout de pièces modélisées sans dépliage.
 - **Portables et écrans plats** (`tools/blender/build_station_devices.py`, envoyé au Blender ouvert avec
   `MODE = "preview"` sur un fichier vide : modèles seuls, aperçus dans `E:\Blender\apercus_equipements\`, fichier
   `E:\Blender\equipements_station.blend` ; `MODE = "apply"` sur `nuke_station.blend` : remplacement en place) :
