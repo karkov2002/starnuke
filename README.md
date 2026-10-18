@@ -371,7 +371,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
     l'horizontale sur la Terre**, dont elle épouse la courbure (`scripts/ui/target_marker.gd`, calque du `Hud`) :
     trois anneaux (40, 80 et 120 km) et une croix tracés sur la sphère, le long du sol, dans un maillage enfant de
     `Earth` (il tourne avec la planète), sans éclairage ni test de profondeur (par-dessus les nuages), masqué sous
-    l'horizon ; « Cible » et ses coordonnées à côté ; flèche au bord de l'écran quand elle est hors champ.
+    l'horizon, sans coordonnées (elles masqueraient la vue : elles sont sur les cartes) ; flèche au bord de l'écran
+    quand elle est hors champ.
   - **Survol des écrans en SubViewport** (poste, télévision, tablette) : un tel viewport, affiché comme texture,
     ne reçoit jamais de lui-même l'entrée de la souris ; sans elle, Godot ne lui transmet que les clics et les
     glisser, pas le simple survol. `ScreenSeat.set_mouse_inside` lui envoie l'entrée et la sortie de la souris

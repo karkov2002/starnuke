@@ -6,7 +6,8 @@ extends Control
 ##   (RINGS_KM, ARMS_KM), tracés sur la sphère (distances le long du sol depuis le point visé) dans un maillage enfant
 ##   du nœud Earth (il tourne avec la planète) ; matériau sans éclairage, toujours visible (surimpression, pas de test
 ##   de profondeur : par-dessus les nuages), reconstruit quand la cible change ;
-## - à côté, « Cible » et ses coordonnées (calque 2D), et une flèche au bord de l'écran quand la cible est hors champ.
+## - une flèche au bord de l'écran (calque 2D) quand la cible est hors champ. Pas de coordonnées dans le HUD (elles
+##   masqueraient la vue) : elles sont sur les cartes.
 ## Rien n'est affiché si le point visé est sous l'horizon (face cachée de la Terre) ou derrière la caméra.
 
 ## Anneaux : distance au centre et largeur (km, le long du sol).
@@ -149,15 +150,3 @@ func _draw() -> void:
 		var side := direction.orthogonal() * 9.0
 		draw_colored_polygon(PackedVector2Array([edge + direction * 14.0, edge + side, edge - side]), color)
 		return
-	# Étiquette au bout de la branche est de la croix (à l'écran).
-	var tip := camera.unproject_position(earth.global_transform * (GroundTarget.earth_local(target.latitude_deg,
-			target.longitude_deg + ARMS_KM.y / (111.2 * maxf(cos(deg_to_rad(target.latitude_deg)), 0.05)))))
-	var anchor := tip if tip.distance_to(at) < screen.x * 0.4 else at + Vector2(40.0, 0.0)
-	var font := get_theme_default_font()
-	var font_size := 18
-	var label := tr("MAP_TARGET") + "  " + GroundTarget.format(target.latitude_deg, target.longitude_deg)
-	var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
-	var box := Rect2(anchor + Vector2(12.0, -text_size.y * 0.5 - 4.0), text_size + Vector2(14.0, 8.0))
-	draw_rect(box, Color(0.02, 0.05, 0.1, 0.65))
-	draw_string(font, box.position + Vector2(7.0, text_size.y * 0.8 + 4.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1,
-			font_size, color)
