@@ -374,7 +374,13 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   tous les 15 cm), col roulé, oreiller, glissière, deux sangles à boucle. `Habitation_Sacs` : sacs de transfert
   souples type CTB (toile blanche, glissière du rabat, bandes velcro bleues, poignée, étiquette, sandow et crochets).
   `Habitation_Cuisine_Accessoires` : sachets repas en aluminium, poches à boire (paille, pince), filet garni,
-  bouteilles de condiments sous sandow, rouleau d'adhésif.
+  bouteilles de condiments sous sandow, rouleau d'adhésif. Équipements de la cuisine, construits avant les
+  accessoires (qui se posent dessus) : `Interactif_Rechauffeur` (mallette en aluminium satiné, joint, loquets,
+  charnière, poignée, panneau de commande, câble), `Interactif_Distributeur_Eau` (type PWD : écran, clavier, repères
+  chaud / ambiant, sortie à aiguille, flexible), `Habitation_Cuisine-col` (contenants souples à rabat velcro et
+  sangles, boîtes repas en plastique à couvercle coloré sous sandow, table de repas au plafond : plateau vert sombre,
+  rails, sandows, velcro, couverts). Les matériaux d'origine texturés (`Int_Panneau_Blanc`, `Int_Noir`,
+  `Int_Voyant_Vert`) sont réutilisés sans être réécrits.
 - **Câbles, tuyaux et gaines** (`tools/blender/build_station_cables.py`, rejouable) : objets `<Module>_Cables`
   (Habitation, Commande, Arrimage ; sans collision). Les tracés suivent les arêtes du couloir octogonal
   (22,5° + k·45°) à la surface trouvée par rayons et s'interrompent devant un obstacle (écran, cuisine, casiers,

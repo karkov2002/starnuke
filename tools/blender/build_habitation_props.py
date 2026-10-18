@@ -5,6 +5,11 @@
 #   coins doux (canaux de rembourrage, col roulé, fermeture à glissière), oreiller, deux sangles de maintien à boucle ;
 # - Habitation_Sacs (maillage remplacé) : sacs de transfert souples type CTB (toile blanche, pastilles velcro bleues,
 #   étiquette, poignée, glissière, sandow et crochets), aux places des anciens sacs ;
+# - équipements de la cuisine (maillages remplacés, noms et extras gardés) : Interactif_Rechauffeur (mallette en
+#   aluminium : couvercle, joint, loquets, charnière, poignée, panneau de commande, câble), Interactif_Distributeur_Eau
+#   (PWD : boîtier, écran, clavier, repères chaud / ambiant, sortie à aiguille, flexible), Habitation_Cuisine-col
+#   (contenants souples à rabat et sangles, boîtes repas en plastique sous sandow, table de repas au plafond : plateau,
+#   rails, sandows, velcro, couverts) ;
 # - Habitation_Cuisine_Accessoires (nouvel objet) : sachets repas en aluminium, poches à boire avec paille et pince,
 #   filet garni, bouteilles de condiments tenues par un sandow, rouleau d'adhésif.
 # Tous les volumes souples partent d'une boîte aux coins arrondis maillée finement (soft_box), puis gonflée,
@@ -59,7 +64,23 @@ MATS = {
     "bouchon": material("Int_Bouchon", (0.9, 0.9, 0.88), 0.0, 0.4),
     "adhesif": material("Int_Adhesif", (0.88, 0.88, 0.86), 0.0, 0.55),
     "carton": material("Int_Carton", (0.55, 0.45, 0.32), 0.0, 0.9),
+    "alu": material("Int_Alu_Brosse", (0.74, 0.75, 0.77), 0.55, 0.42),
+    "alu_sombre": material("Int_Alu_Sombre", (0.33, 0.34, 0.36), 1.0, 0.4),
+    "pwd": material("Int_PWD", (0.74, 0.75, 0.76), 0.0, 0.5),
+    "lcd": material("Int_LCD", (0.03, 0.07, 0.05), 0.0, 0.15),
+    "bouton": material("Int_Bouton", (0.07, 0.07, 0.075), 0.0, 0.45),
+    "repere_rouge": material("Int_Repere_Rouge", (0.7, 0.06, 0.04), 0.0, 0.5),
+    "repere_bleu": material("Int_Repere_Bleu", (0.05, 0.25, 0.65), 0.0, 0.5),
+    "flexible": material("Int_Flexible", (0.85, 0.86, 0.88), 0.0, 0.35),
+    "table": material("Int_Table_Verte", (0.05, 0.1, 0.07), 0.0, 0.55),
+    "boite_rouge": material("Int_Boite_Rouge", (0.62, 0.08, 0.05), 0.0, 0.35),
+    "boite_bleue": material("Int_Boite_Bleue", (0.12, 0.3, 0.6), 0.0, 0.35),
+    "couvercle": material("Int_Couvercle", (0.86, 0.86, 0.84), 0.0, 0.4),
 }
+# Matériaux d'origine de la station (texturés ou émissifs) : réutilisés tels quels, jamais réécrits.
+MATS["voyant"] = bpy.data.materials["Int_Voyant_Vert"]
+MATS["panneau"] = bpy.data.materials["Int_Panneau_Blanc"]
+MATS["noir"] = bpy.data.materials["Int_Noir"]
 
 
 # ------------------------------------------------------------------------------------------------ géométrie
@@ -281,6 +302,163 @@ def frame(origin, x_axis, y_axis):
     m = Matrix((x, y, z)).transposed().to_4x4()
     m.translation = Vector(origin)
     return m
+
+
+# ------------------------------------------------------------------------------------------------ équipements
+# Construits avant les accessoires : sachets et poches se posent ensuite sur leurs surfaces (lancer de rayons).
+# Repère monde : paroi de la cuisine à y ≈ 1,25 (faces avant vers −Y), plafond à z ≈ 1,25.
+T = Matrix.Translation
+
+
+def rounded_rect_path(cx, cz, hw, hh, r, y, n=6):
+    """Contour d'un rectangle aux coins arrondis dans un plan y = cste (x, z)."""
+    pts = []
+    for (ox, oz, a0) in ((hw - r, hh - r, 0), (-(hw - r), hh - r, 90), (-(hw - r), -(hh - r), 180),
+                         (hw - r, -(hh - r), 270)):
+        for i in range(n + 1):
+            a = math.radians(a0 + 90 * i / n)
+            pts.append(Vector((cx + ox + r * math.cos(a), y, cz + oz + r * math.sin(a))))
+    pts.append(pts[0])
+    return pts
+
+
+def build_food_warmer():
+    """Réchauffeur de repas : mallette en aluminium (comme le « food warmer » de l'ISS), fermée."""
+    b = Mesh()
+    cx, cy, cz = -3.325, 1.14, 0.0
+    hx, hy, hz = 0.31, 0.105, 0.26
+    front = cy - hy
+    b.add(soft_box((hx, hy, hz), 0.028, 0.02, chain(puff(0.002), wrinkles(0.0004))), "alu", T((cx, cy, cz)))
+    # Joint du couvercle (gorge sombre tout autour de la face avant) et cadre du couvercle.
+    b.add(tube(rounded_rect_path(cx, cz, hx - 0.012, hz - 0.012, 0.02, front + 0.004), 0.0035, 6), "noir")
+    b.add(tube(rounded_rect_path(cx, cz, hx - 0.04, hz - 0.04, 0.03, front - 0.001), 0.0025, 6), "alu_sombre")
+    # Panneau de commande : bandeau noir, afficheur, voyant vert, deux boutons, plaque signalétique.
+    b.add(soft_box((0.2, 0.004, 0.032), 0.003, 0.01), "noir", T((cx + 0.02, front - 0.003, 0.185)))
+    b.add(soft_box((0.05, 0.002, 0.018), 0.002, 0.008), "lcd", T((cx - 0.08, front - 0.007, 0.185)))
+    b.add(soft_box((0.008, 0.004, 0.008), 0.003, 0.004), "voyant", T((cx + 0.04, front - 0.008, 0.185)))
+    for bx in (0.1, 0.15):
+        b.add(cylinder(0.011, 0.008, 20), "bouton", T((cx + bx, front - 0.008, 0.185)) @ Matrix.Rotation(math.pi / 2, 4, 'X'))
+    b.add(soft_box((0.06, 0.001, 0.022), 0.002, 0.01), "etiquette", T((cx, front - 0.002, -0.08)))
+    # Loquets de fermeture et charnière en bas de la face avant.
+    for lx in (-0.19, 0.19):
+        b.add(soft_box((0.025, 0.012, 0.035), 0.006, 0.006), "alu_sombre", T((cx + lx, front - 0.008, -0.2)))
+        b.add(cylinder(0.006, 0.05, 12), "alu", T((cx + lx, front - 0.016, -0.2)) @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
+    b.add(cylinder(0.009, 2 * hx - 0.08, 16), "alu_sombre", T((cx, front + 0.004, -hz + 0.006)) @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
+    # Poignée de transport sur le dessus.
+    h = [Vector((cx - 0.12, cy - 0.02, hz + 0.0)), Vector((cx - 0.1, cy - 0.02, hz + 0.04)),
+         Vector((cx + 0.1, cy - 0.02, hz + 0.04)), Vector((cx + 0.12, cy - 0.02, hz + 0.0))]
+    b.add(tube(h, 0.009, 12), "noir")
+    for sx in (-0.12, 0.12):
+        b.add(soft_box((0.016, 0.016, 0.01), 0.004, 0.006), "alu_sombre", T((cx + sx, cy - 0.02, hz + 0.004)))
+    # Câble d'alimentation : sort du flanc droit et rentre dans la paroi.
+    c0 = Vector((cx + hx, cy + 0.04, -0.1))
+    b.add(tube([c0, c0 + Vector((0.04, 0.0, -0.02)), c0 + Vector((0.07, 0.05, -0.08)), Vector((cx + hx + 0.09, 1.26, -0.2))],
+               0.005, 8), "noir")
+    return b
+
+
+def build_water_dispenser():
+    """Distributeur d'eau potable (PWD de l'ISS) : boîtier, écran, clavier, sortie à aiguille, flexible."""
+    b = Mesh()
+    cx, cy, cz = -2.55, 1.135, 0.03
+    hx, hy, hz = 0.19, 0.105, 0.265
+    front = cy - hy
+    b.add(soft_box((hx, hy, hz), 0.03, 0.02, puff(0.002)), "pwd", T((cx, cy, cz)))
+    # Façade : cadre sombre, écran LCD, clavier 2 × 3, repères chaud (rouge) et ambiant (bleu).
+    b.add(soft_box((0.15, 0.004, 0.12), 0.012, 0.01), "alu_sombre", T((cx, front - 0.002, cz + 0.1)))
+    b.add(soft_box((0.1, 0.002, 0.035), 0.004, 0.008), "lcd", T((cx, front - 0.007, cz + 0.16)))
+    for i in range(3):
+        for j in range(2):
+            b.add(cylinder(0.012, 0.01, 20), "bouton",
+                  T((cx - 0.06 + 0.06 * i, front - 0.009, cz + 0.085 - 0.045 * j)) @ Matrix.Rotation(math.pi / 2, 4, 'X'))
+    b.add(soft_box((0.018, 0.0015, 0.006), 0.002, 0.004), "repere_rouge", T((cx - 0.06, front - 0.007, cz + 0.115)))
+    b.add(soft_box((0.018, 0.0015, 0.006), 0.002, 0.004), "repere_bleu", T((cx, front - 0.007, cz + 0.115)))
+    b.add(soft_box((0.05, 0.001, 0.015), 0.002, 0.006), "etiquette", T((cx + 0.08, front - 0.002, cz - 0.04)))
+    # Bloc de sortie en bas : saillie, raccord rapide et aiguille de remplissage pointée vers le bas.
+    ny = front - 0.04
+    b.add(soft_box((0.06, 0.04, 0.045), 0.015, 0.01), "alu_sombre", T((cx, ny, cz - 0.17)))
+    b.add(cylinder(0.014, 0.03, 20), "alu", T((cx, ny - 0.01, cz - 0.23)))
+    b.add(cylinder(0.009, 0.012, 16), "noir", T((cx, ny - 0.01, cz - 0.25)))
+    b.add(cylinder(0.003, 0.05, 10, r2=0.0015), "alu", T((cx, ny - 0.01, cz - 0.28)))
+    # Flexible : du flanc gauche au bloc de sortie, en boucle.
+    h0 = Vector((cx - hx, cy - 0.02, cz - 0.12))
+    b.add(tube([h0, h0 + Vector((-0.05, -0.03, -0.02)), h0 + Vector((-0.06, -0.09, -0.08)),
+                Vector((cx - 0.06, ny - 0.03, cz - 0.17))], 0.007, 10), "flexible")
+    return b
+
+
+def build_galley():
+    """Rangements de la cuisine et table de repas (objet Habitation_Cuisine-col, collision concave)."""
+    b = Mesh()
+    # Contenants souples (ex-boîtes grises) contre la paroi : toile, rabat à velcro, deux sangles à boucle.
+    for cx in (-2.075, -1.775):
+        cy, hz = 1.19, 0.39
+        b.add(soft_box((0.12, 0.055, hz), 0.03, 0.02, chain(puff(0.01), wrinkles(0.0015, cx * 7))), "ctb", T((cx, cy, 0.0)))
+        b.add(soft_box((0.115, 0.008, 0.07), 0.006, 0.012, puff(0.003)), "ctb", T((cx, cy - 0.065, hz - 0.08)))
+        b.add(soft_box((0.09, 0.002, 0.012), 0.002, 0.006), "velcro", T((cx, cy - 0.074, hz - 0.13)))
+        b.add(soft_box((0.05, 0.001, 0.03), 0.002, 0.006), "etiquette", T((cx, cy - 0.066, -0.05)))
+        for sz in (-0.22, 0.12):
+            path = [Vector((cx - 0.125, 1.25, sz)), Vector((cx - 0.128, cy - 0.03, sz)), Vector((cx - 0.1, cy - 0.066, sz)),
+                    Vector((cx + 0.1, cy - 0.066, sz)), Vector((cx + 0.128, cy - 0.03, sz)), Vector((cx + 0.125, 1.25, sz))]
+            b.add(ribbon(path, (0, 0, 1), 0.028, 0.003), "sangle", smooth=False)
+            b.add(soft_box((0.016, 0.005, 0.018), 0.003, 0.004), "boucle", T((cx, cy - 0.07, sz)))
+    # Boîtes repas en plastique (ex-blocs rouges et bleus) sur la paroi diagonale haute, couvercle et étiquette,
+    # retenues par un sandow.
+    n = Vector((0, -1, -1)).normalized()       # normale de la paroi diagonale (vers l'axe)
+    up = Vector((0, -1, 1)).normalized()       # le long de la paroi
+    surface = Vector((0, 0.933, 0.933))        # paroi diagonale à 1,32 m de l'axe
+    axes = Matrix((Vector((1, 0, 0)), -n, up)).transposed()  # X, Y (vers la paroi), Z (le long)
+    for i, (cx, mat) in enumerate(((-3.71, "boite_rouge"), (-3.46, "boite_bleue"), (-3.21, "boite_rouge"),
+                                   (-2.96, "boite_bleue"))):
+        hd = 0.07
+        center = Vector((cx, 0, 0)) + surface + n * (hd + 0.002)
+        m = T(center) @ axes.to_4x4()
+        b.add(soft_box((0.088, hd, 0.098), 0.012, 0.012), "couvercle", m)
+        b.add(soft_box((0.092, 0.012, 0.102), 0.008, 0.012), mat, m @ T((0, -hd + 0.006, 0)))
+        b.add(soft_box((0.04, 0.001, 0.025), 0.002, 0.006), "etiquette", m @ T((0, -hd - 0.007, 0.03)))
+    a = Vector((-3.84, 0, 0)) + surface + n * 0.005
+    c = Vector((-2.83, 0, 0)) + surface + n * 0.005
+    mid = (a + c) / 2 + n * 0.16
+    b.add(tube([a, a.lerp(mid, 0.3) + n * 0.03, mid, c.lerp(mid, 0.3) + n * 0.03, c], 0.0045, 8), "sandow")
+    for p in (a, c):
+        b.add(cylinder(0.008, 0.012, 12), "crochet", T(p) @ n.to_track_quat('Z', 'Y').to_matrix().to_4x4())
+    # Table de repas au plafond : support blanc, plateau vert sombre, rails en aluminium, sandows, velcro, couverts.
+    tx, thx, thy = -2.8, 1.08, 0.42
+    b.add(soft_box((thx, thy, 0.055), 0.02, 0.03), "panneau", T((tx, 0.0, 1.19)))
+    b.add(soft_box((thx - 0.02, thy - 0.02, 0.016), 0.012, 0.025), "table", T((tx, 0.0, 1.118)))
+    for sy in (-1, 1):
+        y = sy * (thy - 0.005)
+        b.add(tube([Vector((tx - thx + 0.03, y, 1.095)), Vector((tx + thx - 0.03, y, 1.095))], 0.01, 14), "alu")
+        for k in range(5):
+            x = tx - thx + 0.08 + k * (2 * thx - 0.16) / 4
+            b.add(soft_box((0.012, 0.012, 0.012), 0.004, 0.006), "alu_sombre", T((x, y, 1.105)))
+    for bx in (-0.7, 0.0, 0.7):
+        x = tx + bx
+        b.add(tube([Vector((x, -thy + 0.005, 1.093)), Vector((x + 0.02, -0.15, 1.085)), Vector((x + 0.02, 0.15, 1.085)),
+                    Vector((x, thy - 0.005, 1.093))], 0.0045, 8), "sandow")
+    for (vx, vy) in ((-0.35, -0.2), (-0.35, 0.2), (0.35, -0.2), (0.35, 0.2), (0.9, 0.0)):
+        b.add(soft_box((0.05, 0.02, 0.0012), 0.003, 0.01), "velcro", T((tx + vx, vy, 1.101)))
+    # Couverts sous le sandow central : cuillère, fourchette, ciseaux.
+    x0 = tx + 0.02
+    b.add(ribbon([Vector((x0 - 0.01, -0.12, 1.098)), Vector((x0 - 0.01, 0.02, 1.098))], (1, 0, 0), 0.012, 0.0025), "alu", smooth=False)
+    b.add(soft_box((0.02, 0.028, 0.004), 0.004, 0.006), "alu", T((x0 - 0.01, 0.045, 1.097)))
+    b.add(ribbon([Vector((x0 + 0.04, -0.12, 1.098)), Vector((x0 + 0.04, 0.03, 1.098))], (1, 0, 0), 0.01, 0.0025), "alu", smooth=False)
+    for k in range(4):
+        b.add(ribbon([Vector((x0 + 0.033 + 0.0045 * k, 0.03, 1.098)), Vector((x0 + 0.033 + 0.0045 * k, 0.07, 1.098))],
+                     (1, 0, 0), 0.0025, 0.002), "alu", smooth=False)
+    sx = tx + 0.3
+    for sy in (-1, 1):
+        ring = [Vector((sx + 0.018 * math.cos(a), sy * 0.02 - 0.09 + 0.012 * math.sin(a), 1.098)) for a in
+                (2 * math.pi * k / 16 for k in range(17))]
+        b.add(tube(ring, 0.003, 6), "repere_rouge")
+        b.add(ribbon([Vector((sx, sy * 0.012 - 0.075, 1.098)), Vector((sx + sy * 0.004, 0.03, 1.098))], (1, 0, 0), 0.008, 0.002),
+              "alu", smooth=False)
+    return b
+
+
+build_galley().write("Habitation_Cuisine-col")
+build_food_warmer().write("Interactif_Rechauffeur")
+build_water_dispenser().write("Interactif_Distributeur_Eau")
 
 
 # ------------------------------------------------------------------------------------------------ lancer de rayons
