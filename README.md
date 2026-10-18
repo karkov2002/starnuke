@@ -367,6 +367,14 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   (r 0,655–0,76 m) et jaune (r 0,755–0,80 m) des cadres d'Habitation AR et AV, Commande AR, Arrimage AV et de
   l'écoutille cargo (32 segments à section carrée, très facettés) sont refaits en révolution lisse (section aux coins
   arrondis, 96 segments), comme ceux des écoutilles des silos ; épaisseurs d'origine.
+- **Hiloires des cloisons intérieures** (`tools/blender/section_coamings.py`, rejouable) : quatre cloisons
+  (Habitation x = ±1,5, section centrale ; Commande x = 10,1 et 13,1, section de la cupola) ont un passage non
+  circulaire (r 1,25 m dans les axes, 1,353 m dans les diagonales) que bordait un anneau fin (r 1,23–1,30) : par les
+  fentes des diagonales on voyait la face arrière de la cloison, que Godot ne dessine pas (paroi « trouée »).
+  L'anneau fin est remplacé par une hiloire de style sous-marin, objet séparé `<module>_Hiloire_<x>-col` :
+  r 1,17–1,45 m, ±10 cm (Habitation, près de l'entrée des tunnels : r 1,18–1,40 m, ±7 cm), section aux coins
+  arrondis, 96 segments, couronne de 32 vis hexagonales (acier bruni, rondelle inox) sur chaque face. Contrôle :
+  rayons lancés dans Blender en ignorant les faces vues de dos, comme Godot.
 - **Sas entre modules** (`tools/blender/remove_sas_pads.py`, rejouable) : retrait des 4 plaquettes blanches
   posées au milieu des sas (une par écoutille axiale, loin de sa charnière). Le modèle a ses écoutilles ouvertes
   au repos et la porte ouverte les cachait ; fermées au démarrage du jeu, elles flottaient seules. La plaquette
@@ -404,7 +412,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 - **Pilotage** (`scripts/station.gd`, classe `Station`, racine de la scène héritée). Rien n'est codé en dur : objets
   trouvés par leurs extras (`type` : `ecoutille`, `trappe_silo`, `trappe` ; `id`, `charniere`, `silo`, `tube`,
   `ouvrable`), angles et durées lus dans les animations Blender. Un objet seul est piloté par un Tween qui rejoue
-  ses pistes ; un groupe entier dans le même état (toutes les écoutilles, les 48 trappes, les 4 radiateurs) par
+  ses pistes ; un groupe entier dans le même état (les 48 trappes, les 4 radiateurs ; plus les écoutilles, fermées au démarrage : une par une) par
   l'animation complète. Chaque animation a son propre AnimationPlayer (créé au démarrage, bibliothèque partagée) :
   les antennes tournent en boucle pendant les autres mouvements.
   - **Panneaux solaires : suivi du soleil, station furtive** (`Station._track_sun`, `track_sun_panels`). L'animation

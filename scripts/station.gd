@@ -283,19 +283,12 @@ func hatch_id_for(node: Node) -> String:
 	return ""
 
 
-## Toutes les écoutilles ouvrables : animation complète si elles sont toutes dans le même état, sinon une par une.
+## Toutes les écoutilles ouvrables, chacune par son Tween (mêmes angles et durée que l'animation). L'animation de
+## groupe (AnimationPlayer) n'est plus utilisée : depuis que les écoutilles sont fermées au démarrage (charnières
+## placées à la main), elle ne déplaçait plus les charnières.
 func set_all_hatches_open(open: bool) -> void:
-	var targets := _hatches.keys().filter(func(id: String) -> bool: return _hatches[id].ouvrable)
-	var group := targets.all(func(id: String) -> bool: return _hatches[id].is_open != open and _hatches[id].tween == null)
-	if group and targets.size() == _animated_count(ANIM_HATCHES):
-		for id: String in targets:
-			_hatches[id].target = open
-		_play_group(ANIM_HATCHES, not open, func() -> void:
-			for id: String in targets:
-				_hatches[id].is_open = open
-				hatch_changed.emit(id, open))
-	else:
-		for id: String in targets:
+	for id: String in _hatches:
+		if _hatches[id].ouvrable:
 			set_hatch_open(id, open)
 
 
