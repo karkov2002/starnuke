@@ -1,0 +1,62 @@
+{
+	"_doc": [
+		"Règles du bandeau « Alerte info » de la télévision (scripts/tv_news.gd).",
+		"Le bandeau = le préfixe, puis chaque section dans l'ordre, séparées par « • ».",
+		"Dans une section, la PREMIÈRE règle dont la condition « when » est vraie donne la clé ; aucune règle vraie : la section n'affiche rien.",
+		"Une clé pointe vers ses variantes dans assets/tv/news_ticker.csv (lignes CLE.1, CLE.2… ; une colonne par langue) : une variante est tirée au hasard à chaque passage.",
+		"Condition : objet {fait: test}, tous les tests doivent être vrais ; pas de « when » = toujours vrai.",
+		"Test d'un nombre : 3 (égal), \"0\", \">0\", \">=2\", \"<5\", \"<=5\", \"!=1\" ; test d'un booléen : true ou false.",
+		"Pour ajouter un cas : une règle (placée avant les règles plus générales de sa section) et une nouvelle clé, avec ses variantes dans le CSV."
+	],
+	"facts": {
+		"explosions": "nombre d'explosions depuis le début de la partie",
+		"yield_kt": "puissance cumulée de toutes les explosions (kt)",
+		"countries_hit": "nombre de pays avec au moins un point zéro sur leur territoire",
+		"deaths": "morts à l'instant présent (bilan NukeTally)",
+		"capitals_destroyed": "capitales détruites (chaînes hors d'antenne), hors pays qui diffuse",
+		"broadcaster_hit": "le pays qui diffuse a un point zéro sur son territoire",
+		"broadcaster_nuclear": "le pays qui diffuse est une puissance nucléaire (liste nuclear_powers)"
+	},
+	"placeholders": {
+		"{count}": "nombre d'explosions",
+		"{yield}": "puissance cumulée, unité de la langue (« 1,6 Mt », « 100 kt »)",
+		"{countries}": "pays touchés, dans la langue de la chaîne",
+		"{deaths}": "morts, arrondi à 3 chiffres significatifs",
+		"{capitals}": "capitales détruites, dans la langue de la chaîne"
+	},
+	"nuclear_powers": ["USA", "RUS", "FRA", "GBR", "IND", "PAK", "CHN", "ISR", "PRK"],
+	"prefix": [
+		{"key": "PREFIX"}
+	],
+	"sections": [
+		{
+			"name": "explosions",
+			"rules": [
+				{"when": {"explosions": 1, "countries_hit": ">0"}, "key": "STRIKE_ONE"},
+				{"when": {"explosions": ">=2", "countries_hit": ">0"}, "key": "STRIKE_MANY"},
+				{"when": {"explosions": 1, "countries_hit": 0}, "key": "ONE_SEA"},
+				{"when": {"explosions": ">=2", "countries_hit": 0}, "key": "MANY_SEA"}
+			]
+		},
+		{
+			"name": "bilan",
+			"rules": [
+				{"when": {"deaths": ">0"}, "key": "DEATHS"}
+			]
+		},
+		{
+			"name": "capitales",
+			"rules": [
+				{"when": {"capitals_destroyed": ">0"}, "key": "CAPITALS"}
+			]
+		},
+		{
+			"name": "gouvernement",
+			"rules": [
+				{"when": {"broadcaster_hit": true, "broadcaster_nuclear": true}, "key": "NUCLEAR_HIT"},
+				{"when": {"broadcaster_hit": true}, "key": "OTHER_HIT"},
+				{"key": "SAFE"}
+			]
+		}
+	]
+}

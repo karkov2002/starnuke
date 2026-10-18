@@ -450,6 +450,13 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
        France, Royaume-Uni, Inde, Pakistan, Chine, Israël, Corée du Nord : `TvNews.NUCLEAR_POWERS`) → alerte
        maximale, riposte à l'étude, consignes à la population ; **touché sans arme nucléaire** → alerte maximale et
        consignes ; **non touché** → alerte maximale, protection du pays, pensées pour les pays touchés.
+    **Règles d'affichage** (`assets/tv/news_rules.json`, vision d'ensemble des cas) : le bandeau est un préfixe puis
+    des sections dans l'ordre (explosions, bilan, capitales, gouvernement) ; dans chaque section, la **première règle
+    dont la condition est vraie** donne la **clé** de la phrase (aucune : la section est omise). Une condition porte
+    sur des faits nommés (`explosions`, `yield_kt`, `countries_hit`, `deaths`, `capitals_destroyed`,
+    `broadcaster_hit`, `broadcaster_nuclear`), avec des tests « 1 », « >0 », « >=2 », « <5 », « !=1 » ou true /
+    false ; la liste des puissances nucléaires (`nuclear_powers`) y est aussi. Ajouter un cas : une règle (avant les
+    règles plus générales de sa section) et une nouvelle clé, dont les variantes vont dans le CSV des textes.
     Chaque phrase a **trois variantes** (même sens, tournures différentes), tirées au hasard à chaque passage. Textes :
     `assets/tv/news_ticker.csv` (une ligne par clé et variante `CLE.n`, une colonne par langue, plus les réglages de
     nombres et d'unités par langue : `LIST_SEP`, `THOUSANDS`, `DECIMAL`, `UNIT_KT`, `UNIT_MT` avec `{n}`). Pour les
