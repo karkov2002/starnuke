@@ -367,6 +367,20 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   (r 0,655–0,76 m) et jaune (r 0,755–0,80 m) des cadres d'Habitation AR et AV, Commande AR, Arrimage AV et de
   l'écoutille cargo (32 segments à section carrée, très facettés) sont refaits en révolution lisse (section aux coins
   arrondis, 96 segments), comme ceux des écoutilles des silos ; épaisseurs d'origine.
+- **Accessoires souples de l'Habitation** (`tools/blender/build_habitation_props.py`, rejouable ; d'après la
+  cuisine de l'ISS photographiée par Thomas Pesquet) : volumes partant d'une boîte à coins arrondis maillée finement
+  (`soft_box`), gonflée, matelassée ou froissée, posés sur les parois par lancer de rayons.
+  `Interactif_Couchette` (maillage remplacé, extras gardés) : matelas molletonné, sac de couchage matelassé (coutures
+  tous les 15 cm), col roulé, oreiller, glissière, deux sangles à boucle. `Habitation_Sacs` : sacs de transfert
+  souples type CTB (toile blanche, glissière du rabat, bandes velcro bleues, poignée, étiquette, sandow et crochets).
+  `Habitation_Cuisine_Accessoires` : sachets repas en aluminium, poches à boire (paille, pince), filet garni,
+  bouteilles de condiments sous sandow, rouleau d'adhésif.
+- **Câbles, tuyaux et gaines** (`tools/blender/build_station_cables.py`, rejouable) : objets `<Module>_Cables`
+  (Habitation, Commande, Arrimage ; sans collision). Les tracés suivent les arêtes du couloir octogonal
+  (22,5° + k·45°) à la surface trouvée par rayons et s'interrompent devant un obstacle (écran, cuisine, casiers,
+  niches) en plongeant dans la jonction des panneaux. Faisceaux de 3–4 câbles colorés serrés par des colliers tous
+  les 0,45 m, tuyaux Ø 22 mm sur pattes, gaines de ventilation annelées orange. Tubes à repère transporté
+  parallèlement (un repère qui pivotait vrillait les câbles en zigzag).
 - **Hiloires des cloisons intérieures** (`tools/blender/section_coamings.py`, rejouable) : quatre cloisons
   (Habitation x = ±1,5, section centrale ; Commande x = 10,1 et 13,1, section de la cupola) ont un passage non
   circulaire (r 1,25 m dans les axes, 1,353 m dans les diagonales) que bordait un anneau fin (r 1,23–1,30) : par les
