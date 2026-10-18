@@ -46,7 +46,8 @@ const BRIGHTNESS_RANGE := Vector2(0.25, 1.5)
 const INTERIOR_LIGHT_RANGE := Vector2(0.1, 1.5)
 ## Puissance par défaut des lampes de la station (40 % : validé à l'œil le 2026-10-17 ; 100 % = réglage du modèle).
 const DEFAULT_INTERIOR_LIGHT := 0.4
-const DEFAULT_MUSIC_VOLUME := 0.6
+const DEFAULT_MUSIC_VOLUME := 1.0
+const DEFAULT_SFX_VOLUME := 0.8
 const DEFAULT_PLAYLIST := "starnuke"
 
 var window_mode := WindowMode.FULLSCREEN
@@ -60,7 +61,7 @@ var interior_light := DEFAULT_INTERIOR_LIGHT
 ## Audio : volumes (0 à 1, 0 = muet) des bus « Music » et « SFX » (default_bus_layout.tres) et playlist jouée en
 ## partie (sous-dossier de res://playlist/, autoload Music, scripts/music_player.gd).
 var music_volume := DEFAULT_MUSIC_VOLUME
-var sfx_volume := 1.0
+var sfx_volume := DEFAULT_SFX_VOLUME
 ## Coupure totale (boutons « Muet ») : le bus est muet, le volume réglé est gardé pour la remise en route.
 var music_muted := false
 var sfx_muted := false
@@ -253,7 +254,7 @@ func _load() -> void:
 	interior_light = clampf(float(config.get_value("video", "interior_light", DEFAULT_INTERIOR_LIGHT)), INTERIOR_LIGHT_RANGE.x,
 			INTERIOR_LIGHT_RANGE.y)
 	music_volume = clampf(float(config.get_value("audio", "music_volume", DEFAULT_MUSIC_VOLUME)), 0.0, 1.0)
-	sfx_volume = clampf(float(config.get_value("audio", "sfx_volume", 1.0)), 0.0, 1.0)
+	sfx_volume = clampf(float(config.get_value("audio", "sfx_volume", DEFAULT_SFX_VOLUME)), 0.0, 1.0)
 	music_muted = bool(config.get_value("audio", "music_muted", false))
 	sfx_muted = bool(config.get_value("audio", "sfx_muted", false))
 	playlist = String(config.get_value("audio", "playlist", DEFAULT_PLAYLIST))

@@ -82,7 +82,7 @@ permet de piloter le jeu exporté.
       3D garde son champ de vision vertical et s'élargit (`Camera3D.keep_aspect` = hauteur) ; l'interface garde sa
       taille et s'étend sur toute la largeur (panneau en bas au centre, bilan en haut à droite).
   - **Audio** : **volume de la musique** et **volume des effets sonores** (0 à 100 %, `GameSettings.music_volume`,
-    60 % par défaut, et `sfx_volume`, 100 %), volumes des bus « Music » et « SFX » (`default_bus_layout.tres`, muet à
+    100 % par défaut, et `sfx_volume`, 80 % par défaut ; réglables ensuite par le joueur), volumes des bus « Music » et « SFX » (`default_bus_layout.tres`, muet à
     0 %) ; à côté de chaque curseur, un bouton bascule à **icône de haut-parleur** (barré en rouge quand le son est
     coupé, infobulle « Muet » ; `music_muted`, `sfx_muted`, sauvés) coupe totalement
     le bus et désactive (grise) le curseur, le volume réglé étant gardé pour la remise en route ; **playlist** : menu
