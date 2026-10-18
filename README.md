@@ -375,6 +375,12 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   r 1,17–1,45 m, ±10 cm (Habitation, près de l'entrée des tunnels : r 1,18–1,40 m, ±7 cm), section aux coins
   arrondis, 96 segments, couronne de 32 vis hexagonales (acier bruni, rondelle inox) sur chaque face. Contrôle :
   rayons lancés dans Blender en ignorant les faces vues de dos, comme Godot.
+  L'écran `Interactif_Ecran_07` (paroi −Y, 0,82 m de large) mordait dans l'hiloire x = 13,1 : son centre est passé
+  de x = 13,5 à 13,65 (table `SCREENS` de `build_station_devices.py`).
+- **Portes d'écoutille lisses** (`tools/blender/smooth_hatch_doors.py`, rejouable) : les cylindres des portes
+  (disque, panneaux en relief, plaques de manœuvre ; 16 à 32 côtés, porte cargo comprise) sont refaits à 96 côtés
+  (48 pour les petits) avec une tranche arrondie ; maillages marqués `tranche_lisse`. Les portes des silos, copies de
+  `Ecoutille_Habitation_AV`, sont traitées aussi.
 - **Sas entre modules** (`tools/blender/remove_sas_pads.py`, rejouable) : retrait des 4 plaquettes blanches
   posées au milieu des sas (une par écoutille axiale, loin de sa charnière). Le modèle a ses écoutilles ouvertes
   au repos et la porte ouverte les cachait ; fermées au démarrage du jeu, elles flottaient seules. La plaquette
