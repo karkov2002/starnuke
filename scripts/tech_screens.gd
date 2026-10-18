@@ -3,7 +3,8 @@ extends Node
 ## Écrans d'ambiance « techno-thriller » du module Commande (nœud TechScreens de scenes/orbit_view.tscn) : sur les
 ## écrans plats et les portables du module (pas sur le grand écran du poste de pilotage, PilotConsole), des
 ## programmes animés dessinés en 2D dans quelques SubViewports partagés :
-## - CODE : listage de code et de journaux qui défile (lignes générées une fois au démarrage) ;
+## - CODE : listage de code et de journaux qui défile (lignes générées une fois au démarrage ; clin d'œil : environ un
+##   commentaire sur douze est « // only Trap15 could understand this ») ;
 ## - WIREFRAME : la station en fil de fer qui tourne sur elle-même (modèle simplifié précalculé : modules, silos,
 ##   poutre, panneaux), avec réticule et mesures ;
 ## - TELEMETRY : courbes de télémétrie qui défilent, barregraphes, balayage radar ;
@@ -194,6 +195,9 @@ class TechCanvas:
 							_rng.randf_range(-9.0, 9.0)]
 				2:
 					line = "%s// %s %s %s" % [indent, _pick(CODE_WORDS).to_upper(), _pick(CODE_WORDS), _pick(CODE_WORDS)]
+					# Clin d'œil : de temps en temps, un commentaire de développeur égaré dans le listage.
+					if _rng.randf() < 1.0 / 12.0:
+						line = "%s// only Trap15 could understand this" % indent
 					color = DIM
 				3:
 					line = "[%07.3f] %s::%s ... OK" % [_rng.randf_range(0.0, 9999.0), _pick(CODE_WORDS).to_upper(),

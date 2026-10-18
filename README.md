@@ -373,7 +373,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 - **Écrans d'ambiance du module Commande** (`scripts/tech_screens.gd`, nœud `TechScreens` de `orbit_view.tscn`,
   shader `shaders/tech_screen.gdshader`) : sur les écrans plats et les portables du module (pas sur le grand écran du
   poste), des programmes « techno-thriller » dessinés en 2D dans cinq `SubViewport` partagés : listage de code et
-  de journaux qui défile (lignes générées une fois au démarrage), station en fil de fer qui tourne sur elle-même
+  de journaux qui défile (lignes générées une fois au démarrage ; clin d'œil : quelques commentaires « // only Trap15
+  could understand this »), station en fil de fer qui tourne sur elle-même
   (modèle simplifié précalculé : modules, silos, poutre, panneaux), télémétrie (courbes, barregraphes, radar à
   balayage), détermination d'orbite (Terre, orbite, colonnes hexadécimales) et, sur les bandeaux 13 et 14, spectre
   radio et oscilloscope. Affectation : table `ASSIGNMENT`. Coût réduit : images redessinées à 15 Hz (`refresh_hz`)
