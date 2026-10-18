@@ -32,6 +32,8 @@ var _music_volume: HSlider
 var _music_volume_value: Label
 var _sfx_volume: HSlider
 var _sfx_volume_value: Label
+var _music_mute: Button
+var _sfx_mute: Button
 var _playlist: OptionButton
 var _back: Button
 
@@ -197,7 +199,8 @@ func _build_video(page: VBoxContainer) -> void:
 	_resolution_note.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 
 
-## Onglet Audio : volume de la musique et des effets sonores (0 à 100 %), playlist jouée en partie (sous-dossiers
+## Onglet Audio : volume de la musique et des effets sonores (0 à 100 %, bouton « Muet » à côté de chaque curseur :
+## coupure totale, curseur désactivé et grisé), playlist jouée en partie (sous-dossiers
 ## de res://playlist/, autoload Music ; noms de dossiers, jamais traduits).
 func _build_audio(page: VBoxContainer) -> void:
 	var grid := _make_grid(page)
@@ -205,10 +208,12 @@ func _build_audio(page: VBoxContainer) -> void:
 		GameSettings.set_music_volume(value / 100.0))
 	_music_volume = music[0]
 	_music_volume_value = music[1]
+	_music_mute = _add_mute_button(music[2], GameSettings.set_music_muted)
 	var sfx := _add_percent_slider(grid, "AUDIO_SFX_VOLUME", func(value: float) -> void:
 		GameSettings.set_sfx_volume(value / 100.0))
 	_sfx_volume = sfx[0]
 	_sfx_volume_value = sfx[1]
+	_sfx_mute = _add_mute_button(sfx[2], GameSettings.set_sfx_muted)
 	_playlist = _add_option(grid, "AUDIO_PLAYLIST")
 	_playlist.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_playlist.item_selected.connect(func(index: int) -> void:
@@ -216,7 +221,20 @@ func _build_audio(page: VBoxContainer) -> void:
 	_add_note(page, "AUDIO_PLAYLIST_NOTE")
 
 
-## Curseur de 0 à 100 % et sa valeur affichée ; rend [curseur, étiquette].
+## Bouton bascule « Muet » au bout de la ligne d'un curseur : coupe le son (on_toggle) ; le curseur est alors
+## désactivé (_refresh).
+func _add_mute_button(row: HBoxContainer, on_toggle: Callable) -> Button:
+	var button := Button.new()
+	button.text = "AUDIO_MUTE"
+	button.toggle_mode = true
+	button.custom_minimum_size = Vector2(110.0, 44.0)
+	button.add_theme_font_size_override("font_size", 18)
+	button.toggled.connect(func(pressed: bool) -> void: on_toggle.call(pressed))
+	row.add_child(button)
+	return button
+
+
+## Curseur de 0 à 100 % et sa valeur affichée ; rend [curseur, étiquette, ligne].
 func _add_percent_slider(grid: GridContainer, key: String, on_change: Callable) -> Array:
 	var label := Label.new()
 	label.text = key
@@ -238,7 +256,8 @@ func _add_percent_slider(grid: GridContainer, key: String, on_change: Callable) 
 	slider.value_changed.connect(func(value: float) -> void:
 		value_label.text = "%d %%" % roundi(value)
 		on_change.call(value))
-	return [slider, value_label]
+	value_label.custom_minimum_size.x = 70.0
+	return [slider, value_label, row]
 
 
 ## Onglet Jeu : langue (noms des langues dans leur propre langue, jamais traduits).
@@ -276,6 +295,12 @@ func _refresh() -> void:
 	_music_volume_value.text = "%d %%" % roundi(GameSettings.music_volume * 100.0)
 	_sfx_volume.set_value_no_signal(GameSettings.sfx_volume * 100.0)
 	_sfx_volume_value.text = "%d %%" % roundi(GameSettings.sfx_volume * 100.0)
+	for pair in [[_music_mute, _music_volume, _music_volume_value, GameSettings.music_muted],
+			[_sfx_mute, _sfx_volume, _sfx_volume_value, GameSettings.sfx_muted]]:
+		pair[0].set_pressed_no_signal(pair[3])
+		pair[1].editable = not pair[3]
+		pair[1].modulate.a = 0.4 if pair[3] else 1.0
+		pair[2].modulate.a = 0.4 if pair[3] else 1.0
 	_playlist.clear()
 	for playlist_name in Music.playlists():
 		_playlist.add_item(playlist_name)

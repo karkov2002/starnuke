@@ -61,6 +61,9 @@ var interior_light := DEFAULT_INTERIOR_LIGHT
 ## partie (sous-dossier de res://playlist/, autoload Music, scripts/music_player.gd).
 var music_volume := DEFAULT_MUSIC_VOLUME
 var sfx_volume := 1.0
+## Coupure totale (boutons « Muet ») : le bus est muet, le volume réglé est gardé pour la remise en route.
+var music_muted := false
+var sfx_muted := false
 var playlist := DEFAULT_PLAYLIST
 
 
@@ -84,6 +87,20 @@ func set_sfx_volume(value: float) -> void:
 	_save()
 
 
+func set_music_muted(value: bool) -> void:
+	music_muted = value
+	_apply_audio()
+	_save()
+	changed.emit()
+
+
+func set_sfx_muted(value: bool) -> void:
+	sfx_muted = value
+	_apply_audio()
+	_save()
+	changed.emit()
+
+
 ## Playlist jouée en partie (l'autoload Music change de playlist via changed).
 func set_playlist(value: String) -> void:
 	playlist = value
@@ -92,11 +109,11 @@ func set_playlist(value: String) -> void:
 
 
 func _apply_audio() -> void:
-	for pair in [[&"Music", music_volume], [&"SFX", sfx_volume]]:
-		var bus := AudioServer.get_bus_index(pair[0])
+	for setting in [[&"Music", music_volume, music_muted], [&"SFX", sfx_volume, sfx_muted]]:
+		var bus := AudioServer.get_bus_index(setting[0])
 		if bus >= 0:
-			AudioServer.set_bus_volume_db(bus, linear_to_db(pair[1]))
-			AudioServer.set_bus_mute(bus, pair[1] <= 0.0)
+			AudioServer.set_bus_volume_db(bus, linear_to_db(setting[1]))
+			AudioServer.set_bus_mute(bus, setting[2] or setting[1] <= 0.0)
 
 
 func set_brightness(value: float) -> void:
@@ -237,6 +254,8 @@ func _load() -> void:
 			INTERIOR_LIGHT_RANGE.y)
 	music_volume = clampf(float(config.get_value("audio", "music_volume", DEFAULT_MUSIC_VOLUME)), 0.0, 1.0)
 	sfx_volume = clampf(float(config.get_value("audio", "sfx_volume", 1.0)), 0.0, 1.0)
+	music_muted = bool(config.get_value("audio", "music_muted", false))
+	sfx_muted = bool(config.get_value("audio", "sfx_muted", false))
 	playlist = String(config.get_value("audio", "playlist", DEFAULT_PLAYLIST))
 	locale = config.get_value("game", "locale", DEFAULT_LOCALE)
 	if not locale in LOCALES:
@@ -251,6 +270,8 @@ func _save() -> void:
 	config.set_value("video", "interior_light", interior_light)
 	config.set_value("audio", "music_volume", music_volume)
 	config.set_value("audio", "sfx_volume", sfx_volume)
+	config.set_value("audio", "music_muted", music_muted)
+	config.set_value("audio", "sfx_muted", sfx_muted)
 	config.set_value("audio", "playlist", playlist)
 	config.set_value("game", "locale", locale)
 	config.save(PATH)
