@@ -340,9 +340,11 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 - **Portables et écrans plats** (`tools/blender/build_station_devices.py`, envoyé au Blender ouvert avec
   `MODE = "preview"` sur un fichier vide : modèles seuls, aperçus dans `E:\Blender\apercus_equipements\`, fichier
   `E:\Blender\equipements_station.blend` ; `MODE = "apply"` sur `nuke_station.blend` : remplacement en place) :
-  modèles procéduraux détaillés qui remplacent les maillages des 4 `Interactif_Ordinateur_*` et de 12
-  `Interactif_Ecran_*` (01–08, 13, 14, 16, 17). **`Interactif_Ecran_Principal` (poste de pilotage) et les consoles
-  de tir des silos n'y sont pas touchés.** Portable 14" 16:10 noir mat (84 touches en relief, légendes
+  modèles procéduraux détaillés qui remplacent les maillages des 4 `Interactif_Ordinateur_*` et de 10
+  `Interactif_Ecran_*` (01–08, 13, 14). **`Interactif_Ecran_Principal` (poste de pilotage) et les consoles
+  de tir des silos n'y sont pas touchés** ; les petits écrans 16 et 17 qui l'encadraient sont supprimés du `.blend`.
+  Penser à **enregistrer le `.blend`** après chaque modification exportée : un export depuis un fichier non
+  enregistré se perd à la réouverture. Portable 14" 16:10 noir mat (84 touches en relief, légendes
   `E:\Blender\textures\clavier_legendes.png` rendues par le script, TrackPoint, pavé, connectique, charnières à fûts,
   écran ouvert à 105°) sur un bras articulé (plateau à griffes, rotule, deux segments à chapes et molettes, platine
   murale vissée, câble) ; écrans à bordure fine, coque arrière bombée, plaque VESA et support mural inclinable
