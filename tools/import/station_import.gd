@@ -8,6 +8,9 @@ extends EditorScenePostImport
 ## - animations : l'export Blender met dans chaque action tous les objets animés de la scène (73 pistes par
 ##   animation), avec des valeurs constantes pour ceux qu'elle ne concerne pas. Ces pistes constantes sont retirées :
 ##   sinon, jouer Lancement_Missile remettrait aussi en place les trappes, radiateurs et panneaux.
+## - collisions des objets « Interactif_* » qui n'en ont pas (tubes des silos, consoles, caisses, portables, écrans…) :
+##   forme convexe simplifiée (StaticBody3D « Collision » enfant), calculée ici une fois pour toutes ; au démarrage
+##   du jeu (Station._add_interior_collisions), ce calcul figeait l'écran ~3,5 s.
 ## Les autres réglages sont dans le .import : boucle des animations Rotation_Panneaux et Balayage_Antennes, LOD,
 ## collisions par suffixes, échelle 1.
 
@@ -25,9 +28,34 @@ func _post_import(scene: Node) -> Object:
 	for player: AnimationPlayer in scene.find_children("*", "AnimationPlayer", true, false):
 		for anim_name in player.get_animation_list():
 			removed += _remove_constant_tracks(player.get_animation(anim_name))
-	print("station_post_import : %d collision(s) de porte ou trappe en AnimatableBody3D, %d piste(s) constante(s) retirée(s)"
-			% [converted, removed])
+	var shaped := _add_interactive_collisions(scene)
+	print("station_post_import : %d collision(s) de porte ou trappe en AnimatableBody3D, %d piste(s) constante(s) retirée(s), %d forme(s) convexe(s) d'objets interactifs"
+			% [converted, removed, shaped])
 	return scene
+
+
+## StaticBody3D « Collision » (forme convexe simplifiée du maillage) sous chaque « Interactif_* » sans collision ;
+## rend leur nombre.
+func _add_interactive_collisions(scene: Node) -> int:
+	var count := 0
+	for mesh_instance: MeshInstance3D in scene.find_children("Interactif_*", "MeshInstance3D", true, false):
+		if mesh_instance.mesh == null or mesh_instance.get_children().any(func(c: Node) -> bool:
+				return c is CollisionObject3D):
+			continue
+		var shape := mesh_instance.mesh.create_convex_shape(true, true)
+		if shape == null:
+			continue
+		var body := StaticBody3D.new()
+		body.name = "Collision"
+		var collision := CollisionShape3D.new()
+		collision.name = "CollisionShape3D"
+		collision.shape = shape
+		body.add_child(collision)
+		mesh_instance.add_child(body)
+		body.owner = scene
+		collision.owner = scene
+		count += 1
+	return count
 
 
 ## Retire les pistes dont toutes les clés ont la même valeur ; rend leur nombre.

@@ -36,12 +36,15 @@ permet de piloter le jeu exporté.
   lueur minimale de braise, `halo_floor` : au plus froid, les lettres sombres restent lisibles) et boutons **Start Game** (charge `orbit_view.tscn`), **Settings** (écran des
   paramètres, par-dessus) et **Quit** dans la moitié droite ; à gauche, **la station vue de l'extérieur, côté
   soleil et légèrement en plongée, au-dessus de la Terre qui défile** (en temps réel). Ce décor est la scène du jeu elle-même, chargée
-  en tâche de fond dès l'ouverture du menu (`ResourceLoader.load_threaded_request`, quelques secondes, fond noir en
-  attendant) puis affichée en fondu (2 s), sans son interface ni le tir (`Hud`, `NukeReport`, `PilotConsole`, tablette,
+  en tâche de fond dès l'ouverture du menu (`ResourceLoader.load_threaded_request`, ~0,9 s) puis affichée en fondu
+  (2 s), sans son interface ni le tir (`Hud`, `NukeReport`, `PilotConsole`, tablette,
   `NukeLauncher` retirés), observateur désactivé, caméra extérieure (`BACKDROP_CAMERA_*` ; décalage horizontal
-  pour placer station et Terre à gauche). Le même chargement sert à **Start Game** : s'il n'est pas terminé, le
-  menu laisse place à « Loading in progress… » (clé `MENU_LOADING`, points animés et pourcentage), qui reste
-  affiché pendant la mise en place de la scène.
+  pour placer station et Terre à gauche). **Écran de chargement dès le démarrage** : jusqu'à ce que le décor soit
+  en place, fond noir et « Loading in progress… » (clé `MENU_LOADING`, points animés et pourcentage), puis les
+  boutons apparaissent en fondu (0,5 s). Le même chargement sert à **Start Game** : le message de chargement
+  revient pendant la mise en place de la partie. Mesure hors éditeur (18/10/2026) : fenêtre à 0,5 s, menu à
+  1,5 s ; la mise en place du décor (70 ms) figeait l'écran 4,7 s tant que les collisions des objets interactifs
+  étaient calculées au démarrage (elles le sont maintenant à l'import, voir « Post-import »).
 - **Écran des paramètres** (`scenes/ui/settings_menu.tscn`, script `scripts/ui/settings_menu.gd`) : onglets
   **Video**, **Audio**, **Controls**, **Game** ; Audio et Controls sont à venir (onglets désactivés, infobulle
   « Coming soon »). **Back** ou Échap pour revenir. Chaque choix est appliqué et sauvé aussitôt.
@@ -366,6 +369,10 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 - **Post-import** (`tools/import/station_import.gd`) :
   - collisions des portes et trappes (enfants d'une `Charniere_*` animée) converties en `AnimatableBody3D` (dont
     `station.gd` coupe `sync_to_physics` : voir « Collisions des portes et trappes » plus bas) ;
+  - collisions des objets `Interactif_*` qui n'en ont pas (tubes des silos, consoles, caisses, portables, écrans…) :
+    forme convexe simplifiée (`StaticBody3D` « Collision ») calculée **à l'import** : faite au démarrage
+    (`Station._add_interior_collisions`, gardé en secours), elle coûtait 3,5 s sur le fil principal (77 objets, dont
+    ~1,6 s pour les portables et écrans détaillés) ;
   - pistes constantes retirées des animations : l'export Blender met dans chaque action tous les objets animés
     (75 pistes) ; il ne reste que les pistes utiles (Rotation_Panneaux 4, Balayage_Antennes 3, Fermeture_Ecoutilles
     6, Ouverture_Trappes 48, Retraction_Radiateurs 12, Lancement_Missile 5). Sans cela, jouer une animation

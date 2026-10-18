@@ -623,7 +623,8 @@ static func _normal_angle(n: Vector2) -> float:
 
 ## Collisions des objets intérieurs : le modèle n'en génère que pour les parois (« -col ») et les portes
 ## (« -convcolonly ») ; les objets « Interactif_* » sans collision (tubes des silos, consoles, caisses, couchette…)
-## reçoivent une forme convexe simplifiée (StaticBody3D « Collision » enfant).
+## reçoivent une forme convexe simplifiée (StaticBody3D « Collision » enfant), normalement dès l'import
+## (tools/import/station_import.gd) : ce calcul coûte ~3,5 s ; il n'est refait ici que pour un objet qui n'en aurait pas.
 func _add_interior_collisions() -> void:
 	# Parois (« -col », formes concaves) : collision des deux côtés. Par défaut une face ne bloque que du côté où pointe
 	# sa normale ; vue de l'intérieur d'une coque (normales vers l'extérieur), on la traverserait.

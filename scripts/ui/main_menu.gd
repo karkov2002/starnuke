@@ -9,6 +9,8 @@ extends Control
 ## observateur désactivé, filmée par une caméra extérieure (BACKDROP_CAMERA_*), en temps réel (BACKDROP_TIME_SCALE).
 ## Le même chargement sert au lancement de la partie : « Commencer la partie » n'attend plus que la fin du chargement
 ## s'il n'est pas terminé.
+## Écran de chargement dès le démarrage du jeu : « Chargement en cours… » (points animés, pourcentage) sur le fond noir
+## jusqu'à ce que le décor soit en place ; le décor et les boutons apparaissent ensuite en fondu.
 
 const GAME_SCENE := "res://scenes/orbit_view.tscn"
 const SETTINGS_SCENE := preload("res://scenes/ui/settings_menu.tscn")
@@ -28,8 +30,12 @@ const BACKDROP_REMOVED: Array[String] = ["Hud", "NukeReport", "NukeLauncher", "P
 var _menu: Control
 var _start_button: Button
 var _veil: ColorRect
+var _loading: Label
+var _loading_dots := 0
 var _game_scene: PackedScene
 var _load_failed := false
+## Décor en place (ou chargement en échec) : le menu est utilisable.
+var _ready_to_play := false
 
 
 func _ready() -> void:
@@ -63,19 +69,63 @@ func _ready() -> void:
 	_start_button = _add_button(column, "MENU_START", _on_start)
 	_add_button(column, "MENU_SETTINGS", _on_settings)
 	_add_button(column, "MENU_QUIT", func() -> void: get_tree().quit())
-	_start_button.grab_focus.call_deferred()
+
+	# Écran de chargement : le menu reste caché tant que le décor n'est pas en place.
+	_menu.visible = false
+	_loading = Label.new()
+	_loading.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_loading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_loading.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_loading.add_theme_font_size_override("font_size", 32)
+	_loading.add_theme_color_override("font_color", Color(0.85, 0.87, 0.9))
+	_loading.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_loading)
+	_show_loading(0.0)
+	if _load_failed:
+		_show_menu()
 
 
 func _process(_delta: float) -> void:
 	if _game_scene or _load_failed:
 		set_process(false)
 		return
-	var status := ResourceLoader.load_threaded_get_status(GAME_SCENE)
+	var progress: Array = []
+	var status := ResourceLoader.load_threaded_get_status(GAME_SCENE, progress)
 	if status == ResourceLoader.THREAD_LOAD_LOADED:
 		_game_scene = ResourceLoader.load_threaded_get(GAME_SCENE) as PackedScene
-		_build_backdrop()
+		_open_menu()
 	elif status != ResourceLoader.THREAD_LOAD_IN_PROGRESS:
 		_load_failed = true
+		_show_menu()
+	else:
+		_show_loading(float(progress[0]) if not progress.is_empty() else 0.0)
+
+
+## Texte de chargement (part chargée de 0 à 1), points animés d'une image à l'autre.
+func _show_loading(share: float) -> void:
+	_loading_dots = (_loading_dots + 1) % 30
+	_loading.text = tr("MENU_LOADING").format({"dots": ".".repeat(1 + floori(_loading_dots / 10.0)),
+			"percent": roundi(100.0 * share)})
+
+
+## Scène chargée : 100 % affiché, puis mise en place du décor (sur le fil principal, l'écran se fige un instant) et
+## apparition du menu.
+func _open_menu() -> void:
+	_loading.text = tr("MENU_LOADING").format({"dots": "...", "percent": 100})
+	# Deux images : le texte final est affiché avant la mise en place, qui fige l'écran.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_build_backdrop()
+	_show_menu()
+
+
+func _show_menu() -> void:
+	_ready_to_play = true
+	_loading.visible = false
+	_menu.visible = true
+	_menu.modulate.a = 0.0
+	create_tween().tween_property(_menu, "modulate:a", 1.0, 0.5)
+	_start_button.grab_focus()
 
 
 ## Décor : scène du jeu sans interface ni tir, caméra extérieure, temps accéléré, apparition en fondu.
@@ -116,35 +166,19 @@ func _add_button(parent: Control, key: String, action: Callable) -> Button:
 	return button
 
 
-## La scène du jeu est chargée en tâche de fond depuis l'ouverture du menu : le menu laisse place à « Chargement en
-## cours… » (points animés, pourcentage) jusqu'à la fin du chargement, puis la scène remplace le menu. Le dernier
-## message reste affiché pendant la mise en place de la scène (_ready des nœuds), qui se fait sur le fil principal.
+## La scène du jeu est déjà chargée (le menu n'apparaît qu'ensuite) : le menu laisse place au dernier message de
+## chargement pendant la mise en place de la scène (_ready des nœuds), qui se fait sur le fil principal, puis la scène
+## remplace le menu.
 func _on_start() -> void:
-	if _load_failed:
+	if not _ready_to_play:
+		return
+	if _load_failed or _game_scene == null:
 		get_tree().change_scene_to_file(GAME_SCENE)
 		return
 	_menu.visible = false
-	var loading := Label.new()
-	loading.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	loading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	loading.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	loading.add_theme_font_size_override("font_size", 32)
-	loading.add_theme_color_override("font_color", Color(0.85, 0.87, 0.9))
-	loading.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(loading)
-	var progress: Array = []
-	var dots := 0
-	while _game_scene == null:
-		if _load_failed:
-			get_tree().change_scene_to_file(GAME_SCENE)
-			return
-		ResourceLoader.load_threaded_get_status(GAME_SCENE, progress)
-		dots = (dots + 1) % 30
-		loading.text = tr("MENU_LOADING").format({"dots": ".".repeat(1 + floori(dots / 10.0)),
-				"percent": roundi(100.0 * float(progress[0]) if not progress.is_empty() else 0.0)})
-		await get_tree().process_frame
-	loading.text = tr("MENU_LOADING").format({"dots": "...", "percent": 100})
-	# Deux images : le texte final est affiché avant la mise en place de la scène, qui fige l'écran un instant.
+	_loading.text = tr("MENU_LOADING").format({"dots": "...", "percent": 100})
+	_loading.visible = true
+	# Deux images : le texte est affiché avant la mise en place de la scène, qui fige l'écran un instant.
 	await get_tree().process_frame
 	await get_tree().process_frame
 	get_tree().change_scene_to_packed(_game_scene)
