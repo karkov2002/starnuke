@@ -5,7 +5,7 @@ extends Control
 ##   « HUD : On / Off » (affichage en surimpression dans la cupola, Hud.overlay_enabled) ; dessous, la date et l'heure
 ##   UTC et l'heure solaire du point survolé ;
 ## - onglet Pilotage : la carte du poste de pilotage en réduit (OrbitalMap : trace au sol, station, point de manœuvre
-##   et trace fantôme), de MAP_MAX_LAT_DEG nord à sud pour être plus large, et, dans une colonne à droite, la commande
+##   et trace fantôme), de MAP_MAX_LAT_DEG nord à sud (comme au poste), et, dans une colonne à droite, la commande
 ##   de poussée (BurnControl en colonne : compte à rebours, gros bouton BURN bleu, jauge verticale) ;
 ## - onglet Photographie : la vue au nadir en temps réel (texture nadir_texture, rendue par la tablette seulement
 ##   quand l'onglet est affiché) et le bouton « Photo » (pour l'instant : un flash) ;
@@ -19,7 +19,7 @@ enum Tab { PILOT, PHOTO, MISSILE }
 
 const MARGIN := 18.0
 const FONT_SIZE := 22
-const MAP_MAX_LAT_DEG := 70.0
+const MAP_MAX_LAT_DEG := 80.0
 ## Largeur réservée à la colonne BURN, à droite de la carte, et à celle du bouton Photo (pixels).
 const SIDE_WIDTH := 210.0
 ## Marge supplémentaire à droite (pixels) : le pouce de la main qui tient la tablette, posé sur la bordure de

@@ -1,7 +1,7 @@
 class_name OrbitalMap
 extends Control
 ## Carte du monde de l'écran de pilotage (scripts/ui/pilot_display.gd) et de la tablette, en projection de Mercator de
-## max_lat_deg nord à max_lat_deg sud (80° au poste, 70° sur la tablette, plus large) : contours des pays en lignes
+## max_lat_deg nord à max_lat_deg sud (80°, au poste comme sur la tablette) : contours des pays en lignes
 ## blanches sur fond noir (WorldMapLines, Natural Earth), méridiens et parallèles tous les 10° et équateur en gris,
 ## trace au sol de l'orbite, position de la station, prochain nœud (passage à l'équateur, losange cyan) et, si une
 ## manœuvre est prévue, trace au sol de l'orbite fantôme en pointillés cyan (FlightComputer), sur une période à partir
@@ -33,7 +33,7 @@ const GRID_STEP_DEG := 10.0
 const TRACK_PAST := 0.5
 const TRACK_STEP_S := 20.0
 const MAX_ORBITS_AHEAD := 4
-const MAX_ZOOM := 8.0
+const MAX_ZOOM := 32.0
 ## Facteur de zoom d'un cran de molette et d'un clic sur « + » / « − ».
 const WHEEL_ZOOM := 1.25
 const BUTTON_ZOOM := 1.6
