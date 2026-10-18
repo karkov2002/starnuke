@@ -357,11 +357,16 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   enregistré se perd à la réouverture.
 - **Écoutilles des modules de missiles** (`tools/blender/add_missile_hatches.py`, envoyé au Blender ouvert sur
   `nuke_station.blend`, rejouable) : le tunnel Habitation → silo (Ø 2,88 m) est rétréci au passage standard
-  (Ø 1,32 m) par une cloison `Missile_<s>_Cloison_Ecoutille-col` (couronne grise + cadre copié de l'écoutille avant
-  de l'Habitation) à |y| = 2,55 m ; l'écoutille (`Charniere_Ecoutille_Missile_<s>`, `Interactif_Ecoutille_Missile_<s>`
+  (Ø 1,32 m) par une cloison `Missile_<s>_Cloison_Ecoutille-col` (couronne grise, anneaux métal et jaune aux
+  dimensions de ceux de l'écoutille avant de l'Habitation mais lisses : section arrondie, 96 segments ; paumelle
+  copiée) à |y| = 2,55 m ; l'écoutille (`Charniere_Ecoutille_Missile_<s>`, `Interactif_Ecoutille_Missile_<s>`
   et sa collision `-convcolonly`) est une copie exacte de `Ecoutille_Habitation_AV`, avec sa piste
   `Fermeture_Ecoutilles` (−90° en 40 images) ; elle s'ouvre vers le silo (porte ouverte : elle dépasse un peu
   dans le dôme du silo).
+- **Sas entre modules** (`tools/blender/remove_sas_pads.py`, rejouable) : retrait des 4 plaquettes blanches
+  posées au milieu des sas (une par écoutille axiale, loin de sa charnière). Le modèle a ses écoutilles ouvertes
+  au repos et la porte ouverte les cachait ; fermées au démarrage du jeu, elles flottaient seules. La plaquette
+  jumelle, contre le cadre à côté de la charnière (paumelle), est gardée.
 - **Embouchure des tunnels côté silo** (`tools/blender/fix_missile_tunnels.py`, rejouable) : le tunnel est recoupé
   au ras du col du dôme intérieur (|y| = 3,36 m ; il dépassait de 1,04 m dans le dôme, et sa face extérieure
   `Coque_Silo`, non éclairée à l'intérieur, y faisait un contour noir et plat) ; la bride extérieure qui flottait
