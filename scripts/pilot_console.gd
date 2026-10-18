@@ -56,6 +56,7 @@ var _exit_hint: Label
 
 
 func _ready() -> void:
+	add_to_group(ScreenSeat.GROUP)
 	_observer = get_node(observer_path)
 	_camera = _observer.get_node("Camera") as Camera3D
 	var station := get_node(station_path)
@@ -96,7 +97,7 @@ func _notification(what: int) -> void:
 
 
 func _process(_delta: float) -> void:
-	var hovering := not _seated and not _moving and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE \
+	var hovering := not _seated and not _moving and not ScreenSeat.any_seated(get_tree()) and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE \
 			and _screen_uv(_mouse_position, reach_m) != Vector2(-1, -1)
 	_hover_label.visible = hovering
 	if hovering:

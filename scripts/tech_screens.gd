@@ -20,7 +20,6 @@ enum Program { CODE, WIREFRAME, TELEMETRY, ORBIT, STRIP }
 const ASSIGNMENT := {
 	"Interactif_Ecran_01": Program.WIREFRAME,
 	"Interactif_Ecran_02": Program.CODE,
-	"Interactif_Ecran_03": Program.TELEMETRY,
 	"Interactif_Ecran_04": Program.ORBIT,
 	"Interactif_Ecran_05": Program.CODE,
 	"Interactif_Ecran_06": Program.WIREFRAME,

@@ -1,0 +1,213 @@
+class_name TvDisplay
+extends Control
+## Interface de l'écran de télévision du module Commande (scripts/tv_console.gd), dessinée dans son SubViewport :
+## - la chaîne en cours : image du plateau (assets/tv/studio.png, provisoire : deux présentateurs), nom de la chaîne
+##   en haut à droite (logo), bandeau « En direct » et pays en bas ; ou la mire « Pas de signal » (barres de couleur)
+##   si la capitale du pays a été touchée (TvConsole.is_off_air) ;
+## - en haut à gauche, le bouton « Chaînes », qui ouvre la liste des pays (ordre alphabétique du nom traduit, avec
+##   le nom de leur chaîne d'information, inventé ; pays hors d'antenne signalés) : un clic choisit la chaîne.
+## L'interface ne réagit qu'en position « vue TV » (TvConsole transmet alors la souris).
+
+signal channel_selected(code: String)
+
+const STUDIO := preload("res://assets/tv/studio.png")
+const COLOR_TEXT := Color(0.95, 0.96, 0.98)
+const COLOR_PANEL := Color(0.03, 0.05, 0.09, 0.94)
+const COLOR_ACCENT := Color(0.85, 0.12, 0.1)
+const COLOR_OFF := Color(0.6, 0.6, 0.62)
+
+var console: TvConsole
+## Pays de la chaîne affichée ("" : aucune).
+var channel := ""
+
+var _studio: TextureRect
+var _logo: Label
+var _logo_panel: PanelContainer
+var _lower_third: PanelContainer
+var _country_label: Label
+var _no_signal: Control
+var _menu_button: Button
+var _menu: PanelContainer
+var _list: VBoxContainer
+var _time := 0.0
+
+
+func _ready() -> void:
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+	clip_contents = true
+	var background := ColorRect.new()
+	background.color = Color.BLACK
+	background.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(background)
+	_studio = TextureRect.new()
+	_studio.texture = STUDIO
+	_studio.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_studio.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_studio.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_studio)
+	# Logo de la chaîne en haut à droite.
+	_logo_panel = PanelContainer.new()
+	_logo_panel.add_theme_stylebox_override("panel", _box(Color(0.02, 0.04, 0.1, 0.85), COLOR_ACCENT, 3, 14))
+	_logo = Label.new()
+	_logo.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_logo.add_theme_font_size_override("font_size", int(size.y * 0.055))
+	_logo.add_theme_color_override("font_color", COLOR_TEXT)
+	_logo_panel.add_child(_logo)
+	add_child(_logo_panel)
+	# Bandeau bas : « EN DIRECT » et pays.
+	_lower_third = PanelContainer.new()
+	_lower_third.add_theme_stylebox_override("panel", _box(Color(0.02, 0.04, 0.1, 0.88), Color(0, 0, 0, 0), 0, 12))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 18)
+	_lower_third.add_child(row)
+	var live := Label.new()
+	live.text = "TV_LIVE"
+	live.add_theme_font_size_override("font_size", int(size.y * 0.045))
+	live.add_theme_color_override("font_color", COLOR_TEXT)
+	var live_box := PanelContainer.new()
+	live_box.add_theme_stylebox_override("panel", _box(COLOR_ACCENT, Color(0, 0, 0, 0), 0, 8))
+	live_box.add_child(live)
+	row.add_child(live_box)
+	_country_label = Label.new()
+	_country_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_country_label.add_theme_font_size_override("font_size", int(size.y * 0.045))
+	_country_label.add_theme_color_override("font_color", COLOR_TEXT)
+	row.add_child(_country_label)
+	add_child(_lower_third)
+	# Mire « pas de signal ».
+	_no_signal = Control.new()
+	_no_signal.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_no_signal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_no_signal.draw.connect(_draw_no_signal)
+	add_child(_no_signal)
+	# Bouton du menu des chaînes et liste.
+	_menu_button = Button.new()
+	_menu_button.text = "TV_CHANNELS"
+	_menu_button.focus_mode = Control.FOCUS_NONE
+	_menu_button.add_theme_font_size_override("font_size", int(size.y * 0.045))
+	for state in ["normal", "hover", "pressed"]:
+		_menu_button.add_theme_stylebox_override(state, _box(COLOR_PANEL if state != "hover" else Color(0.1, 0.15, 0.25, 0.95),
+				COLOR_TEXT, 2, 12))
+	_menu_button.position = Vector2(size.y * 0.04, size.y * 0.04)
+	_menu_button.pressed.connect(func() -> void: _menu.visible = not _menu.visible)
+	add_child(_menu_button)
+	_build_menu()
+	show_channel(channel)
+
+
+func _process(delta: float) -> void:
+	_time += delta
+	if is_off_air():
+		_no_signal.queue_redraw()
+	# Placement (tailles connues après la mise en page).
+	_logo_panel.position = Vector2(size.x - _logo_panel.size.x - size.y * 0.04, size.y * 0.04)
+	_lower_third.position = Vector2(size.y * 0.04, size.y - _lower_third.size.y - size.y * 0.05)
+
+
+func is_off_air() -> bool:
+	return channel != "" and console != null and console.is_off_air(channel)
+
+
+## Affiche la chaîne du pays code ("" : aucune, mire).
+func show_channel(code: String) -> void:
+	channel = code
+	var off := code == "" or is_off_air()
+	_studio.visible = not off
+	_logo_panel.visible = code != ""
+	_lower_third.visible = not off
+	_no_signal.visible = off
+	if code != "" and console:
+		_logo.text = console.channel_name(code)
+		_country_label.text = tr("COUNTRY_" + code)
+	_refresh_menu()
+
+
+func refresh() -> void:
+	show_channel(channel)
+
+
+func _build_menu() -> void:
+	_menu = PanelContainer.new()
+	_menu.add_theme_stylebox_override("panel", _box(COLOR_PANEL, COLOR_TEXT, 2, 12))
+	_menu.position = Vector2(size.y * 0.04, size.y * 0.16)
+	_menu.size = Vector2(size.x * 0.55, size.y * 0.78)
+	_menu.visible = false
+	add_child(_menu)
+	var column := VBoxContainer.new()
+	_menu.add_child(column)
+	var title := Label.new()
+	title.text = "TV_CHOOSE_COUNTRY"
+	title.add_theme_font_size_override("font_size", int(size.y * 0.04))
+	title.add_theme_color_override("font_color", COLOR_TEXT)
+	column.add_child(title)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(size.x * 0.53, size.y * 0.66)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	column.add_child(scroll)
+	_list = VBoxContainer.new()
+	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_list)
+
+
+## Liste des pays (reconstruite à l'ouverture d'une chaîne : noms traduits, état hors d'antenne).
+func _refresh_menu() -> void:
+	if console == null or _list == null:
+		return
+	for child in _list.get_children():
+		child.queue_free()
+	var codes := console.channel_codes()
+	codes.sort_custom(func(a: String, b: String) -> bool:
+		return tr("COUNTRY_" + a).naturalnocasecmp_to(tr("COUNTRY_" + b)) < 0)
+	for code in codes:
+		var button := Button.new()
+		button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.focus_mode = Control.FOCUS_NONE
+		button.add_theme_font_size_override("font_size", int(size.y * 0.036))
+		var off := console.is_off_air(code)
+		button.text = "%s  —  %s%s" % [tr("COUNTRY_" + code), console.channel_name(code),
+				"   (%s)" % tr("TV_OFF_AIR") if off else ""]
+		var active := code == channel
+		var normal := _box(Color(0.12, 0.2, 0.35, 0.9) if active else Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 8)
+		button.add_theme_stylebox_override("normal", normal)
+		button.add_theme_stylebox_override("hover", _box(Color(0.15, 0.25, 0.45, 0.95), Color(0, 0, 0, 0), 0, 8))
+		button.add_theme_stylebox_override("pressed", normal)
+		button.add_theme_color_override("font_color", COLOR_OFF if off else COLOR_TEXT)
+		button.add_theme_color_override("font_hover_color", COLOR_TEXT)
+		button.pressed.connect(func() -> void:
+			_menu.visible = false
+			channel_selected.emit(code))
+		_list.add_child(button)
+
+
+func _draw_no_signal() -> void:
+	# Barres de couleur (mire), bruit léger, message au centre.
+	var colors := [Color(0.75, 0.75, 0.75), Color(0.75, 0.75, 0), Color(0, 0.75, 0.75), Color(0, 0.75, 0),
+			Color(0.75, 0, 0.75), Color(0.75, 0, 0), Color(0, 0, 0.75)]
+	var width := size.x / colors.size()
+	for i in colors.size():
+		_no_signal.draw_rect(Rect2(Vector2(i * width, 0), Vector2(width + 1, size.y * 0.72)), colors[i])
+	_no_signal.draw_rect(Rect2(Vector2(0, size.y * 0.72), Vector2(size.x, size.y * 0.28)), Color(0.06, 0.06, 0.07))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(_time * 12.0)
+	for k in 160:
+		var p := Vector2(rng.randf() * size.x, rng.randf() * size.y)
+		_no_signal.draw_rect(Rect2(p, Vector2(rng.randf_range(2, 9), 2)), Color(1, 1, 1, rng.randf() * 0.25))
+	var font := get_theme_default_font()
+	var font_size := int(size.y * 0.09)
+	var text := tr("TV_NO_SIGNAL")
+	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+	var box := Rect2(size * 0.5 - text_size * 0.5 - Vector2(30, 20), text_size + Vector2(60, 40))
+	_no_signal.draw_rect(box, Color(0, 0, 0, 0.85))
+	_no_signal.draw_string(font, Vector2(box.position.x + 30, box.position.y + 20 + text_size.y * 0.78), text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, COLOR_TEXT)
+
+
+func _box(fill: Color, border: Color, border_width: int, margin: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = border
+	style.set_border_width_all(border_width)
+	style.set_corner_radius_all(6)
+	style.set_content_margin_all(margin)
+	return style

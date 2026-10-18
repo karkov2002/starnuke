@@ -362,6 +362,23 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   et seulement quand la caméra est dans le module Commande ; écrans éteints avec « plus de lumière »
   (`Station.get_blackout`). Mesure : 120 im/s inchangés dans le module. Les textes affichés sont du pseudo-code et
   des valeurs techniques, sans langue : ils ne passent pas par les fichiers de langue.
+- **Télévision** (`scripts/tv_console.gd`, nœud `TvConsole` ; interface `scripts/ui/tv_display.gd`) : l'écran
+  `Interactif_Ecran_03` du module Commande (retiré des écrans d'ambiance) diffuse les chaînes d'information du monde.
+  - **Vue TV** : survol à portée (2,5 m) → bulle « Télévision » ; clic gauche → la vue se cadre face à l'écran, comme
+    au poste de pilotage (déplacements suspendus, tablette rangée, écoutilles non cliquables : groupe commun
+    `ScreenSeat`, `scripts/screen_seat.gd`) ; **clic droit** pour quitter, la télévision reste sur la chaîne choisie
+    (France par défaut).
+  - **Chaînes** : bouton « Chaînes » en haut à gauche de l'écran → liste des pays (ordre alphabétique du nom traduit,
+    `locale/countries.csv`), chacun avec sa chaîne d'information au nom **inventé** mais vraisemblable (197 pays
+    souverains, `assets/tv/channels.csv` : code ISO, nom de la chaîne, coordonnées de la capitale ; les noms de
+    chaînes sont des noms propres, hors fichiers de langue). La chaîne affiche pour l'instant une image fixe
+    provisoire, deux présentateurs sur un plateau (`assets/tv/studio.png`, rendue par
+    `tools/blender/build_tv_studio.py` dans un Blender en arrière-plan), avec le nom de la chaîne en haut à droite et
+    un bandeau « En direct » + pays en bas.
+  - **Règle de jeu** : un pays dont la **capitale est touchée** (dans le rayon de 5 psi d'une explosion,
+    `TvConsole.OFF_AIR_PSI`) ne diffuse plus, définitivement (le monde persiste) : sa chaîne passe sur la mire
+    **« Pas de signal »** et la liste la signale « hors d'antenne ». État recalculé à chaque tir et toutes les 2 s.
+  - Coût : le `SubViewport` de l'écran n'est rendu que si la caméra est à moins de 12 m.
 
 ## Station spatiale (modèle Blender)
 

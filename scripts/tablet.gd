@@ -103,10 +103,7 @@ func _ready() -> void:
 	if _camera:
 		_previous_view = _camera.global_basis.orthonormalized()
 	_console = get_node_or_null(pilot_console_path) as PilotConsole
-	if _console:
-		_console.seated_changed.connect(func(seated: bool) -> void:
-			if seated:
-				_set_wanted(false))
+	_connect_seats.call_deferred()
 	_model = MODEL.instantiate()
 	add_child(_model)
 	for mesh_instance: MeshInstance3D in _model.find_children("*", "MeshInstance3D", true, false):
@@ -169,9 +166,17 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"tablet") and not event.is_echo() and not StationCamera.is_typing(self) \
-			and not (_console and _console.is_seated()):
+			and not ScreenSeat.any_seated(get_tree()):
 		get_viewport().set_input_as_handled()
 		_set_wanted(not _wanted)
+
+
+## Poste de pilotage, télévision (ScreenSeat) : la tablette se range quand on s'y installe.
+func _connect_seats() -> void:
+	for seat in get_tree().get_nodes_in_group(ScreenSeat.GROUP):
+		seat.seated_changed.connect(func(seated: bool) -> void:
+			if seated:
+				_set_wanted(false))
 
 
 func is_out() -> bool:

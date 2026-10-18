@@ -76,7 +76,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _active() -> bool:
-	return _station != null and not (_console and _console.is_seated())
+	return _station != null and not ScreenSeat.any_seated(get_tree())
 
 
 ## Écoutille ouvrable ou rideau sous le curseur, à portée (premier obstacle touché par le rayon, zones de clic des
