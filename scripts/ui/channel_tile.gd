@@ -34,18 +34,18 @@ var _monogram := ""
 var _flag: Texture2D
 
 
-func setup(channel_code: String, channel_number: int, name: String, country_name: String) -> void:
+func setup(channel_code: String, channel_number: int, display_name: String, country_name: String) -> void:
 	code = channel_code
 	number = channel_number
-	channel_name = name
+	channel_name = display_name
 	country = country_name
-	var h := hash(name)
+	var h := hash(display_name)
 	_brand = BRAND_COLORS[absi(h) % BRAND_COLORS.size()]
 	_accent = ACCENTS[absi(h >> 8) % ACCENTS.size()]
 	if _accent.is_equal_approx(Color(0.95, 0.15, 0.15)) and _brand.r > 0.5:
 		_accent = Color.WHITE
 	_style = absi(h >> 16) % 4
-	_monogram = monogram(name)
+	_monogram = monogram(display_name)
 	var flag_path := FLAG_DIR + channel_code + ".png"
 	_flag = load(flag_path) as Texture2D if ResourceLoader.exists(flag_path) else null
 	auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
@@ -62,9 +62,9 @@ func set_state(is_current: bool, is_off_air: bool) -> void:
 		queue_redraw()
 
 
-static func monogram(name: String) -> String:
+static func monogram(display_name: String) -> String:
 	var letters := ""
-	for word in name.split(" ", false):
+	for word in display_name.split(" ", false):
 		if word.is_valid_int() or word.ends_with("h") and word.left(-1).is_valid_int() or word == "24x7":
 			letters += word
 		else:
@@ -141,11 +141,11 @@ func _draw_logo(r: Rect2, font: Font) -> void:
 
 
 ## Texte centré dans r, réduit au besoin pour tenir dans 88 % de sa largeur.
-func _centered(font: Font, r: Rect2, text: String, font_size: float, color: Color) -> void:
-	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size)).x
+func _centered(font: Font, r: Rect2, label: String, font_size: float, color: Color) -> void:
+	var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size)).x
 	if width > r.size.x * 0.88:
 		font_size *= r.size.x * 0.88 / width
-	draw_string(font, Vector2(r.position.x, r.get_center().y + font_size * 0.36), text, HORIZONTAL_ALIGNMENT_CENTER,
+	draw_string(font, Vector2(r.position.x, r.get_center().y + font_size * 0.36), label, HORIZONTAL_ALIGNMENT_CENTER,
 			r.size.x, int(font_size), color)
 
 

@@ -1,6 +1,6 @@
 extends Control
 ## Écran des paramètres (scenes/ui/settings_menu.tscn), ouvert par l'écran de démarrage. Onglets « Vidéo », « Audio »,
-## « Commandes » et « Jeu » ; Audio et Commandes sont à venir (onglets désactivés). Chaque choix est appliqué et sauvé
+## « Commandes » et « Jeu » ; Commandes est à venir (onglet désactivé). Chaque choix est appliqué et sauvé
 ## aussitôt par l'autoload GameSettings. Émet closed au clic sur « Retour » (ou Échap).
 ## En jeu (in_game, ouvert par la pause, scripts/ui/pause_menu.gd) : fond translucide sur la vue figée et bouton
 ## supplémentaire « Quitter la partie », avec confirmation Oui / Non (main_menu_requested : retour à l'écran de
@@ -17,7 +17,7 @@ signal closed
 
 const PANEL_SIZE := Vector2(980.0, 560.0)
 const TABS: Array[String] = ["TAB_VIDEO", "TAB_AUDIO", "TAB_CONTROL", "TAB_GAME"]
-const DISABLED_TABS: Array[String] = ["TAB_AUDIO", "TAB_CONTROL"]
+const DISABLED_TABS: Array[String] = ["TAB_CONTROL"]
 
 var _tabs: TabContainer
 var _mode: OptionButton
@@ -28,6 +28,11 @@ var _brightness_value: Label
 var _interior_light: HSlider
 var _interior_light_value: Label
 var _language: OptionButton
+var _music_volume: HSlider
+var _music_volume_value: Label
+var _sfx_volume: HSlider
+var _sfx_volume_value: Label
+var _playlist: OptionButton
 var _back: Button
 
 
@@ -73,6 +78,7 @@ func _ready() -> void:
 			_tabs.get_tab_bar().set_tab_tooltip(index, "TAB_COMING_SOON")
 			_add_note(page, "TAB_COMING_SOON")
 	_build_video(pages.TAB_VIDEO)
+	_build_audio(pages.TAB_AUDIO)
 	_build_game(pages.TAB_GAME)
 
 	_back = Button.new()
@@ -191,6 +197,50 @@ func _build_video(page: VBoxContainer) -> void:
 	_resolution_note.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 
 
+## Onglet Audio : volume de la musique et des effets sonores (0 à 100 %), playlist jouée en partie (sous-dossiers
+## de res://playlist/, autoload Music ; noms de dossiers, jamais traduits).
+func _build_audio(page: VBoxContainer) -> void:
+	var grid := _make_grid(page)
+	var music := _add_percent_slider(grid, "AUDIO_MUSIC_VOLUME", func(value: float) -> void:
+		GameSettings.set_music_volume(value / 100.0))
+	_music_volume = music[0]
+	_music_volume_value = music[1]
+	var sfx := _add_percent_slider(grid, "AUDIO_SFX_VOLUME", func(value: float) -> void:
+		GameSettings.set_sfx_volume(value / 100.0))
+	_sfx_volume = sfx[0]
+	_sfx_volume_value = sfx[1]
+	_playlist = _add_option(grid, "AUDIO_PLAYLIST")
+	_playlist.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_playlist.item_selected.connect(func(index: int) -> void:
+		GameSettings.set_playlist(_playlist.get_item_text(index)))
+	_add_note(page, "AUDIO_PLAYLIST_NOTE")
+
+
+## Curseur de 0 à 100 % et sa valeur affichée ; rend [curseur, étiquette].
+func _add_percent_slider(grid: GridContainer, key: String, on_change: Callable) -> Array:
+	var label := Label.new()
+	label.text = key
+	label.add_theme_font_size_override("font_size", 20)
+	grid.add_child(label)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	grid.add_child(row)
+	var slider := HSlider.new()
+	slider.max_value = 100.0
+	slider.step = 5.0
+	slider.custom_minimum_size = Vector2(360.0, 44.0)
+	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(slider)
+	var value_label := Label.new()
+	value_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	value_label.add_theme_font_size_override("font_size", 20)
+	row.add_child(value_label)
+	slider.value_changed.connect(func(value: float) -> void:
+		value_label.text = "%d %%" % roundi(value)
+		on_change.call(value))
+	return [slider, value_label]
+
+
 ## Onglet Jeu : langue (noms des langues dans leur propre langue, jamais traduits).
 func _build_game(page: VBoxContainer) -> void:
 	var grid := _make_grid(page)
@@ -222,6 +272,15 @@ func _refresh() -> void:
 	_brightness_value.text = "%d %%" % roundi(GameSettings.brightness * 100.0)
 	_interior_light.set_value_no_signal(GameSettings.interior_light * 100.0)
 	_interior_light_value.text = "%d %%" % roundi(GameSettings.interior_light * 100.0)
+	_music_volume.set_value_no_signal(GameSettings.music_volume * 100.0)
+	_music_volume_value.text = "%d %%" % roundi(GameSettings.music_volume * 100.0)
+	_sfx_volume.set_value_no_signal(GameSettings.sfx_volume * 100.0)
+	_sfx_volume_value.text = "%d %%" % roundi(GameSettings.sfx_volume * 100.0)
+	_playlist.clear()
+	for playlist_name in Music.playlists():
+		_playlist.add_item(playlist_name)
+		if playlist_name == GameSettings.playlist:
+			_playlist.select(_playlist.item_count - 1)
 
 
 func _make_grid(page: VBoxContainer) -> GridContainer:

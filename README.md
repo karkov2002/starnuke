@@ -46,7 +46,7 @@ permet de piloter le jeu exporté.
   1,5 s ; la mise en place du décor (70 ms) figeait l'écran 4,7 s tant que les collisions des objets interactifs
   étaient calculées au démarrage (elles le sont maintenant à l'import, voir « Post-import »).
 - **Écran des paramètres** (`scenes/ui/settings_menu.tscn`, script `scripts/ui/settings_menu.gd`) : onglets
-  **Video**, **Audio**, **Controls**, **Game** ; Audio et Controls sont à venir (onglets désactivés, infobulle
+  **Video**, **Audio**, **Controls**, **Game** ; Controls est à venir (onglet désactivé, infobulle
   « Coming soon »). **Back** ou Échap pour revenir. Chaque choix est appliqué et sauvé aussitôt.
   - **Video** : mode d'affichage (**fenêtré** / **plein écran**), **résolution** et **luminosité** (25 à 150 %,
     `GameSettings.brightness`, sauvée dans `user://settings.cfg` : facteur du multiplicateur d'exposition des
@@ -79,6 +79,15 @@ permet de piloter le jeu exporté.
     - **Écrans ultra-larges** (21:9, 32:9) : étirement `canvas_items` / `expand` du projet (base 1920 × 1080). La vue
       3D garde son champ de vision vertical et s'élargit (`Camera3D.keep_aspect` = hauteur) ; l'interface garde sa
       taille et s'étend sur toute la largeur (panneau en bas au centre, bilan en haut à droite).
+  - **Audio** : **volume de la musique** et **volume des effets sonores** (0 à 100 %, `GameSettings.music_volume`,
+    60 % par défaut, et `sfx_volume`, 100 %), volumes des bus « Music » et « SFX » (`default_bus_layout.tres`, muet à
+    0 %) ; **playlist** : menu déroulant des playlists disponibles (`GameSettings.playlist`, « starnuke » par défaut).
+    Une playlist est un sous-dossier de `playlist/` (son nom est celui du dossier) ; l'autoload `Music`
+    (`scripts/music_player.gd`) joue tous ses morceaux (.mp3, .ogg, .wav, ordre alphabétique) puis recommence, dès le
+    début de la partie (scène `orbit_view.tscn`, pause comprise) ; il s'arrête à l'écran de démarrage. Changer de
+    playlist en cours de partie lance aussitôt la nouvelle. Playlist « starnuke » : « Deep Space Hiss » 1 et 2. Pour
+    ajouter une playlist : créer `playlist/<nom>/`, y déposer les morceaux, rescan dans l'éditeur (import en
+    `loop=false` : l'enchaînement est fait par `Music`).
   - **Game** : **langue** (English, Français, Español, Deutsch, Italiano ; anglais par défaut), appliquée en direct.
 - **Sauvegarde** (autoload `GameSettings`, `scripts/game_settings.gd`) : `user://settings.cfg` (sous Windows
   `%APPDATA%/Godot/app_userdata/Star Nuke/settings.cfg`), réappliqué au lancement suivant. Sections `[video]`
