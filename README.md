@@ -138,7 +138,7 @@ permet de piloter le jeu exporté.
 | Pause | **Échap** (action `pause`, touche physique ; un nouvel appui sur Échap reprend la partie) : fige le jeu (orbite, missiles en vol, explosions, animations : `SceneTree.paused`) et ouvre l'écran des paramètres par-dessus la vue figée (fond translucide), avec deux boutons : **Retour** (ou Échap) reprend la partie, **Quitter la partie** demande confirmation (**Oui** / **Non**, « Non » sélectionné par défaut) puis revient à l'écran de démarrage (la partie est perdue). Ignoré pendant la saisie de la date. Nœud `PauseMenu` de `orbit_view.tscn` (`scripts/ui/pause_menu.gd`, actif pendant la pause), `SettingsMenu.in_game` |
 | Silos | **48 voyants ronds numérotés de 1 à 48** en bas de la tablette, un par tube de lancement, en 2 blocs de 3 × 8 placés comme les deux silos sur la station (vue de dessus, l'avant en haut ; silo 1 à gauche). **Orange** : missile prêt ; clic → **vert** : tube choisi pour le prochain tir (un seul à la fois, nouveau clic pour annuler) ; **gris** : tube vide. **48 missiles en tout**, sans rechargement. Choisir un tube **ouvre sa trappe** (animation Blender) et allume à côté un **gyrophare rouge** à éclats, qui éclaire la trappe et le dessous de la coque ; le tube choisi auparavant referme sa trappe et éteint son gyrophare (de même si on annule le choix). Après le tir, quand le missile a quitté la station, la trappe se referme et le gyrophare s'éteint |
 | Tir nucléaire | **Gros bouton rouge** à droite des silos (tablette), **depuis la cupola seulement** : lance le missile du **tube choisi (vert)** sur le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie sous les silos (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Le point visé et la puissance sont figés à l'appui. Le missile sort de son tube (animation de lancement, 5 s : trappe, descente, allumage), le tube passe au gris, puis le missile tourne vers la cible en accélérant pendant que son moteur brûle (9 s) et part vers la zone d'impact ; moteur éteint, on le perd de vue ; dans les dernières secondes, sa **rentrée atmosphérique** apparaît au-dessus de la cible, comme une étoile filante, puis l'explosion a lieu. **Durée du vol : de 20 s (cible au nadir) à 2 min (cible à l'horizon)**, proportionnelle à la distance (temps de jeu : le vol se fige en pause et s'accélère avec le temps). Un **chronomètre** par missile, en bas à droite de l'écran (« Silo 7 · impact dans 0:43 », toujours visible, même hors de la cupola), décompte jusqu'à l'impact, passe au rouge et clignote dans les 10 dernières secondes. Sans tube choisi, ou si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien et le missile reste dans son tube. Voir « Explosions nucléaires » |
-| Bilan des explosions | Fenêtre **« Bilan des explosions »**, ouverte au premier tir (en haut à droite) : pays touchés et pertes, cumulées sur toutes les explosions. **Glisser sa barre de titre** (clic gauche maintenu) pour la déplacer ; bouton **—** / **+** pour la replier ; molette ou barre de défilement pour parcourir la liste |
+| Bilan des explosions | Sur l'écran mural à droite en face de la télévision (module Commande) : pays touchés et pertes, cumulées sur toutes les explosions ; la liste défile seule quand elle déborde |
 | Compteur de performances et panneau de debug | **F4** ouvre ou masque le **panneau de debug des explosions** dans la partie en cours (outil de développement, en français : puissance, coordonnées, scrubber du temps, alerte de la station, altitude et inclinaison directes de l'orbite, date et heure UTC, redémarrage ; voir « Scène de debug » dans « Explosions nucléaires »). **F3** affiche ou masque la ligne en haut à droite (visible par défaut, outil de développement, non traduite) : images par seconde, temps CPU et GPU moyens par image, appels de dessin, mémoire vidéo (moyennes sur 0,5 s). Nœud `FpsOverlay` de `scenes/orbit_view.tscn`, script `scripts/ui/fps_overlay.gd` ; voir « Performances » |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
@@ -228,29 +228,30 @@ de la vue).
   de la cupola : pour l'instant l'anneau de l'orbite visée (`GhostTrack`), à venir la zone visée (photo, missiles).
   Le réticule de tir et la barre du temps n'en dépendent pas.
 
-**Fenêtre « Bilan des explosions »** (nœud `NukeReport` de `scenes/orbit_view.tscn`, script
-`nuke/nuke_report_panel.gd`, construite en code). Elle apparaît au premier tir, en haut à droite, et disparaît
-quand il n'y a plus d'explosion (« Effacer » du panneau de debug).
+**Écran « Bilan des explosions »** (nœud `NukeReport` de `scenes/orbit_view.tscn`, script
+`nuke/nuke_report_panel.gd`, construit en code) : affiché sur l'**écran mural `Interactif_Ecran_02`** du module
+Commande (à droite, en face de la télévision, retiré des écrans d'ambiance), dans un `SubViewport` 1280 × 800 posé
+sur la dalle avec le shader des écrans d'ambiance (`shaders/tech_screen.gdshader`, lignes de balayage). Il remplace
+l'ancienne fenêtre déplaçable à l'écran. Sans explosion : « Aucune explosion ». Image rendue seulement si la caméra
+est à moins de 12 m ; écran éteint avec « plus de lumière » (`Station.get_blackout`).
 - Résumé : nombre d'explosions, total des morts et des blessés **à l'instant présent** (au temps de chaque
   explosion : flash, onde de choc, décès des blessés, retombées ; voir « Pertes humaines »), puis la projection à
   60 jours (bilan final du souffle et de la chaleur + retombées), avec « bilan : calcul en cours… » tant que
   leur calcul tourne.
-- Liste défilante (260 px) des pays touchés, cumulés sur toutes les explosions et triés par morts décroissants
-  (à égalité, par nombre d'explosions). Colonnes :
+- Liste des pays touchés, cumulés sur toutes les explosions et triés par morts décroissants (à égalité, par nombre
+  d'explosions). Colonnes :
   - **Expl.** : nombre d'explosions dont le point zéro est sur le territoire du pays (« — » pour un pays touché
     seulement par une explosion voisine : l'Allemagne après un tir sur Bâle) ;
   - **Morts**, **Blessés** ;
   - **Population** : part de la population du pays tuée (« 0 % » sans mort).
-  Un territoire dépendant est suivi de son État souverain. Un pays sous black-out national est en jaune, marqué ⚡
-  (infobulle), même sans perte humaine ; un pays visé sans perte (désert) apparaît aussi. Les lignes sont
-  regroupées par code de pays (`CountryMask`).
-- Fenêtre déplaçable comme sous Windows : clic gauche maintenu sur la barre de titre (curseur « déplacer »),
-  bornée à l'écran ; une fois posée, elle garde sa place, même après « Effacer ». Bouton **—** / **+** : replier
-  / déplier.
-- Rafraîchie deux fois par seconde (`NukeCasualties.snapshot` sur `NukeEffect.casualties`, `NukeEffect.fallout`,
-  `NukeEffect.grid`, via `NukeTally`, sans recalcul) : les chiffres montent sous les yeux. Les lignes sont mises à jour sur place
-  et ne sont recréées que si l'ordre des pays change (infobulles et défilement stables). Avec le scrubber du panneau
-  de debug, elle suit le temps rejoué.
+  Un territoire dépendant est suivi de son État souverain. Un pays sous black-out national est en ambre, marqué ⚡,
+  même sans perte humaine ; un pays visé sans perte (désert) apparaît aussi. Les lignes sont regroupées par code de
+  pays (`CountryMask`). Pas de souris sur un écran mural : quand la liste déborde, elle **défile seule** (descente
+  lente, pause en bas, retour en haut).
+- Rafraîchi deux fois par seconde (`NukeCasualties.snapshot` sur `NukeEffect.casualties`, `NukeEffect.fallout`,
+  `NukeEffect.grid`, via `NukeTally`, sans recalcul) : les chiffres montent sous les yeux. Les lignes sont mises à
+  jour sur place et ne sont recréées que si l'ordre des pays change. Avec le scrubber du panneau de debug, il suit le
+  temps rejoué.
 
 **Compteur de performances** (nœud `FpsOverlay` de `scenes/orbit_view.tscn`, script `scripts/ui/fps_overlay.gd`,
 `CanvasLayer` de couche 100, outil de développement) : une ligne en haut à droite, « 144 fps · CPU 6,9 ms · GPU 5,2 ms
@@ -1113,7 +1114,7 @@ Une responsabilité par classe (principe « S » de SOLID). Trois familles :
 | **Rendu d'une explosion** (enfants de `NukeEffect`) | `NukeFlash`, `NukeShock`, `NukeMushroom` (forme, volume, couleurs) avec `NukeMushroomDrift` (dérive au vent) et `NukeMushroomParticles` (particules) |
 | **Rendu global** (nœuds créés par le lanceur, alimentent les shaders du globe) | `NukeFlashFX`, `NukeCloudFX` (effets brefs, tableaux d'uniforms), `NukeGroundFX` (effets durables au sol : incendies, fumée, trace au sol, black-out ; textures de données sans plafond) ; `NukeFXMaterials` (recherche des matériaux qui déclarent un uniform) |
 | **Modèles** (calcul pur, sans nœud, utilisables depuis un thread) | `NukeScaling` (lois d'échelle, surpression de Brode), `NukeCasualties` (pertes du souffle et de la chaleur, chronologie), `NukeFallout` (doses et pertes des retombées) avec `NukeWSEG10` (champ de retombées) et `NukeMath`, `NukeGridImpact` (centrales détruites, panne nationale), `NukeAtmosphere`, `NukeWind` |
-| **Bilan** | `NukeImpact` (nœud `Impact` : calcule le bilan d'un tir dans un thread et l'écrit en console), `NukeTally` (cumul par pays, à l'instant présent), `NukeReportText` (textes et nombres), `NukeReportPanel` (fenêtre, affichage seulement) avec `DraggableWindow` (`scripts/ui/`, fenêtre déplaçable réutilisable) |
+| **Bilan** | `NukeImpact` (nœud `Impact` : calcule le bilan d'un tir dans un thread et l'écrit en console), `NukeTally` (cumul par pays, à l'instant présent), `NukeReportText` (textes et nombres), `NukeReportPanel` (écran mural du module Commande, affichage seulement) |
 | **Données géographiques** (`scripts/`) | `OceanMask`, `CountryMask` (dont `index_near` : pays le plus proche d'un point côtier), `PopulationGrid` (dont `cell_country`), `PowerPlants` |
 
 Un tir ne fait que créer la scène de l'explosion (~1 ms) : tout le bilan (pertes, réseau électrique, retombées) est
@@ -1712,7 +1713,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 - **Pertes humaines** (`nuke/nuke_casualties.gd`, classe `NukeCasualties` ; `nuke/nuke_fallout.gd`, classe
   `NukeFallout` ; règle de jeu). Au tir, le nœud `Impact` (`NukeImpact`) calcule hors du fil principal le bilan final du souffle et de la chaleur
   (`NukeEffect.casualties`), puis les retombées (`NukeEffect.fallout`). Les pertes
-  s'affichent **en temps réel** dans la fenêtre « Bilan des explosions » (voir « Contrôles ») et le bilan en
+  s'affichent **en temps réel** sur l'écran « Bilan des explosions » (voir « Contrôles ») et le bilan en
   console, par pays :
   ```
   NukeLauncher : 1 Mt sur 47.56°, 7.59° (Suisse) (…)

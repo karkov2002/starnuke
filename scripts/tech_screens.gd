@@ -19,7 +19,6 @@ enum Program { CODE, WIREFRAME, TELEMETRY, ORBIT, STRIP }
 ## Écran (nom de l'objet du modèle) -> programme.
 const ASSIGNMENT := {
 	"Interactif_Ecran_01": Program.WIREFRAME,
-	"Interactif_Ecran_02": Program.CODE,
 	"Interactif_Ecran_04": Program.ORBIT,
 	"Interactif_Ecran_05": Program.CODE,
 	"Interactif_Ecran_06": Program.WIREFRAME,
