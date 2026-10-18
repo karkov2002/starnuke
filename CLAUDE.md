@@ -18,7 +18,7 @@ contours `assets/world_map_lines.res` générés par `tools/build_map_lines.gd`)
 (`scripts/flight_computer.gd`), anneau 3D de l'orbite visée `GhostTrack` (`scripts/ghost_track.gd`), poussée Auto / Manuel (BURN bleu
 maintenu, `scripts/ui/burn_control.gd`, aussi sur la tablette), décalage du nœud (poussée à
 l'intersection des plans), précession J2 de Ω ; l'orbite reste circulaire. Altitude et inclinaison directes : panneau de debug F4 seulement. README, « Poste de pilotage ».
-Tablette (touche Tab) : `Observer/Camera/Tablet` (`scripts/tablet.gd`, interface `scripts/ui/tablet_display.gd` : date,
+Tablette (touche Tab) : `Observer/Camera/Tablet` (`scripts/tablet.gd`, interface `scripts/ui/tablet_display.gd` : onglets Pilotage, Photographie (vue au nadir), Tir de missile, bouton HUD On/Off (`Hud.overlay_enabled`) ; date,
 carte réduite, BURN, silos et tir), modèle `assets/tablet/tablet.glb` produit par `tools/blender/build_tablet.py`
 (Blender en arrière-plan, `E:\Blender\tablette.blend` ; main MakeHuman via l'extension MPFB2, textures CC0 dans
 `assets/makehuman/`, `.gdignore` ; mettre au point dans Blender et faire valider avant d'exporter). Interface à l'écran : `Hud` (`scripts/ui/hud.gd` : barre de

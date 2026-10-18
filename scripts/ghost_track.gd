@@ -24,6 +24,7 @@ var _earth: Node3D
 var _immediate := ImmediateMesh.new()
 ## Éléments de l'anneau dessiné (rayon, inclinaison) : reconstruit seulement s'ils changent.
 var _built := Vector2(-1.0, -1.0)
+var _hud: Hud
 
 
 func _ready() -> void:
@@ -41,7 +42,10 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	visible = _computer.has_plan()
+	# Surimpression : masquée si le HUD de la tablette est sur Off (Hud cherché à la volée : il peut être prêt après).
+	if _hud == null:
+		_hud = get_tree().get_first_node_in_group(Hud.GROUP) as Hud
+	visible = _computer.has_plan() and (_hud == null or _hud.overlay_enabled)
 	if not visible:
 		return
 	var ghost := _computer.get_ghost()

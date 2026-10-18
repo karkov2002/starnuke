@@ -112,7 +112,7 @@ permet de piloter le jeu exporté.
 | Orienter la vue | Maintenir le **clic droit** et déplacer la souris (lacet et tangage autour des axes de la tête) ; **A / E** (AZERTY, Q / E en QWERTY) : **roulis** gauche / droite autour de l'axe du regard (60°/s, mise en rotation et arrêt progressifs). Orientation libre comme en apesanteur : pas de « haut » imposé, tangage non limité |
 | Se déplacer dans la station | **Z / S** (W / S en QWERTY) ou **flèches haut / bas** : avancer / reculer dans la direction du regard (y compris vers le haut ou le bas, apesanteur) ; **Q / D** (A / D en QWERTY) ou **flèches gauche / droite** : déplacement latéral. 1,5 m/s ; inertie d'apesanteur : démarrage et arrêt en douceur (~1 s), on continue sur sa lancée un instant après avoir relâché la touche ; collisions avec les parois, les vitres et les objets intérieurs (tubes des silos…) |
 | Curseur | Libre le reste du temps (clic gauche sur la tablette, la barre du temps, l'écran du poste de pilotage) |
-| Tablette | **Tab** (action `tablet`, touche physique) : sort ou range la **tablette** tenue en bas de la vue (elle glisse depuis le bas en 0,35 s) ; on clique directement sur son écran. Elle affiche la date et l'heure, une carte réduite, la commande de poussée (**BURN** bleu) et les silos avec le tir. Ignorée pendant la saisie d'un texte et au poste de pilotage (elle s'y range). Voir « Tablette » |
+| Tablette | **Tab** (action `tablet`, touche physique) : sort ou range la **tablette** tenue en bas de la vue (elle glisse depuis le bas en 0,35 s) ; on clique directement sur son écran. Trois onglets : **Pilotage** (carte, **BURN** bleu), **Photographie** (vue au nadir en direct, bouton Photo), **Tir de missile** (silos, puissance, bouton rouge) ; bouton **HUD : On / Off** (surimpression dans la cupola). Ignorée pendant la saisie d'un texte et au poste de pilotage (elle s'y range). Voir « Tablette » |
 | Vitesse du temps | **Barre toujours visible en haut au centre** : pause (deux barres) puis ×1 à ×16 en icônes de flèches (1 à 5 flèches ; infobulle : le facteur) ; la vitesse en cours est allumée. Le poste de pilotage et le BURN ramènent à ×1 |
 | Altitude, inclinaison de l'orbite | Au **poste de pilotage** : manœuvre au prochain nœud (inclinaison visée **0 à 80°**, altitude visée **400 à 800 km**), exécutée en mode **Auto** ou en maintenant le bouton **BURN** bleu (mode **Manuel**, aussi sur la tablette) ; voir « Poste de pilotage ». Réglage direct (outil de développement) : section « Orbite » du **panneau de debug (F4)**, altitude 200 à 800 km, inclinaison 0 à 80° bornée par la latitude courante (voir ci-dessous) |
 | Date, heure (UTC), redémarrer | Outils de développement, dans le **panneau de debug (F4)** : champ **date** (AAAA-MM-JJ, valider par Entrée), boutons **−1 j / +1 j**, curseur de l'**heure** du jour (la station reste au-dessus du même point ; le soleil, les étoiles et les nuages se placent selon la nouvelle heure ; départ : **15 juillet 2035**) ; **Redémarrer (Europe) De jour / De nuit** : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
@@ -187,18 +187,26 @@ de la vue).
   Les clics et mouvements de la souris sur l'écran (rayon de la caméra intersecté avec la dalle, repérée par ses UV)
   sont transmis à l'interface ; un relâchement hors de l'écran aussi (bouton maintenu) ; le clic droit reste à la
   caméra (tourner la tête).
-- **Interface** (`scripts/ui/tablet_display.gd`) : en haut, date et heure UTC et heure solaire du point survolé ; au
-  milieu, carte réduite (la même `OrbitalMap` que le poste de pilotage : trace au sol, station, point de manœuvre,
-  trace fantôme), **de 70° N à 70° S** pour être plus large (rapport 1,81 au lieu de 1,29 ; la carte du poste reste
-  à ±80°), et, dans une colonne étroite à droite, la commande de poussée (`BurnControl` en colonne : compte à
-  rebours, BURN bleu et message empilés, **jauge verticale** à leur droite sur toute la hauteur du bloc, remplie du
-  bas vers le haut, pour un dosage précis) ; en bas, la commande de tir
-  (`LaunchControl` : silos, **petits boutons de puissance** — à terme, chaque silo aura sa bombe et sa puissance —,
-  gros bouton rouge), agrandie × 1,4 (boutons de taille fixe). **Tout doit tenir dans la dalle** : la carte prend la
-  hauteur que laisse la commande de tir (au plus 58 % de l'écran, `MAP_HEIGHT_SHARE`), et la colonne BURN est
-  compacte en disposition colonne (compte à rebours 44 px, bouton 100 × 94, textes 18 px) pour ne pas dépasser la
-  hauteur de la carte ; sinon la colonne grandissait et poussait les silos 17–24 et 41–48 et le bouton rouge hors
-  de l'écran.
+- **Interface** (`scripts/ui/tablet_display.gd`) : en haut, **trois onglets cliquables** — **Pilotage**,
+  **Photographie**, **Tir de missile** — et, à droite, le bouton **« HUD : On / Off »** ; dessous, date et heure UTC
+  et heure solaire du point survolé. Une seule page affichée à la fois, dans la hauteur restante (tout tient dans la
+  dalle) :
+  - **Pilotage** : carte réduite (la même `OrbitalMap` que le poste de pilotage : trace au sol, station, point de
+    manœuvre, trace fantôme), **de 70° N à 70° S** pour être plus large (rapport 1,81 au lieu de 1,29 ; la carte du
+    poste reste à ±80°), aussi grande que la page le permet, et, dans une colonne à droite (210 px), la commande de
+    poussée (`BurnControl` en colonne, compacte : compte à rebours 44 px, BURN bleu 100 × 94, textes 18 px,
+    **jauge verticale** à droite sur toute la hauteur du bloc, remplie du bas vers le haut, pour un dosage précis) ;
+  - **Photographie** : **vue au nadir en temps réel** (caméra de la tablette, `SubViewport` de 600 × 470 qui partage
+    le monde de la scène, 15 m sous la station, champ de 22°, haut de l'image dans le sens du vol ; rendue seulement
+    quand la tablette est sortie sur cet onglet) et bouton **« Photo »** (pour l'instant, un flash). La caméra a une
+    copie de l'environnement en mappage tonal linéaire et sans halo : l'image est ensuite vue par la caméra
+    principale, qui les applique déjà (ACES deux fois : image délavée) ;
+  - **Tir de missile** : la commande de tir (`LaunchControl` : 48 silos, **petits boutons de puissance** — à terme,
+    chaque silo aura sa bombe et sa puissance —, gros bouton rouge), mise à l'échelle pour occuper la page.
+- **HUD (surimpression dans la cupola)** : `Hud.overlay_enabled` (activé au démarrage ; `set_overlay_enabled`,
+  signal `overlay_changed`), basculé par le bouton de la tablette. Il porte les éléments 3D vus à travers les vitres
+  de la cupola : pour l'instant l'anneau de l'orbite visée (`GhostTrack`), à venir la zone visée (photo, missiles).
+  Le réticule de tir et la barre du temps n'en dépendent pas.
 
 **Fenêtre « Bilan des explosions »** (nœud `NukeReport` de `scenes/orbit_view.tscn`, script
 `nuke/nuke_report_panel.gd`, construite en code). Elle apparaît au premier tir, en haut à droite, et disparaît

@@ -5,7 +5,11 @@ extends CanvasLayer
 ## - réticule de tir (nuke/aim_reticle.gd) au centre, seulement dans la cupola (Station.is_in_cupola), avec un fondu
 ##   de FADE_S : hors de la cupola, on ne peut pas tirer ;
 ## - chronomètres des missiles (ImpactTimers, ajoutés par LaunchControl), en bas à droite.
+## Affichage en surimpression dans la cupola (overlay_enabled, bouton « HUD : On / Off » de la tablette, activé au
+## départ) : éléments 3D vus à travers les vitres, comme l'anneau de l'orbite visée (GhostTrack) ; masqués si désactivé.
 ## Le reste des commandes (date, carte, silos, tir, BURN) est sur la tablette (scripts/tablet.gd, touche Tab).
+
+signal overlay_changed(enabled: bool)
 
 const GROUP := &"hud"
 const FADE_S := 0.5
@@ -19,6 +23,8 @@ var _reticle: Control
 var _time_bar: TimeBar
 var _in_cupola := true
 var _fade: Tween
+## Surimpression dans la cupola (voir en tête).
+var overlay_enabled := true
 
 
 func _ready() -> void:
@@ -50,6 +56,13 @@ func _process(_delta: float) -> void:
 	_fade.tween_property(_reticle, "modulate:a", 1.0 if inside else 0.0, FADE_S)
 	if not inside:
 		_fade.tween_callback(func() -> void: _reticle.visible = false)
+
+
+func set_overlay_enabled(enabled: bool) -> void:
+	if enabled == overlay_enabled:
+		return
+	overlay_enabled = enabled
+	overlay_changed.emit(enabled)
 
 
 ## La position (repère de l'écran) est-elle sur la barre du temps ? (Le poste de pilotage lui laisse la souris.)
