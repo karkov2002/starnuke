@@ -1,9 +1,11 @@
 class_name HatchInteraction
 extends Node
-## Écoutilles manipulables à la souris (nœud HatchInteraction de scenes/orbit_view.tscn). Rayon de la caméra contre
-## les collisions (la porte d'une écoutille a son corps de collision, AnimatableBody3D, qui suit la charnière) :
-## - survol d'une écoutille ouvrable à portée (reach_m) : bulle « Ouvrir l'écoutille » / « Fermer l'écoutille » ;
-## - clic gauche : ouverture ou fermeture animée (Station.toggle_hatch ; un clic pendant le mouvement l'inverse).
+## Écoutilles et rideaux manipulables à la souris (nœud HatchInteraction de scenes/orbit_view.tscn). Rayon de la caméra
+## contre les collisions (la porte d'une écoutille a son corps de collision, AnimatableBody3D, qui suit la charnière ;
+## un rideau, sa zone de clic Area3D, qui suit le tissu) :
+## - survol à portée (reach_m) : bulle « Ouvrir / Fermer l'écoutille », « Ouvrir / Fermer le rideau » ;
+## - clic gauche : mouvement animé (Station.toggle_hatch, Station.toggle_curtain ; un clic pendant le mouvement
+##   l'inverse).
 ## Inactif au poste de pilotage. Les clics pris avant (tablette, interface) ne lui parviennent pas.
 
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
@@ -48,10 +50,13 @@ func _input(event: InputEvent) -> void:
 
 
 func _process(_delta: float) -> void:
-	var id := _hatch_under(_mouse_position) if _active() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE else ""
-	_hover_label.visible = id != ""
-	if id != "":
-		_hover_label.text = "HATCH_CLOSE" if _station.is_hatch_opening(id) else "HATCH_OPEN"
+	var target := _target_under(_mouse_position) if _active() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE else {}
+	_hover_label.visible = not target.is_empty()
+	if not target.is_empty():
+		if target.kind == "rideau":
+			_hover_label.text = "CURTAIN_OPEN" if _station.is_curtain_closing(target.id) else "CURTAIN_CLOSE"
+		else:
+			_hover_label.text = "HATCH_CLOSE" if _station.is_hatch_opening(target.id) else "HATCH_OPEN"
 		_hover_label.position = _mouse_position + Vector2(18, 14)
 		_hover_label.reset_size()
 
@@ -60,24 +65,36 @@ func _unhandled_input(event: InputEvent) -> void:
 	var click := event as InputEventMouseButton
 	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT or not _active():
 		return
-	var id := _hatch_under(click.position)
-	if id != "":
-		get_viewport().set_input_as_handled()
-		_station.toggle_hatch(id)
+	var target := _target_under(click.position)
+	if target.is_empty():
+		return
+	get_viewport().set_input_as_handled()
+	if target.kind == "rideau":
+		_station.toggle_curtain(target.id)
+	else:
+		_station.toggle_hatch(target.id)
 
 
 func _active() -> bool:
 	return _station != null and not (_console and _console.is_seated())
 
 
-## Écoutille ouvrable sous le curseur, à portée (premier obstacle touché par le rayon), "" sinon.
-func _hatch_under(mouse_position: Vector2) -> String:
+## Écoutille ouvrable ou rideau sous le curseur, à portée (premier obstacle touché par le rayon, zones de clic des
+## rideaux comprises) : {kind : « ecoutille » ou « rideau », id}, vide sinon.
+func _target_under(mouse_position: Vector2) -> Dictionary:
 	var origin := _camera.project_ray_origin(mouse_position)
 	var query := PhysicsRayQueryParameters3D.create(origin,
 			origin + _camera.project_ray_normal(mouse_position) * reach_m)
 	query.exclude = [_observer.get_rid()]
+	query.collide_with_areas = true
 	var hit := _camera.get_world_3d().direct_space_state.intersect_ray(query)
-	return _station.hatch_id_for(hit.collider as Node) if hit else ""
+	if not hit:
+		return {}
+	var curtain := _station.curtain_id_for(hit.collider as Node)
+	if curtain != "":
+		return {"kind": "rideau", "id": curtain}
+	var hatch := _station.hatch_id_for(hit.collider as Node)
+	return {"kind": "ecoutille", "id": hatch} if hatch != "" else {}
 
 
 func _bubble_style() -> StyleBoxFlat:

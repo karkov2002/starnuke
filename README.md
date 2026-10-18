@@ -387,6 +387,15 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   niches) en plongeant dans la jonction des panneaux. Faisceaux de 3–4 câbles colorés serrés par des colliers tous
   les 0,45 m, tuyaux Ø 22 mm sur pattes, gaines de ventilation annelées orange. Tubes à repère transporté
   parallèlement (un repère qui pivotait vrillait les câbles en zigzag).
+- **WC et douche** (`tools/blender/build_wc.py`, `tools/blender/build_shower.py`, rejouables ; fonctions communes
+  `tools/blender/props_kit.py`, dont le rideau `build_curtain`) : `Interactif_WC` d'après le WC russe de l'ISS
+  (réservoir dans son arceau, cuvette à couvercle relevé jaune, boîtier de commande, entonnoir urinaire sur
+  flexible, flexibles annelés, poire orange, cale-cuisses, lingettes) ; `Interactif_Douche` pour l'apesanteur (fond
+  inox, bouche d'aspiration perforée et son flexible, passe-pieds, mitigeur chaud / froid, douchette sur flexible
+  métallique, miroir, poignée, serviettes, produits de toilette sous sandow, lampe de niche) ; rideaux
+  `Habitation_Rideau_WC` (regroupé à gauche) et `Habitation_Rideau_Douche` (à droite) : rail, anneaux, tissu double
+  couche, clé de forme `Ferme` (poids exporté 0). La lampe de chevet de la couchette est retirée (trop près de la
+  tête).
 - **Lampes des couloirs** (`tools/blender/slim_lamps.py`, rejouable) : les plafonniers `Int_Lumiere` des panneaux
   diagonaux gardent leur longueur (0,74 m) mais passent de 0,43 à 0,15 m de haut ; matériau et lumières `Lum_*`
   (sur l'axe) inchangés : même éclairage. **Règle : rien ne doit recouvrir une lampe.** Le script le vérifie par
@@ -471,6 +480,14 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     rayon de la caméra contre les collisions, à 2,5 m au plus (`reach_m`) ; survol d'une écoutille ouvrable : bulle
     « Ouvrir l'écoutille » / « Fermer l'écoutille » (`HATCH_OPEN`, `HATCH_CLOSE`) ; clic gauche : ouverture ou
     fermeture animée (rotation de la charnière, durée de `Fermeture_Ecoutilles`). Inactif au poste de pilotage.
+  - **Rideaux** (WC et douche de l'Habitation ; objets Blender d'extras `type` « rideau », `id` `Rideau_WC`,
+    `Rideau_Douche`) : **ouverts au démarrage** ; même interaction à la souris (bulle « Ouvrir le rideau » /
+    « Fermer le rideau », clés `CURTAIN_OPEN`, `CURTAIN_CLOSE`), mouvement de 0,9 s (`curtain_duration_s`) qui fond
+    la forme de base (ouvert, regroupé) dans la clé de forme `Ferme` (déployé), un clic pendant le mouvement
+    l'inverse. API : `toggle_curtain(id)`, `set_curtain_closed(id, closed)`, `is_curtain_closing(id)`,
+    `curtain_ids()` ; signal `curtain_changed(id, closed)`. Pas de collision (on traverse un rideau) : une zone de
+    clic `Area3D` (calque de collision 20, `CURTAIN_LAYER`), boîte du tissu calculée depuis les sommets de la base et
+    de la clé de forme, suit le mouvement ; le rayon du clic interroge aussi les zones (`collide_with_areas`).
   - Collisions des portes et trappes : `AnimatableBody3D` enfant de la porte, **sans `sync_to_physics`**
     (`Station._fit_door_collision`). Avec, le corps ne suivait que ses propres déplacements, pas ceux de la charnière
     parente : il restait figé dans la pose de l'import (porte fermée traversable, porte ouverte qui bloquait encore).

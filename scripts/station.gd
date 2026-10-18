@@ -23,6 +23,7 @@ extends Node3D
 ## rayonnement infrarouge) et redescend quand ils sont déployés, en proportion des radiateurs déployés.
 
 signal hatch_changed(id: String, open: bool)
+signal curtain_changed(id: String, closed: bool)
 signal silo_door_changed(silo: int, tube: int, open: bool)
 signal radiator_changed(id: String, deployed: bool)
 signal missile_ignited(silo: int, tube: int)
@@ -46,6 +47,10 @@ const MODEL_TUBE := 12
 const RADIATOR_IDS: Array[String] = ["Radiateur_D15", "Radiateur_D21", "Radiateur_G15", "Radiateur_G21"]
 ## Calque des surfaces intérieures (bit 11), seul éclairé par les lampes intérieures.
 const INTERIOR_LAYER := 1 << 10
+## Calque de collision (bit 20) des zones de clic des rideaux (Area3D, ni corps ni collision avec l'observateur).
+const CURTAIN_LAYER := 1 << 19
+## Épaisseur (m) de la zone de clic d'un rideau.
+const CURTAIN_PICK_DEPTH := 0.06
 ## Matériaux intérieurs (préfixes des noms Blender) ; tous les autres sont extérieurs. Les vitrages et hublots se
 ## voient des deux côtés : ils sont des deux calques.
 const INTERIOR_MATERIALS: Array[String] = ["Int_", "Ecran_"]
@@ -59,6 +64,8 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 @export var track_sun_panels := true
 ## Écoutilles ouvrables fermées au démarrage (règle de jeu) ; sinon, état du modèle (ouvertes).
 @export var start_hatches_closed := true
+## Durée (s) de la fermeture ou de l'ouverture complète d'un rideau.
+@export var curtain_duration_s := 0.9
 ## Lumière du soleil et Terre de la scène (direction du soleil, verticale locale). Sans Terre : +Y de la station.
 @export var sun_path: NodePath = ^"../../Sun"
 @export var earth_path: NodePath = ^"../../Earth"
@@ -128,6 +135,8 @@ var heat := 0.0
 
 ## id -> {node, hinge, open, closed : Quaternion, duration, track, is_open, ouvrable, tween}
 var _hatches := {}
+## id -> {node, blend, weight, target, tween, area, shape, open_box, closed_box}
+var _curtains := {}
 ## Vector2i(silo, tube) -> {node, hinge, closed, open, track, duration, is_open, ouvrable, tween, launch_point, fired}
 var _silo_doors := {}
 ## id -> {tracks : Array[int], is_deployed, tween}
@@ -186,6 +195,7 @@ func _ready() -> void:
 		player.add_animation_library(&"", _library)
 		_players[anim_name] = player
 	_collect_interactives()
+	_collect_curtains()
 	_collect_radiators()
 	_setup_interior_lighting()
 	_add_interior_collisions()
@@ -281,6 +291,127 @@ func hatch_id_for(node: Node) -> String:
 				return id if _hatches[id].ouvrable else ""
 		node = node.get_parent()
 	return ""
+
+
+# --- Rideaux --------------------------------------------------------------------------------------------------------
+# Objets Blender d'extras type « rideau » (Habitation_Rideau_WC, Habitation_Rideau_Douche) : forme de base = ouvert
+# (regroupé), clé de forme extras.forme_fermee (« Ferme ») = fermé. Ouverts au démarrage. Sans collision (on passe à
+# travers un rideau) ; une zone de clic (Area3D sur CURTAIN_LAYER) couvre le tissu et suit son mouvement.
+
+func curtain_ids() -> Array[String]:
+	var ids: Array[String] = []
+	ids.assign(_curtains.keys())
+	return ids
+
+
+## État visé d'un rideau (celui vers lequel il bouge, ou son état au repos).
+func is_curtain_closing(id: String) -> bool:
+	return _curtains.has(id) and _curtains[id].target
+
+
+func set_curtain_closed(id: String, closed: bool) -> bool:
+	if not _curtains.has(id):
+		return false
+	var curtain: Dictionary = _curtains[id]
+	if curtain.target == closed:
+		return true
+	curtain.target = closed
+	if curtain.tween:
+		curtain.tween.kill()
+	var from: float = curtain.weight
+	var to := 1.0 if closed else 0.0
+	curtain.tween = create_tween()
+	curtain.tween.tween_method(func(w: float) -> void: _set_curtain_weight(curtain, w), from, to,
+			curtain_duration_s * absf(to - from)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	curtain.tween.tween_callback(func() -> void:
+		curtain.tween = null
+		curtain_changed.emit(id, closed))
+	return true
+
+
+func toggle_curtain(id: String) -> bool:
+	return set_curtain_closed(id, not is_curtain_closing(id))
+
+
+## Identifiant du rideau auquel appartient node (sa zone de clic), "" sinon.
+func curtain_id_for(node: Node) -> String:
+	for id: String in _curtains:
+		if _curtains[id].area == node:
+			return id
+	return ""
+
+
+func _set_curtain_weight(curtain: Dictionary, w: float) -> void:
+	curtain.weight = w
+	(curtain.node as MeshInstance3D).set_blend_shape_value(curtain.blend, w)
+	var box: AABB = (curtain.open_box as AABB)
+	var closed_box: AABB = curtain.closed_box
+	var shape := (curtain.shape as CollisionShape3D)
+	var center := box.get_center().lerp(closed_box.get_center(), w)
+	(shape.shape as BoxShape3D).size = box.size.lerp(closed_box.size, w)
+	shape.position = center
+
+
+func _collect_curtains() -> void:
+	for node: MeshInstance3D in find_children("*", "MeshInstance3D", true, false):
+		var extras: Dictionary = node.get_meta("extras", {})
+		if String(extras.get("type", "")) != "rideau" or node.mesh == null:
+			continue
+		var blend := node.find_blend_shape_by_name(StringName(String(extras.get("forme_fermee", "Ferme"))))
+		if blend < 0:
+			push_error("Station : rideau %s sans clé de forme fermée" % node.name)
+			continue
+		var boxes := _curtain_boxes(node.mesh, blend)
+		var area := Area3D.new()
+		area.name = "Zone_Clic"
+		area.collision_layer = CURTAIN_LAYER
+		area.collision_mask = 0
+		area.monitoring = false
+		var shape := CollisionShape3D.new()
+		shape.shape = BoxShape3D.new()
+		area.add_child(shape)
+		node.add_child(area)
+		var entry := {"node": node, "blend": blend, "weight": 0.0, "target": false, "tween": null, "area": area,
+				"shape": shape, "open_box": boxes[0], "closed_box": boxes[1]}
+		_set_curtain_weight(entry, 0.0)
+		_curtains[String(extras.get("id", node.name))] = entry
+
+
+## Boîtes (repère du maillage) du tissu ouvert et fermé : sommets de la surface du rideau (matériau « Rideau »), de la
+## forme de base et de la clé de forme ; épaissies à CURTAIN_PICK_DEPTH pour le clic.
+func _curtain_boxes(mesh: Mesh, blend: int) -> Array[AABB]:
+	var open_box := mesh.get_aabb()
+	var closed_box := open_box
+	var array_mesh := mesh as ArrayMesh
+	if array_mesh:
+		for s in array_mesh.get_surface_count():
+			var material := array_mesh.surface_get_material(s)
+			if material == null or not material.resource_name.contains("Rideau"):
+				continue
+			var base: PackedVector3Array = array_mesh.surface_get_arrays(s)[Mesh.ARRAY_VERTEX]
+			var shapes := array_mesh.surface_get_blend_shape_arrays(s)
+			if base.is_empty() or shapes.size() <= blend:
+				break
+			# Positions absolues de la forme fermée (l'import glTF ajoute les décalages à la base).
+			var target: PackedVector3Array = shapes[blend][Mesh.ARRAY_VERTEX]
+			open_box = _points_aabb(base)
+			closed_box = _points_aabb(target) if target.size() == base.size() else open_box
+			break
+	var result: Array[AABB] = []
+	for box: AABB in [open_box, closed_box]:
+		# Épaisseur du tissu (plus petite dimension) portée à CURTAIN_PICK_DEPTH, pour viser facilement.
+		var axis := box.get_shortest_axis_index()
+		var grow := Vector3.ZERO
+		grow[axis] = maxf(0.0, CURTAIN_PICK_DEPTH - box.size[axis]) / 2.0
+		result.append(AABB(box.position - grow, box.size + 2.0 * grow))
+	return result
+
+
+static func _points_aabb(points: PackedVector3Array) -> AABB:
+	var box := AABB(points[0], Vector3.ZERO)
+	for p in points:
+		box = box.expand(p)
+	return box
 
 
 ## Toutes les écoutilles ouvrables, chacune par son Tween (mêmes angles et durée que l'animation). L'animation de

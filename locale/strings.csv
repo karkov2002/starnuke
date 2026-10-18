@@ -55,6 +55,8 @@ PILOT_HOVER,"Orbital control","Contrôle orbital","Control orbital","Orbitalsteu
 PILOT_EXIT_HINT,"Right click: leave the pilot station","Clic droit : quitter le poste de pilotage","Clic derecho: salir del puesto de pilotaje","Rechtsklick: Pilotenplatz verlassen","Clic destro: lascia la postazione di pilotaggio"
 HATCH_OPEN,"Open the hatch","Ouvrir l'écoutille","Abrir la escotilla","Luke öffnen","Apri il portello"
 HATCH_CLOSE,"Close the hatch","Fermer l'écoutille","Cerrar la escotilla","Luke schließen","Chiudi il portello"
+CURTAIN_OPEN,"Open the curtain","Ouvrir le rideau","Abrir la cortina","Vorhang öffnen","Apri la tenda"
+CURTAIN_CLOSE,"Close the curtain","Fermer le rideau","Cerrar la cortina","Vorhang schließen","Chiudi la tenda"
 PILOT_TITLE,"ORBITAL CONTROL","CONTRÔLE ORBITAL","CONTROL ORBITAL","ORBITALSTEUERUNG","CONTROLLO ORBITALE"
 PILOT_UTC,"UTC","UTC","UTC","UTC","UTC"
 PILOT_POSITION,"Position","Position","Posición","Position","Posizione"
