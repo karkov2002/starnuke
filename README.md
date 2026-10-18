@@ -326,7 +326,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 
 ## Station spatiale (modèle Blender)
 
-Modèle `assets/station/station_spatiale.glb` (Blender, ~60 Mo, textures intégrées ; conventions dans
+Modèle `assets/station/station_spatiale.glb` (Blender, ~70 Mo, textures intégrées ; conventions dans
 `assets/station/LISEZMOI_GODOT.md`). **Ne jamais retoucher le .glb à la main** : il n'est produit que par l'export Blender, avec les mêmes
 noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script de post-import et la scène héritée.
 - **Export depuis Blender** (`tools/blender/export_station.py`, envoyé au Blender ouvert par `tools/blender_exec.ps1`,
@@ -337,6 +337,18 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   `Lancement_Missile`, `Balayage_Antennes`, `Rotation_Panneaux`, `Retraction_Radiateurs`, contrôlées avant export),
   copie de la notice `LISEZMOI_GODOT.md`. Orientation : axe des modules = +X (Commande vers +X), Terre vers −Y.
   Règle : pas de réexport vers le projet sans le feu vert de l'utilisateur.
+- **Portables et écrans plats** (`tools/blender/build_station_devices.py`, envoyé au Blender ouvert avec
+  `MODE = "preview"` sur un fichier vide : modèles seuls, aperçus dans `E:\Blender\apercus_equipements\`, fichier
+  `E:\Blender\equipements_station.blend` ; `MODE = "apply"` sur `nuke_station.blend` : remplacement en place) :
+  modèles procéduraux détaillés qui remplacent les maillages des 4 `Interactif_Ordinateur_*` et de 12
+  `Interactif_Ecran_*` (01–08, 13, 14, 16, 17). **`Interactif_Ecran_Principal` (poste de pilotage) et les consoles
+  de tir des silos n'y sont pas touchés.** Portable 14" 16:10 noir mat (84 touches en relief, légendes
+  `E:\Blender\textures\clavier_legendes.png` rendues par le script, TrackPoint, pavé, connectique, charnières à fûts,
+  écran ouvert à 105°) sur un bras articulé (plateau à griffes, rotule, deux segments à chapes et molettes, platine
+  murale vissée, câble) ; écrans à bordure fine, coque arrière bombée, plaque VESA et support mural inclinable
+  (dalle à 5,5 cm de la paroi, comme avant). Chaque objet garde son nom, ses extras et son matériau `Ecran_XX` (dalle
+  UV 0–1, (0, 0) en haut à gauche) ; il reçoit le repère de l'appareil en transformation d'objet (table `LAPTOPS` /
+  `SCREENS` du script, rejouable). Nouveaux matériaux préfixés `Int_` (rangés à l'intérieur par `station.gd`).
 - **Import** (`station_spatiale.glb.import`) : échelle 1 (mètres), racine `StationSpatiale`, collisions par
   suffixes de noms (`-col` : collision statique concave + maillage ; `-convcolonly` : collision convexe seule),
   LOD générés, animations à 24 i/s, **Rotation_Panneaux** (plus jouée : suivi du soleil, voir plus bas) et **Balayage_Antennes** en boucle (les autres jouées
