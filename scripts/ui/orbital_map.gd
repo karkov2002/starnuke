@@ -11,7 +11,7 @@ extends Control
 ## très clair) et les orbites_ahead orbites suivantes (0 à MAX_ORBITS_AHEAD, 1 par défaut), d'un vert de plus en plus
 ## sombre (la dernière vert sombre, toujours bien visible).
 ##
-## Cible au sol (GroundTarget) : un clic (sans glisser) pose la cible au point cliqué (cercle bleu, coordonnées à côté),
+## Cible au sol (GroundTarget) : un clic (sans glisser) pose la cible au point cliqué (cercle jaune, coordonnées à côté),
 ## un clic dessus la retire ; au survol, les coordonnées du point sous le pointeur le suivent.
 ##
 ## Navigation, à la manière d'une carte en ligne : molette = zoom centré sur le curseur ; glisser (bouton gauche
@@ -372,7 +372,7 @@ func _draw_overlay() -> void:
 	_draw_hover()
 
 
-## Cible au sol (GroundTarget) : cercle et croix bleus, coordonnées à côté.
+## Cible au sol (GroundTarget) : cercle et croix jaunes, coordonnées à côté.
 func _draw_target(copies: Array[int]) -> void:
 	var target := _get_target()
 	if target == null or not target.active:

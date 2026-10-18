@@ -47,6 +47,8 @@ var _moving := false
 var _mouse_position := Vector2.ZERO
 ## Dernier point de l'écran (0–1) transmis à l'interface.
 var _last_uv := Vector2(0.5, 0.5)
+## Souris sur l'écran (entrée envoyée au SubViewport, cf. ScreenSeat.set_mouse_inside).
+var _mouse_inside := false
 var _return_position := Vector3.ZERO
 var _return_rotation := Quaternion.IDENTITY
 var _tween: Tween
@@ -137,11 +139,13 @@ func _input(event: InputEvent) -> void:
 		return
 	var uv := _screen_uv(mouse.position, INF)
 	if uv == Vector2(-1, -1):
+		_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, false, _mouse_inside)
 		# Relâchement hors de l'écran : transmis quand même (au dernier point), sinon un bouton maintenu (BURN) ou un
 		# curseur resterait tenu.
 		if button == null or button.pressed:
 			return
 		uv = _last_uv
+	_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, true, _mouse_inside)
 	_last_uv = uv
 	var forwarded := mouse.duplicate() as InputEventMouse
 	forwarded.position = uv * Vector2(_viewport.size)
@@ -195,6 +199,7 @@ func _sit() -> void:
 
 
 func _stand_up() -> void:
+	_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, false, _mouse_inside)
 	# Quitter le poste relâche BURN.
 	_flight_computer.end_burn()
 	_seated = false

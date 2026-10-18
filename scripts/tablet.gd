@@ -93,6 +93,8 @@ var _tween: Tween
 ## Bouton gauche tenu après un clic sur l'écran : le relâchement lui est transmis même hors de l'écran.
 var _pressing := false
 var _last_uv := Vector2(0.5, 0.5)
+## Souris sur l'écran (entrée envoyée au SubViewport, cf. ScreenSeat.set_mouse_inside).
+var _mouse_inside := false
 
 
 func _ready() -> void:
@@ -193,11 +195,13 @@ func _input(event: InputEvent) -> void:
 		return
 	var uv := _screen_uv(mouse.position)
 	if uv == Vector2(-1, -1):
+		_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, false, _mouse_inside)
 		if not (_pressing and button and not button.pressed):
 			return
 		uv = _last_uv
 	if button and button.button_index == MOUSE_BUTTON_LEFT:
 		_pressing = button.pressed
+	_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, true, _mouse_inside)
 	_last_uv = uv
 	get_viewport().set_input_as_handled()
 	var forwarded := mouse.duplicate() as InputEventMouse
@@ -210,6 +214,8 @@ func _set_wanted(out: bool) -> void:
 	if out == _wanted:
 		return
 	_wanted = out
+	if not out:
+		_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, false, _mouse_inside)
 	if _tween:
 		_tween.kill()
 	visible = true

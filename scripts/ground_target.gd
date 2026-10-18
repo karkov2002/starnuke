@@ -2,13 +2,14 @@ class_name GroundTarget
 extends Node
 ## Cible au sol (nœud GroundTarget de scenes/orbit_view.tscn, groupe GROUP) : un point de la Terre choisi d'un clic
 ## sur la carte de l'écran de pilotage ou de la tablette (OrbitalMap), affiché sur les cartes avec ses coordonnées et,
-## dans la cupola en mode « HUD : On », en surimpression bleue sur la Terre (Hud, TargetMarker). Une seule cible : un
+## dans la cupola en mode « HUD : On », en surimpression jaune sur la Terre (Hud, TargetMarker). Une seule cible : un
 ## nouveau clic la déplace, un clic dessus la retire.
 
 signal changed
 
 const GROUP := &"ground_target"
-const COLOR := Color(0.35, 0.65, 1.0)
+## Jaune doré : lisible sur la mer et les nuages, distinct du jaune pâle de la station sur la carte.
+const COLOR := Color(1.0, 0.78, 0.1)
 
 var active := false
 var latitude_deg := 0.0

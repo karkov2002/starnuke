@@ -55,6 +55,8 @@ var _seated := false
 var _moving := false
 var _mouse_position := Vector2.ZERO
 var _last_uv := Vector2(0.5, 0.5)
+## Souris sur l'écran (entrée envoyée au SubViewport, cf. ScreenSeat.set_mouse_inside).
+var _mouse_inside := false
 var _return_position := Vector3.ZERO
 var _return_rotation := Quaternion.IDENTITY
 var _tween: Tween
@@ -210,9 +212,11 @@ func _input(event: InputEvent) -> void:
 		return
 	var uv := _screen_uv(mouse.position, INF)
 	if uv == Vector2(-1, -1):
+		_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, false, _mouse_inside)
 		if button == null or button.pressed:
 			return
 		uv = _last_uv
+	_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, true, _mouse_inside)
 	_last_uv = uv
 	var forwarded := mouse.duplicate() as InputEventMouse
 	forwarded.position = uv * Vector2(_viewport.size)
@@ -289,6 +293,7 @@ func _sit() -> void:
 
 
 func _stand_up() -> void:
+	_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, false, _mouse_inside)
 	_seated = false
 	_move_to(_return_position, _return_rotation, func() -> void:
 		_moving = false

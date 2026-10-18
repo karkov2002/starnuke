@@ -7,7 +7,7 @@ extends CanvasLayer
 ## - chronomètres des missiles (ImpactTimers, ajoutés par LaunchControl), en bas à droite.
 ## Affichage en surimpression dans la cupola (overlay_enabled, bouton « HUD : On / Off » de la tablette, désactivé au
 ## départ) : éléments 3D vus à travers les vitres, comme l'anneau de l'orbite visée (GhostTrack), et la cible au sol
-## posée sur la carte (TargetMarker, en bleu) ; masqués si désactivé.
+## posée sur la carte (TargetMarker, en jaune) ; masqués si désactivé.
 ## Le reste des commandes (date, carte, silos, tir, BURN) est sur la tablette (scripts/tablet.gd, touche Tab).
 
 signal overlay_changed(enabled: bool)
