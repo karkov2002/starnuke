@@ -216,8 +216,7 @@ de la vue).
   et heure solaire du point survolé. Une seule page affichée à la fois, dans la hauteur restante (tout tient dans la
   dalle) :
   - **Pilotage** : carte réduite (la même `OrbitalMap` que le poste de pilotage : trace au sol, station, point de
-    manœuvre, trace fantôme), **de 70° N à 70° S** pour être plus large (rapport 1,81 au lieu de 1,29 ; la carte du
-    poste reste à ±80°), aussi grande que la page le permet, et, dans une colonne à droite (210 px), la commande de
+    manœuvre, trace fantôme), **de 80° N à 80° S** comme au poste (rapport 1,29), aussi grande que la page le permet, et, dans une colonne à droite (210 px), la commande de
     poussée (`BurnControl` en colonne, compacte : compte à rebours 44 px, BURN bleu 100 × 94, textes 18 px,
     **jauge verticale** à droite sur toute la hauteur du bloc, remplie du bas vers le haut, pour un dosage précis) ;
   - **Photographie** : **vue au nadir en temps réel** (caméra de la tablette, `SubViewport` de 600 × 470 qui partage
@@ -370,7 +369,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
     suivent. Dans la **cupola en mode « HUD : On »**, la cible apparaît en surimpression jaune **posée à
     l'horizontale sur la Terre**, dont elle épouse la courbure (`scripts/ui/target_marker.gd`, calque du `Hud`) :
     trois anneaux (40, 80 et 120 km) et une croix tracés sur la sphère, le long du sol, dans un maillage enfant de
-    `Earth` (il tourne avec la planète), sans éclairage ni test de profondeur (par-dessus les nuages), masqué sous
+    `Earth` (il tourne avec la planète), sans éclairage, dessiné après les nuages et l'atmosphère (qui n'écrivent pas de profondeur :
+    elle reste par-dessus) mais avec test de profondeur (la structure de la coupole la cache), masqué sous
     l'horizon, sans coordonnées (elles masqueraient la vue : elles sont sur les cartes) ; flèche au bord de l'écran
     quand elle est hors champ.
   - **Survol des écrans en SubViewport** (poste, télévision, tablette) : un tel viewport, affiché comme texture,
@@ -380,7 +380,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   - **Navigation, comme une carte en ligne** (même carte au poste et sur la tablette, chacune sa vue) : **molette** =
     zoom centré sur le curseur ; **glisser** (bouton gauche) = déplacer la carte dans le sens de la souris ; boutons
     en bas à gauche **« − » / « + »** = zoom centré sur le centre de la carte ; en bas à droite **« Orbites à
-    venir » 0 1 2 3 4** (clés `MAP_ORBITS_AHEAD`, `MAP_ZOOM_IN`, `MAP_ZOOM_OUT`). Zoom de ×1 (monde entier) à ×8 ; le
+    venir » 0 1 2 3 4** (clés `MAP_ORBITS_AHEAD`, `MAP_ZOOM_IN`, `MAP_ZOOM_OUT`). Zoom de ×1 (monde entier) à ×32 (limite des contours Natural Earth au 1:50 M) ; le
     monde se répète d'est en ouest (on en fait le tour sans fin), la carte ne dépasse pas ±max_lat en latitude.
   - **Performances** : le fond (≈ 85 000 segments) est rendu dans la texture d'un `SubViewport` (`UPDATE_ONCE`,
     MSAA 4×) seulement quand la vue a changé et ne bouge plus depuis 0,15 s (redessiner autant de lignes lissées à

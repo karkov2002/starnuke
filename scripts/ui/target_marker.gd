@@ -4,8 +4,8 @@ extends Control
 ## Hud) :
 ## - une cible posée à l'horizontale sur la Terre, qui en épouse la courbure : trois anneaux concentriques et une croix
 ##   (RINGS_KM, ARMS_KM), tracés sur la sphère (distances le long du sol depuis le point visé) dans un maillage enfant
-##   du nœud Earth (il tourne avec la planète) ; matériau sans éclairage, toujours visible (surimpression, pas de test
-##   de profondeur : par-dessus les nuages), reconstruit quand la cible change ;
+##   du nœud Earth (il tourne avec la planète) ; matériau sans éclairage, dessiné après les nuages (tri) avec test de
+##   profondeur (cachée par la station, pas par les nuages qui n'écrivent pas de profondeur), reconstruit quand la cible change ;
 ## - une flèche au bord de l'écran (calque 2D) quand la cible est hors champ. Pas de coordonnées dans le HUD (elles
 ##   masqueraient la vue) : elles sont sur les cartes.
 ## Rien n'est affiché si le point visé est sous l'horizon (face cachée de la Terre) ou derrière la caméra.
@@ -44,7 +44,8 @@ func _ready() -> void:
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		# Couleur de la cible, saturée (au-delà de 1, le tonemapping la blanchirait sur les nuages).
 		material.albedo_color = Color(GroundTarget.COLOR, 0.95)
-		material.no_depth_test = true
+		# Test de profondeur gardé : la station (structure de la cupola) la cache ; les nuages et l'atmosphère
+		# n'écrivent pas de profondeur, ils ne la cachent pas.
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED
 		material.render_priority = 10
 		# Tri des objets transparents : après les nuages et l'atmosphère (qui sinon la recouvrent).
