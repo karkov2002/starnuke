@@ -166,10 +166,12 @@ avec la tablette ; sortie, **seul le pouce reste visible** (la paume est derriè
 de la vue).
 
 - **Nœud `Observer/Camera/Tablet`** (`scripts/tablet.gd`) : enfant de la caméra, il suit la vue. Sortie, elle est
-  **en bas à droite** de la vue (pas centrée) : 38 % de la hauteur de la vue (cadrage calculé d'après le champ de la
-  caméra et les proportions de la fenêtre), son bord droit à 10 % du bord droit (le coin inférieur droit, qui dépasse
-  avec la perspective, et le pouce restent dans le champ), son bord bas au bas de la vue (marge de 3,5 % avant
-  l'inclinaison vers l'œil, qui abaisse ce bord ; la main et le bras sont dessous), son haut
+  **en bas à droite** de la vue (pas centrée) : 42 % de la hauteur de la vue (`view_fill` ; cadrage calculé d'après
+  le champ de la caméra et les proportions de la fenêtre), son bord droit à 10 % du bord droit (le coin inférieur
+  droit, qui dépasse avec la perspective, et le pouce restent dans le champ), son bord bas un peu au-dessus du bas
+  de la vue (`bottom_margin` 8 % avant l'inclinaison vers l'œil, qui abaisse ce bord : à 3,5 %, la dernière rangée
+  de silos et le bouton de tir sortaient de l'écran, d'autant plus si la barre des tâches mord sur la fenêtre ; la
+  main et le bras sont dessous), son haut
   sous le centre (le réticule reste visible), à moitié tournée vers l'œil (tout à fait, en bord de vue, elle
   paraissait de biais). Rangée, elle est masquée et son interface n'est plus redessinée. Éclairée par les lampes
   intérieures (calque `Station.INTERIOR_LAYER`) et le soleil, sans ombre portée.
@@ -192,7 +194,11 @@ de la vue).
   rebours, BURN bleu et message empilés, **jauge verticale** à leur droite sur toute la hauteur du bloc, remplie du
   bas vers le haut, pour un dosage précis) ; en bas, la commande de tir
   (`LaunchControl` : silos, **petits boutons de puissance** — à terme, chaque silo aura sa bombe et sa puissance —,
-  gros bouton rouge), agrandie × 1,4 (boutons de taille fixe).
+  gros bouton rouge), agrandie × 1,4 (boutons de taille fixe). **Tout doit tenir dans la dalle** : la carte prend la
+  hauteur que laisse la commande de tir (au plus 58 % de l'écran, `MAP_HEIGHT_SHARE`), et la colonne BURN est
+  compacte en disposition colonne (compte à rebours 44 px, bouton 100 × 94, textes 18 px) pour ne pas dépasser la
+  hauteur de la carte ; sinon la colonne grandissait et poussait les silos 17–24 et 41–48 et le bouton rouge hors
+  de l'écran.
 
 **Fenêtre « Bilan des explosions »** (nœud `NukeReport` de `scenes/orbit_view.tscn`, script
 `nuke/nuke_report_panel.gd`, construite en code). Elle apparaît au premier tir, en haut à droite, et disparaît

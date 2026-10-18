@@ -15,6 +15,8 @@ const COLOR_GOOD := Color(0.3, 1.0, 0.4)
 const COLOR_BAD := Color(1.0, 0.55, 0.15)
 ## Durée d'affichage (s réelles) du résultat de la dernière poussée.
 const RESULT_S := 6.0
+## Taille des textes en colonne (tablette).
+const COLUMN_TEXT_SIZE := 18
 
 var flight_computer: FlightComputer
 ## Grand format (écran du poste, tablette) ou compact : fixé avant l'ajout à l'arbre.
@@ -35,10 +37,11 @@ func _ready() -> void:
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info.alignment = BoxContainer.ALIGNMENT_CENTER
 	info.add_theme_constant_override("separation", 0)
-	_node_label = _make_label(COLOR_DIM, 0)
+	# En colonne (tablette), tailles réduites : la colonne doit tenir dans la hauteur de la carte, à côté.
+	_node_label = _make_label(COLOR_DIM, COLUMN_TEXT_SIZE if column_layout else 0)
 	_node_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info.add_child(_node_label)
-	_countdown = _make_label(COLOR_GHOST, 60 if large else 26)
+	_countdown = _make_label(COLOR_GHOST, (44 if column_layout else 60) if large else 26)
 	info.add_child(_countdown)
 	# En colonne : [compte à rebours, bouton, message] à gauche, jauge sur toute la hauteur à droite.
 	var stack: BoxContainer = self
@@ -66,7 +69,7 @@ func _ready() -> void:
 	_button.hold = true
 	_button.tooltip_text = "PILOT_BURN_TOOLTIP"
 	if large:
-		_button.custom_minimum_size = Vector2(130.0, 122.0)
+		_button.custom_minimum_size = Vector2(100.0, 94.0) if column_layout else Vector2(130.0, 122.0)
 	_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_button.pressed.connect(func() -> void:
 		if not flight_computer.start_burn():
@@ -82,7 +85,7 @@ func _ready() -> void:
 	else:
 		_gauge.custom_minimum_size = Vector2(0.0, 26.0 if large else 12.0)
 		add_child(_gauge)
-	_status = _make_label(COLOR_DIM, 0)
+	_status = _make_label(COLOR_DIM, COLUMN_TEXT_SIZE if column_layout else 0)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(_status)
 

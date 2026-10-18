@@ -14,7 +14,8 @@ const MARGIN := 18.0
 const FONT_SIZE := 22
 const LAUNCH_SCALE := 1.4
 const MAP_MAX_LAT_DEG := 70.0
-## Hauteur de la carte (part de la hauteur de l'écran).
+## Hauteur maximale de la carte (part de la hauteur de l'écran) ; elle est réduite pour laisser toute la commande de
+## tir à l'écran.
 const MAP_HEIGHT_SHARE := 0.58
 ## Marge supplémentaire à droite (pixels) : le pouce de la main qui tient la tablette, posé sur la bordure de
 ## droite, mord sur le bord de l'écran.
@@ -36,7 +37,8 @@ func _ready() -> void:
 
 	var column := VBoxContainer.new()
 	column.position = Vector2(MARGIN, MARGIN * 0.6)
-	column.size = size - Vector2(2.0 * MARGIN + THUMB_PADDING, 1.6 * MARGIN)
+	var column_size := size - Vector2(2.0 * MARGIN + THUMB_PADDING, 1.6 * MARGIN)
+	column.size = column_size
 	column.add_theme_constant_override("separation", 10)
 	add_child(column)
 
@@ -65,7 +67,8 @@ func _ready() -> void:
 	burn.alignment = BoxContainer.ALIGNMENT_CENTER
 	middle.add_child(burn)
 
-	column.add_child(HSeparator.new())
+	var separator := HSeparator.new()
+	column.add_child(separator)
 	# Commande de tir agrandie : un conteneur à sa taille agrandie, le panneau mis à l'échelle dedans.
 	var launch := LaunchControl.new()
 	launch.name = "Launch"
@@ -75,7 +78,20 @@ func _ready() -> void:
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	holder.add_child(launch)
 	column.add_child(holder)
-	launch.resized.connect(func() -> void: holder.custom_minimum_size = launch.size * LAUNCH_SCALE)
+	# La carte prend la hauteur que laisse la commande de tir (au plus MAP_HEIGHT_SHARE de l'écran) : à hauteur fixe,
+	# la commande débordait sous le bas de la dalle (dernière rangée de silos et bouton rouge coupés).
+	var fit_map := func() -> void:
+		holder.custom_minimum_size = launch.size * LAUNCH_SCALE
+		var spacing := float(column.get_theme_constant("separation")) * 3.0
+		# Hauteur prévue de la colonne (un conteneur grandit pour loger son contenu : sa taille courante ne compte pas).
+		var free := column_size.y - _clock.get_combined_minimum_size().y - holder.custom_minimum_size.y \
+				- separator.get_combined_minimum_size().y - spacing
+		var height := clampf(free, size.y * 0.3, size.y * MAP_HEIGHT_SHARE)
+		map.size = Vector2(height * OrbitalMap.aspect_for(MAP_MAX_LAT_DEG), height)
+		map.custom_minimum_size = map.size
+		column.size = column_size
+	launch.resized.connect(fit_map)
+	fit_map.call_deferred()
 
 
 func _process(_delta: float) -> void:

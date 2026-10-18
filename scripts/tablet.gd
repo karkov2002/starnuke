@@ -44,11 +44,12 @@ const LAG_MAX_RAD := 0.06
 @export var pilot_console_path: NodePath = ^"../../../PilotConsole"
 ## Part de la hauteur de la vue occupée par la tablette sortie.
 ## (Le haut de la tablette reste sous le centre de la vue : le réticule de tir reste visible.)
-@export_range(0.2, 0.9) var view_fill := 0.38
+@export_range(0.2, 0.9) var view_fill := 0.42
 ## Marge entre le bas de la tablette et le bas de la vue (part de la hauteur de la vue, avant l'inclinaison vers
-## l'œil, qui abaisse le bord bas) : réglée pour que ce bord arrive au bas de la vue ; la main et le bras, dessous et
+## l'œil, qui abaisse le bord bas) : le bord bas reste un peu au-dessus du bas de la vue (à 0,035, la dernière
+## rangée de silos et le bouton de tir sortaient de l'écran, surtout si la barre des tâches mord sur la fenêtre) ; la main et le bras, dessous et
 ## derrière, sont hors du champ (seul le pouce, sur la bordure de droite, reste visible ; l'écran reste entier).
-@export var bottom_margin := 0.035
+@export var bottom_margin := 0.08
 ## Marge entre le bord droit de la tablette et celui de la vue (part de la largeur de la vue, avant la perspective, qui
 ## fait dépasser le coin inférieur droit) : le pouce, sur la bordure de droite, reste dans le champ.
 @export var right_margin := 0.1
