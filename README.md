@@ -363,6 +363,13 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   en cours** (une période à partir de maintenant) en **vert très clair**, puis les **orbites à venir** (0 à 4, 1 par
   défaut) d'un vert de plus en plus sombre, la 4ᵉ vert sombre mais bien visible ; station en jaune (flèche dans le
   sens du déplacement, cerclée) ; prochain nœud et trace fantôme en cyan (voir ci-dessus).
+  - **Cible au sol** (`scripts/ground_target.gd`, nœud `GroundTarget`, partagée par la carte du poste et celle de la
+    tablette) : un **clic** sur la carte (sans la glisser : moins de 5 px de déplacement) pose la cible au point
+    cliqué, cercle et croix **bleus** avec ses coordonnées à côté (« 48.86° N  2.35° E ») ; un nouveau clic la
+    déplace, un clic dessus la retire. Au **survol**, la latitude et la longitude du point sous le pointeur le
+    suivent. Dans la **cupola en mode « HUD : On »**, la cible apparaît en surimpression bleue sur la Terre
+    (`scripts/ui/target_marker.gd`, calque du `Hud` : point projeté à l'écran, masqué sous l'horizon ; flèche au
+    bord de l'écran quand elle est hors champ), avec « Cible » et ses coordonnées.
   - **Navigation, comme une carte en ligne** (même carte au poste et sur la tablette, chacune sa vue) : **molette** =
     zoom centré sur le curseur ; **glisser** (bouton gauche) = déplacer la carte dans le sens de la souris ; boutons
     en bas à gauche **« − » / « + »** = zoom centré sur le centre de la carte ; en bas à droite **« Orbites à

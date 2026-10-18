@@ -6,7 +6,8 @@ extends CanvasLayer
 ##   de FADE_S : hors de la cupola, on ne peut pas tirer ;
 ## - chronomètres des missiles (ImpactTimers, ajoutés par LaunchControl), en bas à droite.
 ## Affichage en surimpression dans la cupola (overlay_enabled, bouton « HUD : On / Off » de la tablette, désactivé au
-## départ) : éléments 3D vus à travers les vitres, comme l'anneau de l'orbite visée (GhostTrack) ; masqués si désactivé.
+## départ) : éléments 3D vus à travers les vitres, comme l'anneau de l'orbite visée (GhostTrack), et la cible au sol
+## posée sur la carte (TargetMarker, en bleu) ; masqués si désactivé.
 ## Le reste des commandes (date, carte, silos, tir, BURN) est sur la tablette (scripts/tablet.gd, touche Tab).
 
 signal overlay_changed(enabled: bool)
@@ -17,9 +18,11 @@ const AimReticleScript := preload("res://nuke/aim_reticle.gd")
 
 @export var orbit_path: NodePath = ^"../Orbit"
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
+@export var earth_path: NodePath = ^"../Earth"
 
 var _station: Station
 var _reticle: Control
+var _target_marker: TargetMarker
 var _time_bar: TimeBar
 var _in_cupola := true
 var _fade: Tween
@@ -33,6 +36,11 @@ func _ready() -> void:
 	_reticle = AimReticleScript.new()
 	_reticle.name = "AimReticle"
 	add_child(_reticle)
+	_target_marker = TargetMarker.new()
+	_target_marker.name = "TargetMarker"
+	_target_marker.earth = get_node_or_null(earth_path) as Node3D
+	add_child(_target_marker)
+	_target_marker.shown = overlay_enabled and _in_cupola
 	_time_bar = TimeBar.new()
 	_time_bar.orbit = get_node(orbit_path) as OrbitSimulation
 	add_child(_time_bar)
@@ -48,6 +56,7 @@ func _process(_delta: float) -> void:
 	if inside == _in_cupola:
 		return
 	_in_cupola = inside
+	_target_marker.shown = overlay_enabled and inside
 	if _fade:
 		_fade.kill()
 	if inside:
@@ -62,6 +71,8 @@ func set_overlay_enabled(enabled: bool) -> void:
 	if enabled == overlay_enabled:
 		return
 	overlay_enabled = enabled
+	if _target_marker:
+		_target_marker.shown = enabled and _in_cupola
 	overlay_changed.emit(enabled)
 
 

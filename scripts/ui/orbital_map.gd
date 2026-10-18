@@ -11,8 +11,11 @@ extends Control
 ## très clair) et les orbites_ahead orbites suivantes (0 à MAX_ORBITS_AHEAD, 1 par défaut), d'un vert de plus en plus
 ## sombre (la dernière vert sombre, toujours bien visible).
 ##
+## Cible au sol (GroundTarget) : un clic (sans glisser) pose la cible au point cliqué (cercle bleu, coordonnées à côté),
+## un clic dessus la retire ; au survol, les coordonnées du point sous le pointeur le suivent.
+##
 ## Navigation, à la manière d'une carte en ligne : molette = zoom centré sur le curseur ; glisser (bouton gauche
-## maintenu) = déplacer la carte dans le sens de la souris ; boutons en bas : « − » / « + » (zoom centré sur le
+## maintenu, au-delà de CLICK_SLOP px) = déplacer la carte dans le sens de la souris ; boutons en bas : « − » / « + » (zoom centré sur le
 ## centre de la carte) et le nombre d'orbites à venir (0 à 4). Zoom de 1 (monde entier) à MAX_ZOOM ; le monde se
 ## répète d'est en ouest (on fait le tour sans fin), et la carte ne dépasse pas ±max_lat_deg en latitude.
 ##
@@ -53,6 +56,11 @@ const COLOR_PANEL_TEXT := Color(0.85, 1.0, 0.88)
 const COLOR_PANEL_DIM := Color(0.45, 0.6, 0.5)
 ## Pointillés de la trace fantôme : DASH pas de la trace tracés, puis DASH pas vides.
 const DASH := 2
+## Déplacement maximal (px) entre l'appui et le relâchement pour un clic (au-delà : la carte a été glissée).
+const CLICK_SLOP := 5.0
+## Rayon (px) autour de la cible où un clic la retire.
+const TARGET_PICK := 14.0
+const COLOR_HOVER := Color(0.85, 1.0, 0.88)
 
 ## Rapport largeur / hauteur de la carte du poste (±MAX_LAT_DEG).
 static var ASPECT := aspect_for(MAX_LAT_DEG)
@@ -74,6 +82,12 @@ var _base_zoom := 1.0
 var _idle := 0.0
 var _base_dirty := false
 var _dragging := false
+## Clic ou glisser : position de l'appui et distance parcourue depuis (sous CLICK_SLOP px : un clic, qui pose la cible).
+var _press_position := Vector2.ZERO
+var _drag_distance := 0.0
+## Position du pointeur sur la carte (INF : hors de la carte) : ses coordonnées le suivent.
+var _hover := Vector2.INF
+var _target: GroundTarget
 var _base_viewport: SubViewport
 var _base: Control
 var _base_image: TextureRect
@@ -215,14 +229,58 @@ func _gui_input(event: InputEvent) -> void:
 			zoom_at(button.position, 1.0 / WHEEL_ZOOM)
 			accept_event()
 		elif button.button_index == MOUSE_BUTTON_LEFT:
+			if button.pressed:
+				_press_position = button.position
+				_drag_distance = 0.0
+			elif _dragging and _drag_distance < CLICK_SLOP:
+				_click(button.position)
 			_dragging = button.pressed
-			mouse_default_cursor_shape = Control.CURSOR_DRAG if _dragging else Control.CURSOR_ARROW
+			mouse_default_cursor_shape = Control.CURSOR_DRAG if _dragging and _drag_distance >= CLICK_SLOP \
+					else Control.CURSOR_ARROW
 			accept_event()
 		return
 	var motion := event as InputEventMouseMotion
-	if motion and _dragging:
-		pan(motion.relative)
-		accept_event()
+	if motion:
+		_hover = motion.position
+		if _dragging:
+			_drag_distance = maxf(_drag_distance, motion.position.distance_to(_press_position))
+			if _drag_distance >= CLICK_SLOP:
+				mouse_default_cursor_shape = Control.CURSOR_DRAG
+				pan(motion.relative)
+			accept_event()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_MOUSE_EXIT:
+		_hover = Vector2.INF
+
+
+## Clic (sans glisser) sur la carte : pose la cible au point cliqué, ou la retire si on clique dessus.
+func _click(at: Vector2) -> void:
+	var target := _get_target()
+	if target == null:
+		return
+	if target.active:
+		for copy in _visible_copies():
+			if project(target.latitude_deg, target.longitude_deg, copy).distance_to(at) <= TARGET_PICK:
+				target.clear()
+				return
+	var point := lat_lon_at(at)
+	target.set_target(point.x, point.y)
+
+
+func _get_target() -> GroundTarget:
+	if _target == null or not is_instance_valid(_target):
+		_target = get_tree().get_first_node_in_group(GroundTarget.GROUP) as GroundTarget
+	return _target
+
+
+## (latitude, longitude) en degrés du point de la carte at (pixels locaux) : inverse de project.
+func lat_lon_at(at: Vector2) -> Vector2:
+	var world := (at - size * 0.5) / (size * _zoom) + _center
+	var y := (1.0 - 2.0 * world.y) * mercator(max_lat_deg)
+	var lat := rad_to_deg(2.0 * atan(exp(y)) - PI / 2.0)
+	return Vector2(clampf(lat, -max_lat_deg, max_lat_deg), wrapf(world.x * 360.0 - 180.0, -180.0, 180.0))
 
 
 ## Copies du monde (−1, 0, 1) visibles dans la vue courante.
@@ -310,6 +368,51 @@ func _draw_overlay() -> void:
 					at + Vector2(0, r), at + Vector2(-r, 0)]), COLOR_GHOST)
 	for copy in copies:
 		_draw_station(_overlay, copy)
+	_draw_target(copies)
+	_draw_hover()
+
+
+## Cible au sol (GroundTarget) : cercle et croix bleus, coordonnées à côté.
+func _draw_target(copies: Array[int]) -> void:
+	var target := _get_target()
+	if target == null or not target.active:
+		return
+	var font := get_theme_default_font()
+	var font_size := _label_size()
+	var text := GroundTarget.format(target.latitude_deg, target.longitude_deg)
+	for copy in copies:
+		var at := project(target.latitude_deg, target.longitude_deg, copy)
+		_overlay.draw_arc(at, 9.0, 0.0, TAU, 32, GroundTarget.COLOR, 2.5, true)
+		_overlay.draw_circle(at, 2.5, GroundTarget.COLOR, true, -1.0, true)
+		for direction: Vector2 in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+			_overlay.draw_line(at + direction * 12.0, at + direction * 18.0, GroundTarget.COLOR, 2.0, true)
+		_draw_label(at + Vector2(22.0, -10.0), text, font, font_size, GroundTarget.COLOR)
+
+
+## Coordonnées sous le pointeur (au survol de la carte, hors glisser).
+func _draw_hover() -> void:
+	if _hover == Vector2.INF or (_dragging and _drag_distance >= CLICK_SLOP) \
+			or not Rect2(Vector2.ZERO, size).has_point(_hover):
+		return
+	var point := lat_lon_at(_hover)
+	_draw_label(_hover + Vector2(18.0, 22.0), GroundTarget.format(point.x, point.y), get_theme_default_font(),
+			_label_size(), COLOR_HOVER)
+
+
+## Texte sur un fond sombre, gardé dans la carte (à gauche du point s'il déborderait à droite).
+func _draw_label(at: Vector2, text: String, font: Font, font_size: int, color: Color) -> void:
+	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	var box := Rect2(at - Vector2(6.0, text_size.y * 0.8), text_size + Vector2(12.0, 6.0))
+	if box.end.x > size.x:
+		box.position.x -= box.size.x + 40.0
+	box.position.y = clampf(box.position.y, 0.0, size.y - box.size.y)
+	_overlay.draw_rect(box, Color(0.0, 0.0, 0.0, 0.7))
+	_overlay.draw_string(font, box.position + Vector2(6.0, text_size.y * 0.8), text, HORIZONTAL_ALIGNMENT_LEFT, -1,
+			font_size, color)
+
+
+func _label_size() -> int:
+	return clampi(roundi(size.y * 0.022), 11, 22)
 
 
 ## Points de trace en cache, par source (&"orbit", &"ghost") : indice k de la grille t = k·TRACK_STEP_S -> (lat, lon).

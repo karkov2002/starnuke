@@ -25,6 +25,7 @@
 [ext_resource type="Script" uid="uid://jeip2tbo8cjk" path="res://scripts/hatch_interaction.gd" id="23_c3720"]
 [ext_resource type="Script" uid="uid://xb7bma85q0fm" path="res://scripts/tech_screens.gd" id="24_sepft"]
 [ext_resource type="Script" uid="uid://bymj57t40bbqg" path="res://scripts/tv_console.gd" id="25_is60b"]
+[ext_resource type="Script" path="res://scripts/ground_target.gd" id="26_tkc1l"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -161,3 +162,6 @@ script = ExtResource("24_sepft")
 
 [node name="TvConsole" type="Node" parent="." unique_id=1714258153]
 script = ExtResource("25_is60b")
+
+[node name="GroundTarget" type="Node" parent="." unique_id=900282812]
+script = ExtResource("26_tkc1l")
