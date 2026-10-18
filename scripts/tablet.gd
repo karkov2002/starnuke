@@ -96,6 +96,9 @@ var _last_uv := Vector2(0.5, 0.5)
 
 
 func _ready() -> void:
+	# Indépendante de l'observateur (désactivé au poste de pilotage) : sinon son rangement s'y figeait, tablette
+	# restée sortie devant l'écran du poste ; elle s'arrête toujours avec la pause du jeu.
+	process_mode = Node.PROCESS_MODE_PAUSABLE
 	_camera = get_parent() as Camera3D
 	if _camera:
 		_previous_view = _camera.global_basis.orthonormalized()

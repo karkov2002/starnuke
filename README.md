@@ -336,13 +336,22 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   2π / (2·ln tan(45° + 40°)) ≈ 1,29), lignes blanches sur fond noir : contours des pays et des continents
   (`assets/world_map_lines.res`, Natural Earth 1:50 M, `scripts/world_map_lines.gd`, généré par
   `tools/build_map_lines.gd` ; sommets à au moins 0,05° les uns des autres). Méridiens et parallèles tous les 10° et
-  équateur en gris. Trace au sol de l'orbite en vert (sinusoïde déformée par la projection et décalée vers l'ouest à
-  chaque tour par la rotation de la Terre) : demi-période passée en vert sombre, 1,5 période à venir en vert vif,
-  coupée à l'antiméridien ; station en jaune (flèche dans le sens du déplacement, cerclée) ; prochain nœud et trace
-  fantôme en cyan (voir ci-dessus). Le fond (≈ 85 000
-  segments) est rendu **une seule fois** dans la texture d'un `SubViewport` (`UPDATE_ONCE`, MSAA 4×) : redessiner
-  autant de lignes lissées à chaque image coûtait ~20 ms de CPU (35 im/s) ; la trace et la station sont redessinées à
-  chaque image.
+  équateur en gris. Trace au sol de l'orbite (sinusoïde déformée par la projection et décalée vers l'ouest à
+  chaque tour par la rotation de la Terre), coupée à l'antiméridien : demi-période passée en gris-vert fin, **orbite
+  en cours** (une période à partir de maintenant) en **vert très clair**, puis les **orbites à venir** (0 à 4, 1 par
+  défaut) d'un vert de plus en plus sombre, la 4ᵉ vert sombre mais bien visible ; station en jaune (flèche dans le
+  sens du déplacement, cerclée) ; prochain nœud et trace fantôme en cyan (voir ci-dessus).
+  - **Navigation, comme une carte en ligne** (même carte au poste et sur la tablette, chacune sa vue) : **molette** =
+    zoom centré sur le curseur ; **glisser** (bouton gauche) = déplacer la carte dans le sens de la souris ; boutons
+    en bas à gauche **« − » / « + »** = zoom centré sur le centre de la carte ; en bas à droite **« Orbites à
+    venir » 0 1 2 3 4** (clés `MAP_ORBITS_AHEAD`, `MAP_ZOOM_IN`, `MAP_ZOOM_OUT`). Zoom de ×1 (monde entier) à ×8 ; le
+    monde se répète d'est en ouest (on en fait le tour sans fin), la carte ne dépasse pas ±max_lat en latitude.
+  - **Performances** : le fond (≈ 85 000 segments) est rendu dans la texture d'un `SubViewport` (`UPDATE_ONCE`,
+    MSAA 4×) seulement quand la vue a changé et ne bouge plus depuis 0,15 s (redessiner autant de lignes lissées à
+    chaque image coûtait ~20 ms de CPU) ; pendant un zoom ou un glisser, l'image précédente est déplacée et mise à
+    l'échelle. Les points de trace sont **en cache** sur une grille de 20 s (une trace recalculée à chaque image
+    coûtait ~3,5 ms par carte à 4 orbites) ; un point témoin recalculé par image vide le cache si l'orbite change
+    (manœuvre, date, altitude). Une carte non affichée (onglet caché, tablette rangée) n'est pas redessinée.
 
 ## Station spatiale (modèle Blender)
 
