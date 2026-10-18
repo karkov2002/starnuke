@@ -447,7 +447,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
     3. morts selon « nos experts » (bilan `NukeTally` à l'instant présent, arrondi à trois chiffres significatifs) ;
     4. capitales détruites (chaînes hors d'antenne) : sans nouvelles des autorités de ces pays ;
     5. déclaration du gouvernement du pays qui diffuse : **touché et puissance nucléaire** (États-Unis, Russie,
-       France, Royaume-Uni, Inde, Pakistan, Chine, Israël, Corée du Nord : `TvNews.NUCLEAR_POWERS`) → alerte
+       France, Royaume-Uni, Inde, Pakistan, Chine, Israël, Corée du Nord : `nuclear_powers` de `news_rules.json`) → alerte
        maximale, riposte à l'étude, consignes à la population ; **touché sans arme nucléaire** → alerte maximale et
        consignes ; **non touché** → alerte maximale, protection du pays, pensées pour les pays touchés.
     **Règles d'affichage** (`assets/tv/news_rules.json`, vision d'ensemble des cas) : le bandeau est un préfixe puis
