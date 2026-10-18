@@ -343,25 +343,32 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   modèles procéduraux détaillés qui remplacent les maillages des 4 `Interactif_Ordinateur_*` et de 10
   `Interactif_Ecran_*` (01–08, 13, 14). **`Interactif_Ecran_Principal` (poste de pilotage) et les consoles
   de tir des silos n'y sont pas touchés** ; les petits écrans 16 et 17 qui l'encadraient sont supprimés du `.blend`.
-  Penser à **enregistrer le `.blend`** après chaque modification exportée : un export depuis un fichier non
-  enregistré se perd à la réouverture. Portable 14" 16:10 noir mat (84 touches en relief, légendes
+  Portable 14" 16:10 noir mat (84 touches en relief, légendes
   `E:\Blender\textures\clavier_legendes.png` rendues par le script, TrackPoint, pavé, connectique, charnières à fûts,
   écran ouvert à 105°) sur un bras articulé (plateau à griffes, rotule, deux segments à chapes et molettes, platine
   murale vissée, câble) ; écrans à bordure fine, coque arrière bombée, plaque VESA et support mural inclinable
   (dalle à 5,5 cm de la paroi, comme avant). Chaque objet garde son nom, ses extras et son matériau `Ecran_XX` (dalle
   UV 0–1, (0, 0) en haut à gauche) ; il reçoit le repère de l'appareil en transformation d'objet (table `LAPTOPS` /
   `SCREENS` du script, rejouable). Nouveaux matériaux préfixés `Int_` (rangés à l'intérieur par `station.gd`).
+  Penser à **enregistrer le `.blend`** après chaque modification exportée : un export depuis un fichier non
+  enregistré se perd à la réouverture.
+- **Écoutilles des modules de missiles** (`tools/blender/add_missile_hatches.py`, envoyé au Blender ouvert sur
+  `nuke_station.blend`, rejouable) : le tunnel Habitation → silo (Ø 2,88 m) est rétréci au passage standard
+  (Ø 1,32 m) par une cloison `Missile_<s>_Cloison_Ecoutille-col` (couronne grise + cadre copié de l'écoutille avant
+  de l'Habitation) à |y| = 2,55 m ; l'écoutille (`Charniere_Ecoutille_Missile_<s>`, `Interactif_Ecoutille_Missile_<s>`
+  et sa collision `-convcolonly`) est une copie exacte de `Ecoutille_Habitation_AV`, avec sa piste
+  `Fermeture_Ecoutilles` (−90° en 40 images) ; elle s'ouvre vers le silo.
 - **Import** (`station_spatiale.glb.import`) : échelle 1 (mètres), racine `StationSpatiale`, collisions par
   suffixes de noms (`-col` : collision statique concave + maillage ; `-convcolonly` : collision convexe seule),
   LOD générés, animations à 24 i/s, **Rotation_Panneaux** (plus jouée : suivi du soleil, voir plus bas) et **Balayage_Antennes** en boucle (les autres jouées
   une fois). Textures extraites à côté du .glb (compression GPU S3TC/BPTC) : les images sont régénérées à chaque
   import et ne sont pas versionnées (`.gitignore`) ; leurs `.import` le sont (UID et réglages stables).
 - **Post-import** (`tools/import/station_import.gd`) :
-  - collisions des portes et trappes (enfants d'une `Charniere_*` animée) converties en `AnimatableBody3D`, qui
-    suivent le mouvement ;
+  - collisions des portes et trappes (enfants d'une `Charniere_*` animée) converties en `AnimatableBody3D` (dont
+    `station.gd` coupe `sync_to_physics` : voir « Collisions des portes et trappes » plus bas) ;
   - pistes constantes retirées des animations : l'export Blender met dans chaque action tous les objets animés
     (75 pistes) ; il ne reste que les pistes utiles (Rotation_Panneaux 4, Balayage_Antennes 3, Fermeture_Ecoutilles
-    4, Ouverture_Trappes 48, Retraction_Radiateurs 12, Lancement_Missile 5). Sans cela, jouer une animation
+    6, Ouverture_Trappes 48, Retraction_Radiateurs 12, Lancement_Missile 5). Sans cela, jouer une animation
     remettrait aussi en place tous les autres objets animés.
   - **Piège** : l'éditeur garde le script de post-import en cache ; modifié hors de l'éditeur, il n'est pas relu à
     l'import suivant (relancer l'éditeur). Toucher le `.import` ne relance pas l'import : il faut changer un
@@ -386,10 +393,22 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     sol ; elle reste au moins 2° au-dessus de l'horizon local (`panel_horizon_margin_deg`, verticale = direction
     Terre → station, nœud `Earth`). Quand le soleil passe sous l'horizon de la station, les panneaux s'arrêtent à
     cette limite. Vitesse bornée à 6°/s (`panel_max_speed_deg`), pour éviter un saut quand la date ou l'heure change.
-  - États au repos : écoutilles ouvertes, trappes des silos fermées, radiateurs déployés. Écoutille cargo et
-    trappes sas et nadir verrouillées (`ouvrable` faux) : leurs commandes renvoient `false`.
-  - Écoutilles : `open_hatch(id)`, `close_hatch(id)`, `set_hatch_open(id, open)`, `set_all_hatches_open(open)`,
-    `is_hatch_open(id)`, `hatch_ids()` ; signal `hatch_changed(id, open)`.
+  - États au repos (modèle) : écoutilles ouvertes, trappes des silos fermées, radiateurs déployés. **Règle de jeu :
+    au démarrage, les 6 écoutilles ouvrables sont fermées** (`start_hatches_closed`) : les 4 axiales (Arrimage AV,
+    Habitation AR et AV, Commande AR) et les 2 des modules de missiles (`Ecoutille_Missile_1`, `_2`). Écoutille
+    cargo et trappes sas et nadir verrouillées (`ouvrable` faux, rien n'est modélisé derrière) : leurs commandes
+    renvoient `false`.
+  - Écoutilles : `open_hatch(id)`, `close_hatch(id)`, `set_hatch_open(id, open)`, `toggle_hatch(id)`,
+    `set_all_hatches_open(open)`, `is_hatch_open(id)`, `is_hatch_opening(id)` (état visé), `hatch_ids()`,
+    `hatch_id_for(node)` (écoutille d'une porte ou de son corps de collision) ; signal `hatch_changed(id, open)`.
+    Comme pour les trappes, une demande inverse en cours de mouvement repart de la position actuelle.
+  - **Écoutilles à la souris** (`scripts/hatch_interaction.gd`, nœud `HatchInteraction` de `orbit_view.tscn`) :
+    rayon de la caméra contre les collisions, à 2,5 m au plus (`reach_m`) ; survol d'une écoutille ouvrable : bulle
+    « Ouvrir l'écoutille » / « Fermer l'écoutille » (`HATCH_OPEN`, `HATCH_CLOSE`) ; clic gauche : ouverture ou
+    fermeture animée (rotation de la charnière, durée de `Fermeture_Ecoutilles`). Inactif au poste de pilotage.
+  - Collisions des portes et trappes : `AnimatableBody3D` enfant de la porte, **sans `sync_to_physics`**
+    (`Station._fit_door_collision`). Avec, le corps ne suivait que ses propres déplacements, pas ceux de la charnière
+    parente : il restait figé dans la pose de l'import (porte fermée traversable, porte ouverte qui bloquait encore).
   - Trappes des silos : `open_silo_door(silo, tube)`, `close_silo_door(…)`, `set_all_silo_doors_open(open, silo)`
     (silo 0 : les deux) ; signal `silo_door_changed(silo, tube, open)`. Une demande inverse en cours de mouvement
     repart de la position actuelle (état visé `target`) ; le lancement reprend la trappe où elle est (déjà ouverte par

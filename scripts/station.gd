@@ -11,7 +11,8 @@ extends Node3D
 ##   (_play_tracks) ; pour un groupe dans le même état (toutes les écoutilles…), l'animation complète est jouée par un
 ##   AnimationPlayer. Chaque animation a son propre AnimationPlayer (créé ici, bibliothèque partagée) : elles peuvent
 ##   tourner en même temps (panneaux et antennes en boucle, trappes, radiateurs).
-## États au repos (modèle) : écoutilles ouvertes, trappes des silos fermées, radiateurs déployés.
+## États au repos (modèle) : écoutilles ouvertes, trappes des silos fermées, radiateurs déployés. Au démarrage du jeu,
+## les écoutilles ouvrables sont fermées (start_hatches_closed) ; le joueur les ouvre d'un clic (scripts/hatch_interaction.gd).
 ##
 ## Missiles : un seul est modélisé (Missile_Balistique_1_12, tube 1_12). Pour un autre tube, il est copié et placé à
 ## l'identique par rapport au Point_Lancement du tube ; le lancement rejoue l'animation Lancement_Missile : ouverture
@@ -56,6 +57,8 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 ## le soleil à chaque image, sans jamais tourner leur face vers le sol (station furtive : une face éclairée tournée vers
 ## la Terre la rendrait visible) ; l'animation Blender Rotation_Panneaux (rotation continue) n'est plus jouée.
 @export var track_sun_panels := true
+## Écoutilles ouvrables fermées au démarrage (règle de jeu) ; sinon, état du modèle (ouvertes).
+@export var start_hatches_closed := true
 ## Lumière du soleil et Terre de la scène (direction du soleil, verticale locale). Sans Terre : +Y de la station.
 @export var sun_path: NodePath = ^"../../Sun"
 @export var earth_path: NodePath = ^"../../Earth"
@@ -240,8 +243,10 @@ func set_hatch_open(id: String, open: bool) -> bool:
 	if not is_hatch_openable(id):
 		return false
 	var hatch: Dictionary = _hatches[id]
-	if hatch.is_open == open:
+	# État visé (et non l'état atteint) : une demande inverse en cours de mouvement repart de la position actuelle.
+	if hatch.get("target", hatch.is_open) == open:
 		return true
+	hatch.target = open
 	# Fermeture_Ecoutilles : début = ouverte, fin = fermée.
 	_tween_hinge(hatch, hatch.closed if not open else hatch.open, func() -> void:
 		hatch.is_open = open
@@ -257,11 +262,34 @@ func close_hatch(id: String) -> bool:
 	return set_hatch_open(id, false)
 
 
+## État visé d'une écoutille (celui vers lequel elle bouge, ou son état au repos).
+func is_hatch_opening(id: String) -> bool:
+	return _hatches.has(id) and _hatches[id].get("target", _hatches[id].is_open)
+
+
+## Ouvre l'écoutille fermée (ou qui se ferme), ferme l'écoutille ouverte (ou qui s'ouvre).
+func toggle_hatch(id: String) -> bool:
+	return set_hatch_open(id, not is_hatch_opening(id))
+
+
+## Identifiant de l'écoutille ouvrable à laquelle appartient node (la porte, ou un de ses descendants comme son corps
+## de collision), "" sinon.
+func hatch_id_for(node: Node) -> String:
+	while node and node != self:
+		for id: String in _hatches:
+			if _hatches[id].node == node:
+				return id if _hatches[id].ouvrable else ""
+		node = node.get_parent()
+	return ""
+
+
 ## Toutes les écoutilles ouvrables : animation complète si elles sont toutes dans le même état, sinon une par une.
 func set_all_hatches_open(open: bool) -> void:
 	var targets := _hatches.keys().filter(func(id: String) -> bool: return _hatches[id].ouvrable)
 	var group := targets.all(func(id: String) -> bool: return _hatches[id].is_open != open and _hatches[id].tween == null)
 	if group and targets.size() == _animated_count(ANIM_HATCHES):
+		for id: String in targets:
+			_hatches[id].target = open
 		_play_group(ANIM_HATCHES, not open, func() -> void:
 			for id: String in targets:
 				_hatches[id].is_open = open
@@ -637,6 +665,10 @@ func _collect_interactives() -> void:
 					# Début de Fermeture_Ecoutilles = ouverte.
 					entry.open = entry.start
 					entry.closed = entry.end
+					if start_hatches_closed and entry.ouvrable and entry.is_open:
+						hinge.quaternion = entry.closed
+						entry.is_open = false
+				_fit_door_collision(node)
 				_hatches[String(extras.get("id", node.name))] = entry
 			"trappe_silo":
 				var key := Vector2i(int(extras.get("silo", 0)), int(extras.get("tube", 0)))
@@ -647,7 +679,18 @@ func _collect_interactives() -> void:
 					_fill_hinge(entry, door_anim, hinge)
 					entry.closed = entry.start
 					entry.open = entry.end
+				_fit_door_collision(node)
 				_silo_doors[key] = entry
+
+
+## Corps de collision d'une porte (AnimatableBody3D tiré du nœud Blender « -convcolonly », enfant de la porte) : avec
+## sync_to_physics, il ne suit que ses propres déplacements, pas ceux de la charnière parente, et restait figé dans la
+## pose de l'import (porte fermée traversable, porte ouverte qui bloque encore le passage et le clic). Sans
+## sync_to_physics, il suit la porte à chaque image (et pousse toujours l'observateur).
+func _fit_door_collision(door: Node) -> void:
+	for body in door.get_children():
+		if body is AnimatableBody3D:
+			(body as AnimatableBody3D).sync_to_physics = false
 
 
 ## Angles de début et de fin et durée de la piste de rotation de la charnière dans l'animation.

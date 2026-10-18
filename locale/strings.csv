@@ -53,6 +53,8 @@ REPORT_OFFSHORE,"(outside any country)","(hors pays)","(fuera de todo país)","(
 REPORT_NOTE,"Report at the present moment: flash, shock wave, deaths of the injured (hours), radioactive fallout (days, surface bursts; WSEG-10). OTA 1979 model, 2030 population.","Bilan à l'instant présent : flash, onde de choc, décès des blessés (heures), retombées radioactives (jours, explosions au sol ; WSEG-10). Modèle OTA 1979, population 2030.","Balance en el momento actual: destello, onda expansiva, muertes de heridos (horas), lluvia radiactiva (días, explosiones en superficie; WSEG-10). Modelo OTA 1979, población 2030.","Bilanz zum jetzigen Zeitpunkt: Lichtblitz, Druckwelle, Tod von Verletzten (Stunden), radioaktiver Niederschlag (Tage, Bodendetonationen; WSEG-10). OTA-Modell 1979, Bevölkerung 2030.","Bilancio al momento attuale: lampo, onda d'urto, decessi dei feriti (ore), ricaduta radioattiva (giorni, esplosioni al suolo; WSEG-10). Modello OTA 1979, popolazione 2030."
 PILOT_HOVER,"Orbital control","Contrôle orbital","Control orbital","Orbitalsteuerung","Controllo orbitale"
 PILOT_EXIT_HINT,"Right click: leave the pilot station","Clic droit : quitter le poste de pilotage","Clic derecho: salir del puesto de pilotaje","Rechtsklick: Pilotenplatz verlassen","Clic destro: lascia la postazione di pilotaggio"
+HATCH_OPEN,"Open the hatch","Ouvrir l'écoutille","Abrir la escotilla","Luke öffnen","Apri il portello"
+HATCH_CLOSE,"Close the hatch","Fermer l'écoutille","Cerrar la escotilla","Luke schließen","Chiudi il portello"
 PILOT_TITLE,"ORBITAL CONTROL","CONTRÔLE ORBITAL","CONTROL ORBITAL","ORBITALSTEUERUNG","CONTROLLO ORBITALE"
 PILOT_UTC,"UTC","UTC","UTC","UTC","UTC"
 PILOT_POSITION,"Position","Position","Posición","Position","Posizione"

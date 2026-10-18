@@ -10,8 +10,7 @@
 [ext_resource type="PackedScene" path="res://scenes/station_spatiale.tscn" id="7_0pmab"]
 [ext_resource type="Script" uid="uid://nmhxi1tug17e" path="res://scripts/orbit.gd" id="8_3kqp2"]
 [ext_resource type="Material" path="res://materials/atmosphere_ground.tres" id="8_pecem"]
-[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="10_hud"]
-[ext_resource type="Script" path="res://scripts/tablet.gd" id="22_tab"]
+[ext_resource type="Script" uid="uid://dq6gx0b0wpihd" path="res://scripts/ui/hud.gd" id="10_hud"]
 [ext_resource type="CameraAttributesPractical" path="res://materials/camera_attributes.tres" id="11_cam"]
 [ext_resource type="Script" uid="uid://cuu53raq5g4v5" path="res://nuke/nuke_launcher.gd" id="12_nuam2"]
 [ext_resource type="Script" uid="uid://cufsohnqhvy1c" path="res://nuke/nuke_report_panel.gd" id="13_tq5ei"]
@@ -22,6 +21,8 @@
 [ext_resource type="Script" uid="uid://ce2csaftt2o2t" path="res://scripts/pilot_console.gd" id="19_uophr"]
 [ext_resource type="Script" uid="uid://c4f5bdffakcce" path="res://scripts/flight_computer.gd" id="20_75yn7"]
 [ext_resource type="Script" uid="uid://8k2ktko5qj80" path="res://scripts/ghost_track.gd" id="21_ll3fm"]
+[ext_resource type="Script" uid="uid://ypeuawkhrcxu" path="res://scripts/tablet.gd" id="22_tab"]
+[ext_resource type="Script" uid="uid://jeip2tbo8cjk" path="res://scripts/hatch_interaction.gd" id="23_c3720"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -149,3 +150,6 @@ script = ExtResource("21_ll3fm")
 
 [node name="PilotConsole" type="Node" parent="." unique_id=391993888]
 script = ExtResource("19_uophr")
+
+[node name="HatchInteraction" type="Node" parent="." unique_id=1985292490]
+script = ExtResource("23_c3720")
