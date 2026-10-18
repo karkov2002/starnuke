@@ -42,7 +42,7 @@ var _country_label: Label
 var _no_signal: Control
 var _menu_button: Button
 var _menu: PanelContainer
-var _list: VBoxContainer
+var _list: GridContainer
 var _time := 0.0
 
 
@@ -104,7 +104,7 @@ func _ready() -> void:
 		_menu_button.add_theme_stylebox_override(state, _box(COLOR_PANEL if state != "hover" else Color(0.1, 0.15, 0.25, 0.95),
 				COLOR_TEXT, 2, 12))
 	_menu_button.position = Vector2(size.y * 0.04, size.y * 0.04)
-	_menu_button.pressed.connect(func() -> void: _menu.visible = not _menu.visible)
+	_menu_button.pressed.connect(_toggle_menu)
 	add_child(_menu_button)
 	_build_menu()
 	show_channel(channel)
@@ -230,58 +230,87 @@ func _scroll_ticker(delta: float) -> void:
 			_next_ticker_text()
 
 
+## Mosaïque des chaînes, comme le guide d'une vraie télévision : plein écran, grille défilante (molette) de vignettes
+## ChannelTile (logo, numéro, nom de la chaîne, pays), numérotées dans l'ordre alphabétique des pays (langue du
+## joueur). Construite une fois, à la première ouverture ; les états (chaîne en cours, hors d'antenne) sont mis à jour
+## sans reconstruction.
 func _build_menu() -> void:
 	_menu = PanelContainer.new()
-	_menu.add_theme_stylebox_override("panel", _box(COLOR_PANEL, COLOR_TEXT, 2, 12))
-	_menu.position = Vector2(size.y * 0.04, size.y * 0.16)
-	_menu.size = Vector2(size.x * 0.55, size.y * 0.78)
+	_menu.add_theme_stylebox_override("panel", _box(Color(0.02, 0.03, 0.05), Color(0, 0, 0, 0), 0, 0))
+	_menu.position = Vector2.ZERO
+	_menu.size = size
 	_menu.visible = false
 	add_child(_menu)
+	var margin := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, int(size.y * 0.04))
+	_menu.add_child(margin)
 	var column := VBoxContainer.new()
-	_menu.add_child(column)
+	column.add_theme_constant_override("separation", int(size.y * 0.025))
+	margin.add_child(column)
+	var header := HBoxContainer.new()
+	column.add_child(header)
 	var title := Label.new()
-	title.text = "TV_CHOOSE_COUNTRY"
-	title.add_theme_font_size_override("font_size", int(size.y * 0.04))
+	title.text = "TV_CHOOSE_CHANNEL"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_theme_font_size_override("font_size", int(size.y * 0.05))
 	title.add_theme_color_override("font_color", COLOR_TEXT)
-	column.add_child(title)
+	header.add_child(title)
+	var close := Button.new()
+	close.text = "TV_CLOSE"
+	close.focus_mode = Control.FOCUS_NONE
+	close.add_theme_font_size_override("font_size", int(size.y * 0.035))
+	for state in ["normal", "hover", "pressed"]:
+		close.add_theme_stylebox_override(state, _box(Color(0.1, 0.13, 0.2, 0.95) if state != "hover"
+				else Color(0.18, 0.24, 0.36, 0.98), Color(1, 1, 1, 0.6), 1, 10))
+	close.pressed.connect(func() -> void: _menu.visible = false)
+	header.add_child(close)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(size.x * 0.53, size.y * 0.66)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.name = "Scroll"
 	column.add_child(scroll)
-	_list = VBoxContainer.new()
-	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_list = GridContainer.new()
+	_list.columns = 5
+	_list.add_theme_constant_override("h_separation", int(size.y * 0.02))
+	_list.add_theme_constant_override("v_separation", int(size.y * 0.02))
 	scroll.add_child(_list)
 
 
-## Liste des pays (reconstruite à l'ouverture d'une chaîne : noms traduits, état hors d'antenne).
-func _refresh_menu() -> void:
-	if console == null or _list == null:
-		return
-	for child in _list.get_children():
-		child.queue_free()
+func _toggle_menu() -> void:
+	if _list.get_child_count() == 0:
+		_fill_menu()
+	_menu.visible = not _menu.visible
+	if _menu.visible:
+		_refresh_menu()
+		# La chaîne en cours en vue.
+		for tile: ChannelTile in _list.get_children():
+			if tile.code == channel:
+				(_menu.find_child("Scroll", true, false) as ScrollContainer).ensure_control_visible.call_deferred(tile)
+
+
+func _fill_menu() -> void:
 	var codes := console.channel_codes()
 	codes.sort_custom(func(a: String, b: String) -> bool:
 		return tr("COUNTRY_" + a).naturalnocasecmp_to(tr("COUNTRY_" + b)) < 0)
-	for code in codes:
-		var button := Button.new()
-		button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		button.focus_mode = Control.FOCUS_NONE
-		button.add_theme_font_size_override("font_size", int(size.y * 0.036))
-		var off := console.is_off_air(code)
-		button.text = "%s  —  %s%s" % [tr("COUNTRY_" + code), console.channel_name(code),
-				"   (%s)" % tr("TV_OFF_AIR") if off else ""]
-		var active := code == channel
-		var normal := _box(Color(0.12, 0.2, 0.35, 0.9) if active else Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 8)
-		button.add_theme_stylebox_override("normal", normal)
-		button.add_theme_stylebox_override("hover", _box(Color(0.15, 0.25, 0.45, 0.95), Color(0, 0, 0, 0), 0, 8))
-		button.add_theme_stylebox_override("pressed", normal)
-		button.add_theme_color_override("font_color", COLOR_OFF if off else COLOR_TEXT)
-		button.add_theme_color_override("font_hover_color", COLOR_TEXT)
-		button.pressed.connect(func() -> void:
+	var tile_width := (size.x - size.y * 0.08 - 4.0 * size.y * 0.02 - 14.0) / 5.0
+	for i in codes.size():
+		var code := codes[i]
+		var tile := ChannelTile.new()
+		tile.custom_minimum_size = Vector2(tile_width, tile_width * 0.82)
+		tile.setup(code, i + 1, console.channel_name(code), tr("COUNTRY_" + code))
+		tile.pressed.connect(func() -> void:
 			_menu.visible = false
 			channel_selected.emit(code))
-		_list.add_child(button)
+		_list.add_child(tile)
+
+
+## États des vignettes (chaîne en cours, hors d'antenne).
+func _refresh_menu() -> void:
+	if console == null or _list == null:
+		return
+	for tile: ChannelTile in _list.get_children():
+		tile.set_state(tile.code == channel, console.is_off_air(tile.code))
 
 
 func _draw_no_signal() -> void:

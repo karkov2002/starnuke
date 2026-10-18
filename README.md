@@ -368,7 +368,12 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
     au poste de pilotage (déplacements suspendus, tablette rangée, écoutilles non cliquables : groupe commun
     `ScreenSeat`, `scripts/screen_seat.gd`) ; **clic droit** pour quitter, la télévision reste sur la chaîne choisie
     (France par défaut).
-  - **Chaînes** : bouton « Chaînes » en haut à gauche de l'écran → liste des pays (ordre alphabétique du nom traduit,
+  - **Chaînes** : bouton « Chaînes » en haut à gauche de l'écran → **guide des chaînes** plein écran, comme sur une
+    vraie télévision : mosaïque défilante (molette) de vignettes (`scripts/ui/channel_tile.gd`) avec logo, numéro de
+    chaîne, nom de la chaîne et pays ; chaîne en cours encadrée, pays hors d'antenne grisés ; bouton « Fermer ».
+    Logos générés à partir du nom de la chaîne (toujours les mêmes) : couleur de marque, un des quatre styles (bloc,
+    souligné, pastille ronde, bandes obliques) et monogramme (initiales des mots, nombres gardés : « RV24 »).
+    Chaînes numérotées dans l'ordre alphabétique des pays (nom traduit,
     `locale/countries.csv`), chacun avec sa chaîne d'information au nom **inventé** mais vraisemblable (159 pays
     souverains d'au moins un million d'habitants — les plus petits n'ont pas de chaîne —, `assets/tv/channels.csv` : code ISO, nom de la chaîne, coordonnées de la capitale ; les noms de
     chaînes sont des noms propres, hors fichiers de langue). La chaîne diffuse une **vidéo en boucle** du plateau
