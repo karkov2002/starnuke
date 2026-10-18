@@ -318,11 +318,13 @@ func _draw_overlay() -> void:
 var _track_cache := {}
 
 
-## Vide le cache d'une source si son point témoin (sur la grille, près de t) a changé : orbite modifiée (manœuvre,
-## date, altitude…). Un seul calcul par image.
+## Vide le cache d'une source si son point témoin a changé : orbite modifiée (manœuvre, date, altitude…), orbite
+## visée modifiée (inclinaison, altitude, décalage du nœud). Un seul calcul par image. Point témoin : le premier
+## point de grille après t, que _draw_track met en cache pour toute trace qui commence à t (le point de grille sous t
+## ne l'est pas quand la trace commence à t : la trace fantôme, qui part du nœud, n'aurait jamais été vidée).
 func _check_cache(source: StringName, point_at: Callable, t: float) -> void:
 	var cache: Dictionary = _track_cache.get_or_add(source, {})
-	var k := floori(t / TRACK_STEP_S)
+	var k := floori(t / TRACK_STEP_S) + 1
 	if cache.has(k):
 		var fresh: Vector2 = point_at.call(k * TRACK_STEP_S)
 		if not fresh.is_equal_approx(cache[k]):

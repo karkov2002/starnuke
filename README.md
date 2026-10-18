@@ -372,7 +372,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
     MSAA 4×) seulement quand la vue a changé et ne bouge plus depuis 0,15 s (redessiner autant de lignes lissées à
     chaque image coûtait ~20 ms de CPU) ; pendant un zoom ou un glisser, l'image précédente est déplacée et mise à
     l'échelle. Les points de trace sont **en cache** sur une grille de 20 s (une trace recalculée à chaque image
-    coûtait ~3,5 ms par carte à 4 orbites) ; un point témoin recalculé par image vide le cache si l'orbite change
+    coûtait ~3,5 ms par carte à 4 orbites) ; un point témoin recalculé par image (premier point de grille après le début de la trace) vide le cache si l'orbite ou l'orbite visée change
     (manœuvre, date, altitude). Une carte non affichée (onglet caché, tablette rangée) n'est pas redessinée.
 - **Écrans d'ambiance du module Commande** (`scripts/tech_screens.gd`, nœud `TechScreens` de `orbit_view.tscn`,
   shader `shaders/tech_screen.gdshader`) : sur les écrans plats et les portables du module (pas sur le grand écran du
