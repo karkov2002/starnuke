@@ -5,7 +5,7 @@ extends CanvasLayer
 ## - réticule de tir (nuke/aim_reticle.gd) au centre, seulement dans la cupola (Station.is_in_cupola), avec un fondu
 ##   de FADE_S : hors de la cupola, on ne peut pas tirer ;
 ## - chronomètres des missiles (ImpactTimers, ajoutés par LaunchControl), en bas à droite.
-## Affichage en surimpression dans la cupola (overlay_enabled, bouton « HUD : On / Off » de la tablette, activé au
+## Affichage en surimpression dans la cupola (overlay_enabled, bouton « HUD : On / Off » de la tablette, désactivé au
 ## départ) : éléments 3D vus à travers les vitres, comme l'anneau de l'orbite visée (GhostTrack) ; masqués si désactivé.
 ## Le reste des commandes (date, carte, silos, tir, BURN) est sur la tablette (scripts/tablet.gd, touche Tab).
 
@@ -24,7 +24,7 @@ var _time_bar: TimeBar
 var _in_cupola := true
 var _fade: Tween
 ## Surimpression dans la cupola (voir en tête).
-var overlay_enabled := true
+var overlay_enabled := false
 
 
 func _ready() -> void:

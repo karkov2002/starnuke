@@ -203,7 +203,7 @@ de la vue).
     principale, qui les applique déjà (ACES deux fois : image délavée) ;
   - **Tir de missile** : la commande de tir (`LaunchControl` : 48 silos, **petits boutons de puissance** — à terme,
     chaque silo aura sa bombe et sa puissance —, gros bouton rouge), mise à l'échelle pour occuper la page.
-- **HUD (surimpression dans la cupola)** : `Hud.overlay_enabled` (activé au démarrage ; `set_overlay_enabled`,
+- **HUD (surimpression dans la cupola)** : `Hud.overlay_enabled` (**désactivé au démarrage** ; `set_overlay_enabled`,
   signal `overlay_changed`), basculé par le bouton de la tablette. Il porte les éléments 3D vus à travers les vitres
   de la cupola : pour l'instant l'anneau de l'orbite visée (`GhostTrack`), à venir la zone visée (photo, missiles).
   Le réticule de tir et la barre du temps n'en dépendent pas.
