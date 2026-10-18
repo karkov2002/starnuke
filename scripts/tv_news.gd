@@ -1,7 +1,9 @@
 class_name TvNews
 extends RefCounted
-## Texte du bandeau défilant de l'édition spéciale « Alerte info » (TvDisplay), dans la langue de la chaîne (colonne
-## lang de assets/tv/channels.csv : langue majoritaire du pays, à défaut celle de ses journaux télévisés).
+## Texte du bandeau défilant de la télévision (TvDisplay) : infos ordinaires (bourse, météo de la capitale d'après les
+## nuages réels, CloudWeather, sport) tant qu'il n'y a eu aucune explosion, puis « Alerte info ». Dans la langue de la
+## chaîne (colonne lang de assets/tv/channels.csv : langue majoritaire du pays, à défaut celle de ses journaux
+## télévisés).
 ##
 ## Le bandeau suit l'état du monde : nombre d'explosions et puissance cumulée, pays touchés (point zéro sur leur
 ## territoire, NukeTally), morts (bilan à l'instant présent, NukeTally), capitales détruites (chaînes hors d'antenne,
@@ -52,6 +54,26 @@ static func compose(code: String, lang: String, state: Dictionary, rng: RandomNu
 	var killed := int(tally.get("killed", 0))
 	# Capitales détruites (la chaîne qui diffuse ne peut pas en faire partie : elle serait hors d'antenne).
 	var capitals: Array = off_air.filter(func(c: String) -> bool: return c != code)
+	# Infos ordinaires (bourse, météo, sport) : valeurs du jour, stables pour une chaîne pendant une journée de jeu.
+	var utc: float = state.get("utc_unix", 0.0)
+	var capital: Vector2 = state.get("capital", Vector2.ZERO)
+	var day := Time.get_datetime_dict_from_unix_time(int(utc))
+	var day_of_year := int((utc - Time.get_unix_time_from_datetime_dict(
+			{"year": day.year, "month": 1, "day": 1})) / 86400.0) + 1
+	var local_hour := fposmod(utc / 3600.0 + capital.y / 15.0, 24.0)
+	var cover := CloudWeather.cloud_cover(capital.x, capital.y, utc)
+	var daily := RandomNumberGenerator.new()
+	daily.seed = hash(code) ^ int(utc / 86400.0)
+	var stock_change := snappedf(clampf(daily.randfn(0.2, 1.1), -4.5, 4.5), 0.01)
+	var pool: Array = state.get("channels", []).filter(func(c: String) -> bool: return c != code)
+	var team_a := String(pool[daily.randi() % pool.size()]) if not pool.is_empty() else code
+	var team_b := team_a
+	while team_b == team_a and pool.size() > 1:
+		team_b = String(pool[daily.randi() % pool.size()])
+	var goals := [daily.randi_range(0, 4), daily.randi_range(0, 3)]
+	var points := [daily.randi_range(78, 118), daily.randi_range(70, 112)]
+	if points[0] == points[1]:
+		points[0] += 3
 	var facts := {
 		"explosions": effects.size(),
 		"yield_kt": total_kt,
@@ -60,6 +82,12 @@ static func compose(code: String, lang: String, state: Dictionary, rng: RandomNu
 		"capitals_destroyed": capitals.size(),
 		"broadcaster_hit": code in hit,
 		"broadcaster_nuclear": code in _rules.get("nuclear_powers", []),
+		"cloud_cover": cover,
+		"night": local_hour < 6.5 or local_hour >= 20.0,
+		"temperature": CloudWeather.temperature(capital.x, day_of_year, local_hour, cover),
+		"stock_change": stock_change,
+		"roll": rng.randf(),
+		"alert": bool(state.get("alert", false)),
 	}
 	var values := {
 		"count": str(effects.size()),
@@ -67,6 +95,15 @@ static func compose(code: String, lang: String, state: Dictionary, rng: RandomNu
 		"countries": _join(hit.map(func(c: String) -> String: return country_name(c, lang)), lang),
 		"deaths": _number(_round_estimate(killed), lang),
 		"capitals": _join(capitals.map(func(c: String) -> String: return capital_name(c, lang)), lang),
+		"city": capital_name(code, lang),
+		"temp": str(roundi(facts.temperature)),
+		"stock_change": _decimal(absf(stock_change), lang),
+		"team_a": country_name(team_a, lang),
+		"team_b": country_name(team_b, lang),
+		"goals_a": str(goals[0]),
+		"goals_b": str(goals[1]),
+		"points_a": str(points[0]),
+		"points_b": str(points[1]),
 	}
 	var sentences: Array[String] = []
 	for section: Dictionary in _rules.get("sections", []):
@@ -74,7 +111,10 @@ static func compose(code: String, lang: String, state: Dictionary, rng: RandomNu
 		if key != "":
 			sentences.append(_pick(key, lang, rng).format(values))
 	var prefix_key := _rule_key(_rules.get("prefix", []), facts)
-	var prefix := _pick(prefix_key, lang, rng).format(values) + " " if prefix_key != "" else ""
+	var prefix := _pick(prefix_key, lang, rng).format(values) if prefix_key != "" else ""
+	# Espace après le préfixe, sauf après une ponctuation pleine chasse (chinois, japonais).
+	if prefix != "" and not prefix.ends_with("：") and not prefix.ends_with("、"):
+		prefix += " "
 	return prefix + SEPARATOR.join(sentences)
 
 
@@ -173,6 +213,12 @@ static func _yield_text(kt: float, lang: String) -> String:
 	if not is_equal_approx(mt, roundf(mt)):
 		text += _format("DECIMAL", lang) + str(roundi(mt * 10.0) % 10)
 	return _format("UNIT_MT", lang).format({"n": text})
+
+
+## Nombre à deux décimales, séparateur décimal de la langue (« 1,24 »).
+static func _decimal(value: float, lang: String) -> String:
+	var cents := roundi(value * 100.0)
+	return "%d%s%02d" % [cents / 100, _format("DECIMAL", lang), cents % 100]
 
 
 ## Estimation arrondie à trois chiffres significatifs (175 342 -> 175 000).

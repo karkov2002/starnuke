@@ -3,7 +3,7 @@ extends Control
 ## Interface de l'écran de télévision du module Commande (scripts/tv_console.gd), dessinée dans son SubViewport :
 ## - la chaîne en cours : vidéo du plateau en boucle (deux présentateurs), édition normale ou, après une explosion
 ##   (TvConsole.is_alert), édition spéciale (présentateurs agités, explosion sur le mur vidéo) avec le bandeau rouge
-##   « Alerte info » ; vidéos assets/tv/video/<CODE>/<normal|alert>.ogv si le pays a les siennes, sinon
+##   « Alerte info » ; bandeau défilant (TvNews) dans les deux éditions, rouge en alerte, bleu nuit sinon ; vidéos assets/tv/video/<CODE>/<normal|alert>.ogv si le pays a les siennes, sinon
 ##   assets/tv/video/<normal|alert>.ogv (tools/build_tv_videos.ps1). Nom de la chaîne en haut à droite (logo),
 ##   bandeau « En direct » et pays en bas ; ou la mire « Pas de signal » (barres de couleur) si la capitale du pays a
 ##   été touchée (TvConsole.is_off_air) ;
@@ -18,6 +18,9 @@ const COLOR_TEXT := Color(0.95, 0.96, 0.98)
 const COLOR_PANEL := Color(0.03, 0.05, 0.09, 0.94)
 const COLOR_ACCENT := Color(0.85, 0.12, 0.1)
 const COLOR_OFF := Color(0.6, 0.6, 0.62)
+## Fond du bandeau défilant : rouge en édition spéciale, bleu nuit en temps normal.
+const TICKER_ALERT := Color(0.45, 0.03, 0.03, 0.92)
+const TICKER_NORMAL := Color(0.03, 0.09, 0.22, 0.92)
 
 var console: TvConsole
 ## Pays de la chaîne affichée ("" : aucune).
@@ -32,6 +35,7 @@ var _live_box: PanelContainer
 ## Bandeau défilant de l'édition spéciale (TvNews) : texte recomposé à chaque passage complet (bilan à jour,
 ## variantes tirées au hasard), défilement vers la gauche (vers la droite pour l'arabe, l'hébreu, le persan, l'ourdou).
 var _ticker: Control
+var _ticker_band: ColorRect
 var _ticker_label: Label
 var _ticker_rtl := false
 var _ticker_rng := RandomNumberGenerator.new()
@@ -114,9 +118,10 @@ func _process(delta: float) -> void:
 	_time += delta
 	if is_off_air():
 		_no_signal.queue_redraw()
-	elif _alert:
-		# Bandeau « Alerte info » qui clignote doucement.
-		_live_box.modulate.a = 0.75 + 0.25 * sin(_time * 6.0)
+	else:
+		if _alert:
+			# Bandeau « Alerte info » qui clignote doucement.
+			_live_box.modulate.a = 0.75 + 0.25 * sin(_time * 6.0)
 		_scroll_ticker(delta)
 	# Placement (tailles connues après la mise en page).
 	_logo_panel.position = Vector2(size.x - _logo_panel.size.x - size.y * 0.04, size.y * 0.04)
@@ -139,10 +144,13 @@ func show_channel(code: String) -> void:
 	_no_signal.visible = off
 	_live_label.text = "TV_BREAKING" if _alert else "TV_LIVE"
 	_live_box.modulate.a = 1.0
-	var new_ticker := _alert and (not _ticker.visible or code != String(_ticker.get_meta("channel", "")))
-	_ticker.visible = _alert
+	# Bandeau dans les deux éditions ; recomposé au changement de chaîne ou d'édition.
+	var edition := "%s/%s" % [code, _alert]
+	var new_ticker := not off and (not _ticker.visible or edition != String(_ticker.get_meta("edition", "")))
+	_ticker.visible = not off
+	_ticker_band.color = TICKER_ALERT if _alert else TICKER_NORMAL
 	if new_ticker:
-		_ticker.set_meta("channel", code)
+		_ticker.set_meta("edition", edition)
 		_ticker_rng.seed = hash(code) ^ int(_time * 1000.0)
 		_next_ticker_text()
 	if code != "" and console:
@@ -178,7 +186,7 @@ func refresh() -> void:
 
 ## Bandeau recomposé et relancé depuis le bord (nouveau tir).
 func restart_ticker() -> void:
-	if _alert and _ticker.visible:
+	if _ticker.visible:
 		_next_ticker_text()
 
 
@@ -189,11 +197,11 @@ func _build_ticker() -> void:
 	_ticker.size = Vector2(size.x, size.y * 0.075)
 	_ticker.position = Vector2(0.0, size.y - _ticker.size.y)
 	_ticker.visible = false
-	var band := ColorRect.new()
-	band.color = Color(0.45, 0.03, 0.03, 0.92)
-	band.set_anchors_preset(Control.PRESET_FULL_RECT)
-	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_ticker.add_child(band)
+	_ticker_band = ColorRect.new()
+	_ticker_band.color = TICKER_ALERT
+	_ticker_band.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_ticker_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ticker.add_child(_ticker_band)
 	_ticker_label = Label.new()
 	_ticker_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_ticker_label.add_theme_font_size_override("font_size", int(size.y * 0.045))

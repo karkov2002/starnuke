@@ -1,6 +1,6 @@
 {
 	"_doc": [
-		"Règles du bandeau « Alerte info » de la télévision (scripts/tv_news.gd).",
+		"Règles du bandeau défilant de la télévision (scripts/tv_news.gd).",
 		"Le bandeau = le préfixe, puis chaque section dans l'ordre, séparées par « • ».",
 		"Dans une section, la PREMIÈRE règle dont la condition « when » est vraie donne la clé ; aucune règle vraie : la section n'affiche rien.",
 		"Une clé pointe vers ses variantes dans assets/tv/news_ticker.csv (lignes CLE.1, CLE.2… ; une colonne par langue) : une variante est tirée au hasard à chaque passage.",
@@ -15,20 +15,56 @@
 		"deaths": "morts à l'instant présent (bilan NukeTally)",
 		"capitals_destroyed": "capitales détruites (chaînes hors d'antenne), hors pays qui diffuse",
 		"broadcaster_hit": "le pays qui diffuse a un point zéro sur son territoire",
-		"broadcaster_nuclear": "le pays qui diffuse est une puissance nucléaire (liste nuclear_powers)"
+		"broadcaster_nuclear": "le pays qui diffuse est une puissance nucléaire (liste nuclear_powers)",
+		"cloud_cover": "couverture nuageuse sur la capitale du pays qui diffuse, 0 à 1 (les nuages réels vus de la station, CloudWeather)",
+		"night": "il fait nuit dans la capitale (heure solaire locale avant 6 h 30 ou après 20 h)",
+		"temperature": "température plausible dans la capitale (°C : latitude, saison, heure, nuages)",
+		"stock_change": "variation de la Bourse du pays (%), tirée chaque jour de jeu",
+		"roll": "tirage au sort entre 0 et 1, nouveau à chaque passage du bandeau (pour varier les rubriques)",
+		"alert": "la télévision est en édition spéciale « Alerte info » (24 h de jeu après la dernière explosion)"
 	},
 	"placeholders": {
 		"{count}": "nombre d'explosions",
 		"{yield}": "puissance cumulée, unité de la langue (« 1,6 Mt », « 100 kt »)",
 		"{countries}": "pays touchés, dans la langue de la chaîne",
 		"{deaths}": "morts, arrondi à 3 chiffres significatifs",
-		"{capitals}": "capitales détruites, dans la langue de la chaîne"
+		"{capitals}": "capitales détruites, dans la langue de la chaîne",
+		"{city}": "capitale du pays qui diffuse",
+		"{temp}": "température dans la capitale (°C, entier)",
+		"{stock_change}": "variation de la Bourse, en valeur absolue (« 1,24 »)",
+		"{team_a}, {team_b}": "deux pays tirés au sort chaque jour de jeu (équipes nationales)",
+		"{goals_a}, {goals_b}": "score de football du jour",
+		"{points_a}, {points_b}": "score de basket du jour"
 	},
 	"nuclear_powers": ["USA", "RUS", "FRA", "GBR", "IND", "PAK", "CHN", "ISR", "PRK"],
 	"prefix": [
-		{"key": "PREFIX"}
+		{"when": {"alert": true}, "key": "PREFIX"},
+		{"key": "PREFIX_NORMAL"}
 	],
 	"sections": [
+		{
+			"name": "bourse",
+			"rules": [
+				{"when": {"explosions": 0, "stock_change": ">=0"}, "key": "STOCK_UP"},
+				{"when": {"explosions": 0}, "key": "STOCK_DOWN"}
+			]
+		},
+		{
+			"name": "météo",
+			"rules": [
+				{"when": {"explosions": 0, "cloud_cover": ">=0.65"}, "key": "WEATHER_OVERCAST"},
+				{"when": {"explosions": 0, "cloud_cover": ">=0.3"}, "key": "WEATHER_PARTLY"},
+				{"when": {"explosions": 0, "night": true}, "key": "WEATHER_CLEAR_NIGHT"},
+				{"when": {"explosions": 0}, "key": "WEATHER_SUNNY"}
+			]
+		},
+		{
+			"name": "sport",
+			"rules": [
+				{"when": {"explosions": 0, "roll": "<0.5"}, "key": "SPORT_FOOTBALL"},
+				{"when": {"explosions": 0}, "key": "SPORT_BASKETBALL"}
+			]
+		},
 		{
 			"name": "explosions",
 			"rules": [
@@ -53,9 +89,9 @@
 		{
 			"name": "gouvernement",
 			"rules": [
-				{"when": {"broadcaster_hit": true, "broadcaster_nuclear": true}, "key": "NUCLEAR_HIT"},
-				{"when": {"broadcaster_hit": true}, "key": "OTHER_HIT"},
-				{"key": "SAFE"}
+				{"when": {"explosions": ">0", "broadcaster_hit": true, "broadcaster_nuclear": true}, "key": "NUCLEAR_HIT"},
+				{"when": {"explosions": ">0", "broadcaster_hit": true}, "key": "OTHER_HIT"},
+				{"when": {"explosions": ">0"}, "key": "SAFE"}
 			]
 		}
 	]

@@ -140,13 +140,16 @@ func news_preview(code: String) -> String:
 	return news_text(code, rng)
 
 
-## Texte du bandeau « Alerte info » de la chaîne, d'après l'état présent des explosions (TvNews).
+## Texte du bandeau de la chaîne (TvNews) : explosions, ou infos ordinaires (bourse, météo de la capitale, sport) tant
+## qu'il n'y en a eu aucune.
 func news_text(code: String, rng: RandomNumberGenerator) -> String:
 	var effects: Array[NukeEffect] = _launcher.get_effects() if _launcher else []
 	var off_air: Array[String] = []
 	off_air.assign(_off_air.keys())
 	return TvNews.compose(code, channel_lang(code),
-			{"effects": effects, "tally": NukeTally.compute(effects), "off_air": off_air}, rng)
+			{"effects": effects, "tally": NukeTally.compute(effects), "off_air": off_air, "alert": _alert,
+			"utc_unix": _orbit.get_utc_unix_s() if _orbit else 0.0, "channels": channel_codes(),
+			"capital": Vector2(_channels.get(code, {}).get("lat", 0.0), _channels.get(code, {}).get("lon", 0.0))}, rng)
 
 
 func is_alert() -> bool:

@@ -435,13 +435,21 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
     elle diffuse les vidéos communes. Après retouche d'un maître dans un logiciel vidéo : `build_tv_videos.ps1
     -ConvertOnly` ; après remplacement de `explosion.mp4` : `-Studio` (nouveau rendu du plateau) ; sans option :
     tout est régénéré (rendus Blender compris). Puis rescan dans l'éditeur.
-  - **Bandeau défilant de l'édition spéciale** (`scripts/tv_news.gd`, classe `TvNews`) : en bas de l'écran, dans la
+  - **Bandeau défilant** (`scripts/tv_news.gd`, classe `TvNews`), dans les deux éditions (rouge en édition spéciale,
+    bleu nuit en temps normal) : en bas de l'écran, dans la
     **langue de la chaîne** (colonne `lang` de `channels.csv` : langue majoritaire du pays, à défaut celle de ses
     journaux télévisés — anglais, français, portugais… pour les pays sans langue majoritaire ou dont la langue
     majoritaire n'est pas traduite ; 65 langues, défilement vers la droite pour l'arabe, l'hébreu, le persan et
     l'ourdou ; les écritures non latines s'affichent par les polices du système). Contenu, recomposé à chaque passage
     et aussitôt après chaque tir :
-    1. préfixe « Alerte info : » ;
+    0. **tant qu'aucune explosion n'a eu lieu, infos ordinaires** : préfixe « En bref : » / « L'essentiel : », Bourse
+       du pays (variation tirée chaque jour de jeu), **météo de la capitale** d'après les **vrais nuages** vus de la
+       station (`scripts/cloud_weather.gd`, classe `CloudWeather` : carte réduite de l'instantané VIIRS
+       `assets/cloud_cover.res`, 0,25°, générée par `tools/build_cloud_cover.gd`, lue au point d'où vient l'air en
+       remontant le vent GFS comme le shader des nuages : soleil ou nuit claire, éclaircies dès 30 % de couverture,
+       ciel couvert dès 65 %) et température plausible (latitude, saison, heure solaire, nuages), puis un **résultat
+       sportif** inventé (football ou basket, deux équipes nationales et un score tirés chaque jour de jeu) ;
+    1. préfixe « Alerte info : » en édition spéciale (« En bref : » ensuite, une fois revenu à l'édition normale) ;
     2. nombre d'explosions et puissance cumulée (kt sous 1 Mt, Mt à une décimale au-delà), pays touchés (point zéro
        sur leur territoire, `NukeTally`) ; « détectée(s) en mer » si aucun pays ;
     3. morts selon « nos experts » (bilan `NukeTally` à l'instant présent, arrondi à trois chiffres significatifs) ;
@@ -451,13 +459,14 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
        maximale, riposte à l'étude, consignes à la population ; **touché sans arme nucléaire** → alerte maximale et
        consignes ; **non touché** → alerte maximale, protection du pays, pensées pour les pays touchés.
     **Règles d'affichage** (`assets/tv/news_rules.json`, vision d'ensemble des cas) : le bandeau est un préfixe puis
-    des sections dans l'ordre (explosions, bilan, capitales, gouvernement) ; dans chaque section, la **première règle
+    des sections dans l'ordre (bourse, météo, sport, explosions, bilan, capitales, gouvernement) ; dans chaque section, la **première règle
     dont la condition est vraie** donne la **clé** de la phrase (aucune : la section est omise). Une condition porte
     sur des faits nommés (`explosions`, `yield_kt`, `countries_hit`, `deaths`, `capitals_destroyed`,
-    `broadcaster_hit`, `broadcaster_nuclear`), avec des tests « 1 », « >0 », « >=2 », « <5 », « !=1 » ou true /
+    `broadcaster_hit`, `broadcaster_nuclear`, `alert`, `cloud_cover`, `night`, `temperature`, `stock_change`, `roll`
+    — tirage au hasard à chaque passage, pour alterner les rubriques), avec des tests « 1 », « >0 », « >=2 », « <5 », « !=1 » ou true /
     false ; la liste des puissances nucléaires (`nuclear_powers`) y est aussi. Ajouter un cas : une règle (avant les
     règles plus générales de sa section) et une nouvelle clé, dont les variantes vont dans le CSV des textes.
-    Chaque phrase a **trois variantes** (même sens, tournures différentes), tirées au hasard à chaque passage. Textes :
+    Chaque phrase a **plusieurs variantes** (trois pour les alertes, deux pour les infos ordinaires) (même sens, tournures différentes), tirées au hasard à chaque passage. Textes :
     `assets/tv/news_ticker.csv` (une ligne par clé et variante `CLE.n`, une colonne par langue, plus les réglages de
     nombres et d'unités par langue : `LIST_SEP`, `THOUSANDS`, `DECIMAL`, `UNIT_KT`, `UNIT_MT` avec `{n}`). Pour les
     langues à déclinaisons, les noms de pays et de capitales sont placés après deux-points (nominatif, sans faute
