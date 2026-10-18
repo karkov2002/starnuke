@@ -24,6 +24,8 @@ const BODY_NODE := "Tablette_Coque"
 const VIEWPORT_HEIGHT := 560
 ## Taille de l'image de la vue au nadir (pixels, proche de sa taille sur la tablette).
 const NADIR_SIZE := Vector2i(600, 470)
+## Échelle de la tablette (et de sa distance à l'œil) : voir _update_pose.
+const NEAR_SCALE := 0.4
 ## Part de la rotation vers l'œil à l'arrivée (1 : face à l'œil, 0 : parallèle au plan de la vue).
 const FACING_SHARE := 0.5
 const ARRIVE_S := 0.6
@@ -249,7 +251,11 @@ func _update_pose() -> void:
 	var sway := Basis(Vector3.BACK, deg_to_rad(BREATH_DEG) * sin(_time * 0.7) * _out)
 	# Retard sur la tête : rotation autour de l'œil.
 	var lag := Basis(Vector3.UP, _lag.x) * Basis(Vector3.RIGHT, _lag.y)
-	transform = Transform3D(lag, Vector3.ZERO) * Transform3D(rotation_now * sway, position_now + breath)
+	# Réduite de NEAR_SCALE et rapprochée de l'œil d'autant (homothétie de centre l'œil) : même image à l'écran, mais
+	# à ~12 cm de l'œil, plus près que tout obstacle (sphère de collision de l'observateur : 0,3 m) ; à taille réelle
+	# (~30 cm), les barreaux de la cupola passaient devant elle.
+	transform = Transform3D(lag, Vector3.ZERO) * Transform3D((rotation_now * sway).scaled_local(Vector3.ONE * NEAR_SCALE),
+			(position_now + breath) * NEAR_SCALE)
 
 
 static func _bezier(a: Vector3, b: Vector3, c: Vector3, d: Vector3, t: float) -> Vector3:

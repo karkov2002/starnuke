@@ -173,7 +173,10 @@ de la vue).
   de silos et le bouton de tir sortaient de l'écran, d'autant plus si la barre des tâches mord sur la fenêtre ; la
   main et le bras sont dessous), son haut
   sous le centre (le réticule reste visible), à moitié tournée vers l'œil (tout à fait, en bord de vue, elle
-  paraissait de biais). Rangée, elle est masquée et son interface n'est plus redessinée. Éclairée par les lampes
+  paraissait de biais). **Réduite à 40 % et rapprochée de l'œil d'autant** (`NEAR_SCALE`, homothétie de centre
+  l'œil : même image) : à ~12 cm, elle est plus près que tout obstacle (sphère de collision de l'observateur,
+  0,3 m) ; à taille réelle (~30 cm), les barreaux de la cupola passaient devant elle. Rangée, elle est masquée et
+  son interface n'est plus redessinée. Éclairée par les lampes
   intérieures (calque `Station.INTERIOR_LAYER`) et le soleil, sans ombre portée.
 - **Tenue en main** : **Tab** la fait apporter par la main (0,6 s) : elle arrive du bas à droite, plus près des yeux,
   en décrivant une boucle (courbe de Bézier cubique : montée sur le côté droit, léger dépassement vers la gauche et
@@ -428,6 +431,10 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   rayons lancés dans Blender en ignorant les faces vues de dos, comme Godot.
   L'écran `Interactif_Ecran_07` (paroi −Y, 0,82 m de large) mordait dans l'hiloire x = 13,1 : son centre est passé
   de x = 13,5 à 13,65 (table `SCREENS` de `build_station_devices.py`).
+- **Charnières des écoutilles** (`tools/blender/build_hatch_hinges.py`, rejouable) : à la place du pavé de
+  8 × 10 × 50 cm, une charnière à cinq nœuds arrondis sur l'axe de la `Charniere_*` : nœuds 1, 3, 5, pattes vissées
+  sur les deux faces, capuchons bombés de l'axe et graisseur dans le maillage de la porte (ils tournent avec elle) ;
+  nœuds 2 et 4 et leur patte vissée vers le cadre dans l'objet fixe `Paumelle_<id>`.
 - **Portes d'écoutille lisses** (`tools/blender/smooth_hatch_doors.py`, rejouable) : les cylindres des portes
   (disque, panneaux en relief, plaques de manœuvre ; 16 à 32 côtés, porte cargo comprise) sont refaits à 96 côtés
   (48 pour les petits) avec une tranche arrondie ; maillages marqués `tranche_lisse`. Les portes des silos, copies de
@@ -482,8 +489,9 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     Terre → station, nœud `Earth`). Quand le soleil passe sous l'horizon de la station, les panneaux s'arrêtent à
     cette limite. Vitesse bornée à 6°/s (`panel_max_speed_deg`), pour éviter un saut quand la date ou l'heure change.
   - États au repos (modèle) : écoutilles ouvertes, trappes des silos fermées, radiateurs déployés. **Règle de jeu :
-    au démarrage, les 6 écoutilles ouvrables sont fermées** (`start_hatches_closed`) : les 4 axiales (Arrimage AV,
-    Habitation AR et AV, Commande AR) et les 2 des modules de missiles (`Ecoutille_Missile_1`, `_2`). Écoutille
+    au démarrage, le passage Habitation – Commande est ouvert** (`Ecoutille_Habitation_AV`, `Ecoutille_Commande_AR` :
+    `start_open_hatches`) **et les 4 autres écoutilles ouvrables sont fermées** (`start_hatches_closed`) : Arrimage AV,
+    Habitation AR et les 2 des modules de missiles (`Ecoutille_Missile_1`, `_2`). Écoutille
     cargo et trappes sas et nadir verrouillées (`ouvrable` faux, rien n'est modélisé derrière) : leurs commandes
     renvoient `false`.
   - Écoutilles : `open_hatch(id)`, `close_hatch(id)`, `set_hatch_open(id, open)`, `toggle_hatch(id)`,
@@ -495,7 +503,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     « Ouvrir l'écoutille » / « Fermer l'écoutille » (`HATCH_OPEN`, `HATCH_CLOSE`) ; clic gauche : ouverture ou
     fermeture animée (rotation de la charnière, durée de `Fermeture_Ecoutilles`). Inactif au poste de pilotage.
   - **Rideaux** (WC et douche de l'Habitation ; objets Blender d'extras `type` « rideau », `id` `Rideau_WC`,
-    `Rideau_Douche`) : **ouverts au démarrage** ; même interaction à la souris (bulle « Ouvrir le rideau » /
+    `Rideau_Douche`) : **fermés au démarrage** (`start_curtains_closed`) ; même interaction à la souris (bulle « Ouvrir le rideau » /
     « Fermer le rideau », clés `CURTAIN_OPEN`, `CURTAIN_CLOSE`), mouvement de 0,9 s (`curtain_duration_s`) qui fond
     la forme de base (ouvert, regroupé) dans la clé de forme `Ferme` (déployé), un clic pendant le mouvement
     l'inverse. API : `toggle_curtain(id)`, `set_curtain_closed(id, closed)`, `is_curtain_closing(id)`,

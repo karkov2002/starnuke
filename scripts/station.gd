@@ -64,6 +64,10 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 @export var track_sun_panels := true
 ## Écoutilles ouvrables fermées au démarrage (règle de jeu) ; sinon, état du modèle (ouvertes).
 @export var start_hatches_closed := true
+## Écoutilles laissées ouvertes au démarrage (règle de jeu) : le passage Habitation – Commande (poste de pilotage).
+@export var start_open_hatches: Array[String] = ["Ecoutille_Habitation_AV", "Ecoutille_Commande_AR"]
+## Rideaux fermés au démarrage (règle de jeu).
+@export var start_curtains_closed := true
 ## Durée (s) de la fermeture ou de l'ouverture complète d'un rideau.
 @export var curtain_duration_s := 0.9
 ## Lumière du soleil et Terre de la scène (direction du soleil, verticale locale). Sans Terre : +Y de la station.
@@ -295,7 +299,7 @@ func hatch_id_for(node: Node) -> String:
 
 # --- Rideaux --------------------------------------------------------------------------------------------------------
 # Objets Blender d'extras type « rideau » (Habitation_Rideau_WC, Habitation_Rideau_Douche) : forme de base = ouvert
-# (regroupé), clé de forme extras.forme_fermee (« Ferme ») = fermé. Ouverts au démarrage. Sans collision (on passe à
+# (regroupé), clé de forme extras.forme_fermee (« Ferme ») = fermé. Fermés au démarrage (start_curtains_closed). Sans collision (on passe à
 # travers un rideau) ; une zone de clic (Area3D sur CURTAIN_LAYER) couvre le tissu et suit son mouvement.
 
 func curtain_ids() -> Array[String]:
@@ -371,9 +375,9 @@ func _collect_curtains() -> void:
 		shape.shape = BoxShape3D.new()
 		area.add_child(shape)
 		node.add_child(area)
-		var entry := {"node": node, "blend": blend, "weight": 0.0, "target": false, "tween": null, "area": area,
+		var entry := {"node": node, "blend": blend, "weight": 0.0, "target": start_curtains_closed, "tween": null, "area": area,
 				"shape": shape, "open_box": boxes[0], "closed_box": boxes[1]}
-		_set_curtain_weight(entry, 0.0)
+		_set_curtain_weight(entry, 1.0 if start_curtains_closed else 0.0)
 		_curtains[String(extras.get("id", node.name))] = entry
 
 
@@ -790,7 +794,8 @@ func _collect_interactives() -> void:
 					# Début de Fermeture_Ecoutilles = ouverte.
 					entry.open = entry.start
 					entry.closed = entry.end
-					if start_hatches_closed and entry.ouvrable and entry.is_open:
+					var id := String(extras.get("id", node.name))
+					if start_hatches_closed and entry.ouvrable and entry.is_open and not id in start_open_hatches:
 						hinge.quaternion = entry.closed
 						entry.is_open = false
 				_fit_door_collision(node)
