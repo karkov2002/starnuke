@@ -387,6 +387,14 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   niches) en plongeant dans la jonction des panneaux. Faisceaux de 3–4 câbles colorés serrés par des colliers tous
   les 0,45 m, tuyaux Ø 22 mm sur pattes, gaines de ventilation annelées orange. Tubes à repère transporté
   parallèlement (un repère qui pivotait vrillait les câbles en zigzag).
+- **Lampes des couloirs** (`tools/blender/slim_lamps.py`, rejouable) : les plafonniers `Int_Lumiere` des panneaux
+  diagonaux gardent leur longueur (0,74 m) mais passent de 0,43 à 0,15 m de haut ; matériau et lumières `Lum_*`
+  (sur l'axe) inchangés : même éclairage. **Règle : rien ne doit recouvrir une lampe.** Le script le vérifie par
+  une grille de rayons lancés depuis la face de chaque lampe (marge 2 cm, sur 15 cm) ; une lampe recouverte par un
+  équipement fixe est déplacée le long du couloir vers la place libre la plus proche, sur la paroi nue (pas sur les
+  barres ou rails du couloir) ; s'il n'y en a pas, elle est retirée (celle cachée derrière les casiers de
+  l'Habitation). Les accessoires (`build_habitation_props.py`) et équipements (`build_station_devices.py` :
+  `Interactif_Ecran_13` décalé de 39 cm) sont placés hors des lampes.
 - **Hiloires des cloisons intérieures** (`tools/blender/section_coamings.py`, rejouable) : quatre cloisons
   (Habitation x = ±1,5, section centrale ; Commande x = 10,1 et 13,1, section de la cupola) ont un passage non
   circulaire (r 1,25 m dans les axes, 1,353 m dans les diagonales) que bordait un anneau fin (r 1,23–1,30) : par les

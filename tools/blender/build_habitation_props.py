@@ -408,16 +408,17 @@ def build_galley():
     up = Vector((0, -1, 1)).normalized()       # le long de la paroi
     surface = Vector((0, 0.933, 0.933))        # paroi diagonale à 1,32 m de l'axe
     axes = Matrix((Vector((1, 0, 0)), -n, up)).transposed()  # X, Y (vers la paroi), Z (le long)
-    for i, (cx, mat) in enumerate(((-3.71, "boite_rouge"), (-3.46, "boite_bleue"), (-3.21, "boite_rouge"),
-                                   (-2.96, "boite_bleue"))):
+    # Hors de la lampe du panneau (x −3,37 à −2,63, angle 45°) : rien ne doit la recouvrir (slim_lamps.py).
+    for i, (cx, mat) in enumerate(((-4.28, "boite_rouge"), (-4.03, "boite_bleue"), (-3.78, "boite_rouge"),
+                                   (-3.53, "boite_bleue"))):
         hd = 0.07
         center = Vector((cx, 0, 0)) + surface + n * (hd + 0.002)
         m = T(center) @ axes.to_4x4()
         b.add(soft_box((0.088, hd, 0.098), 0.012, 0.012), "couvercle", m)
         b.add(soft_box((0.092, 0.012, 0.102), 0.008, 0.012), mat, m @ T((0, -hd + 0.006, 0)))
         b.add(soft_box((0.04, 0.001, 0.025), 0.002, 0.006), "etiquette", m @ T((0, -hd - 0.007, 0.03)))
-    a = Vector((-3.84, 0, 0)) + surface + n * 0.005
-    c = Vector((-2.83, 0, 0)) + surface + n * 0.005
+    a = Vector((-4.41, 0, 0)) + surface + n * 0.005
+    c = Vector((-3.4, 0, 0)) + surface + n * 0.005
     mid = (a + c) / 2 + n * 0.16
     b.add(tube([a, a.lerp(mid, 0.3) + n * 0.03, mid, c.lerp(mid, 0.3) + n * 0.03, c], 0.0045, 8), "sandow")
     for p in (a, c):
@@ -699,7 +700,7 @@ def build_kitchen():
     kinds = ("sauce", "moutarde", "piment", "sauce", "piment", "moutarde")
     base = None
     for i, k in enumerate(kinds):
-        x = -2.72 + i * 0.062
+        x = -2.52 + i * 0.062  # hors de la lampe (x ≤ −2,63)
         loc, n, ob = hit((x, 0.0, 0.0), d)
         up = Vector((0, -1, 1)).normalized()  # le long de la paroi diagonale, vers le plafond
         x_axis = Vector((1, 0, 0))
