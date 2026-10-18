@@ -64,12 +64,15 @@ func play_playlist(playlist_name: String) -> void:
 	if _tracks.is_empty():
 		var available := playlists()
 		if available.is_empty():
+			push_warning("Music : aucune playlist dans %s" % ROOT)
 			stop()
 			return
 		playlist_name = available[0]
 		_tracks = tracks_of(playlist_name)
 	_playing_list = playlist_name
 	_index = -1
+	# Une ligne au lancement de la playlist (journal : vérifie aussi la version exportée).
+	print("Music : playlist « %s », %d morceau(x)" % [playlist_name, _tracks.size()])
 	_next()
 
 
