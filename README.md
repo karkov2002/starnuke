@@ -48,8 +48,12 @@ permet de piloter le jeu exporté.
   1,5 s ; la mise en place du décor (70 ms) figeait l'écran 4,7 s tant que les collisions des objets interactifs
   étaient calculées au démarrage (elles le sont maintenant à l'import, voir « Post-import »).
 - **Écran des paramètres** (`scenes/ui/settings_menu.tscn`, script `scripts/ui/settings_menu.gd`) : onglets
-  **Video**, **Audio**, **Controls**, **Game** ; Controls est à venir (onglet désactivé, infobulle
-  « Coming soon »). **Back** ou Échap pour revenir. Chaque choix est appliqué et sauvé aussitôt.
+  **Video**, **Audio**, **Controls**, **Game**. **Back** ou Échap pour revenir. Chaque choix est appliqué et sauvé aussitôt.
+  - **Controls** : aide (la réaffectation des touches viendra plus tard) : une ligne par action (avancer / reculer,
+    déplacement latéral, roulis, orienter la vue, utiliser, quitter le poste ou la télévision, tablette, lampe torche,
+    pause) avec ses touches dessinées comme des touches de clavier. Les touches étant physiques, leur lettre est celle
+    du **clavier du joueur** (`DisplayServer.keyboard_get_keycode_from_physical` : Z / S en AZERTY, W / S en QWERTY) ;
+    flèches en symboles, Échap et Tab traduits (`CONTROLS_HELP`, `KEY_NAMES` de `settings_menu.gd`).
   - **Video** : mode d'affichage (**fenêtré** / **plein écran**), **résolution** et **luminosité** (25 à 150 %,
     `GameSettings.brightness`, sauvée dans `user://settings.cfg` : facteur du multiplicateur d'exposition des
     attributs de caméra partagés `materials/camera_attributes.tres`, appliqué au menu et au jeu par le nœud

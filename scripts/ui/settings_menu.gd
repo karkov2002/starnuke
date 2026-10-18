@@ -1,6 +1,6 @@
 extends Control
 ## Écran des paramètres (scenes/ui/settings_menu.tscn), ouvert par l'écran de démarrage. Onglets « Vidéo », « Audio »,
-## « Commandes » et « Jeu » ; Commandes est à venir (onglet désactivé). Chaque choix est appliqué et sauvé
+## « Commandes » (aide : touches et souris ; réaffectation à venir) et « Jeu ». Chaque choix est appliqué et sauvé
 ## aussitôt par l'autoload GameSettings. Émet closed au clic sur « Retour » (ou Échap).
 ## En jeu (in_game, ouvert par la pause, scripts/ui/pause_menu.gd) : fond translucide sur la vue figée et bouton
 ## supplémentaire « Quitter la partie », avec confirmation Oui / Non (main_menu_requested : retour à l'écran de
@@ -17,7 +17,24 @@ signal closed
 
 const PANEL_SIZE := Vector2(980.0, 560.0)
 const TABS: Array[String] = ["TAB_VIDEO", "TAB_AUDIO", "TAB_CONTROL", "TAB_GAME"]
-const DISABLED_TABS: Array[String] = ["TAB_CONTROL"]
+const DISABLED_TABS: Array[String] = []
+## Onglet Commandes (aide, pas encore de réaffectation) : libellé de l'action, puis ses touches. Une entrée de touches
+## est un nom d'action d'InputMap (touches lues sur le clavier du joueur, selon sa disposition) ou une clé de langue
+## préfixée par « = » (souris).
+const CONTROLS_HELP: Array[Array] = [
+	["CONTROLS_MOVE", ["move_forward", "move_back"]],
+	["CONTROLS_STRAFE", ["move_left", "move_right"]],
+	["CONTROLS_ROLL", ["roll_left", "roll_right"]],
+	["CONTROLS_LOOK", ["=CONTROLS_RIGHT_DRAG"]],
+	["CONTROLS_INTERACT", ["=CONTROLS_LEFT_CLICK"]],
+	["CONTROLS_LEAVE", ["=CONTROLS_RIGHT_CLICK"]],
+	["CONTROLS_TABLET", ["tablet"]],
+	["CONTROLS_TORCH", ["torch"]],
+	["CONTROLS_PAUSE", ["pause"]],
+]
+## Touches spéciales : symbole, ou clé de langue (préfixe « = »).
+const KEY_NAMES := {KEY_UP: "↑", KEY_DOWN: "↓", KEY_LEFT: "←", KEY_RIGHT: "→", KEY_ESCAPE: "=KEY_ESCAPE",
+		KEY_TAB: "=KEY_TAB"}
 
 var _tabs: TabContainer
 var _mode: OptionButton
@@ -81,6 +98,7 @@ func _ready() -> void:
 			_add_note(page, "TAB_COMING_SOON")
 	_build_video(pages.TAB_VIDEO)
 	_build_audio(pages.TAB_AUDIO)
+	_build_controls(pages.TAB_CONTROL)
 	_build_game(pages.TAB_GAME)
 
 	_back = Button.new()
@@ -283,6 +301,84 @@ func _add_percent_slider(grid: GridContainer, key: String, on_change: Callable) 
 		on_change.call(value))
 	value_label.custom_minimum_size.x = 70.0
 	return [slider, value_label, row]
+
+
+## Onglet Commandes : aide (action, touches). Les touches sont des touches physiques : leur lettre est celle du
+## clavier du joueur (Z en AZERTY, W en QWERTY pour avancer).
+func _build_controls(page: VBoxContainer) -> void:
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 32)
+	grid.add_theme_constant_override("v_separation", 10)
+	page.add_child(grid)
+	for entry: Array in CONTROLS_HELP:
+		var label := Label.new()
+		label.text = entry[0]
+		label.custom_minimum_size.x = 380.0
+		label.add_theme_font_size_override("font_size", 20)
+		grid.add_child(label)
+		var keys := HBoxContainer.new()
+		keys.add_theme_constant_override("separation", 6)
+		grid.add_child(keys)
+		var first := true
+		for source: String in entry[1]:
+			var names: Array[String] = [source]
+			if not source.begins_with("="):
+				names = _action_keys(source)
+			for key_name in names:
+				if not first:
+					var slash := Label.new()
+					slash.text = "/"
+					slash.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+					slash.add_theme_font_size_override("font_size", 18)
+					slash.add_theme_color_override("font_color", Color(0.6, 0.65, 0.72))
+					keys.add_child(slash)
+				first = false
+				keys.add_child(_keycap(key_name))
+	_add_note(page, "CONTROLS_NOTE")
+
+
+## Noms des touches d'une action, sur le clavier du joueur (disposition prise en compte).
+func _action_keys(action: StringName) -> Array[String]:
+	var names: Array[String] = []
+	for event in InputMap.action_get_events(action):
+		var key := event as InputEventKey
+		if key == null:
+			continue
+		var code := key.keycode
+		if key.physical_keycode != KEY_NONE:
+			# Sans fenêtre (--headless : bancs de mesure), pas de disposition du clavier : nom de la touche physique.
+			code = key.physical_keycode if DisplayServer.get_name() == "headless" \
+					else DisplayServer.keyboard_get_keycode_from_physical(key.physical_keycode)
+		names.append(String(KEY_NAMES.get(code, OS.get_keycode_string(code))))
+	return names
+
+
+## Touche dessinée (cadre arrondi) ; « =CLE » : texte traduit (souris, Échap…).
+func _keycap(key_name: String) -> Control:
+	var cap := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.16, 0.18, 0.22)
+	style.border_color = Color(0.55, 0.6, 0.68)
+	style.set_border_width_all(1)
+	style.border_width_bottom = 3
+	style.set_corner_radius_all(6)
+	style.content_margin_left = 10.0
+	style.content_margin_right = 10.0
+	style.content_margin_top = 2.0
+	style.content_margin_bottom = 2.0
+	cap.add_theme_stylebox_override("panel", style)
+	var label := Label.new()
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.custom_minimum_size.x = 18.0
+	label.add_theme_font_size_override("font_size", 18)
+	if key_name.begins_with("="):
+		label.text = key_name.substr(1)
+	else:
+		label.text = key_name
+		label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	cap.add_child(label)
+	return cap
 
 
 ## Onglet Jeu : langue (noms des langues dans leur propre langue, jamais traduits).
