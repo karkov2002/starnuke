@@ -83,7 +83,8 @@ permet de piloter le jeu exporté.
       taille et s'étend sur toute la largeur (panneau en bas au centre, bilan en haut à droite).
   - **Audio** : **volume de la musique** et **volume des effets sonores** (0 à 100 %, `GameSettings.music_volume`,
     60 % par défaut, et `sfx_volume`, 100 %), volumes des bus « Music » et « SFX » (`default_bus_layout.tres`, muet à
-    0 %) ; à côté de chaque curseur, un bouton bascule **Muet** (`music_muted`, `sfx_muted`, sauvés) coupe totalement
+    0 %) ; à côté de chaque curseur, un bouton bascule à **icône de haut-parleur** (barré en rouge quand le son est
+    coupé, infobulle « Muet » ; `music_muted`, `sfx_muted`, sauvés) coupe totalement
     le bus et désactive (grise) le curseur, le volume réglé étant gardé pour la remise en route ; **playlist** : menu
     déroulant des playlists disponibles (`GameSettings.playlist`, « starnuke » par défaut).
     Une playlist est un sous-dossier de `playlist/` (son nom est celui du dossier) ; l'autoload `Music`

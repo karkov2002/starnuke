@@ -224,14 +224,39 @@ func _build_audio(page: VBoxContainer) -> void:
 ## Bouton bascule « Muet » au bout de la ligne d'un curseur : coupe le son (on_toggle) ; le curseur est alors
 ## désactivé (_refresh).
 func _add_mute_button(row: HBoxContainer, on_toggle: Callable) -> Button:
-	var button := Button.new()
-	button.text = "AUDIO_MUTE"
+	var button := SpeakerButton.new()
 	button.toggle_mode = true
-	button.custom_minimum_size = Vector2(110.0, 44.0)
-	button.add_theme_font_size_override("font_size", 18)
-	button.toggled.connect(func(pressed: bool) -> void: on_toggle.call(pressed))
+	button.tooltip_text = "AUDIO_MUTE"
+	button.custom_minimum_size = Vector2(52.0, 44.0)
+	button.toggled.connect(func(pressed: bool) -> void:
+		button.queue_redraw()
+		on_toggle.call(pressed))
 	row.add_child(button)
 	return button
+
+
+## Bouton « Muet » à icône : haut-parleur avec ses ondes ; enfoncé (son coupé), ondes retirées et haut-parleur barré
+## en rouge.
+class SpeakerButton extends Button:
+	func _draw() -> void:
+		var muted := button_pressed
+		var color := Color(0.62, 0.66, 0.72) if muted else Color(0.92, 0.94, 0.97)
+		if is_hovered():
+			color = color.lightened(0.25)
+		var c := size * 0.5 - Vector2(4.0, 0.0)
+		var s := minf(size.x, size.y) * 0.22
+		# Corps (rectangle) et pavillon (trapèze).
+		draw_colored_polygon(PackedVector2Array([c + Vector2(-1.6, -0.55) * s, c + Vector2(-0.6, -0.55) * s,
+				c + Vector2(0.5, -1.25) * s, c + Vector2(0.5, 1.25) * s, c + Vector2(-0.6, 0.55) * s,
+				c + Vector2(-1.6, 0.55) * s]), color)
+		if muted:
+			var red := Color(1.0, 0.32, 0.28)
+			draw_line(c + Vector2(-1.9, -1.5) * s, c + Vector2(2.3, 1.5) * s, Color(0.1, 0.11, 0.14), 5.0, true)
+			draw_line(c + Vector2(-1.9, -1.5) * s, c + Vector2(2.3, 1.5) * s, red, 3.0, true)
+		else:
+			for i in 2:
+				var radius := (1.0 + 0.7 * i) * s
+				draw_arc(c + Vector2(0.4, 0.0) * s, radius, -PI / 3.5, PI / 3.5, 16, color, 2.0, true)
 
 
 ## Curseur de 0 à 100 % et sa valeur affichée ; rend [curseur, étiquette, ligne].
@@ -298,6 +323,7 @@ func _refresh() -> void:
 	for pair in [[_music_mute, _music_volume, _music_volume_value, GameSettings.music_muted],
 			[_sfx_mute, _sfx_volume, _sfx_volume_value, GameSettings.sfx_muted]]:
 		pair[0].set_pressed_no_signal(pair[3])
+		pair[0].queue_redraw()
 		pair[1].editable = not pair[3]
 		pair[1].modulate.a = 0.4 if pair[3] else 1.0
 		pair[2].modulate.a = 0.4 if pair[3] else 1.0
