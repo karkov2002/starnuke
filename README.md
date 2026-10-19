@@ -619,6 +619,27 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     murale. Dans le sas (paroi −X) et dans l'Arrimage : `build_arrimage_extinguisher.py` remplace le cylindre rouge
     sommaire du râtelier de la paroi diagonale (îlot `Int_Rouge` d'`Arrimage_Stockage-col`, retiré une fois) par
     `Arrimage_Extincteur` (9 kg, échelle 1,35, couché le long du module).
+- **Rangements souples du module Arrimage** (`tools/blender/build_arrimage_stowage.py`, rejouable ; d'après la
+  cuisine de l'Habitation) : les blocs rigides et lisses d'`Arrimage_Stockage-col` (deux rangées de casiers verts
+  `Int_Caisse`, pavés beiges sous filet `Int_Sac_Beige` au sol, au plafond, sur la paroi +Y et sur trois diagonales,
+  réservoirs d'eau octogonaux `Int_Bleu_Eau`, leurs sangles, filets et bandes jaunes) sont retirés une fois
+  (propriétés `rangement_souple`, `sangles_casiers_retirees`) ; les casiers blancs rigides, la boîte métallique du
+  plafond et les cadres jaunes restent. À leur place, objet `Arrimage_Rangement` (~150 000 faces) :
+  - sacs de transfert souples type CTB de tailles variées (grille irrégulière par zone, profondeur variable, second
+    rang de petits sacs çà et là) : toile tissée blanc cassé ou beige, coins très arrondis, gonflée et froissée,
+    glissière du rabat, poignées cousues, pastilles velcro, étiquette ;
+  - maintien : deux sangles d'arrimage plaquées sur les sacs (lancer de rayons), boucle à came, platines aux bouts
+    (anciens casiers) ; ailleurs, filet de cordelette (mailles de 11 cm) drapé sur les sacs, bordure et anneaux ;
+  - poches d'eau souples type CWC (tissu enduit bleuté, très gonflées, poignées, bouchon bleu, étiquette) à la place
+    des réservoirs ;
+  - `Interactif_Caisse_01`–`03` (maillages remplacés, noms et extras gardés) : caisses moelleuses en tissu
+    matelassé, couvercle à glissière, sangle jaune de ceinture, poignée, étiquette ; `Arrimage_Sacs` : sac CTB ;
+  - collisions : `Arrimage_Rangement_Collision-colonly`, un pavé par sac du premier rang.
+  Textures (photos ambientCG CC0, 2K) par `pbr_kit.fabric_material` : `Fabric036` (toile tissée, recolorée en blanc
+  cassé `Int_Toile_CTB`, beige `Int_Toile_Beige`, noir `Int_Sangle_Toile` ; 3 répétitions par mètre), `Fabric048`
+  (tissu matelassé `Int_Toile_Matelassee`), `Fabric082A` (tissu enduit `Int_Toile_Enduite`) ; couleur 2K recolorée,
+  relief 2K réenregistré en JPEG 85 et rugosité ramenée en 1K (les cartes d'origine pèsent jusqu'à 10 Mo), partagés
+  par tous les matériaux d'un même tissu.
 - **Départ dans la couchette** (`tools/blender/add_bunk_view.py`, rejouable) : repère `Point_Vue_Couchette`
   (collection `Reperes_Jeu`) au-dessus de l'oreiller, regard vers les pieds, un peu plongé vers le sac de couchage ;
   axes : +Y regard, +Z haut (après conversion glTF : −Z et +Y, la base d'une `Camera3D`).

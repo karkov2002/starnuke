@@ -59,9 +59,70 @@ def repainted_color(asset, rgb, out_name, keep=0.35):
     return out
 
 
-def pbr_material(name, asset, color_path=None, normal_strength=1.0, metal_override=None, roughness_scale=1.0):
+def _save_jpeg(img, out, quality):
+    img.filepath_raw = out
+    img.file_format = 'JPEG'
+    sc = bpy.context.scene
+    old = sc.render.image_settings.quality
+    sc.render.image_settings.quality = quality
+    img.save()
+    sc.render.image_settings.quality = old
+
+
+def recolored_fabric(asset, rgb, out_name, keep=0.6, res="2K"):
+    """Couleur d'un tissu (photo ambientCG) recalculée dans la teinte rgb (linéaire) : le relief du tissage (variations
+    de luminance) est gardé à keep près. JPEG (qualité 92) dans GENERATED."""
+    import numpy as np
+    os.makedirs(GENERATED, exist_ok=True)
+    out = os.path.join(GENERATED, out_name + ".jpg")
+    src = bpy.data.images.load(os.path.join(TEXTURES, asset, "%s_%s-JPG_Color.jpg" % (asset, res)))
+    w, h = src.size
+    c = np.array(src.pixels[:], dtype=np.float32).reshape(h, w, 4)
+    lum = (0.2126 * c[..., 0] + 0.7152 * c[..., 1] + 0.0722 * c[..., 2])[..., None]
+    rel = np.clip(1.0 + keep * (lum - lum.mean()) / max(float(lum.mean()), 1e-4), 0.3, 1.6)
+    lin = np.clip(np.array(rgb, dtype=np.float32)[None, None, :] * rel, 0.0, 1.0)
+    srgb = np.where(lin <= 0.0031308, lin * 12.92, 1.055 * np.power(lin, 1 / 2.4) - 0.055)
+    img = bpy.data.images.new(out_name, w, h)
+    img.colorspace_settings.name = 'sRGB'
+    img.pixels[:] = np.concatenate([srgb, np.ones((h, w, 1), dtype=np.float32)], axis=2).ravel()
+    _save_jpeg(img, out, 92)
+    bpy.data.images.remove(img)
+    bpy.data.images.remove(src)
+    return out
+
+
+def compact_map(asset, kind, res, out_name, size=None, quality=85):
+    """Carte (NormalGL, Roughness…) réenregistrée en JPEG plus compressé, redimensionnée à size (côté) si donné : les
+    cartes d'origine pèsent jusqu'à 10 Mo en 2K."""
+    os.makedirs(GENERATED, exist_ok=True)
+    out = os.path.join(GENERATED, out_name + ".jpg")
+    img = bpy.data.images.load(os.path.join(TEXTURES, asset, "%s_%s-JPG_%s.jpg" % (asset, res, kind)))
+    img.colorspace_settings.name = 'Non-Color'
+    _ = img.pixels[0]  # charge les données (sinon « does not have any image data » à l'enregistrement)
+    if size:
+        img.scale(size, size)
+    _save_jpeg(img, out, quality)
+    bpy.data.images.remove(img)
+    return out
+
+
+def fabric_material(name, asset, rgb, uv_scale, keep=0.6, normal_strength=1.0, roughness_scale=1.0):
+    """Tissu réaliste : couleur 2K recolorée (rgb), normales 2K compressées, rugosité 1K ; uv_scale répétitions par
+    mètre (tissage fin)."""
+    color = recolored_fabric(asset, rgb, name + "_Color", keep) if rgb else None
+    # Relief et rugosité partagés par tous les matériaux d'un même tissu (une seule image chacun dans le glTF).
+    normal = compact_map(asset, "NormalGL", "2K", asset + "_2K_Normal")
+    rough = compact_map(asset, "Roughness", "2K", asset + "_1K_Roughness", size=1024)
+    if color is None:
+        color = compact_map(asset, "Color", "2K", name + "_Color", quality=92)
+    return pbr_material(name, asset, color, normal_strength, metal_override=0.0, roughness_scale=roughness_scale,
+                        normal_path=normal, rough_path=rough, uv_scale=uv_scale)
+
+
+def pbr_material(name, asset, color_path=None, normal_strength=1.0, metal_override=None, roughness_scale=1.0,
+                 normal_path=None, rough_path=None, uv_scale=1.0):
     """Matériau Principled à textures : couleur (color_path ou celle de l'asset), rugosité, métallicité, normales
-    (OpenGL). Recréé à chaque appel (nœuds remplacés)."""
+    (OpenGL), uv_scale répétitions par mètre. Recréé à chaque appel (nœuds remplacés)."""
     base = os.path.join(TEXTURES, asset, asset + "_1K-JPG_")
     m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     m.use_nodes = True
@@ -73,14 +134,25 @@ def pbr_material(name, asset, color_path=None, normal_strength=1.0, metal_overri
     p.location = (100, 0)
     nt.links.new(p.outputs["BSDF"], out.inputs["Surface"])
 
+    mapping = None
+    if uv_scale != 1.0:
+        uvmap = nt.nodes.new("ShaderNodeUVMap")
+        uvmap.location = (-900, 0)
+        mapping = nt.nodes.new("ShaderNodeMapping")
+        mapping.location = (-700, 0)
+        mapping.inputs["Scale"].default_value = (uv_scale, uv_scale, 1.0)
+        nt.links.new(uvmap.outputs["UV"], mapping.inputs["Vector"])
+
     def tex(path, non_color, y):
         t = nt.nodes.new("ShaderNodeTexImage")
         t.image = _image(path, non_color)
         t.location = (-400, y)
+        if mapping:
+            nt.links.new(mapping.outputs["Vector"], t.inputs["Vector"])
         return t
     col = tex(color_path or base + "Color.jpg", False, 300)
     nt.links.new(col.outputs["Color"], p.inputs["Base Color"])
-    rough = tex(base + "Roughness.jpg", True, 0)
+    rough = tex(rough_path or base + "Roughness.jpg", True, 0)
     if roughness_scale != 1.0:
         mul = nt.nodes.new("ShaderNodeMath")
         mul.operation = 'MULTIPLY'
@@ -95,7 +167,7 @@ def pbr_material(name, asset, color_path=None, normal_strength=1.0, metal_overri
         nt.links.new(metal.outputs["Color"], p.inputs["Metallic"])
     else:
         p.inputs["Metallic"].default_value = metal_override
-    normal = tex(base + "NormalGL.jpg", True, -600)
+    normal = tex(normal_path or base + "NormalGL.jpg", True, -600)
     nmap = nt.nodes.new("ShaderNodeNormalMap")
     nmap.location = (-150, -600)
     nmap.inputs["Strength"].default_value = normal_strength
