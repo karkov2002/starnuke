@@ -23,6 +23,8 @@ extends Node3D
 ## rayonnement infrarouge) et redescend quand ils sont déployés, en proportion des radiateurs déployés.
 
 signal hatch_changed(id: String, open: bool)
+## Une écoutille commence à s'ouvrir (open) ou à se fermer (dès la demande ; hatch_changed : à la fin du mouvement).
+signal hatch_moving(id: String, open: bool)
 signal curtain_changed(id: String, closed: bool)
 signal silo_door_changed(silo: int, tube: int, open: bool)
 signal radiator_changed(id: String, deployed: bool)
@@ -109,9 +111,8 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 @export var nozzle_offset_m := 0.5
 
 @export_group("Sas de sortie")
-## Écoutille intérieure (plancher de l'Arrimage) : ne s'ouvre que sas plein.
+## Écoutille intérieure (plancher de l'Arrimage) et porte extérieure (vers la Terre) du sas.
 @export var airlock_inner_hatch := "Ecoutille_Sas_Haut"
-## Porte extérieure : ne s'ouvre que sas vide.
 @export var airlock_outer_hatch := "Ecoutille_Sas_Bas"
 ## Émission des voyants allumés de la valve (vert : plein, rouge : vide ; le rouge clignote pendant un cycle).
 @export var indicator_energy := 8.0
@@ -284,14 +285,12 @@ func is_hatch_openable(id: String) -> bool:
 func set_hatch_open(id: String, open: bool) -> bool:
 	if not is_hatch_openable(id):
 		return false
-	# Écoutilles du sas : verrouillées selon la pression (la fermeture reste toujours possible).
-	if open and hatch_lock_reason(id) != "":
-		return false
 	var hatch: Dictionary = _hatches[id]
 	# État visé (et non l'état atteint) : une demande inverse en cours de mouvement repart de la position actuelle.
 	if hatch.get("target", hatch.is_open) == open:
 		return true
 	hatch.target = open
+	hatch_moving.emit(id, open)
 	# Fermeture_Ecoutilles : début = ouverte, fin = fermée.
 	_tween_hinge(hatch, hatch.closed if not open else hatch.open, func() -> void:
 		hatch.is_open = open
@@ -452,8 +451,7 @@ static func _points_aabb(points: PackedVector3Array) -> AABB:
 # --- Sas de sortie --------------------------------------------------------------------------------------------------
 # Combinaison (clic : on l'enfile, elle disparaît ; clic sur son support : elle y revient) et valve de
 # dépressurisation (animation Blender Depressurisation_Sas : manette, aiguille du manomètre de 1 à 0 bar ; à l'envers :
-# remplissage). Verrouillage réaliste : l'écoutille intérieure ne s'ouvre que sas plein, la porte extérieure que sas
-# vide, aucune pendant un cycle ; la valve ne se manœuvre que les deux fermées.
+# remplissage). Aucun verrouillage : la sécurité est l'affaire du joueur (conséquences : scripts/airlock_hazard.gd).
 
 func is_suit_worn() -> bool:
 	return _suit_worn
@@ -496,42 +494,24 @@ func is_airlock_cycling() -> bool:
 	return not _valve.is_empty() and _valve.tween != null
 
 
-## Raison (clé de traduction) pour laquelle la valve ne peut pas être manœuvrée, "" si elle le peut.
-func airlock_valve_lock_reason() -> String:
-	if _valve.is_empty():
-		return "AIRLOCK_CLOSE_HATCHES"
-	if is_airlock_cycling():
-		return "AIRLOCK_REPRESSURIZING" if _valve.target_full else "AIRLOCK_DEPRESSURIZING"
-	for id in [airlock_inner_hatch, airlock_outer_hatch]:
-		if is_hatch_open(id) or is_hatch_opening(id):
-			return "AIRLOCK_CLOSE_HATCHES"
-	return ""
+## État visé de la valve : vrai si le sas est plein ou se remplit.
+func is_airlock_filling() -> bool:
+	return _valve.is_empty() or _valve.target_full
 
 
-## Raison (clé de traduction) pour laquelle l'écoutille id ne peut pas s'ouvrir à cause de la pression, "" sinon.
-func hatch_lock_reason(id: String) -> String:
-	if _valve.is_empty() or (id != airlock_inner_hatch and id != airlock_outer_hatch):
-		return ""
-	if is_airlock_cycling():
-		return "AIRLOCK_REPRESSURIZING" if _valve.target_full else "AIRLOCK_DEPRESSURIZING"
-	var pressure := get_airlock_pressure()
-	if id == airlock_inner_hatch and pressure < 0.99:
-		return "HATCH_LOCKED_VACUUM"
-	if id == airlock_outer_hatch and pressure > 0.01:
-		return "HATCH_LOCKED_PRESSURE"
-	return ""
-
-
-## Remplit (full) ou vide le sas : la valve rejoue Depressurisation_Sas (à l'envers pour remplir), à sa vitesse.
-## Faux si elle est verrouillée (écoutilles du sas pas fermées, cycle en cours).
+## Remplit (full) ou vide le sas : la valve rejoue Depressurisation_Sas (à l'envers pour remplir), à sa vitesse ; une
+## demande inverse pendant un cycle repart de la position actuelle. Faux sans valve dans le modèle.
 func set_airlock_pressurized(full: bool) -> bool:
-	if airlock_valve_lock_reason() != "":
+	if _valve.is_empty():
 		return false
 	var anim: Animation = _valve.anim
 	var target := 0.0 if full else anim.length
+	_valve.target_full = full
+	if _valve.tween:
+		(_valve.tween as Tween).kill()
+		_valve.tween = null
 	if is_equal_approx(_valve.time, target):
 		return true
-	_valve.target_full = full
 	_valve.tween = create_tween()
 	_valve.tween.tween_method(_set_valve_time, _valve.time, target, absf(target - _valve.time))
 	_valve.tween.tween_callback(func() -> void:
@@ -541,7 +521,7 @@ func set_airlock_pressurized(full: bool) -> bool:
 
 
 func toggle_airlock_pressure() -> bool:
-	return set_airlock_pressurized(get_airlock_pressure() < 0.5)
+	return set_airlock_pressurized(not is_airlock_filling())
 
 
 func _set_valve_time(time: float) -> void:

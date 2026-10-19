@@ -4,8 +4,7 @@ extends Node
 ## Rayon de la caméra contre les collisions (la porte d'une écoutille a son corps de collision, AnimatableBody3D, qui
 ## suit la charnière ; un rideau, sa zone de clic Area3D, qui suit le tissu) :
 ## - survol à portée (reach_m) : bulle « Ouvrir / Fermer l'écoutille », « Ouvrir / Fermer le rideau », « Enfiler /
-##   Ranger la combinaison », « Vider / Remplir le sas », ou la raison d'un verrouillage (écoutille du sas sous pression
-##   ou vide, cycle en cours, écoutilles à fermer avant la valve) ;
+##   Ranger la combinaison », « Vider / Remplir le sas » ;
 ## - clic gauche : mouvement animé (Station.toggle_hatch, Station.toggle_curtain ; un clic pendant le mouvement
 ##   l'inverse), Station.set_suit_worn, Station.toggle_airlock_pressure.
 ## Inactif au poste de pilotage. Les clics pris avant (tablette, interface) ne lui parviennent pas.
@@ -42,7 +41,7 @@ func _ready() -> void:
 
 # En pause (menu Échap), _process s'arrête : la bulle ne doit pas rester figée par-dessus le menu.
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_PAUSED and _hover_label:
+	if (what == NOTIFICATION_PAUSED or what == NOTIFICATION_DISABLED) and _hover_label:
 		_hover_label.visible = false
 
 
@@ -63,13 +62,9 @@ func _process(_delta: float) -> void:
 			"porte":
 				_hover_label.text = "SUIT_STOW"
 			"valve":
-				var reason := _station.airlock_valve_lock_reason()
-				_hover_label.text = reason if reason != "" else \
-						("AIRLOCK_DEPRESSURIZE" if _station.get_airlock_pressure() > 0.5 else "AIRLOCK_REPRESSURIZE")
+				_hover_label.text = "AIRLOCK_DEPRESSURIZE" if _station.is_airlock_filling() else "AIRLOCK_REPRESSURIZE"
 			_:
-				var closing := _station.is_hatch_opening(target.id)
-				var locked := "" if closing else _station.hatch_lock_reason(target.id)
-				_hover_label.text = "HATCH_CLOSE" if closing else (locked if locked != "" else "HATCH_OPEN")
+				_hover_label.text = "HATCH_CLOSE" if _station.is_hatch_opening(target.id) else "HATCH_OPEN"
 		_hover_label.position = _mouse_position + Vector2(18, 14)
 		_hover_label.reset_size()
 

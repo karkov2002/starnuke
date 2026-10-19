@@ -682,23 +682,39 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     Habitation AR, les 2 des modules de missiles (`Ecoutille_Missile_1`, `_2`) et les 2 du sas de sortie
     (`Ecoutille_Sas_Haut`, `Ecoutille_Sas_Bas`). Écoutille cargo verrouillée (`ouvrable` faux, rien n'est modélisé
     derrière) : ses commandes renvoient `false`.
-  - **Sas de sortie : verrouillage par la pression** (règle de jeu, `Station`, groupe « Sas de sortie »). La valve
-    (`Interactif_Valve_Sas`) vide le sas en rejouant `Depressurisation_Sas` (manette, aiguille de 1 à 0 bar en 20 s)
-    et le remplit en la rejouant à l'envers ; la pression est lue sur l'aiguille (rotation cumulée de la piste qui
-    tourne le plus). Le sas est plein au démarrage.
-    - l'écoutille intérieure (`airlock_inner_hatch`, plancher de l'Arrimage) ne s'ouvre que sas plein ;
-    - la porte extérieure (`airlock_outer_hatch`, vers la Terre) ne s'ouvre que sas vide ;
-    - aucune des deux ne s'ouvre pendant un cycle ; on peut toujours les fermer ;
-    - la valve ne se manœuvre que les deux fermées (ni ouvertes, ni en mouvement), et pas pendant un cycle.
+  - **Sas de sortie** (`Station`, groupe « Sas de sortie ») : la valve (`Interactif_Valve_Sas`) vide le sas en
+    rejouant `Depressurisation_Sas` (manette, aiguille de 1 à 0 bar en 20 s) et le remplit en la rejouant à l'envers
+    (un clic pendant un cycle l'inverse) ; la pression est lue sur l'aiguille (rotation cumulée de la piste qui tourne
+    le plus). Le sas est plein au démarrage. **Règle de jeu : aucun verrouillage**, la sécurité est l'affaire du
+    joueur : les deux écoutilles (`airlock_inner_hatch`, plancher de l'Arrimage ; `airlock_outer_hatch`, vers la
+    Terre) et la valve se manœuvrent librement ; les conséquences sont gérées par `AirlockHazard` (ci-dessous).
     Voyants : vert allumé sas plein, rouge allumé sas vide, rouge clignotant (0,8 s) pendant un cycle
     (`indicator_energy`, `indicator_blink_s` ; copies émissives des matériaux `extras.voyant_plein` / `voyant_vide`).
-    API : `get_airlock_pressure()`, `is_airlock_cycling()`, `set_airlock_pressurized(full)`,
-    `toggle_airlock_pressure()`, `airlock_valve_lock_reason()` et `hatch_lock_reason(id)` (clé de traduction de la
-    raison, "" sinon) ; signal `airlock_changed(pressurized)`.
+    API : `get_airlock_pressure()`, `is_airlock_cycling()`, `is_airlock_filling()` (état visé),
+    `set_airlock_pressurized(full)`, `toggle_airlock_pressure()` ; signaux `airlock_changed(pressurized)` (fin de
+    cycle) et `hatch_moving(id, open)` (une écoutille commence à bouger).
+  - **Mort dans le sas** (règles de jeu, `scripts/airlock_hazard.gd`, nœud `AirlockHazard` de `orbit_view.tscn`),
+    évaluées dès que la porte extérieure ou l'écoutille intérieure commence à s'ouvrir :
+    - **décompression explosive** : porte extérieure ouverte alors que l'écoutille intérieure est ouverte (l'air de
+      la station s'échappe par le sas), ou sur un sas encore sous pression (au-dessus de `vacuum_pressure`, 0,05) :
+      l'observateur, s'il est dans le sas (puits compris) ou dans l'Arrimage, est **éjecté** : aspiré vers la porte en
+      0,35 s puis projeté vers la Terre (9 m/s, +5 m/s²), en roulant lentement sur lui-même, le regard sur la station
+      qui s'éloigne ; ses yeux se ferment après 3,5 s ;
+    - **sans combinaison** : porte extérieure ouverte sur un sas vidé, observateur dans le sas sans combinaison : il
+      meurt sur place (yeux fermés après 1,2 s), sans éjection.
+    Volumes : boîtes des maillages `Sas_Paroi*` et `Arrimage_Couloir*` dans le repère de la station.
+  - **Séquence de mort** (`scripts/death_sequence.gd`, classe `DeathSequence`, créée par `AirlockHazard`) : commandes
+    coupées (observateur, regard, interactions, tablette masquée), puis la vue se ferme comme des yeux qui se ferment
+    (`shaders/eyelids.gdshader`) : deux paupières noires aux bords flous, en arc (les coins se ferment avant le
+    centre), qui arrivent du haut et du bas, vue qui se brouille (flou de l'écran) et s'assombrit par les bords ; un
+    dernier effort les rouvre un peu avant la fermeture (3,4 s). Écran noir : **écran de mort**
+    (`scenes/ui/death_screen.tscn`, `scripts/ui/death_screen.gd`) : « Vous êtes mort » (`DEATH_TITLE`) et le bouton
+    « Retour au menu » (`DEATH_BACK_TO_MENU`) sur fond noir ; le nœud `Backdrop`, vide, accueillera une animation en
+    arrière-plan comme l'écran de démarrage.
   - **Combinaison** (règle de jeu) : un clic sur la combinaison l'enfile (elle disparaît, sa collision est coupée) ; un
     clic sur son support (`Interactif_Porte_Combinaison`) la remet en place. API : `is_suit_worn()`,
-    `set_suit_worn(worn)`, `airlock_part_for(node)` ; signal `suit_changed(worn)`. Porter la combinaison n'a pas
-    encore d'autre effet (la porte extérieure s'ouvre sans).
+    `set_suit_worn(worn)`, `airlock_part_for(node)` ; signal `suit_changed(worn)`. Sans elle, ouvrir la porte
+    extérieure est mortel (voir « Mort dans le sas »).
   - **Vaisseau cargo** : `set_cargo_docked(docked)` joue `Separation_Cargo` (recul de 10 m en 30 s) ou, à l'envers,
     le réamarrage ; `is_cargo_docked()`, `is_cargo_moving()`, signal `cargo_changed(docked)`. Bouton « Cargo » du
     panneau de debug (F4).
@@ -710,10 +726,8 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     rayon de la caméra contre les collisions, à 2,5 m au plus (`reach_m`) ; survol d'une écoutille ouvrable : bulle
     « Ouvrir l'écoutille » / « Fermer l'écoutille » (`HATCH_OPEN`, `HATCH_CLOSE`) ; clic gauche : ouverture ou
     fermeture animée (rotation de la charnière, durée de `Fermeture_Ecoutilles`). Inactif au poste de pilotage.
-    Écoutille du sas verrouillée : la bulle donne la raison (`HATCH_LOCKED_PRESSURE`, `HATCH_LOCKED_VACUUM`,
-    `AIRLOCK_DEPRESSURIZING`, `AIRLOCK_REPRESSURIZING`). Même interaction pour la combinaison (`SUIT_PUT_ON`), son
-    support (`SUIT_STOW`) et la valve (`AIRLOCK_DEPRESSURIZE`, `AIRLOCK_REPRESSURIZE`, ou `AIRLOCK_CLOSE_HATCHES` et
-    les clés de cycle en cours quand elle est verrouillée).
+    Même interaction pour la combinaison (`SUIT_PUT_ON`), son support (`SUIT_STOW`) et la valve
+    (`AIRLOCK_DEPRESSURIZE`, `AIRLOCK_REPRESSURIZE`, selon son état visé).
   - **Rideaux** (WC et douche de l'Habitation ; objets Blender d'extras `type` « rideau », `id` `Rideau_WC`,
     `Rideau_Douche`) : **fermés au démarrage** (`start_curtains_closed`) ; même interaction à la souris (bulle « Ouvrir le rideau » /
     « Fermer le rideau », clés `CURTAIN_OPEN`, `CURTAIN_CLOSE`), mouvement de 0,9 s (`curtain_duration_s`) qui fond
