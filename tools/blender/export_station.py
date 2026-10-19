@@ -18,7 +18,7 @@ PATH = os.path.join(DST, "station_spatiale.glb")
 NOTICE = r"E:\Blender\LISEZMOI_GODOT.md"
 WORK_LIGHTS = ("Soleil", "Reflet_Terre")  # lumières de travail : Godot gère le Soleil et la Terre lui-même
 EXPECTED_ANIMATIONS = {"Fermeture_Ecoutilles", "Ouverture_Trappes", "Lancement_Missile", "Balayage_Antennes",
-                       "Rotation_Panneaux", "Retraction_Radiateurs"}
+                       "Rotation_Panneaux", "Retraction_Radiateurs", "Separation_Cargo"}
 
 # 1) État de scène : pose de repos (image 1), mode objet.
 sc = bpy.context.scene

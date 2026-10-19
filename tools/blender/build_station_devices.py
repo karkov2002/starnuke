@@ -59,7 +59,15 @@ LAPTOPS = {
     "Interactif_Ordinateur_02": ((14.7, 0.89, 0.0), (0, -1, 0), (0, 0, 1)),
     "Interactif_Ordinateur_03": ((8.4, 0.0, -0.89), (0, 0, 1), (0, -1, 0)),
     "Interactif_Ordinateur_04": ((9.4, 0.0, 0.89), (0, 0, -1), (0, -1, 0)),
+    # 05 : module Arrimage, paroi −Y (y −1,225) à côté de l'écoutille du sas de sortie ; ajouté avec le sas.
+    "Interactif_Ordinateur_05": ((-10.72, -0.865, 0.0), (0, 1, 0), (0, 0, 1)),
 }
+# Appareils créés par ce script s'ils manquent : collection, id, matériau d'écran (copie d'Ecran_09, celui du 01).
+NEW_DEVICES = {
+    "Interactif_Ordinateur_05": ("Int_Arrimage", "Ordinateur_05", "Ecran_16"),
+}
+# Filtre facultatif (MODE « apply ») : ONLY = ["Interactif_Ordinateur_05"] ne reconstruit que ces appareils.
+ONLY = globals().get("ONLY")
 # Écrans : centre de la dalle, normale n (vers l'observateur), haut de l'image u, taille de la dalle (l, h).
 S2 = math.sqrt(0.5)
 SCREENS = {
@@ -809,12 +817,29 @@ elif MODE == "apply":
         build_legend_texture()
     mats = materials()
     done = {}
+    for name, (col_name, dev_id, screen_name) in NEW_DEVICES.items():
+        if name in bpy.data.objects:
+            continue
+        screen = bpy.data.materials.get(screen_name)
+        if screen is None:
+            screen = bpy.data.materials["Ecran_09"].copy()
+            screen.name = screen_name
+        obj = bpy.data.objects.new(name, bpy.data.meshes.new(name))
+        bpy.data.collections[col_name].objects.link(obj)
+        obj["interactif"] = True
+        obj["type"] = "ordinateur"
+        obj["id"] = dev_id
+        obj["materiau_ecran"] = screen_name
     for name, (origin, n, h) in LAPTOPS.items():
+        if ONLY and name not in ONLY:
+            continue
         obj = bpy.data.objects[name]
         make_device(name, "laptop", screen_material_of(obj), mats=mats)
         obj.matrix_world = frame_laptop(origin, n, h)
         done[name] = len(obj.data.polygons)
     for name, (center, n, up, size) in SCREENS.items():
+        if ONLY and name not in ONLY:
+            continue
         obj = bpy.data.objects[name]
         make_device(name, "monitor", screen_material_of(obj), size=size, mats=mats)
         obj.matrix_world = frame_screen(center, n, up)

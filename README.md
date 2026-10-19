@@ -501,7 +501,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 - **Portables et écrans plats** (`tools/blender/build_station_devices.py`, envoyé au Blender ouvert avec
   `MODE = "preview"` sur un fichier vide : modèles seuls, aperçus dans `E:\Blender\apercus_equipements\`, fichier
   `E:\Blender\equipements_station.blend` ; `MODE = "apply"` sur `nuke_station.blend` : remplacement en place) :
-  modèles procéduraux détaillés qui remplacent les maillages des 4 `Interactif_Ordinateur_*` et de 10
+  modèles procéduraux détaillés qui remplacent les maillages des 5 `Interactif_Ordinateur_*` et de 10
   `Interactif_Ecran_*` (01–08, 13, 14). **`Interactif_Ecran_Principal` (poste de pilotage) et les consoles
   de tir des silos n'y sont pas touchés** ; les petits écrans 16 et 17 qui l'encadraient sont supprimés du `.blend`.
   Portable 14" 16:10 noir mat (84 touches en relief, légendes
@@ -511,6 +511,8 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   (dalle à 5,5 cm de la paroi, comme avant). Chaque objet garde son nom, ses extras et son matériau `Ecran_XX` (dalle
   UV 0–1, (0, 0) en haut à gauche) ; il reçoit le repère de l'appareil en transformation d'objet (table `LAPTOPS` /
   `SCREENS` du script, rejouable). Nouveaux matériaux préfixés `Int_` (rangés à l'intérieur par `station.gd`).
+  `Interactif_Ordinateur_05` (module Arrimage, paroi −Y à côté de l'écoutille du sas de sortie, écran `Ecran_16`) est
+  créé par le script s'il manque (table `NEW_DEVICES`) ; `ONLY = [...]` limite le mode « apply » à quelques appareils.
   Penser à **enregistrer le `.blend`** après chaque modification exportée : un export depuis un fichier non
   enregistré se perd à la réouverture.
 - **Écoutilles des modules de missiles** (`tools/blender/add_missile_hatches.py`, envoyé au Blender ouvert sur
@@ -590,6 +592,35 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   dans le dôme est ramenée dehors (|y| 3,12–3,24) ; collerette `Missile_<s>_Collerette_Tunnel-col` en métal
   intérieur : boudin arrondi sur la jonction, bord rabattu sur le dôme, 36 vis à tête hexagonale en acier bruni sur
   rondelle inox (une tête de la teinte du bord ne laissait voir que ses flancs : des « chevrons » sombres).
+- **Séparation du vaisseau cargo** (`tools/blender/build_cargo_undock.py`, rejouable) : les 9 objets `Cargo_*` sont
+  enfants d'un pivot `Pivot_Cargo` placé sur le plan d'amarrage (face avant de `Cargo_Anneau`, x = −17,47) ; piste NLA
+  `Separation_Cargo` : recul de 10 m selon −X (axe des modules) en 30 s (images 1–721 à 24 i/s), départ et arrêt en
+  douceur (Bézier aux poignées automatiques). Image 1 = amarré ; jouée à l'envers : réamarrage.
+- **Sas de sortie** (`tools/blender/build_airlock.py`, rejouable ; collections `Module_Sas` et `Int_Sas`) : module
+  plus petit que les autres (Ø 2,5 m au lieu de 4,2 m), perpendiculaire à l'Arrimage, vers le bas (vers la Terre),
+  sur l'ancien port nadir (x = −10,1). Les retouches de l'Arrimage sont faites une fois (propriétés `trou_sas`,
+  `sas_degage`) : trappe verrouillée `Interactif_Trappe_Nadir` et port nadir extérieur retirés ; plancher
+  (`Arrimage_Couloir-col`) et coque percés par recoupe plane locale (32 côtés, Ø 0,86 m ; un booléen exact supprimait
+  la moitié des faces du couloir, maillage ouvert) ; sac beige, sangles et petite main courante posés sur l'ancienne
+  trappe retirés.
+  - Accès : écoutille ronde `Interactif_Ecoutille_Sas_Haut` dans le plancher (passage Ø 0,80 m, celui des écoutilles
+    russes ; cadre métal et liseré jaune, volant, poignées), charnière d'axe Y côté arrière : elle s'ouvre vers le haut,
+    dans l'Arrimage (−90°). Puits de 1,8 m (plancher → plafond du sas), nervures, main courante.
+  - Intérieur Ø 2,24 m : parois blanches à montants et nervures, quatre mains courantes, deux luminaires au plafond
+    (lampes `Lum_Sas_1`, `Lum_Sas_2`, copies de `Lum_Arrimage_2`), fond conique.
+  - Porte extérieure `Interactif_Ecoutille_Sas_Bas` (Ø 1,20 m, passage Ø 1,00 m) : hublot central (`Vitrage`, on voit
+    la Terre défiler), face intérieure `Int_` à poignées jaunes et levier, face extérieure `Metal_Furtif` à poignée de
+    sortie ; charnière d'axe X côté −Y : elle s'ouvre vers le bas, vers la Terre (−100°). Les deux portes suivent la
+    convention de `Fermeture_Ecoutilles` (image 1 ouverte, 40 fermée).
+  - `Interactif_Combinaison` : scaphandre type EMU debout contre la paroi +Y sur son support (bottes, jambes et bras à
+    soufflets, bandes rouges, bagues, gants, torse, module de commande poitrine, sac dorsal, casque à visière dorée et
+    lampes). `Sas_Equipements` (sans collision) : trois sacs CTB sous sandows, extincteur, bouteille d'oxygène et
+    masque, longe et enrouleur, batteries de rechange sous sangle, sacoche d'outils, fiche de procédure.
+  - Extérieur `Sas_Coque-col` : col du puits et bride, coque `Coque_Silo` (UV cylindriques en mètres), deux cerclages,
+    lèvre d'appui de la porte, paumelles, mains courantes de sortie (matériau `Poignee_EVA`).
+  - Contrôle : rendus EEVEE et Workbench avec élimination des faces arrière (comme Godot). Dans EEVEE, la face
+    extérieure de la porte du bas paraît blanche et dentelée sous un soleil rasant : artefact de rendu, la géométrie
+    et les normales sont saines.
 - **Import** (`station_spatiale.glb.import`) : échelle 1 (mètres), racine `StationSpatiale`, collisions par
   suffixes de noms (`-col` : collision statique concave + maillage ; `-convcolonly` : collision convexe seule),
   LOD générés, animations à 24 i/s, **Rotation_Panneaux** (plus jouée : suivi du soleil, voir plus bas) et **Balayage_Antennes** en boucle (les autres jouées
