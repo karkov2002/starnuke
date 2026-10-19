@@ -1,7 +1,7 @@
 class_name TechScreens
 extends Node
-## Écrans d'ambiance « techno-thriller » du module Commande (nœud TechScreens de scenes/orbit_view.tscn) : sur les
-## écrans plats et les portables du module (pas sur le grand écran du poste de pilotage, PilotConsole), des
+## Écrans d'ambiance « techno-thriller » des modules Commande et Arrimage (nœud TechScreens de scenes/orbit_view.tscn) :
+## sur les écrans plats et les portables (pas sur le grand écran du poste de pilotage, PilotConsole), des
 ## programmes animés dessinés en 2D dans quelques SubViewports partagés :
 ## - CODE : listage de code et de journaux qui défile (lignes générées une fois au démarrage ; clin d'œil : environ un
 ##   commentaire sur douze est « // only Trap15 could understand this ») ;
@@ -10,8 +10,8 @@ extends Node
 ## - TELEMETRY : courbes de télémétrie qui défilent, barregraphes, balayage radar ;
 ## - ORBIT : la Terre et l'orbite vues de dessus, la station qui tourne, colonnes de valeurs hexadécimales ;
 ## - STRIP : bandeau large (écrans 13 et 14) : spectre et oscilloscope.
-## Coût réduit : chaque image n'est redessinée qu'à refresh_hz (15 Hz), et seulement quand la caméra est dans le
-## module Commande (sinon les SubViewports ne sont plus rendus). Écrans éteints avec « plus de lumière »
+## Coût réduit : chaque image n'est redessinée qu'à refresh_hz (15 Hz), et seulement quand la caméra est dans un
+## module qui a des écrans animés (MODULES_X ; sinon les SubViewports ne sont plus rendus). Écrans éteints avec « plus de lumière »
 ## (Station.get_blackout). Les textes affichés sont du pseudo-code et des valeurs (pas de langue) : hors fichiers de
 ## langue.
 
@@ -31,11 +31,13 @@ const ASSIGNMENT := {
 	"Interactif_Ordinateur_02": Program.TELEMETRY,
 	"Interactif_Ordinateur_03": Program.CODE,
 	"Interactif_Ordinateur_04": Program.ORBIT,
+	# Module Arrimage (paroi −Y, à côté de l'écoutille du sas de sortie).
+	"Interactif_Ordinateur_05": Program.TELEMETRY,
 }
 const SIZE_16_10 := Vector2i(512, 320)
 const SIZE_STRIP := Vector2i(1024, 304)
-## Module Commande dans le repère du modèle de la station (axe des modules = X).
-const MODULE_X := Vector2(5.5, 16.3)
+## Modules qui ont des écrans animés (Commande, Arrimage) : étendue sur l'axe des modules (X du modèle de la station).
+const MODULES_X: Array[Vector2] = [Vector2(5.5, 16.3), Vector2(-16.3, -6.8)]
 const MODULE_RADIUS := 2.4
 
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
@@ -118,7 +120,12 @@ func _tick() -> void:
 
 func _in_module(world_position: Vector3) -> bool:
 	var local := _station.global_transform.affine_inverse() * world_position
-	return local.x > MODULE_X.x and local.x < MODULE_X.y and Vector2(local.y, local.z).length() < MODULE_RADIUS + 2.5
+	if Vector2(local.y, local.z).length() >= MODULE_RADIUS + 2.5:
+		return false
+	for span in MODULES_X:
+		if local.x > span.x and local.x < span.y:
+			return true
+	return false
 
 
 # --- Dessin des programmes ------------------------------------------------------------------------------------------

@@ -116,6 +116,8 @@ class Builder:
             self.slots.append(m)
         idx = self.slots.index(m)
         bmesh.ops.transform(part, matrix=matrix, verts=part.verts)
+        # Pièce imprimée (pbr_kit.uv_quad, uv_disk, _label_band) : ses coordonnées de texture sont gardées.
+        own_uv = part.loops.layers.uv.get("UVMap")
         vmap = {v: self.bm.verts.new(v.co) for v in part.verts}
         for f in part.faces:
             try:
@@ -126,6 +128,10 @@ class Builder:
             g.smooth = smooth
             g.normal_update()
             n = g.normal
+            if own_uv:
+                for lnew, lold in zip(g.loops, f.loops):
+                    lnew[self.uv].uv = lold[own_uv].uv
+                continue
             for loop in g.loops:
                 co = loop.vert.co
                 if uv == "cyl" and abs(n.z) < 0.7:
@@ -960,38 +966,45 @@ def build_valve():
         points += [(corner_u, t), (-corner_u, t)]
     for u, v in points:
         b.add(revolve(rivet, 16), "hachure_noire", Matrix.Translation((u, v, 0.0035)))
-    # Manomètre : boîtier, cadran blanc, graduations, lunette, verre.
+    # Repère des pièces imprimées : texte lu de face (u de l'image vers la droite de l'observateur = −Y de la platine,
+    # v vers le haut = +X).
+    face = Matrix.Rotation(-math.pi / 2, 4, 'Z')
+    # Vis cruciformes à tête fraisée aux coins de la platine.
+    for su in (-1, 1):
+        for sv in (-1, 1):
+            sp = Vector((0.148 * su, 0.108 * sv, 0.0185))
+            b.add(cylinder(0.0065, 0.002, 24), "acier", Matrix.Translation(sp))
+            for ang in (0.4, 0.4 + math.pi / 2):
+                b.add(soft_box((0.0045, 0.0007, 0.0006), 0.0002, 0.01), "anodise_noir",
+                      Matrix.Translation(sp + Vector((0, 0, 0.0008))) @ Matrix.Rotation(ang, 4, 'Z'))
+    # Manomètre : boîtier, cadran imprimé (graduations et chiffres), lunette sertie chromée, verre bombé.
     gc = Vector((GAUGE_UP, 0.0, 0.0))
-    b.add(cylinder(0.056, 0.03, 48), "acier", Matrix.Translation(gc + Vector((0, 0, 0.033))))
-    b.add(cylinder(0.05, 0.002, 48), "cadran", Matrix.Translation(gc + Vector((0, 0, 0.049))))
-    for k in range(13):
-        bar = 0.1 * k
-        d = gauge_dir(bar)
-        major = k % 2 == 0
-        length = 0.011 if major else 0.006
-        p = gc + d * (0.042 - length / 2) + Vector((0, 0, 0.0505))
-        m = Matrix.Translation(p) @ Matrix.Rotation(math.atan2(d.y, d.x), 4, 'Z')
-        key = "rouge" if bar < 0.15 else ("vert_marque" if 0.95 < bar < 1.05 else "noir")
-        b.add(soft_box((length / 2, 0.0012 if major else 0.0008, 0.0006), 0.0003, 0.004), key, m)
-    b.add(torus(0.053, 0.005, 48, 8), "acier", Matrix.Translation(gc + Vector((0, 0, 0.052))))
-    b.add(cylinder(0.05, 0.001, 48), "vitrage", Matrix.Translation(gc + Vector((0, 0, 0.0565))))
-    # Manette : bossage et repères « plein » (vert, manette verticale) et « vide » (rouge, horizontale).
+    b.add(cylinder(0.056, 0.03, 64), "acier", Matrix.Translation(gc + Vector((0, 0, 0.033))))
+    b.add(uv_disk(0.05, 0.002, 96), "cadran_valve", Matrix.Translation(gc + Vector((0, 0, 0.049))) @ face)
+    b.add(torus(0.0535, 0.0055, 96, 10), "chrome", Matrix.Translation(gc + Vector((0, 0, 0.052))))
+    b.add(revolve([(0.0, 0.0), (0.03, -0.0004), (0.05, -0.0016), (0.0, -0.0001)], 48), "vitrage",
+          Matrix.Translation(gc + Vector((0, 0, 0.0575))))
+    # Manette : bossage, écrou hexagonal, plaques « CLOSED » (manette vers la droite) et « VENT » (vers le bas).
     hc = Vector((HANDLE_UP, 0.0, 0.0))
-    b.add(cylinder(0.038, 0.03, 40), "acier", Matrix.Translation(hc + Vector((0, 0, 0.027))))
-    b.add(soft_box((0.004, 0.012, 0.0008), 0.0008, 0.004), "vert_marque", Matrix.Translation(hc + Vector((0, -0.052, 0.0125))))
-    b.add(soft_box((0.012, 0.004, 0.0008), 0.0008, 0.004), "rouge", Matrix.Translation(hc + Vector((-0.052, 0, 0.0125))))
-    # Voyants (matériaux propres : station.gd les allume ou les éteint) et leurs collerettes.
-    for v, key in ((0.06, "voyant_vert"), (-0.06, "voyant_rouge")):
-        p = Vector((-0.135, v, 0.0))
-        b.add(cylinder(0.016, 0.012, 24), "acier", Matrix.Translation(p + Vector((0, 0, 0.018))))
-        b.add(revolve([(0.0, 0.0), (0.011, 0.0), (0.009, 0.006), (0.0, 0.009)], 20), key, Matrix.Translation(p + Vector((0, 0, 0.024))))
-    # Étiquettes.
-    for p, half in (((0.145, 0.0, 0.0125), (0.012, 0.07)), ((-0.105, 0.0, 0.0125), (0.008, 0.035))):
-        b.add(soft_box((half[0], half[1], 0.0008), 0.001, 0.006), "etiquette", Matrix.Translation(p))
-        b.add(soft_box((half[0] * 0.3, half[1] * 0.7, 0.0005), 0.0004, 0.004), "encre", Matrix.Translation(Vector(p) + Vector((0, 0, 0.001))))
-    # Conduit d'évent : sous la platine, coudé vers la paroi.
-    b.add(tube([(-0.165, 0.0, 0.03), (-0.21, 0.0, 0.03), (-0.24, 0.0, 0.0), (-0.25, 0.0, -0.03)], 0.016, 16), "acier")
-    b.add(torus(0.019, 0.005, 20, 6), "acier", Matrix.Translation((-0.19, 0.0, 0.03)) @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
+    b.add(cylinder(0.038, 0.03, 48), "acier", Matrix.Translation(hc + Vector((0, 0, 0.027))))
+    b.add(cylinder(0.016, 0.008, 6), "acier", Matrix.Translation(hc + Vector((0, 0, 0.046))))
+    b.add(uv_quad(0.05, 0.02), "plaque_fermee", Matrix.Translation(hc + Vector((0.032, -0.075, 0.0195))) @ face)
+    b.add(uv_quad(0.05, 0.02), "plaque_vent", Matrix.Translation(hc + Vector((-0.012, 0.075, 0.0195))) @ face)
+    # Voyants (matériaux propres : station.gd les allume ou les éteint), lunettes chromées, plaques « PRESS » / « VAC ».
+    for v, key, plate in ((0.06, "voyant_vert", "plaque_press"), (-0.06, "voyant_rouge", "plaque_vac")):
+        p = Vector((-0.122, v, 0.0))
+        b.add(cylinder(0.016, 0.012, 32), "chrome", Matrix.Translation(p + Vector((0, 0, 0.018))))
+        b.add(revolve([(0.0, 0.0), (0.011, 0.0), (0.009, 0.006), (0.0, 0.009)], 24), key, Matrix.Translation(p + Vector((0, 0, 0.024))))
+        b.add(uv_quad(0.04, 0.018), plate, Matrix.Translation(Vector((-0.152, v, 0.0195))) @ face)
+    # Plaque de titre au-dessus du manomètre.
+    b.add(uv_quad(0.15, 0.025), "plaque_titre", Matrix.Translation(Vector((0.145, 0.0, 0.0195))) @ face)
+    # Conduit d'évent : sous la platine, coudé vers la paroi ; bride boulonnée.
+    b.add(tube([(-0.165, 0.0, 0.03), (-0.21, 0.0, 0.03), (-0.24, 0.0, 0.0), (-0.25, 0.0, -0.03)], 0.016, 20), "acier")
+    flange = Matrix.Translation((-0.19, 0.0, 0.03)) @ Matrix.Rotation(math.pi / 2, 4, 'Y')
+    b.add(cylinder(0.028, 0.006, 32), "acier", flange)
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        b.add(cylinder(0.0035, 0.012, 6), "chrome", flange @ Matrix.Translation((0.021 * math.cos(a), 0.021 * math.sin(a), 0.0)))
     valve = b.write("Interactif_Valve_Sas", cols["Int_Sas"])
     valve.matrix_world = frame @ Matrix.Scale(VALVE_SCALE, 4)
     valve["interactif"] = True
@@ -1012,7 +1025,10 @@ def build_valve():
     hb = Builder()
     hb.add(cylinder(0.024, 0.02, 32), "acier", Matrix.Translation((0, 0, 0.0)))
     hb.add(soft_box((0.013, 0.055, 0.008), 0.006, 0.01), "valve_jaune", Matrix.Translation((0, -0.045, 0.012)))
-    hb.add(cylinder(0.013, 0.05, 20), "noir", Matrix.Translation((0, -0.098, 0.035)))
+    # Poignée caoutchouc moletée.
+    hb.add(cylinder(0.013, 0.05, 24), "caoutchouc", Matrix.Translation((0, -0.098, 0.035)))
+    for k in range(5):
+        hb.add(torus(0.0132, 0.0014, 24, 6), "caoutchouc", Matrix.Translation((0, -0.098, 0.016 + 0.009 * k)))
     handle = hb.write("Valve_Sas_Manette", cols["Int_Sas"], sharp=40)
     handle.parent = hp
     # Aiguille (pivot au centre du cadran) : au repos sur 1 bar.

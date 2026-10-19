@@ -31,6 +31,7 @@ class Builder:
             self.slots.append(m)
         idx = self.slots.index(m)
         bmesh.ops.transform(part, matrix=matrix, verts=part.verts)
+        own_uv = part.loops.layers.uv.get("UVMap")   # pièce imprimée : coordonnées de texture gardées
         vmap = {v: self.bm.verts.new(v.co) for v in part.verts}
         for f in part.faces:
             try:
@@ -40,6 +41,10 @@ class Builder:
             g.material_index = idx
             g.smooth = smooth
             g.normal_update()
+            if own_uv:
+                for lnew, lold in zip(g.loops, f.loops):
+                    lnew[self.uv].uv = lold[own_uv].uv
+                continue
             ax = max(range(3), key=lambda i: abs(g.normal[i]))
             u, v = [i for i in range(3) if i != ax]
             for loop in g.loops:

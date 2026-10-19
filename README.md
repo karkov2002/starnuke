@@ -388,15 +388,15 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
     l'échelle. Les points de trace sont **en cache** sur une grille de 20 s (une trace recalculée à chaque image
     coûtait ~3,5 ms par carte à 4 orbites) ; un point témoin recalculé par image (premier point de grille après le début de la trace) vide le cache si l'orbite ou l'orbite visée change
     (manœuvre, date, altitude). Une carte non affichée (onglet caché, tablette rangée) n'est pas redessinée.
-- **Écrans d'ambiance du module Commande** (`scripts/tech_screens.gd`, nœud `TechScreens` de `orbit_view.tscn`,
-  shader `shaders/tech_screen.gdshader`) : sur les écrans plats et les portables du module (pas sur le grand écran du
-  poste), des programmes « techno-thriller » dessinés en 2D dans cinq `SubViewport` partagés : listage de code et
+- **Écrans d'ambiance des modules Commande et Arrimage** (`scripts/tech_screens.gd`, nœud `TechScreens` de
+  `orbit_view.tscn`, shader `shaders/tech_screen.gdshader`) : sur les écrans plats et les portables du module Commande
+  (pas sur le grand écran du poste) et sur le portable `Interactif_Ordinateur_05` de l'Arrimage (télémétrie), des programmes « techno-thriller » dessinés en 2D dans cinq `SubViewport` partagés : listage de code et
   de journaux qui défile (lignes générées une fois au démarrage ; clin d'œil : quelques commentaires « // only Trap15
   could understand this »), station en fil de fer qui tourne sur elle-même
   (modèle simplifié précalculé : modules, silos, poutre, panneaux), télémétrie (courbes, barregraphes, radar à
   balayage), détermination d'orbite (Terre, orbite, colonnes hexadécimales) et, sur les bandeaux 13 et 14, spectre
   radio et oscilloscope. Affectation : table `ASSIGNMENT`. Coût réduit : images redessinées à 15 Hz (`refresh_hz`)
-  et seulement quand la caméra est dans le module Commande ; écrans éteints avec « plus de lumière »
+  et seulement quand la caméra est dans un module qui a des écrans animés (`MODULES_X` : Commande, Arrimage) ; écrans éteints avec « plus de lumière »
   (`Station.get_blackout`). Mesure : 120 im/s inchangés dans le module. Les textes affichés sont du pseudo-code et
   des valeurs techniques, sans langue : ils ne passent pas par les fichiers de langue.
 - **Télévision** (`scripts/tv_console.gd`, nœud `TvConsole` ; interface `scripts/ui/tv_display.gd`) : l'écran
@@ -612,11 +612,26 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   pièces des extincteurs ; `Int_Acier_Poli`, rendu satiné). Métallicité des peintures fixée à 0,15 et usure
   modérée : le métal nu des écaillures, très réfléchissant, faisait des traînées noires ; l'acier poli d'origine ne
   reflétait que du noir (rugosité × 2,4, métallicité 0,75).
+  - **Impressions** (`pbr_kit.Print`) : textures dessinées par Blender avec de vrais caractères (police Arial),
+    rendues en orthographique (EEVEE, vue « Standard » : couleurs exactes) dans `E:\Blender\textures\Generated`,
+    plaquées sur des pièces qui portent leurs propres coordonnées de texture (`uv_quad`, `uv_disk`, `_label_band` ;
+    les `Builder` des scripts les recopient au lieu de projeter) : cadran du manomètre de la valve (0–1,2 bar,
+    graduations, chiffres, zones rouge et verte, « AIRLOCK PRESSURE »), plaques gravées en aluminium anodisé noir
+    (« AIRLOCK EQUALIZATION VALVE », « CLOSED » →, « VENT » ↓, « PRESS », « VAC »), cadran du manomètre de
+    l'extincteur, étiquette de l'extincteur (bandeau « FIRE EXTINGUISHER », « ABC DRY POWDER 6 kg », pictogrammes
+    des classes A, B, C, mode d'emploi en quatre étapes, mentions, code-barres). Textes en anglais : marquages
+    d'origine du matériel, pas de l'interface (hors fichiers de langue, comme les touches des portables).
+  - Peintures 2K (`painted_metal_2k`) : valve orange et jaune propres (rayures légères, pas d'écaillures :
+    `chips` 0), laque rouge brillante des extincteurs (rugosité × 0,55, quelques écaillures discrètes) ; `chips`
+    dose la carte d'usure (presque binaire : un seuil ne la réduisait pas).
+  - Valve : vis cruciformes à tête fraisée aux coins de la platine, lunette sertie chromée et verre bombé du
+    manomètre, écrou hexagonal et poignée caoutchouc moletée de la manette, lunettes chromées des voyants, bride
+    boulonnée du conduit d'évent.
   - **Extincteur réaliste** (`build_extinguisher`, poudre 6 kg : Ø 0,13 m) : corps embouti à fond bombé et
-    épaulement, pied en caoutchouc, col fileté en laiton, tête de robinet chromée, levier de percussion et poignée
-    de portage, goupille de sécurité et scellé jaune, manomètre à zone verte, flexible qui contourne le corps par le
-    côté et lance clipsée, étiquette en géométrie (bandeau rouge, consignes, pictogrammes), colliers et platine
-    murale. Dans le sas (paroi −X) et dans l'Arrimage : `build_arrimage_extinguisher.py` remplace le cylindre rouge
+    épaulement (soudure, fond serti), pied en caoutchouc, col fileté en laiton, tête de robinet chromée à bouchon
+    moleté, levier de percussion et poignée de portage à gaine caoutchouc, goupille de sécurité, scellé et sa
+    plaquette, manomètre imprimé à zone verte sous verre, flexible à bagues serties qui contourne le corps par le
+    côté et lance à cornet clipsée, étiquette imprimée enroulée, colliers et platine murale vissée. Dans le sas (paroi −X) et dans l'Arrimage : `build_arrimage_extinguisher.py` remplace le cylindre rouge
     sommaire du râtelier de la paroi diagonale (îlot `Int_Rouge` d'`Arrimage_Stockage-col`, retiré une fois) par
     `Arrimage_Extincteur` (9 kg, échelle 1,35, couché le long du module).
 - **Rangements souples du module Arrimage** (`tools/blender/build_arrimage_stowage.py`, rejouable ; d'après la
