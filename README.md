@@ -793,9 +793,11 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
       ouverte : ~8 fois, ~12 s).
     - **Alerte rouge automatique** (règle de jeu, `StationAtmosphere._update_alert`) : dès que la porte intérieure
       et la porte extérieure du sas sont ouvertes en même temps (dès le clic), la station passe en alerte rouge
-      (`Station.set_alert`). L'alerte se lève d'elle-même dès que la porte extérieure est fermée **et** que tous les
-      modules (hors sas) sont repassés au-dessus de 80 % (`alert_clear_pressure`) : l'alerte d'avant est rétablie
-      (sauf si le joueur en a choisi une autre entre-temps). Pas d'alerte sans courant (« Plus de lumière »).
+      (`Station.set_alert`). L'alerte se lève d'elle-même dès que la porte extérieure est fermée **et** que la
+      pression est revenue à 0,80 (`alert_clear_pressure`, arrondie au centième comme sur les témoins) dans le sas et
+      dans tout ce qui communique avec lui ; un module isolé (écoutilles fermées) garde sa pression, affichée par son
+      témoin, sans retenir l'alerte. L'alerte d'avant est rétablie (sauf si le joueur en a choisi une autre
+      entre-temps). Pas d'alerte sans courant (« Plus de lumière »).
     - **Témoins de pression** (`scripts/pressure_gauges.gd`, nœud `PressureGauges`) : dans chaque module (Commande,
       Habitation, Arrimage, Missile 1 et 2), près de son écoutille d'entrée, un afficheur mural de 34 × 22 cm
       (`gauge_scale` 2 : à taille réelle, 17 × 11 cm, il ne se lisait pas à travers le module) construit au

@@ -13,7 +13,8 @@ extends Node
 ##   reliés sont grands : de flow_speed_sas (sas seul, plein) à flow_speed_max (tous les modules reliés).
 ## Porte extérieure : durée × racine du volume d'air rapporté à celui du sas (toute la station : ~8 fois plus long).
 ## - **alerte rouge** automatique dès que les deux portes du sas sont ouvertes en même temps, levée quand la porte
-##   extérieure est fermée et que tous les modules sont repassés au-dessus de 80 % (_update_alert) ;
+##   extérieure est fermée et que la pression est revenue à 80 % dans le sas et ce qui communique avec lui
+##   (_update_alert) ;
 ## Volumes et écoutilles : tables ZONES et HATCHES (coordonnées Blender du modèle, converties dans le repère de la
 ## station : x, z, −y). La valve et son manomètre : Station (get_airlock_valve_mode, airlock_step, set_airlock_gauge).
 
@@ -58,8 +59,8 @@ const BEYOND_M := 0.8
 ## Courant d'air vers la sortie (m/s, × pression) : sas seul, et tous les modules reliés.
 @export var flow_speed_sas := 3.0
 @export var flow_speed_max := 12.0
-## Alerte de dépressurisation levée quand la porte extérieure est fermée et que tous les modules (hors sas) ont
-## dépassé cette pression.
+## Alerte de dépressurisation levée quand la porte extérieure est fermée et que le sas et ce qui communique avec lui
+## sont revenus à cette pression.
 @export var alert_clear_pressure := 0.8
 
 ## Pression de chaque volume (1 : pleine).
@@ -123,8 +124,10 @@ func _process(delta: float) -> void:
 
 
 ## Alerte rouge automatique (règle de jeu) : dès que les deux portes du sas sont ouvertes en même temps (état visé :
-## dès le clic) ; levée dès que la porte extérieure est fermée et que tous les modules (hors sas) sont repassés
-## au-dessus de alert_clear_pressure : l'alerte d'avant est rétablie, sauf si le joueur a changé d'alerte entre-temps.
+## dès le clic) ; levée dès que la porte extérieure est fermée et que la pression est revenue à alert_clear_pressure
+## dans le sas et dans tout ce qui communique avec lui (pression arrondie au centième, comme sur les témoins) : un
+## module isolé reste à sa pression, sans retenir l'alerte. L'alerte d'avant est rétablie, sauf si le joueur a
+## changé d'alerte entre-temps.
 ## Pas d'alerte sans courant (Station.Alert.BLACKOUT, « plus de lumière »).
 func _update_alert() -> void:
 	var outer := _station.is_hatch_opening(_station.airlock_outer_hatch)
@@ -137,9 +140,11 @@ func _update_alert() -> void:
 		return
 	if outer:
 		return
-	for zone: String in ZONES:
-		if zone != SAS and float(pressures[zone]) <= alert_clear_pressure:
-			return
+	for zones: Array in _groups():
+		if zones.has(SAS):
+			for zone: String in zones:
+				if snappedf(float(pressures[zone]), 0.01) < alert_clear_pressure:
+					return
 	_alert_raised = false
 	if _station.get_alert() == Station.Alert.RED:
 		_station.set_alert(_alert_before)
