@@ -12,6 +12,8 @@ extends Node
 ##   un courant d'air y porte vers la sortie (flow_at), d'autant plus fort que la pression et le nombre de modules
 ##   reliés sont grands : de flow_speed_sas (sas seul, plein) à flow_speed_max (tous les modules reliés).
 ## Porte extérieure : durée × racine du volume d'air rapporté à celui du sas (toute la station : ~8 fois plus long).
+## - **alerte rouge** automatique dès que les deux portes du sas sont ouvertes en même temps, levée quand la porte
+##   extérieure est fermée et que tous les modules sont repassés au-dessus de 80 % (_update_alert) ;
 ## Volumes et écoutilles : tables ZONES et HATCHES (coordonnées Blender du modèle, converties dans le repère de la
 ## station : x, z, −y). La valve et son manomètre : Station (get_airlock_valve_mode, airlock_step, set_airlock_gauge).
 
@@ -56,6 +58,9 @@ const BEYOND_M := 0.8
 ## Courant d'air vers la sortie (m/s, × pression) : sas seul, et tous les modules reliés.
 @export var flow_speed_sas := 3.0
 @export var flow_speed_max := 12.0
+## Alerte de dépressurisation levée quand la porte extérieure est fermée et que tous les modules (hors sas) ont
+## dépassé cette pression.
+@export var alert_clear_pressure := 0.8
 
 ## Pression de chaque volume (1 : pleine).
 var pressures := {}
@@ -65,6 +70,9 @@ var _next := {}
 var _flow_speed := {}
 var _modules_total := 0
 var _volume_total := 0.0
+## Alerte rouge de dépressurisation en cours, et niveau d'alerte d'avant (rétabli à la levée).
+var _alert_raised := false
+var _alert_before := Station.Alert.NONE
 
 
 func _ready() -> void:
@@ -111,6 +119,30 @@ func _process(delta: float) -> void:
 			var speed := target * lerpf(flow_speed_sas, flow_speed_max, float(modules) / maxf(_modules_total, 1))
 			_route(zones, speed)
 	_station.set_airlock_gauge(float(pressures[SAS]))
+	_update_alert()
+
+
+## Alerte rouge automatique (règle de jeu) : dès que les deux portes du sas sont ouvertes en même temps (état visé :
+## dès le clic) ; levée dès que la porte extérieure est fermée et que tous les modules (hors sas) sont repassés
+## au-dessus de alert_clear_pressure : l'alerte d'avant est rétablie, sauf si le joueur a changé d'alerte entre-temps.
+## Pas d'alerte sans courant (Station.Alert.BLACKOUT, « plus de lumière »).
+func _update_alert() -> void:
+	var outer := _station.is_hatch_opening(_station.airlock_outer_hatch)
+	if not _alert_raised:
+		if outer and _station.is_hatch_opening(_station.airlock_inner_hatch) \
+				and _station.get_alert() != Station.Alert.BLACKOUT:
+			_alert_raised = true
+			_alert_before = _station.get_alert()
+			_station.set_alert(Station.Alert.RED)
+		return
+	if outer:
+		return
+	for zone: String in ZONES:
+		if zone != SAS and float(pressures[zone]) <= alert_clear_pressure:
+			return
+	_alert_raised = false
+	if _station.get_alert() == Station.Alert.RED:
+		_station.set_alert(_alert_before)
 
 
 ## Durée (s) d'une vidange ou d'un remplissage complet par la valve d'un ensemble de volume volume (m³) : sas_s pour

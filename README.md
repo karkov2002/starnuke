@@ -791,6 +791,11 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
       courbe, en `door_vent_s` (1,5 s) pour le sas seul.
     - Porte extérieure : durée multipliée par la racine du volume d'air rapporté à celui du sas (toute la station
       ouverte : ~8 fois, ~12 s).
+    - **Alerte rouge automatique** (règle de jeu, `StationAtmosphere._update_alert`) : dès que la porte intérieure
+      et la porte extérieure du sas sont ouvertes en même temps (dès le clic), la station passe en alerte rouge
+      (`Station.set_alert`). L'alerte se lève d'elle-même dès que la porte extérieure est fermée **et** que tous les
+      modules (hors sas) sont repassés au-dessus de 80 % (`alert_clear_pressure`) : l'alerte d'avant est rétablie
+      (sauf si le joueur en a choisi une autre entre-temps). Pas d'alerte sans courant (« Plus de lumière »).
     - **Témoins de pression** (`scripts/pressure_gauges.gd`, nœud `PressureGauges`) : dans chaque module (Commande,
       Habitation, Arrimage, Missile 1 et 2), près de son écoutille d'entrée, un afficheur mural construit au
       démarrage (`Temoin_Pression_<module>`, enfant de la station) : pression du module en bar, voyant et chiffres
