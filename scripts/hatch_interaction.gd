@@ -1,11 +1,13 @@
 class_name HatchInteraction
 extends Node
-## Écoutilles et rideaux manipulables à la souris (nœud HatchInteraction de scenes/orbit_view.tscn). Rayon de la caméra
-## contre les collisions (la porte d'une écoutille a son corps de collision, AnimatableBody3D, qui suit la charnière ;
-## un rideau, sa zone de clic Area3D, qui suit le tissu) :
-## - survol à portée (reach_m) : bulle « Ouvrir / Fermer l'écoutille », « Ouvrir / Fermer le rideau » ;
+## Écoutilles, rideaux et sas de sortie manipulables à la souris (nœud HatchInteraction de scenes/orbit_view.tscn).
+## Rayon de la caméra contre les collisions (la porte d'une écoutille a son corps de collision, AnimatableBody3D, qui
+## suit la charnière ; un rideau, sa zone de clic Area3D, qui suit le tissu) :
+## - survol à portée (reach_m) : bulle « Ouvrir / Fermer l'écoutille », « Ouvrir / Fermer le rideau », « Enfiler /
+##   Ranger la combinaison », « Vider / Remplir le sas », ou la raison d'un verrouillage (écoutille du sas sous pression
+##   ou vide, cycle en cours, écoutilles à fermer avant la valve) ;
 ## - clic gauche : mouvement animé (Station.toggle_hatch, Station.toggle_curtain ; un clic pendant le mouvement
-##   l'inverse).
+##   l'inverse), Station.set_suit_worn, Station.toggle_airlock_pressure.
 ## Inactif au poste de pilotage. Les clics pris avant (tablette, interface) ne lui parviennent pas.
 
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
@@ -53,10 +55,21 @@ func _process(_delta: float) -> void:
 	var target := _target_under(_mouse_position) if _active() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE else {}
 	_hover_label.visible = not target.is_empty()
 	if not target.is_empty():
-		if target.kind == "rideau":
-			_hover_label.text = "CURTAIN_OPEN" if _station.is_curtain_closing(target.id) else "CURTAIN_CLOSE"
-		else:
-			_hover_label.text = "HATCH_CLOSE" if _station.is_hatch_opening(target.id) else "HATCH_OPEN"
+		match target.kind:
+			"rideau":
+				_hover_label.text = "CURTAIN_OPEN" if _station.is_curtain_closing(target.id) else "CURTAIN_CLOSE"
+			"combinaison":
+				_hover_label.text = "SUIT_PUT_ON"
+			"porte":
+				_hover_label.text = "SUIT_STOW"
+			"valve":
+				var reason := _station.airlock_valve_lock_reason()
+				_hover_label.text = reason if reason != "" else \
+						("AIRLOCK_DEPRESSURIZE" if _station.get_airlock_pressure() > 0.5 else "AIRLOCK_REPRESSURIZE")
+			_:
+				var closing := _station.is_hatch_opening(target.id)
+				var locked := "" if closing else _station.hatch_lock_reason(target.id)
+				_hover_label.text = "HATCH_CLOSE" if closing else (locked if locked != "" else "HATCH_OPEN")
 		_hover_label.position = _mouse_position + Vector2(18, 14)
 		_hover_label.reset_size()
 
@@ -69,18 +82,26 @@ func _unhandled_input(event: InputEvent) -> void:
 	if target.is_empty():
 		return
 	get_viewport().set_input_as_handled()
-	if target.kind == "rideau":
-		_station.toggle_curtain(target.id)
-	else:
-		_station.toggle_hatch(target.id)
+	match target.kind:
+		"rideau":
+			_station.toggle_curtain(target.id)
+		"combinaison":
+			_station.set_suit_worn(true)
+		"porte":
+			_station.set_suit_worn(false)
+		"valve":
+			_station.toggle_airlock_pressure()
+		_:
+			_station.toggle_hatch(target.id)
 
 
 func _active() -> bool:
 	return _station != null and not ScreenSeat.any_seated(get_tree())
 
 
-## Écoutille ouvrable ou rideau sous le curseur, à portée (premier obstacle touché par le rayon, zones de clic des
-## rideaux comprises) : {kind : « ecoutille » ou « rideau », id}, vide sinon.
+## Écoutille ouvrable, rideau ou pièce du sas sous le curseur, à portée (premier obstacle touché par le rayon, zones
+## de clic des rideaux comprises) : {kind : « ecoutille », « rideau », « combinaison », « porte » ou « valve », id},
+## vide sinon.
 func _target_under(mouse_position: Vector2) -> Dictionary:
 	var origin := _camera.project_ray_origin(mouse_position)
 	var query := PhysicsRayQueryParameters3D.create(origin,
@@ -93,6 +114,9 @@ func _target_under(mouse_position: Vector2) -> Dictionary:
 	var curtain := _station.curtain_id_for(hit.collider as Node)
 	if curtain != "":
 		return {"kind": "rideau", "id": curtain}
+	var part := _station.airlock_part_for(hit.collider as Node)
+	if part != "":
+		return {"kind": part, "id": ""}
 	var hatch := _station.hatch_id_for(hit.collider as Node)
 	return {"kind": "ecoutille", "id": hatch} if hatch != "" else {}
 

@@ -658,7 +658,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     réglage ou réexporter le .glb.
 - **Métadonnées** : les propriétés personnalisées Blender (extras glTF) sont dans `get_meta("extras")`, un
   dictionnaire ; les nombres y sont des flottants (`silo: 1.0`). `ouvrable` (vrai pour les écoutilles et trappes
-  animées, faux pour l'écoutille cargo et les trappes sas et nadir, verrouillées).
+  animées, faux pour l'écoutille cargo, verrouillée).
 - **Scène héritée** `scenes/station_spatiale.tscn` : base de tout le jeu (script, réglages des lumières, etc.).
   Aperçu seul : `scenes/debug/station_preview.tscn` (soleil, fond noir, caméra extérieure).
 - **Pilotage** (`scripts/station.gd`, classe `Station`, racine de la scène héritée). Rien n'est codé en dur : objets
@@ -678,10 +678,30 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     cette limite. Vitesse bornée à 6°/s (`panel_max_speed_deg`), pour éviter un saut quand la date ou l'heure change.
   - États au repos (modèle) : écoutilles ouvertes, trappes des silos fermées, radiateurs déployés. **Règle de jeu :
     au démarrage, le passage Habitation – Commande est ouvert** (`Ecoutille_Habitation_AV`, `Ecoutille_Commande_AR` :
-    `start_open_hatches`) **et les 4 autres écoutilles ouvrables sont fermées** (`start_hatches_closed`) : Arrimage AV,
-    Habitation AR et les 2 des modules de missiles (`Ecoutille_Missile_1`, `_2`). Écoutille
-    cargo et trappes sas et nadir verrouillées (`ouvrable` faux, rien n'est modélisé derrière) : leurs commandes
-    renvoient `false`.
+    `start_open_hatches`) **et les 6 autres écoutilles ouvrables sont fermées** (`start_hatches_closed`) : Arrimage AV,
+    Habitation AR, les 2 des modules de missiles (`Ecoutille_Missile_1`, `_2`) et les 2 du sas de sortie
+    (`Ecoutille_Sas_Haut`, `Ecoutille_Sas_Bas`). Écoutille cargo verrouillée (`ouvrable` faux, rien n'est modélisé
+    derrière) : ses commandes renvoient `false`.
+  - **Sas de sortie : verrouillage par la pression** (règle de jeu, `Station`, groupe « Sas de sortie »). La valve
+    (`Interactif_Valve_Sas`) vide le sas en rejouant `Depressurisation_Sas` (manette, aiguille de 1 à 0 bar en 20 s)
+    et le remplit en la rejouant à l'envers ; la pression est lue sur l'aiguille (rotation cumulée de la piste qui
+    tourne le plus). Le sas est plein au démarrage.
+    - l'écoutille intérieure (`airlock_inner_hatch`, plancher de l'Arrimage) ne s'ouvre que sas plein ;
+    - la porte extérieure (`airlock_outer_hatch`, vers la Terre) ne s'ouvre que sas vide ;
+    - aucune des deux ne s'ouvre pendant un cycle ; on peut toujours les fermer ;
+    - la valve ne se manœuvre que les deux fermées (ni ouvertes, ni en mouvement), et pas pendant un cycle.
+    Voyants : vert allumé sas plein, rouge allumé sas vide, rouge clignotant (0,8 s) pendant un cycle
+    (`indicator_energy`, `indicator_blink_s` ; copies émissives des matériaux `extras.voyant_plein` / `voyant_vide`).
+    API : `get_airlock_pressure()`, `is_airlock_cycling()`, `set_airlock_pressurized(full)`,
+    `toggle_airlock_pressure()`, `airlock_valve_lock_reason()` et `hatch_lock_reason(id)` (clé de traduction de la
+    raison, "" sinon) ; signal `airlock_changed(pressurized)`.
+  - **Combinaison** (règle de jeu) : un clic sur la combinaison l'enfile (elle disparaît, sa collision est coupée) ; un
+    clic sur son support (`Interactif_Porte_Combinaison`) la remet en place. API : `is_suit_worn()`,
+    `set_suit_worn(worn)`, `airlock_part_for(node)` ; signal `suit_changed(worn)`. Porter la combinaison n'a pas
+    encore d'autre effet (la porte extérieure s'ouvre sans).
+  - **Vaisseau cargo** : `set_cargo_docked(docked)` joue `Separation_Cargo` (recul de 10 m en 30 s) ou, à l'envers,
+    le réamarrage ; `is_cargo_docked()`, `is_cargo_moving()`, signal `cargo_changed(docked)`. Bouton « Cargo » du
+    panneau de debug (F4).
   - Écoutilles : `open_hatch(id)`, `close_hatch(id)`, `set_hatch_open(id, open)`, `toggle_hatch(id)`,
     `set_all_hatches_open(open)`, `is_hatch_open(id)`, `is_hatch_opening(id)` (état visé), `hatch_ids()`,
     `hatch_id_for(node)` (écoutille d'une porte ou de son corps de collision) ; signal `hatch_changed(id, open)`.
@@ -690,6 +710,10 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     rayon de la caméra contre les collisions, à 2,5 m au plus (`reach_m`) ; survol d'une écoutille ouvrable : bulle
     « Ouvrir l'écoutille » / « Fermer l'écoutille » (`HATCH_OPEN`, `HATCH_CLOSE`) ; clic gauche : ouverture ou
     fermeture animée (rotation de la charnière, durée de `Fermeture_Ecoutilles`). Inactif au poste de pilotage.
+    Écoutille du sas verrouillée : la bulle donne la raison (`HATCH_LOCKED_PRESSURE`, `HATCH_LOCKED_VACUUM`,
+    `AIRLOCK_DEPRESSURIZING`, `AIRLOCK_REPRESSURIZING`). Même interaction pour la combinaison (`SUIT_PUT_ON`), son
+    support (`SUIT_STOW`) et la valve (`AIRLOCK_DEPRESSURIZE`, `AIRLOCK_REPRESSURIZE`, ou `AIRLOCK_CLOSE_HATCHES` et
+    les clés de cycle en cours quand elle est verrouillée).
   - **Rideaux** (WC et douche de l'Habitation ; objets Blender d'extras `type` « rideau », `id` `Rideau_WC`,
     `Rideau_Douche`) : **fermés au démarrage** (`start_curtains_closed`) ; même interaction à la souris (bulle « Ouvrir le rideau » /
     « Fermer le rideau », clés `CURTAIN_OPEN`, `CURTAIN_CLOSE`), mouvement de 0,9 s (`curtain_duration_s`) qui fond
@@ -787,7 +811,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     - lumière du moteur sur la station : pleine jusqu'à 40 m, puis en 1/d².
   - Radiateurs : `set_radiator_deployed(id, deployed)` (`Radiateur_D15`, `D21`, `G15`, `G21`),
     `set_all_radiators_deployed`, `set_stealth(enabled)` ; signal `radiator_changed`.
-  - **Éclairage intérieur** (réglages dans le groupe « Éclairage intérieur » de `Station`) : les 28 lampes
+  - **Éclairage intérieur** (réglages dans le groupe « Éclairage intérieur » de `Station`) : les 30 lampes
     ponctuelles du modèle (`Lum_*`, importées à 6 522 d'énergie et 4 096 m de portée) sont recalibrées au démarrage :
     blanc 4 500 K (luminaires LED de l'ISS en mode jour), énergie 1,2 × le paramètre « Éclairage intérieur »
     (`GameSettings.interior_light`, voir « Écran de démarrage, paramètres et langues ») × 0,75 dans l'ombre de la

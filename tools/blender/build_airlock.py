@@ -1,4 +1,4 @@
-# Outil hors-jeu : module « sas de sortie » sous le module Arrimage, dans E:\Blender\nuke_station.blend (Blender ouvert,
+﻿# Outil hors-jeu : module « sas de sortie » sous le module Arrimage, dans E:\Blender\nuke_station.blend (Blender ouvert,
 # extension MCP de Blender Lab) :
 #   & ./tools/blender_exec.ps1 -TimeoutS 600 -File tools/blender/build_airlock.py
 # Rejouable : supprime d'abord ce qu'il a créé (collections Module_Sas et Int_Sas, lampes Lum_Sas_*). Les retouches du
@@ -74,7 +74,9 @@ MATS = {
     "semelle": material("Int_Combi_Semelle", (0.42, 0.58, 0.74), 0.0, 0.6),
     "pli": material("Int_Combi_Pli", (0.16, 0.16, 0.17), 0.0, 0.85),
     "poche": material("Int_Combi_Poche", (0.88, 0.88, 0.86), 0.0, 0.75),
-    "bulle": material("Int_Combi_Bulle", (0.035, 0.05, 0.05), 0.7, 0.04),
+    # Bulle : verre teinté non métallique, reflet faible et flou (un métal poli renvoyait tout l'environnement,
+    # dont les arbres de l'éclairage HDRI de l'aperçu Blender).
+    "bulle": material("Int_Combi_Bulle", (0.02, 0.03, 0.03), 0.0, 0.12),
     "ecusson": material("Int_Combi_Ecusson", (0.04, 0.08, 0.25), 0.0, 0.7),
     "ecusson_rond": material("Int_Combi_Ecusson_Rond", (0.08, 0.08, 0.10), 0.0, 0.6),
     "cadran": material("Int_Cadran", (0.9, 0.9, 0.88), 0.0, 0.4),
@@ -89,6 +91,9 @@ MATS = {
     "longe": material("Int_Longe", (0.08, 0.30, 0.12), 0.0, 0.8),
     "poignee_ext": material("Poignee_EVA", (0.55, 0.42, 0.06), 0.3, 0.55),
 }
+
+
+MATS["bulle"].node_tree.nodes["Principled BSDF"].inputs["Specular IOR Level"].default_value = 0.2
 
 
 # ------------------------------------------------------------------------------------------------ outils

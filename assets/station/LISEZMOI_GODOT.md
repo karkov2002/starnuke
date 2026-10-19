@@ -9,11 +9,20 @@
 | Fermeture_Ecoutilles | 1-40 | à l'envers = ouverture |
 | Ouverture_Trappes | 1-~75 | 48 trappes, en vague |
 | Lancement_Missile | 1-120 | trappe 1_12 + missile ; allumage à l'image 70 ; missile à -30 m puis échelle 0 à l'image 120 (relais vers le système de frappe) |
+| Depressurisation_Sas | 1-505 (24 i/s) | valve du sas : manette, aiguille 1 -> 0 bar ; à l'envers = remplissage |
+| Separation_Cargo | 1-721 (24 i/s : 30 s) | `Pivot_Cargo` (parent des 9 `Cargo_*`) recule de 10 m selon -X, départ et arrêt en douceur ; à l'envers = réamarrage |
+
+## Sas de sortie (sous le module Arrimage, x = -10,1)
+- `Interactif_Ecoutille_Sas_Haut` (plancher de l'Arrimage, Ø 0,80 m, s'ouvre vers le haut) et `Interactif_Ecoutille_Sas_Bas` (porte extérieure à hublot, Ø 1,20 m, s'ouvre vers le bas, vers la Terre) : type `ecoutille`, `ouvrable = true`, pistes dans `Fermeture_Ecoutilles` (image 1 ouverte, 40 fermée).
+- `Interactif_Combinaison` (type `combinaison`, `porte` = son support) et `Interactif_Porte_Combinaison` (type `porte_combinaison`, `combinaison`) : clic sur la combinaison = on l'enfile (masquée), clic sur le support = elle revient.
+- `Interactif_Valve_Sas` (type `valve_sas`) : pivots `Pivot_Valve_Sas` (manette) et `Pivot_Aiguille_Sas` (manomètre) animés par `Depressurisation_Sas` (1-505 à 24 i/s : vidange 1 -> 0 bar en 20 s ; à l'envers = remplissage) ; voyants = matériaux `Int_Voyant_Sas_Vert` (plein) et `Int_Voyant_Sas_Rouge` (vide).
+- `Sas_Equipements` (sacs et objets, sans collision), `Sas_Paroi-col`, `Sas_Coque-col`, lampes `Lum_Sas_1`, `Lum_Sas_2`.
+- Les anciennes trappes verrouillées `Interactif_Trappe_Nadir` et `Interactif_Trappe_Sas` (et le petit sas factice `Habitation_Sas*`) n'existent plus.
 
 ## Conventions de noms
 - `-col` : collision statique générée par Godot (murs, sols, coques, passerelles).
 - `-convcolonly` : collision convexe seule, enfant des portes et trappes (suit le mouvement).
-- `Interactif_*` : objets manipulables. Métadonnées : propriétés glTF « extras », exposées par Godot dans la métadonnée `extras` (dictionnaire) : `get_meta("extras")["type"]`. Clés : `type`, `id`, `ouvrable`, `animation`, `charniere`, `silo`, `tube`, `materiau_ecran`. Écoutille cargo et trappes de sol : `ouvrable = false`.
+- `Interactif_*` : objets manipulables. Métadonnées : propriétés glTF « extras », exposées par Godot dans la métadonnée `extras` (dictionnaire) : `get_meta("extras")["type"]`. Clés : `type`, `id`, `ouvrable`, `animation`, `charniere`, `silo`, `tube`, `materiau_ecran`. Écoutille cargo : `ouvrable = false`.
 - `Charniere_*` : nœud pivot à tourner (Tween) pour piloter une porte ou une trappe individuellement.
 - `Pivot_*` : pivots des panneaux solaires et paraboles.
 

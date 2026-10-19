@@ -6,6 +6,7 @@ extends CanvasLayer
 ##   curseur (time_override_s), sinon le curseur suit le temps réel de l'effet ;
 ## - « Effacer » supprime toutes les explosions ; « Marqueurs » affiche les marqueurs de taille (NukeEffect) ;
 ## - menu « Alerte » : niveau d'alerte de la station (couleur des luminaires intérieurs, Station.set_alert) ;
+## - « Cargo » : sépare le vaisseau cargo de la station, ou le réamarre (Station.set_cargo_docked) ;
 ## - orbite (partie en cours seulement) : altitude (200–800 km) et inclinaison (0–80°) appliquées directement au
 ##   nœud Orbit, au point courant, sans manœuvre (outil de développement : en jeu, l'orbite se pilote au poste de
 ##   pilotage). L'inclinaison est bornée par la latitude courante ;
@@ -95,6 +96,11 @@ func _ready() -> void:
 		if station:
 			station.set_alert(index as Station.Alert))
 	actions.add_child(alert)
+	# Vaisseau cargo : séparation (recul de 10 m en 30 s) ou réamarrage (Station.set_cargo_docked).
+	actions.add_child(_make_button("Cargo", func() -> void:
+		var station := get_tree().get_first_node_in_group(Station.GROUP) as Station
+		if station:
+			station.set_cargo_docked(not station.is_cargo_docked())))
 
 	var scrub_row := HBoxContainer.new()
 	scrub_row.add_theme_constant_override("separation", 6)

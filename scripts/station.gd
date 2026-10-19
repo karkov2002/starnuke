@@ -32,6 +32,12 @@ signal missile_ignited(silo: int, tube: int)
 ## libère ensuite. Sans récepteur connecté, la station le masque.
 signal missile_released(silo: int, tube: int, missile: Node3D, velocity: Vector3)
 signal heat_changed(heat: float)
+## Combinaison du sas enfilée (true) ou rangée sur son support (false).
+signal suit_changed(worn: bool)
+## Fin d'une vidange (false) ou d'un remplissage (true) du sas de sortie.
+signal airlock_changed(pressurized: bool)
+## Fin de la séparation (false) ou du réamarrage (true) du vaisseau cargo.
+signal cargo_changed(docked: bool)
 
 ## Groupe de la station (pour la retrouver depuis l'interface).
 const GROUP := &"station"
@@ -41,6 +47,7 @@ const ANIM_LAUNCH := &"Lancement_Missile"
 const ANIM_RADIATORS := &"Retraction_Radiateurs"
 const ANIM_PANELS := &"Rotation_Panneaux"
 const ANIM_ANTENNAS := &"Balayage_Antennes"
+const ANIM_CARGO := &"Separation_Cargo"
 const MODEL_MISSILE := "Missile_Balistique_1_12"
 const MODEL_SILO := 1
 const MODEL_TUBE := 12
@@ -101,6 +108,15 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 ## propulsion part à 3,5 m (réglage visuel).
 @export var nozzle_offset_m := 0.5
 
+@export_group("Sas de sortie")
+## Écoutille intérieure (plancher de l'Arrimage) : ne s'ouvre que sas plein.
+@export var airlock_inner_hatch := "Ecoutille_Sas_Haut"
+## Porte extérieure : ne s'ouvre que sas vide.
+@export var airlock_outer_hatch := "Ecoutille_Sas_Bas"
+## Émission des voyants allumés de la valve (vert : plein, rouge : vide ; le rouge clignote pendant un cycle).
+@export var indicator_energy := 8.0
+@export var indicator_blink_s := 0.8
+@export_group("")
 @export_group("Éclairage intérieur")
 ## 28 lampes ponctuelles du modèle (Lum_*), recalibrées au démarrage : ambiance ISS (luminaires LED en mode jour,
 ## ~4 500 K), sans ombres. Elles n'éclairent que les surfaces intérieures (calque INTERIOR_LAYER) : sans ombres, elles
@@ -175,6 +191,15 @@ enum Alert { NONE, YELLOW, ORANGE, RED, BLACKOUT }
 var _beacon_time := 0.0
 ## Angle courant des panneaux (radians autour de Z) ; NAN avant la première image (placement direct).
 var _panel_angle := NAN
+## Sas de sortie : combinaison et son support (extras type « combinaison », « porte_combinaison »).
+var _suit: Node3D
+var _suit_rack: Node3D
+var _suit_worn := false
+## Valve du sas (extras type « valve_sas ») : {node, anim, tracks, targets, time, tween, target_full, curve, green, red}.
+var _valve := {}
+var _indicator_time := 0.0
+var _cargo_docked := true
+var _cargo_busy := false
 
 
 func _ready() -> void:
@@ -202,6 +227,7 @@ func _ready() -> void:
 	_collect_curtains()
 	_collect_radiators()
 	_setup_interior_lighting()
+	_collect_airlock()
 	_add_interior_collisions()
 	var model := _missile_template()
 	if model:
@@ -223,6 +249,8 @@ func _process(delta: float) -> void:
 		_track_sun(delta)
 	if not _beacons.is_empty():
 		_blink_beacons(delta)
+	if not _valve.is_empty():
+		_update_airlock_indicators(delta)
 	if _radiators.is_empty():
 		return
 	var deployed := 0.0
@@ -255,6 +283,9 @@ func is_hatch_openable(id: String) -> bool:
 ## Ouvre ou ferme une écoutille (Tween, durée de l'animation Blender). Faux si elle est verrouillée ou inconnue.
 func set_hatch_open(id: String, open: bool) -> bool:
 	if not is_hatch_openable(id):
+		return false
+	# Écoutilles du sas : verrouillées selon la pression (la fermeture reste toujours possible).
+	if open and hatch_lock_reason(id) != "":
 		return false
 	var hatch: Dictionary = _hatches[id]
 	# État visé (et non l'état atteint) : une demande inverse en cours de mouvement repart de la position actuelle.
@@ -416,6 +447,217 @@ static func _points_aabb(points: PackedVector3Array) -> AABB:
 	for p in points:
 		box = box.expand(p)
 	return box
+
+
+# --- Sas de sortie --------------------------------------------------------------------------------------------------
+# Combinaison (clic : on l'enfile, elle disparaît ; clic sur son support : elle y revient) et valve de
+# dépressurisation (animation Blender Depressurisation_Sas : manette, aiguille du manomètre de 1 à 0 bar ; à l'envers :
+# remplissage). Verrouillage réaliste : l'écoutille intérieure ne s'ouvre que sas plein, la porte extérieure que sas
+# vide, aucune pendant un cycle ; la valve ne se manœuvre que les deux fermées.
+
+func is_suit_worn() -> bool:
+	return _suit_worn
+
+
+## Enfile (combinaison masquée, sans collision) ou range la combinaison. Faux sans combinaison dans le modèle.
+func set_suit_worn(worn: bool) -> bool:
+	if _suit == null:
+		return false
+	if worn == _suit_worn:
+		return true
+	_suit_worn = worn
+	_suit.visible = not worn
+	for body: CollisionObject3D in _suit.find_children("*", "CollisionObject3D", true, false):
+		body.process_mode = Node.PROCESS_MODE_DISABLED if worn else Node.PROCESS_MODE_INHERIT
+	suit_changed.emit(worn)
+	return true
+
+
+## Pièce du sas à laquelle appartient node, quand un clic y a un effet : « combinaison » (à enfiler), « porte » (le
+## support, pour la ranger), « valve » ; "" sinon.
+func airlock_part_for(node: Node) -> String:
+	while node and node != self:
+		if node == _suit:
+			return "" if _suit_worn else "combinaison"
+		if node == _suit_rack:
+			return "porte" if _suit_worn else ""
+		if not _valve.is_empty() and node == _valve.node:
+			return "valve"
+		node = node.get_parent()
+	return ""
+
+
+## Pression du sas (1 : plein, 0 : vide), lue sur l'aiguille du manomètre.
+func get_airlock_pressure() -> float:
+	return _pressure_at(_valve.time) if not _valve.is_empty() else 1.0
+
+
+func is_airlock_cycling() -> bool:
+	return not _valve.is_empty() and _valve.tween != null
+
+
+## Raison (clé de traduction) pour laquelle la valve ne peut pas être manœuvrée, "" si elle le peut.
+func airlock_valve_lock_reason() -> String:
+	if _valve.is_empty():
+		return "AIRLOCK_CLOSE_HATCHES"
+	if is_airlock_cycling():
+		return "AIRLOCK_REPRESSURIZING" if _valve.target_full else "AIRLOCK_DEPRESSURIZING"
+	for id in [airlock_inner_hatch, airlock_outer_hatch]:
+		if is_hatch_open(id) or is_hatch_opening(id):
+			return "AIRLOCK_CLOSE_HATCHES"
+	return ""
+
+
+## Raison (clé de traduction) pour laquelle l'écoutille id ne peut pas s'ouvrir à cause de la pression, "" sinon.
+func hatch_lock_reason(id: String) -> String:
+	if _valve.is_empty() or (id != airlock_inner_hatch and id != airlock_outer_hatch):
+		return ""
+	if is_airlock_cycling():
+		return "AIRLOCK_REPRESSURIZING" if _valve.target_full else "AIRLOCK_DEPRESSURIZING"
+	var pressure := get_airlock_pressure()
+	if id == airlock_inner_hatch and pressure < 0.99:
+		return "HATCH_LOCKED_VACUUM"
+	if id == airlock_outer_hatch and pressure > 0.01:
+		return "HATCH_LOCKED_PRESSURE"
+	return ""
+
+
+## Remplit (full) ou vide le sas : la valve rejoue Depressurisation_Sas (à l'envers pour remplir), à sa vitesse.
+## Faux si elle est verrouillée (écoutilles du sas pas fermées, cycle en cours).
+func set_airlock_pressurized(full: bool) -> bool:
+	if airlock_valve_lock_reason() != "":
+		return false
+	var anim: Animation = _valve.anim
+	var target := 0.0 if full else anim.length
+	if is_equal_approx(_valve.time, target):
+		return true
+	_valve.target_full = full
+	_valve.tween = create_tween()
+	_valve.tween.tween_method(_set_valve_time, _valve.time, target, absf(target - _valve.time))
+	_valve.tween.tween_callback(func() -> void:
+		_valve.tween = null
+		airlock_changed.emit(full))
+	return true
+
+
+func toggle_airlock_pressure() -> bool:
+	return set_airlock_pressurized(get_airlock_pressure() < 0.5)
+
+
+func _set_valve_time(time: float) -> void:
+	_valve.time = time
+	for i in _valve.tracks.size():
+		if _valve.targets[i]:
+			_apply_track(_valve.anim, _valve.tracks[i], _valve.targets[i], time)
+
+
+## Pression au temps time de l'animation : 1 − rotation cumulée de l'aiguille / rotation totale. L'aiguille est la
+## piste qui tourne le plus (225°, la manette 90°) ; rotation cumulée par petits pas (sans ambiguïté de signe).
+func _pressure_at(time: float) -> float:
+	var curve: PackedFloat32Array = _valve.curve
+	var last := curve.size() - 1
+	if last < 1 or curve[last] <= 0.0:
+		return 1.0
+	var x := clampf(time / (_valve.anim as Animation).length, 0.0, 1.0) * last
+	var i := mini(int(x), last - 1)
+	return 1.0 - lerpf(curve[i], curve[i + 1], x - i) / curve[last]
+
+
+func _collect_airlock() -> void:
+	for node: MeshInstance3D in find_children("Interactif_*", "MeshInstance3D", true, false):
+		var extras: Dictionary = node.get_meta("extras", {})
+		match String(extras.get("type", "")):
+			"combinaison":
+				_suit = node
+			"porte_combinaison":
+				_suit_rack = node
+			"valve_sas":
+				_setup_valve(node, extras)
+
+
+func _setup_valve(node: MeshInstance3D, extras: Dictionary) -> void:
+	var anim_name := StringName(String(extras.get("animation", "")))
+	if not _library.has_animation(anim_name):
+		push_error("Station : animation %s de la valve absente" % anim_name)
+		return
+	var anim := _library.get_animation(anim_name)
+	var tracks: Array[int] = []
+	var targets: Array[Node3D] = []
+	var needle := -1
+	var needle_curve := PackedFloat32Array()
+	for t in anim.get_track_count():
+		if anim.track_get_type(t) != Animation.TYPE_ROTATION_3D:
+			continue
+		tracks.append(t)
+		targets.append(get_node_or_null(anim.track_get_path(t)) as Node3D)
+		var curve := PackedFloat32Array([0.0])
+		var previous := anim.rotation_track_interpolate(t, 0.0)
+		for k in range(1, 241):
+			var q := anim.rotation_track_interpolate(t, anim.length * k / 240.0)
+			curve.append(curve[k - 1] + previous.angle_to(q))
+			previous = q
+		if needle < 0 or curve[240] > needle_curve[240]:
+			needle = t
+			needle_curve = curve
+	_valve = {"node": node, "anim": anim, "tracks": tracks, "targets": targets, "time": 0.0, "tween": null,
+			"target_full": true, "curve": needle_curve,
+			"green": _indicator_material(node, String(extras.get("voyant_plein", ""))),
+			"red": _indicator_material(node, String(extras.get("voyant_vide", "")))}
+	_set_valve_time(0.0)
+
+
+## Copie émissive (posée en surcharge) du matériau de voyant material_name du maillage, ou null.
+func _indicator_material(node: MeshInstance3D, material_name: String) -> BaseMaterial3D:
+	for s in node.mesh.get_surface_count():
+		var material := node.mesh.surface_get_material(s) as BaseMaterial3D
+		if material and material.resource_name == material_name:
+			var lit := material.duplicate() as BaseMaterial3D
+			lit.emission_enabled = true
+			lit.emission = material.albedo_color
+			lit.emission_energy_multiplier = 0.0
+			node.set_surface_override_material(s, lit)
+			return lit
+	return null
+
+
+## Voyants : vert allumé sas plein, rouge allumé sas vide ; pendant un cycle, le vert s'éteint et le rouge clignote.
+func _update_airlock_indicators(delta: float) -> void:
+	_indicator_time = fmod(_indicator_time + delta, indicator_blink_s)
+	var pressure := get_airlock_pressure()
+	var cycling := is_airlock_cycling()
+	var blink := _indicator_time < indicator_blink_s * 0.5
+	if _valve.green:
+		(_valve.green as BaseMaterial3D).emission_energy_multiplier = \
+				indicator_energy if not cycling and pressure >= 0.99 else 0.0
+	if _valve.red:
+		(_valve.red as BaseMaterial3D).emission_energy_multiplier = \
+				indicator_energy if (cycling and blink) or (not cycling and pressure <= 0.01) else 0.0
+
+
+# --- Vaisseau cargo -------------------------------------------------------------------------------------------------
+# Animation Blender Separation_Cargo : le pivot Pivot_Cargo (parent des Cargo_*) recule de 10 m selon l'axe des
+# modules en 30 s ; à l'envers : réamarrage.
+
+func is_cargo_docked() -> bool:
+	return _cargo_docked
+
+
+func is_cargo_moving() -> bool:
+	return _cargo_busy
+
+
+## Sépare (docked faux) ou réamarre le cargo. Faux s'il est déjà en mouvement ou sans animation.
+func set_cargo_docked(docked: bool) -> bool:
+	if not _players.has(ANIM_CARGO) or _cargo_busy:
+		return false
+	if docked == _cargo_docked:
+		return true
+	_cargo_busy = true
+	_play_group(ANIM_CARGO, docked, func() -> void:
+		_cargo_busy = false
+		_cargo_docked = docked
+		cargo_changed.emit(docked))
+	return true
 
 
 ## Toutes les écoutilles ouvrables, chacune par son Tween (mêmes angles et durée que l'animation). L'animation de
