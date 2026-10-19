@@ -800,9 +800,14 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     dernier étant le sas ; `Station.observer_outside`, flashs et exposition), plus d'air : l'élan est gardé ;
     combinaison enfilée, son propulseur dorsal (SAFER) l'amortit en 3 s (`safer_s`) et le joueur peut revenir.
     Cupola : recoin du module Commande, le courant y vise d'abord l'ouverture vers le module (point de passage de la
-    boîte secondaire). Simulation en vidéo depuis la cupola, avec ou sans combinaison :
+    boîte secondaire). Tests depuis n'importe quel module : boutons « Ouverture totale » / « Fermeture totale » du
+    panneau de debug (F4 ; toutes les écoutilles ouvrables, porte extérieure du sas comprise,
+    `Station.set_all_hatches_open`). Simulation en vidéo depuis la cupola, avec ou sans combinaison :
     `tools/bench/expulsion_probe.tscn` (Movie Maker : `--write-movie <fichier.avi> --fixed-fps 30 --quit-after 720`,
-    argument `-- --suit` pour la combinaison).
+    argument `-- --suit` pour la combinaison ; hors enregistrement, temps d'image écrit en console chaque
+    demi-seconde : 8,3 ms (120 im/s) tout le long, pointes à 15–18 ms à la sortie ; le compteur des vidéos mesure
+    la vitesse d'enregistrement, pas celle du jeu). Coût de l'animation des écoutilles :
+    `tools/bench/hatch_probe.tscn` (aucun : 8,3 ms, physique 0,2 ms, 4 écoutilles en mouvement).
   - **Mort** (règles de jeu, `AirlockHazard`) : **sans combinaison, dans le vide ou presque** : pression du volume
     sous `death_pressure` (0,3 bar : vidange par la valve avec la porte intérieure ouverte, expulsion…) ou dehors.
     **Avec la combinaison, on ne meurt jamais.** Le corps reste porté par le courant après la mort (expulsé, il

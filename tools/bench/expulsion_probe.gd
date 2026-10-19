@@ -10,6 +10,8 @@ extends Node
 const START_S := 3.0
 ## Temps pour tourner le regard (s).
 const LOOK_S := 0.35
+## Hors enregistrement : temps d'image (moyen et pire, ms) écrit en console chaque demi-seconde.
+const LOG_S := 0.5
 
 var _station: Station
 var _observer: Observer
@@ -17,6 +19,27 @@ var _camera: Camera3D
 var _sas_center := Vector3.ZERO
 var _time := 0.0
 var _opened := false
+var _log_frames := 0
+var _log_sum := 0.0
+var _log_worst := 0.0
+var _log_time := 0.0
+
+
+func _log_frame_time(delta: float) -> void:
+	if OS.get_cmdline_args().has("--write-movie"):
+		return
+	_log_frames += 1
+	_log_sum += delta
+	_log_worst = maxf(_log_worst, delta)
+	_log_time += delta
+	if _log_time >= LOG_S:
+		var zone := (get_node("OrbitView/StationAir") as StationAtmosphere).zone_at(_camera.global_position)
+		print("t %.1f s  %s  moyenne %.1f ms  pire %.1f ms" % [_time, zone if zone != "" else "dehors",
+				_log_sum / _log_frames * 1000.0, _log_worst * 1000.0])
+		_log_frames = 0
+		_log_sum = 0.0
+		_log_worst = 0.0
+		_log_time = 0.0
 
 
 func _ready() -> void:
@@ -36,6 +59,7 @@ func _process(delta: float) -> void:
 	if _station == null or not is_instance_valid(_station):
 		return
 	_time += delta
+	_log_frame_time(delta)
 	if not _opened and _time >= START_S:
 		_opened = true
 		_station.set_all_hatches_open(true)

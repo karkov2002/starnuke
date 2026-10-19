@@ -7,6 +7,8 @@ extends CanvasLayer
 ## - « Effacer » supprime toutes les explosions ; « Marqueurs » affiche les marqueurs de taille (NukeEffect) ;
 ## - menu « Alerte » : niveau d'alerte de la station (couleur des luminaires intérieurs, Station.set_alert) ;
 ## - « Cargo » : sépare le vaisseau cargo de la station, ou le réamarre (Station.set_cargo_docked) ;
+## - « Ouverture totale » / « Fermeture totale » : toutes les écoutilles ouvrables, porte extérieure du sas comprise
+##   (Station.set_all_hatches_open : tests d'expulsion depuis n'importe quel module) ;
 ## - orbite (partie en cours seulement) : altitude (200–800 km) et inclinaison (0–80°) appliquées directement au
 ##   nœud Orbit, au point courant, sans manœuvre (outil de développement : en jeu, l'orbite se pilote au poste de
 ##   pilotage). L'inclinaison est bornée par la latitude courante ;
@@ -101,6 +103,19 @@ func _ready() -> void:
 		var station := get_tree().get_first_node_in_group(Station.GROUP) as Station
 		if station:
 			station.set_cargo_docked(not station.is_cargo_docked())))
+	# Toutes les écoutilles ouvrables, porte extérieure du sas comprise (tests d'expulsion depuis n'importe quel
+	# module : Station.set_all_hatches_open).
+	var hatches := HBoxContainer.new()
+	hatches.add_theme_constant_override("separation", 6)
+	box.add_child(hatches)
+	for pair: Array in [["Ouverture totale", true], ["Fermeture totale", false]]:
+		var open: bool = pair[1]
+		var button := _make_button(pair[0], func() -> void:
+			var station := get_tree().get_first_node_in_group(Station.GROUP) as Station
+			if station:
+				station.set_all_hatches_open(open))
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hatches.add_child(button)
 
 	var scrub_row := HBoxContainer.new()
 	scrub_row.add_theme_constant_override("separation", 6)
