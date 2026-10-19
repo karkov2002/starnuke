@@ -600,7 +600,11 @@ func _time_for(pressure: float, early: bool) -> float:
 	if last < 1 or curve[last] <= 0.0:
 		return 0.0
 	var c := (1.0 - clampf(pressure, 0.0, 1.0)) * curve[last]
-	var i := clampi(curve.bsearch(c, early) - (0 if early else 1), 0, last)
+	# Segment [i, i + 1] qui contient c (curve[i] ≤ c), au début (early) ou à la fin d'un palier.
+	var i := curve.bsearch(c, early)
+	if i > last or curve[i] > c:
+		i -= 1
+	i = clampi(i, 0, last)
 	var x := float(i)
 	if i < last and curve[i + 1] > curve[i] and c > curve[i]:
 		x += minf((c - curve[i]) / (curve[i + 1] - curve[i]), 1.0)

@@ -781,8 +781,10 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     - Des volumes qui communiquent ont la même pression (moyenne pondérée par les volumes d'air, équilibrée en
       `equalize_s`, 0,5 s).
     - **Vidange par la valve** : la pression baisse dans **tous les volumes qui communiquent avec le sas**, sur la
-      courbe du manomètre (20 s pour le sas seul ; exponentielle adoucie, plus rapide aux faibles pressions) ; le
-      remplissage la remonte de même (air des réserves de la station).
+      courbe du manomètre (20 s pour le sas seul ; exponentielle adoucie, plus rapide aux faibles pressions).
+    - **Remplissage par la valve** (porte extérieure fermée : sinon l'air repart dans l'espace) : **réserve
+      d'oxygène illimitée**, débit constant : 8 s de vide à plein pour le sas seul (`valve_fill_s`), ~65 s pour
+      toute la station ouverte.
     - **Vidange par la porte extérieure** : tout l'ensemble qui communique avec l'espace se vide, sur la même
       courbe, en `door_vent_s` (1,5 s) pour le sas seul.
     - Durées multipliées par la racine du volume d'air rapporté à celui du sas (toute la station ouverte : ~8 fois).
