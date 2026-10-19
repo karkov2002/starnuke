@@ -16,7 +16,8 @@ extends Node
 const SPACE := "Espace"
 const SAS := "Sas"
 ## Volumes : boîtes [xmin, xmax, ymin, ymax, zmin, zmax] (coordonnées Blender), volume d'air (m³), modules comptés
-## (jonctions et sas : 0). Ordre de recherche : le sas avant l'Arrimage, dont il perce le plancher.
+## (jonctions et sas : 0). Boîte secondaire (recoin : cupola) : point de passage vers le reste du volume, que le courant
+## vise d'abord (7e élément). Ordre de recherche : le sas avant l'Arrimage, dont il perce le plancher.
 const ZONES := {
 	"Sas": [[[-11.3, -8.9, -1.3, 1.3, -6.0, -1.25]], 18.0, 0],
 	"Arrimage": [[[-16.2, -7.0, -1.45, 1.45, -1.45, 1.45]], 45.0, 1],
@@ -25,7 +26,7 @@ const ZONES := {
 	"Missile_1": [[[-3.9, 3.9, 2.5, 23.0, -3.9, 3.9]], 500.0, 1],
 	"Missile_2": [[[-3.9, 3.9, -23.0, -2.5, -3.9, 3.9]], 500.0, 1],
 	"Jonction_AV": [[[4.6, 7.0, -2.1, 2.1, -2.1, 2.1]], 10.0, 0],
-	"Commande": [[[7.0, 16.2, -1.45, 1.45, -1.45, 1.45], [10.0, 13.2, -1.6, 1.6, -4.9, -1.4]], 55.0, 1],
+	"Commande": [[[7.0, 16.2, -1.45, 1.45, -1.45, 1.45], [10.0, 13.2, -1.6, 1.6, -4.9, -1.4, Vector3(11.6, 0.0, -0.4)]], 55.0, 1],
 }
 ## Écoutilles : volumes reliés (SPACE : l'espace), centre du passage et axe (coordonnées Blender).
 const HATCHES := {
@@ -106,7 +107,7 @@ func zone_at(world_position: Vector3) -> String:
 	var b := _to_blender(_station.to_local(world_position))
 	for zone: String in ZONES:
 		for box: Array in ZONES[zone][0]:
-			if b.x >= box[0] and b.x <= box[1] and b.y >= box[2] and b.y <= box[3] and b.z >= box[4] and b.z <= box[5]:
+			if _in_box(b, box):
 				return zone
 	return ""
 
@@ -121,6 +122,10 @@ func pressure_of(zone: String) -> float:
 func flow_at(world_position: Vector3, zone: String) -> Vector3:
 	if not _next.has(zone):
 		return Vector3.ZERO
+	var b := _to_blender(_station.to_local(world_position))
+	for box: Array in ZONES[zone][0]:
+		if box.size() > 6 and _in_box(b, box):
+			return (_station.to_global(_from_blender(box[6])) - world_position).normalized() * float(_flow_speed[zone])
 	var hatch: Array = HATCHES[_next[zone]]
 	var other: String = hatch[1] if hatch[0] == zone else hatch[0]
 	var axis: Vector3 = hatch[3]
@@ -181,6 +186,10 @@ func _route(zones: Array, speed: float) -> void:
 			_next[other] = id
 			_flow_speed[other] = speed
 			queue.append(other)
+
+
+static func _in_box(b: Vector3, box: Array) -> bool:
+	return b.x >= box[0] and b.x <= box[1] and b.y >= box[2] and b.y <= box[3] and b.z >= box[4] and b.z <= box[5]
 
 
 func _zone_center(zone: String) -> Vector3:
