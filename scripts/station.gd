@@ -79,6 +79,9 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 @export var start_curtains_closed := true
 ## Durée (s) de la fermeture ou de l'ouverture complète d'un rideau.
 @export var curtain_duration_s := 0.9
+## Volant de verrouillage d'une écoutille (extras volant, volant_tours) : durée de ses tours, avant l'ouverture et
+## après la fermeture.
+@export var hatch_wheel_s := 0.9
 ## Lumière du soleil et Terre de la scène (direction du soleil, verticale locale). Sans Terre : +Y de la station.
 @export var sun_path: NodePath = ^"../../Sun"
 @export var earth_path: NodePath = ^"../../Earth"
@@ -296,7 +299,7 @@ func set_hatch_open(id: String, open: bool) -> bool:
 	if open and id == airlock_outer_hatch:
 		_vent_airlock()
 	# Fermeture_Ecoutilles : début = ouverte, fin = fermée.
-	_tween_hinge(hatch, hatch.closed if not open else hatch.open, func() -> void:
+	_tween_hatch(hatch, open, func() -> void:
 		hatch.is_open = open
 		hatch_changed.emit(id, open))
 	return true
@@ -1055,6 +1058,7 @@ func _collect_interactives() -> void:
 					if start_hatches_closed and entry.ouvrable and entry.is_open and not id in start_open_hatches:
 						hinge.quaternion = entry.closed
 						entry.is_open = false
+				_collect_hatch_wheel(entry, node, extras)
 				_fit_door_collision(node)
 				_hatches[String(extras.get("id", node.name))] = entry
 			"trappe_silo":
@@ -1256,6 +1260,51 @@ static func _has_prefix(text: String, prefixes: Array[String]) -> bool:
 
 
 # --- Outils ---------------------------------------------------------------------------------------------------------
+
+## Volant de verrouillage de l'écoutille (pivot extras.volant, enfant de la porte ; axe Z Blender = Y local dans
+## Godot) : déverrouillé (volant_tours tours) quand elle est ouverte, verrouillé (0) fermée.
+func _collect_hatch_wheel(entry: Dictionary, door: Node, extras: Dictionary) -> void:
+	var wheel_name := String(extras.get("volant", ""))
+	var wheel := door.find_child(wheel_name, true, false) as Node3D if wheel_name != "" else null
+	if wheel == null:
+		return
+	entry.wheel = wheel
+	entry.wheel_rest = wheel.quaternion
+	entry.wheel_unlocked = float(extras.get("volant_tours", 1.0)) * TAU
+	_set_wheel_angle(entry, entry.wheel_unlocked if entry.is_open else 0.0)
+
+
+func _set_wheel_angle(entry: Dictionary, angle: float) -> void:
+	entry.wheel_angle = angle
+	(entry.wheel as Node3D).quaternion = (entry.wheel_rest as Quaternion) * Quaternion(Vector3.UP, angle)
+
+
+## Écoutille vers open : sans volant, la charnière seule ; avec volant, déverrouillage puis ouverture, ou fermeture
+## puis verrouillage (le volant repart de son angle courant).
+func _tween_hatch(entry: Dictionary, open: bool, done: Callable) -> void:
+	var target: Quaternion = entry.open if open else entry.closed
+	if not entry.has("wheel"):
+		_tween_hinge(entry, target, done)
+		return
+	if entry.tween:
+		entry.tween.kill()
+	var hinge: Node3D = entry.hinge
+	var start := hinge.quaternion
+	var wheel_from: float = entry.wheel_angle
+	var wheel_to: float = entry.wheel_unlocked if open else 0.0
+	var wheel_s := hatch_wheel_s * absf(wheel_to - wheel_from) / maxf(entry.wheel_unlocked, 1e-3)
+	var turn := func(angle: float) -> void: _set_wheel_angle(entry, angle)
+	var swing := func(w: float) -> void: hinge.quaternion = start.slerp(target, w)
+	entry.tween = create_tween()
+	if open and wheel_s > 0.0:
+		entry.tween.tween_method(turn, wheel_from, wheel_to, wheel_s).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	entry.tween.tween_method(swing, 0.0, 1.0, entry.duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if not open and wheel_s > 0.0:
+		entry.tween.tween_method(turn, wheel_from, wheel_to, wheel_s).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	entry.tween.tween_callback(func() -> void:
+		entry.tween = null
+		done.call())
+
 
 ## Charnière tournée de son angle courant vers target (durée de l'animation), puis done.
 func _tween_hinge(entry: Dictionary, target: Quaternion, done: Callable) -> void:

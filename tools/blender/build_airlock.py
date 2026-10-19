@@ -50,7 +50,8 @@ MATS = {
     "vitrage": bpy.data.materials["Vitrage"],
     "panneau": bpy.data.materials["Int_Panneau_Blanc"],
     "gris": bpy.data.materials["Int_Panneau_Gris"],
-    "metal": bpy.data.materials["Int_Metal"],
+    # Métal satiné sans texture (Int_Metal, plastique à carte de normales, se découpait en mosaïque sur les anneaux).
+    "metal": material("Int_Metal_Satine", (0.60, 0.61, 0.63), 0.6, 0.35),
     "jaune": bpy.data.materials["Int_Jaune"],
     "main": bpy.data.materials["Int_Main_Courante"],
     "lumiere": bpy.data.materials["Int_Lumiere"],
@@ -416,7 +417,9 @@ def build_hull():
     for z in (-3.12, -5.22):
         b.add(ring(HULL_R - 0.02, HULL_R + 0.045, z - 0.06, z + 0.06, 0.015), "furtif")
     # Cadre de la porte : lèvre d'appui (Ø 1,00 -> 1,46) sur le fond.
-    b.add(ring(PASS_R, 0.73, SEAT_Z, SEAT_Z + 0.05, 0.012), "furtif")
+    # Rayon intérieur un peu en retrait du col (Int_Metal, r = PASS_R) : à rayon égal, la face intérieure de la lèvre
+    # (sombre à l'intérieur) clignotait en rectangles noirs sur le col.
+    b.add(ring(PASS_R + 0.012, 0.73, SEAT_Z, SEAT_Z + 0.05, 0.012), "furtif")
     # Paumelles fixes de la porte extérieure (axe X, côté −Y).
     for x in (-0.36, 0.0, 0.36):
         b.add(cylinder(0.028, 0.10, 24), "furtif",
@@ -583,10 +586,20 @@ def build_top_hatch():
     hinge = hinge_empty("Charniere_Ecoutille_Sas_Haut", (X0 - 0.475, Y0, FLOOR_Z + 0.04))
     b = Builder()
     z0, z1 = FLOOR_Z + 0.04, FLOOR_Z + 0.09
-    b.add(solid_disk(0.49, z0 + 0.008, z1 - 0.008), "gris")
+    # Disque arrêté sous l'arrondi intérieur de la bague du pourtour (r 0,42–0,49) : plus large, ses faces perçaient
+    # la bague (taches en mosaïque sur le pourtour).
+    b.add(solid_disk(0.425, z0 + 0.008, z1 - 0.008), "gris")
     b.add(ring(0.42, 0.49, z0, z1, 0.012), "metal")
-    lock_wheel(b, z1, 1)
-    lock_wheel(b, z0, -1, 0.07)
+    # Bagues fixes du passage de l'axe du volant, sur les deux faces.
+    for zz, s in ((z1, 1), (z0, -1)):
+        b.add(cylinder(0.04, 0.008, 32), "metal", Matrix.Translation((X0, Y0, zz + s * 0.002)))
+    # Volant (dessus) et contre-volant (dessous) sur un même axe : objet séparé, tourné par station.gd.
+    wb = Builder()
+    lock_wheel(wb, z1, 1)
+    lock_wheel(wb, z0, -1, 0.07)
+    wb.add(cylinder(0.014, z1 - z0 + 0.03, 16), "metal", Matrix.Translation((X0, Y0, (z0 + z1) / 2)))
+    wb.add(cylinder(0.012, 0.045, 16), "jaune",
+           Matrix.Translation((X0 + 0.09, Y0, z1 + 0.06)))
     # Poignée en U, dessus (côté opposé à la charnière) et dessous.
     for zz, s in ((z1, 1), (z0, -1)):
         pts = [(X0 + 0.3, Y0 - 0.12, zz), (X0 + 0.3, Y0 - 0.12, zz + s * 0.05), (X0 + 0.3, Y0 + 0.12, zz + s * 0.05), (X0 + 0.3, Y0 + 0.12, zz)]
@@ -599,6 +612,22 @@ def build_top_hatch():
     door = door_object(b, "Interactif_Ecoutille_Sas_Haut", hinge, "Ecoutille_Sas_Haut",
                        "plancher de l'Arrimage -> sas de sortie ; s'ouvre vers le haut (dans l'Arrimage)")
     door_collision("Interactif_Ecoutille_Sas_Haut-convcolonly", door, 0.48, z0, z1)
+    # Pivot du volant (axe Z local = normale de la porte), enfant de la porte : station.gd le tourne avant l'ouverture
+    # (déverrouillage) et après la fermeture (verrouillage) ; extras de la porte : volant, volant_tours.
+    pivot = bpy.data.objects.new("Pivot_Volant_Sas_Haut", None)
+    pivot.empty_display_type = 'ARROWS'
+    pivot.empty_display_size = 0.15
+    cols["Int_Sas"].objects.link(pivot)
+    pivot.location = (X0, Y0, (z0 + z1) / 2)
+    bpy.context.view_layer.update()
+    pivot.parent = door
+    pivot.matrix_parent_inverse = door.matrix_world.inverted()
+    wheel = wb.write("Volant_Ecoutille_Sas_Haut", cols["Int_Sas"], sharp=35)
+    bpy.context.view_layer.update()
+    wheel.parent = pivot
+    wheel.matrix_parent_inverse = pivot.matrix_world.inverted()
+    door["volant"] = pivot.name
+    door["volant_tours"] = 1.25
     # Ouverture : rotation de −90° autour de Y (la porte se dresse côté −X).
     animate_hinge(hinge, 1, -math.pi / 2)
     return door
@@ -985,7 +1014,8 @@ def build_valve():
     t_open, t_end = round(0.5 * fps), round((0.5 + VALVE_S) * fps)
     last = t_end + round(0.5 * fps)
     keys_h = [(1, 0.0), (1 + t_open, -math.pi / 2), (1 + t_end, -math.pi / 2), (1 + last, 0.0)]
-    tau = VALVE_S / 4
+    # Vidange exponentielle adoucie (VALVE_S / 4 traînait aux faibles pressions, à la vidange comme au remplissage).
+    tau = VALVE_S / 2.2
     keys_n = [(1, 0.0)]
     for k in range(0, 41):
         t = VALVE_S * k / 40

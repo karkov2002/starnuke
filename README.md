@@ -604,8 +604,15 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   la moitié des faces du couloir, maillage ouvert) ; sac beige, sangles et petite main courante posés sur l'ancienne
   trappe retirés.
   - Accès : écoutille ronde `Interactif_Ecoutille_Sas_Haut` dans le plancher (passage Ø 0,80 m, celui des écoutilles
-    russes ; cadre métal et liseré jaune, volant, poignées), charnière d'axe Y côté arrière : elle s'ouvre vers le haut,
-    dans l'Arrimage (−90°). Puits de 1,8 m (plancher → plafond du sas), nervures, main courante.
+    russes ; cadre métal et liseré jaune, poignées), charnière d'axe Y côté arrière : elle s'ouvre vers le haut,
+    dans l'Arrimage (−90°). Volant façon sous-marin (dessus) et contre-volant (dessous) sur un même axe : objet séparé
+    `Volant_Ecoutille_Sas_Haut` sous le pivot `Pivot_Volant_Sas_Haut` (enfant de la porte ; extras de la porte
+    `volant`, `volant_tours` = 1,25). Puits de 1,8 m (plancher → plafond du sas), nervures, main courante.
+  - Pièces métalliques du sas en `Int_Metal_Satine` (métal satiné sans texture) : `Int_Metal`, plastique à carte de
+    normales, se découpait en mosaïque sur les anneaux (projection en boîte des coordonnées de texture). Faces
+    superposées supprimées : le disque de l'écoutille du haut s'arrête sous l'arrondi de sa bague (r 0,425 m) ; la
+    lèvre d'appui extérieure de la porte du bas est en retrait du col (r 0,512 m) : à rayon égal, leurs faces se
+    disputaient l'affichage (rectangles gris ou noirs qui clignotaient).
   - Intérieur Ø 2,24 m : parois blanches à montants et nervures, quatre mains courantes, deux luminaires au plafond
     (lampes `Lum_Sas_1`, `Lum_Sas_2`, copies de `Lum_Arrimage_2`), fond conique.
   - Porte extérieure `Interactif_Ecoutille_Sas_Bas` (Ø 1,20 m, passage Ø 1,00 m) : hublot central (`Vitrage`, on voit
@@ -626,7 +633,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     fermée, vers le bas ouverte ; elle ne passe jamais devant le cadran), voyants `Int_Voyant_Sas_Vert` (plein) et
     `Int_Voyant_Sas_Rouge` (vide), conduit d'évent. Pivots enfants `Pivot_Valve_Sas` et `Pivot_Aiguille_Sas` ; piste
     NLA `Depressurisation_Sas` (images 1–505 à 24 i/s) : manette ouverte (0,5 s), aiguille de 1 à 0 bar en 20 s
-    (vidange exponentielle), manette refermée (0,5 s). **Règle de jeu** : la valve vide le sas, jouée à l'envers elle
+    (vidange exponentielle adoucie, constante de temps 20 s / 2,2 : elle ne traîne plus aux faibles pressions), manette refermée (0,5 s). **Règle de jeu** : la valve vide le sas, jouée à l'envers elle
     le remplit.
   - `Sas_Equipements` (sans collision) : trois sacs CTB sous sandows, extincteur, bouteille d'oxygène et masque,
     longe et enrouleur, batteries de rechange sous sangle, sacoche d'outils, fiche de procédure.
@@ -731,7 +738,9 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   - Écoutilles : `open_hatch(id)`, `close_hatch(id)`, `set_hatch_open(id, open)`, `toggle_hatch(id)`,
     `set_all_hatches_open(open)`, `is_hatch_open(id)`, `is_hatch_opening(id)` (état visé), `hatch_ids()`,
     `hatch_id_for(node)` (écoutille d'une porte ou de son corps de collision) ; signal `hatch_changed(id, open)`.
-    Comme pour les trappes, une demande inverse en cours de mouvement repart de la position actuelle.
+    Comme pour les trappes, une demande inverse en cours de mouvement repart de la position actuelle. Écoutille à
+    volant (extras `volant`, `volant_tours`) : à l'ouverture, le volant tourne d'abord (déverrouillage, `volant_tours`
+    tours en `hatch_wheel_s` = 0,9 s) puis la porte pivote ; à la fermeture, la porte puis le verrouillage.
   - **Écoutilles à la souris** (`scripts/hatch_interaction.gd`, nœud `HatchInteraction` de `orbit_view.tscn`) :
     rayon de la caméra contre les collisions, à 2,5 m au plus (`reach_m`) ; survol d'une écoutille ouvrable : bulle
     « Ouvrir l'écoutille » / « Fermer l'écoutille » (`HATCH_OPEN`, `HATCH_CLOSE`) ; clic gauche : ouverture ou
