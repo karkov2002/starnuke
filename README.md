@@ -612,10 +612,26 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     la Terre défiler), face intérieure `Int_` à poignées jaunes et levier, face extérieure `Metal_Furtif` à poignée de
     sortie ; charnière d'axe X côté −Y : elle s'ouvre vers le bas, vers la Terre (−100°). Les deux portes suivent la
     convention de `Fermeture_Ecoutilles` (image 1 ouverte, 40 fermée).
-  - `Interactif_Combinaison` : scaphandre type EMU debout contre la paroi +Y sur son support (bottes, jambes et bras à
-    soufflets, bandes rouges, bagues, gants, torse, module de commande poitrine, sac dorsal, casque à visière dorée et
-    lampes). `Sas_Equipements` (sans collision) : trois sacs CTB sous sandows, extincteur, bouteille d'oxygène et
-    masque, longe et enrouleur, batteries de rechange sous sangle, sacoche d'outils, fiche de procédure.
+  - `Interactif_Combinaison` (extras `type` « combinaison », `porte`) : scaphandre d'après la combinaison lunaire
+    Axiom AxEMU, debout contre la paroi +Y : grande bulle teintée sombre (`Int_Combi_Bulle`) cerclée d'argent dans un
+    capuchon blanc à deux grappes de quatre lampes et bande rouge, torse ample à boîtier de commande poitrine, plastron
+    du bas à bord droit et bande rouge, coudières et genouillères grises plissées, bandes rouges des avant-bras,
+    sangles grises en V, poches de cuisse, gants blancs à bouts gris, bottes à semelle bleu clair, grand sac dorsal.
+  - `Interactif_Porte_Combinaison` (extras `type` « porte_combinaison », `combinaison`) : support séparé (deux rails
+    sur pattes, berceau du sac à sabots, crochets, cale-pieds), qui reste en place quand la combinaison est portée.
+    **Règle de jeu (à brancher dans `station.gd` après l'export)** : un clic sur la combinaison la fait disparaître
+    (on l'enfile) ; un clic sur le porte-combinaison la remet en place.
+  - `Interactif_Valve_Sas` (paroi +X, extras `type` « valve_sas », `animation`, `voyant_plein`, `voyant_vide`) :
+    platine à manomètre 0–1,2 bar (zone rouge près de 0, repère vert à 1 bar), manette quart de tour (vers la droite
+    fermée, vers le bas ouverte ; elle ne passe jamais devant le cadran), voyants `Int_Voyant_Sas_Vert` (plein) et
+    `Int_Voyant_Sas_Rouge` (vide), conduit d'évent. Pivots enfants `Pivot_Valve_Sas` et `Pivot_Aiguille_Sas` ; piste
+    NLA `Depressurisation_Sas` (images 1–505 à 24 i/s) : manette ouverte (0,5 s), aiguille de 1 à 0 bar en 20 s
+    (vidange exponentielle), manette refermée (0,5 s). **Règle de jeu** : la valve vide le sas, jouée à l'envers elle
+    le remplit.
+  - `Sas_Equipements` (sans collision) : trois sacs CTB sous sandows, extincteur, bouteille d'oxygène et masque,
+    longe et enrouleur, batteries de rechange sous sangle, sacoche d'outils, fiche de procédure.
+  - L'ancien petit sas factice sous l'Habitation (`Habitation_Sas`, `_Fond`, `_Anneau` et la trappe verrouillée
+    `Interactif_Trappe_Sas`, sans rien derrière) est retiré : ce module le remplace.
   - Extérieur `Sas_Coque-col` : col du puits et bride, coque `Coque_Silo` (UV cylindriques en mètres), deux cerclages,
     lèvre d'appui de la porte, paumelles, mains courantes de sortie (matériau `Poignee_EVA`).
   - Contrôle : rendus EEVEE et Workbench avec élimination des faces arrière (comme Godot). Dans EEVEE, la face

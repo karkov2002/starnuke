@@ -11,8 +11,11 @@
 #   intérieur Ø 2,24 m : parois blanches, montants, mains courantes, deux luminaires au plafond (lampes Lum_Sas_1, _2).
 # - Porte extérieure Interactif_Ecoutille_Sas_Bas au fond (Ø 1,20 m, passage Ø 1,00 m) : hublot central (Vitrage), face
 #   intérieure Int_, face extérieure Metal_Furtif ; s'ouvre vers le bas, vers la Terre (charnière d'axe X, −100°).
-# - Interactif_Combinaison : scaphandre type EMU (bottes, jambes et bras à soufflets, bandes rouges, torse rigide,
-#   module de commande poitrine, sac dorsal, casque à visière dorée et lampes) sur son support mural, paroi +Y.
+# - Interactif_Combinaison : scaphandre d'après la combinaison Axiom AxEMU (photo de référence), paroi +Y, sur
+#   Interactif_Porte_Combinaison (support séparé : la combinaison se retire et se remet au clic, station.gd).
+# - Interactif_Valve_Sas (paroi +X) : manomètre, manette quart de tour, voyants ; piste NLA Depressurisation_Sas
+#   (vidange 1 -> 0 bar en 20 s ; à l'envers : remplissage).
+# - Ancien petit sas factice sous l'Habitation (Habitation_Sas*, Interactif_Trappe_Sas verrouillée) retiré.
 # - Sas_Equipements : sacs CTB sous sandows (paroi −Y), extincteur, bouteille d'oxygène et masque, longes, batteries,
 #   sacoche d'outils, fiche de procédure.
 # Les deux écoutilles suivent la convention de Fermeture_Ecoutilles (image 1 ouverte, image 40 fermée) ; station.gd
@@ -68,8 +71,16 @@ MATS = {
     "bague": material("Int_Combi_Bague", (0.60, 0.62, 0.66), 1.0, 0.28),
     "rouge": material("Int_Combi_Rouge", (0.62, 0.04, 0.03), 0.0, 0.7),
     "gant": material("Int_Combi_Gant", (0.42, 0.42, 0.41), 0.0, 0.85),
-    "semelle": material("Int_Combi_Semelle", (0.035, 0.035, 0.035), 0.0, 0.9),
-    "visiere": material("Int_Combi_Visiere", (1.0, 0.70, 0.28), 1.0, 0.07),
+    "semelle": material("Int_Combi_Semelle", (0.42, 0.58, 0.74), 0.0, 0.6),
+    "pli": material("Int_Combi_Pli", (0.16, 0.16, 0.17), 0.0, 0.85),
+    "poche": material("Int_Combi_Poche", (0.88, 0.88, 0.86), 0.0, 0.75),
+    "bulle": material("Int_Combi_Bulle", (0.035, 0.05, 0.05), 0.7, 0.04),
+    "ecusson": material("Int_Combi_Ecusson", (0.04, 0.08, 0.25), 0.0, 0.7),
+    "ecusson_rond": material("Int_Combi_Ecusson_Rond", (0.08, 0.08, 0.10), 0.0, 0.6),
+    "cadran": material("Int_Cadran", (0.9, 0.9, 0.88), 0.0, 0.4),
+    "vert_marque": material("Int_Marque_Verte", (0.05, 0.5, 0.12), 0.0, 0.5),
+    "voyant_vert": material("Int_Voyant_Sas_Vert", (0.05, 0.6, 0.15), 0.0, 0.3),
+    "voyant_rouge": material("Int_Voyant_Sas_Rouge", (0.6, 0.05, 0.04), 0.0, 0.3),
     "noir": material("Int_Combi_Noir", (0.012, 0.012, 0.013), 0.0, 0.4),
     "optique": material("Int_Combi_Optique", (0.85, 0.86, 0.9), 0.0, 0.08),
     "extincteur": material("Int_Extincteur", (0.55, 0.05, 0.03), 0.2, 0.45),
@@ -286,7 +297,9 @@ for cname in ("Module_Sas", "Int_Sas"):
 for o in list(bpy.data.objects):
     if o.name.startswith("Lum_Sas_"):
         remove_object(o)
-for name in ("Interactif_Trappe_Nadir", "Arrimage_Port_Nadir", "Arrimage_Port_Nadir_Bride"):
+for name in ("Interactif_Trappe_Nadir", "Arrimage_Port_Nadir", "Arrimage_Port_Nadir_Bride",
+             # Ancien petit sas factice sous l'Habitation (rien derrière sa trappe verrouillée) : remplacé par ce module.
+             "Interactif_Trappe_Sas", "Habitation_Sas", "Habitation_Sas_Fond", "Habitation_Sas_Anneau"):
     o = bpy.data.objects.get(name)
     if o:
         remove_object(o)
@@ -628,105 +641,372 @@ def build_bottom_hatch():
 
 
 # ------------------------------------------------------------------------------------------------ scaphandre
-def build_suit():
-    """Scaphandre type EMU, repère local : pieds en z = 0, haut du casque vers +Z, face vers −Y, dos (sac) vers +Y."""
-    b = Builder()
-    for sx in (-1, 1):
-        x = 0.115 * sx
-        # Bottes : semelle, tige.
-        b.add(soft_box((0.056, 0.135, 0.016), 0.012, 0.012), "semelle", Matrix.Translation((x, -0.03, 0.016)))
-        b.add(soft_box((0.062, 0.128, 0.05), 0.035, 0.015, puff(0.006)), "tissu", Matrix.Translation((x, -0.025, 0.075)))
-        b.add(cylinder(0.074, 0.12, 28), "tissu", Matrix.Translation((x, 0.0, 0.16)))
-        b.add(torus(0.077, 0.012, 32, 8), "bague", Matrix.Translation((x, 0.0, 0.22)))
-        # Jambe à soufflets (genou), légère flexion.
-        leg = [(x, 0.0, 0.22), (x, -0.012, 0.36), (x, -0.035, 0.53), (x, -0.012, 0.70), (x * 1.06, 0.0, 0.87)]
+# D'après la combinaison lunaire Axiom AxEMU (photo de référence) : grande bulle teintée sombre dans un capuchon blanc
+# à grappes de lampes et bande rouge, torse ample à boîtier de commande poitrine, bas de torse droit à bande rouge,
+# coudières et genouillères grises plissées, bandes rouges des avant-bras, sangles grises en V, poches de cuisse, gants
+# blancs à bouts gris, bottes blanches à semelle bleu clair, grand sac dorsal.
+# Repère local : pieds en z = 0, face vers −Y, dos (sac) vers +Y, gauche de la combinaison vers +X.
+SUIT_Y = IN_R - 0.52           # dos du sac à 0,09 m de la paroi +Y (support entre les deux)
+SUIT_Z = -5.33
+SUIT_AT = Matrix.Translation((X0, Y0 + SUIT_Y, SUIT_Z))
+HELMET_C = Vector((0.0, -0.02, 1.70))
+HELMET_FRONT = Vector((0.0, -1.0, 0.12)).normalized()
 
-        def leg_r(s):
-            r = 0.073 + 0.024 * min(1.0, s / 0.66)
-            if 0.24 < s < 0.40:
-                r += 0.007 * math.sin(math.pi * (s - 0.24) / 0.16) * (0.5 + 0.5 * math.cos(2 * math.pi * (s - 0.24) / 0.032))
-            return r
-        b.add(tube(leg, 0.08, 24, radius_fn=leg_r), "tissu")
-        # Bandes rouges (identification du chef de sortie).
-        for z, s in ((0.31, 0.09), (0.64, 0.42), (0.74, 0.52)):
-            r = leg_r(s)
-            b.add(ring(r - 0.004, r + 0.0035, z - 0.022, z + 0.022, 0.003, 32, (x, -0.02 if z < 0.6 else -0.025)), "rouge")
-        b.add(torus(0.10, 0.013, 32, 8), "bague", Matrix.Translation((x * 1.06, 0.0, 0.87)))
-    # Culotte (partie basse du torse), bague de taille.
-    b.add(soft_box((0.19, 0.135, 0.12), 0.07, 0.02, puff(0.015)), "tissu", Matrix.Translation((0, 0.0, 0.98)))
-    b.add(torus(0.17, 0.016, 48, 8), "bague", Matrix.Translation((0, 0.0, 1.11)) @ Matrix.Diagonal((1.05, 0.82, 1.0, 1.0)))
-    # Torse rigide (HUT) recouvert de tissu, épaules.
-    b.add(soft_box((0.215, 0.15, 0.19), 0.09, 0.02, puff(0.02)), "tissu", Matrix.Translation((0, 0.02, 1.32)))
-    # Bras : bague d'épaule, soufflets du coude, bague de poignet, gant.
-    for sx in (-1, 1):
-        sh = Vector((0.245 * sx, 0.0, 1.40))
-        b.add(torus(0.078, 0.014, 32, 8), "bague", Matrix.Translation(sh) @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
-        arm = [sh + Vector((0.015 * sx, 0, 0)), Vector((0.30 * sx, -0.02, 1.24)), Vector((0.325 * sx, -0.05, 1.08)),
-               Vector((0.315 * sx, -0.12, 0.95)), Vector((0.30 * sx, -0.165, 0.86))]
 
-        def arm_r(s):
-            r = 0.072 - 0.016 * min(1.0, s / 0.62)
-            if 0.27 < s < 0.40:
-                r += 0.006 * math.sin(math.pi * (s - 0.27) / 0.13) * (0.5 + 0.5 * math.cos(2 * math.pi * (s - 0.27) / 0.026))
-            return r
-        b.add(tube(arm, 0.07, 22, radius_fn=arm_r), "tissu")
-        wrist = arm[-1]
-        d = (arm[-1] - arm[-2]).normalized()
-        q = d.to_track_quat('Z', 'Y').to_matrix().to_4x4()
-        b.add(torus(0.058, 0.013, 28, 8), "bague", Matrix.Translation(wrist) @ q)
-        b.add(cylinder(0.052, 0.07, 24, 0.048), "gant", Matrix.Translation(wrist + d * 0.04) @ q)
-        b.add(soft_box((0.042, 0.055, 0.07), 0.03, 0.012, puff(0.006)), "gant", Matrix.Translation(wrist + d * 0.13) @ q)
-        b.add(soft_box((0.016, 0.018, 0.035), 0.014, 0.008), "gant",
-              Matrix.Translation(wrist + d * 0.10 + Vector((-0.045 * sx, -0.02, 0))) @ q @ Matrix.Rotation(0.5 * sx, 4, 'Y'))
-    # Bague de cou, casque (coque blanche, visière dorée, lampes).
-    b.add(torus(0.128, 0.016, 48, 8), "bague", Matrix.Translation((0, -0.01, 1.52)))
-    hc = Vector((0, -0.02, 1.69))
-    b.add(sphere(0.185, 40, 20), "dur", Matrix.Translation(hc))
-    vis = bmesh.new()
-    rows, cols_ = 14, 30
+def pleated_pad(b, frame, r, a0, a1, h0, h1, pleats, key="pli", t=0.014):
+    """Coque plissée (genouillère, coudière) : portion de cylindre d'axe Z local (rayon r -> r + t), angles a0..a1
+    (0 = +X local), hauteur h0..h1, pleats plis ; bords amincis. frame : repère local -> combinaison."""
+    bm = bmesh.new()
+    na, nh = 20, pleats * 6
+
+    def p(i, j, outer):
+        a = a0 + (a1 - a0) * i / na
+        h = h0 + (h1 - h0) * j / nh
+        edge = 0.3 + 0.7 * math.sin(math.pi * i / na) ** 0.4
+        bulge = 0.007 * abs(math.sin(math.pi * pleats * j / nh))
+        rr = r + ((t + bulge) * edge if outer else 0.0)
+        return Vector((rr * math.cos(a), rr * math.sin(a), h))
+    g = [[[bm.verts.new(p(i, j, o)) for j in range(nh + 1)] for i in range(na + 1)] for o in (0, 1)]
+    for o in (0, 1):
+        for i in range(na):
+            for j in range(nh):
+                q = (g[o][i][j], g[o][i + 1][j], g[o][i + 1][j + 1], g[o][i][j + 1])
+                bm.faces.new(q if o else tuple(reversed(q)))
+    border = [(i, 0) for i in range(na)] + [(na, j) for j in range(nh)] + \
+             [(i, nh) for i in range(na, 0, -1)] + [(0, j) for j in range(nh, 0, -1)]
+    for (i0, j0), (i1, j1) in zip(border, border[1:] + border[:1]):
+        bm.faces.new((g[0][i0][j0], g[0][i1][j1], g[1][i1][j1], g[1][i0][j0]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    b.add(bm, key, frame)
+
+
+def seg_frame(p0, p1):
+    """Repère d'un segment : Z local le long de p0 -> p1, origine en p0."""
+    p0, p1 = Vector(p0), Vector(p1)
+    m = (p1 - p0).normalized().to_track_quat('Z', 'Y').to_matrix().to_4x4()
+    m.translation = p0
+    return m
+
+
+def local_angle(frame, world_dir):
+    d = frame.to_3x3().inverted() @ Vector(world_dir)
+    return math.atan2(d.y, d.x)
+
+
+def shell_patch(radius, keep, el_min, seg=48, rings_=24):
+    """Calotte sphérique (rayon radius) : cellules dont la direction d vérifie keep(d), au-dessus de el_min."""
+    bm = bmesh.new()
     grid = []
-    for i in range(rows + 1):
-        el = math.radians(-38 + 70 * i / rows)
-        row = []
-        for j in range(cols_ + 1):
-            az = math.radians(-78 + 156 * j / cols_)
-            dvec = Vector((math.sin(az) * math.cos(el), -math.cos(az) * math.cos(el), math.sin(el)))
-            row.append(vis.verts.new(dvec * 0.192))
-        grid.append(row)
-    for i in range(rows):
-        for j in range(cols_):
-            vis.faces.new((grid[i][j], grid[i][j + 1], grid[i + 1][j + 1], grid[i + 1][j]))
-    vis.normal_update()
-    for f in vis.faces:
+    for i in range(rings_ + 1):
+        el = el_min + (math.pi / 2 - el_min) * i / rings_
+        grid.append([Vector((math.cos(el) * math.cos(2 * math.pi * k / seg), math.cos(el) * math.sin(2 * math.pi * k / seg),
+                             math.sin(el))) for k in range(seg)])
+    verts = {}
+
+    def v(i, k):
+        key = (i, k % seg) if i < rings_ else (rings_, 0)
+        if key not in verts:
+            verts[key] = bm.verts.new(grid[i][k % seg] * radius)
+        return verts[key]
+    for i in range(rings_):
+        for k in range(seg):
+            c = (grid[i][k] + grid[i][(k + 1) % seg] + grid[i + 1][k] + grid[i + 1][(k + 1) % seg]).normalized()
+            if not keep(c):
+                continue
+            quad = [v(i, k), v(i, k + 1), v(i + 1, k + 1), v(i + 1, k)]
+            quad = list(dict.fromkeys(quad))
+            if len(quad) >= 3:
+                bm.faces.new(quad)
+    bm.normal_update()
+    for f in bm.faces:
         if f.normal.dot(f.calc_center_median()) < 0:
             f.normal_flip()
-    bmesh.ops.solidify(vis, geom=vis.faces[:], thickness=0.004)
-    b.add(vis, "visiere", Matrix.Translation(hc))
-    b.add(ring(0.17, 0.198, -0.02, 0.02, 0.008, 48, (0, 0)), "dur",
-          Matrix.Translation(hc + Vector((0, 0, -0.055))) @ Matrix.Rotation(-0.35, 4, 'X'))
+    return bm
+
+
+def hood_shell(radius, open_deg, el_min, seg=64, rings_=28):
+    """Capuchon : sphère paramétrée autour de l'axe HELMET_FRONT (bord de l'ouverture lisse, à open_deg de l'axe),
+    sans les cellules sous l'élévation el_min (cou, caché par le torse)."""
+    f = HELMET_FRONT
+    side = f.cross(Vector((0, 0, 1))).normalized()
+    up = side.cross(f).normalized()
+    bm = bmesh.new()
+    th = [math.radians(open_deg + (178.0 - open_deg) * i / rings_) for i in range(rings_ + 1)]
+    pts = [[(f * math.cos(t) + (side * math.cos(2 * math.pi * k / seg) + up * math.sin(2 * math.pi * k / seg)) * math.sin(t))
+            for k in range(seg)] for t in th]
+    vs = [[bm.verts.new(p * radius) for p in row] for row in pts]
+    zmin = math.sin(el_min)
+    for i in range(rings_):
+        for k in range(seg):
+            q = (k + 1) % seg
+            c = (pts[i][k] + pts[i][q] + pts[i + 1][q] + pts[i + 1][k]).normalized()
+            if c.z < zmin:
+                continue
+            face = bm.faces.new((vs[i][k], vs[i][q], vs[i + 1][q], vs[i + 1][k]))
+            face.normal_update()
+            if face.normal.dot(c) < 0:
+                face.normal_flip()
+    loose = [v for v in bm.verts if not v.link_faces]
+    bmesh.ops.delete(bm, geom=loose, context='VERTS')
+    return bm
+
+
+def build_suit():
+    b = Builder()
+    # Bottes : semelle bleu clair, tige blanche.
     for sx in (-1, 1):
-        lp = hc + Vector((0.175 * sx, -0.05, 0.07))
-        b.add(soft_box((0.022, 0.05, 0.03), 0.01, 0.01), "dur", Matrix.Translation(lp))
-        b.add(cylinder(0.018, 0.012, 20), "optique", Matrix.Translation(lp + Vector((0, -0.055, 0))) @ Matrix.Rotation(math.pi / 2, 4, 'X'))
-    # Sac dorsal (PLSS) sous housse, antenne.
-    b.add(soft_box((0.235, 0.105, 0.30), 0.06, 0.025, puff(0.008)), "tissu", Matrix.Translation((0, 0.265, 1.25)))
-    b.add(soft_box((0.20, 0.07, 0.07), 0.03, 0.02), "tissu", Matrix.Translation((0, 0.25, 0.90)))
-    b.add(cylinder(0.008, 0.16, 8), "noir", Matrix.Translation((0.17, 0.33, 1.62)))
-    # Module de commande poitrine (DCM) : boîtier, afficheur, molettes, flexibles vers le sac.
-    b.add(soft_box((0.14, 0.055, 0.065), 0.015, 0.012), "dur", Matrix.Translation((0, -0.22, 1.27)))
-    b.add(soft_box((0.05, 0.03, 0.002), 0.004, 0.01), "noir", Matrix.Translation((0.06, -0.24, 1.336)))
-    for k, x in enumerate((-0.10, -0.06, -0.02)):
-        b.add(cylinder(0.014, 0.018, 16), "noir" if k else "rouge", Matrix.Translation((x, -0.25, 1.34)))
-    b.add(cylinder(0.022, 0.03, 20), "bague",
-          Matrix.Translation((0.12, -0.24, 1.27)) @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
+        x = 0.135 * sx
+        b.add(soft_box((0.068, 0.145, 0.024), 0.02, 0.012), "semelle", Matrix.Translation((x, -0.035, 0.024)))
+        b.add(soft_box((0.074, 0.14, 0.075), 0.05, 0.015, puff(0.01)), "tissu", Matrix.Translation((x, -0.03, 0.115)))
+        # Jambe ample, genou légèrement fléchi.
+        leg = [Vector((x, 0.0, 0.14)), Vector((x, -0.006, 0.34)), Vector((x, -0.026, 0.52)), Vector((x, -0.012, 0.68)),
+               Vector((x * 0.95, 0.0, 0.86))]
+        leg_r = lambda s: 0.090 + 0.022 * min(1.0, s / 0.72)
+        b.add(tube(leg, 0.1, 28, radius_fn=leg_r), "tissu")
+        # Genouillère grise plissée (devant le genou).
+        fk = Matrix.Translation((x, -0.02, 0.0))
+        pleated_pad(b, fk, leg_r(0.38) + 0.004, -math.pi / 2 - 1.35, -math.pi / 2 + 1.35, 0.40, 0.64, 5)
+        # Poche de cuisse (côté avant extérieur) et rabat.
+        m = Matrix.Translation((x + 0.035 * sx, -0.105, 0.735)) @ Matrix.Rotation(0.32 * sx, 4, 'Z')
+        b.add(soft_box((0.055, 0.006, 0.05), 0.006, 0.01, puff(0.003)), "poche", m)
+        b.add(soft_box((0.057, 0.007, 0.012), 0.004, 0.01), "poche", m @ Matrix.Translation((0, -0.004, 0.045)))
+    # Culotte et sangles grises en V (des hanches à l'entrejambe).
+    b.add(soft_box((0.205, 0.15, 0.13), 0.09, 0.02, puff(0.018)), "tissu", Matrix.Translation((0, 0.0, 0.95)))
     for sx in (-1, 1):
-        b.add(tube([(0.13 * sx, -0.20, 1.25), (0.20 * sx, -0.16, 1.18), (0.25 * sx, -0.02, 1.13), (0.23 * sx, 0.18, 1.12)],
-                   0.012, 10), "tissu")
-    # Support mural : plaque du sac et deux bras jusqu'à la paroi.
-    b.add(soft_box((0.17, 0.02, 0.22), 0.01, 0.03), "metal", Matrix.Translation((0, 0.39, 1.25)))
-    for z in (1.10, 1.40):
-        b.add(soft_box((0.20, 0.03, 0.02), 0.008, 0.03), "metal", Matrix.Translation((0, 0.41, z)))
+        b.add(tube([(0.215 * sx, -0.02, 1.08), (0.20 * sx, -0.12, 1.02), (0.12 * sx, -0.165, 0.92), (0.03 * sx, -0.15, 0.83),
+                    (0.0, -0.1, 0.80)], 0.013, 10), "pli")
+    # Torse ample (sous housse) et plastron du bas à bord droit, bande rouge.
+    b.add(soft_box((0.235, 0.165, 0.22), 0.10, 0.02, puff(0.02)), "tissu", Matrix.Translation((0, 0.02, 1.34)))
+    b.add(soft_box((0.225, 0.04, 0.115), 0.035, 0.015, puff(0.006)), "tissu", Matrix.Translation((0, -0.135, 1.235)))
+    b.add(soft_box((0.075, 0.004, 0.009), 0.003, 0.008), "rouge", Matrix.Translation((0.105, -0.178, 1.15)))
+    # Épaules (calottes) et écussons.
+    for sx in (-1, 1):
+        b.add(soft_box((0.105, 0.135, 0.095), 0.08, 0.02, puff(0.012)), "tissu", Matrix.Translation((0.255 * sx, 0.02, 1.47)))
+        m = Matrix.Translation((0.30 * sx, -0.095, 1.45)) @ Matrix.Rotation(0.55 * sx, 4, 'Z')
+        b.add(soft_box((0.032, 0.003, 0.024), 0.005, 0.008), "ecusson" if sx > 0 else "ecusson_rond", m)
+    # Boîtier de commande poitrine (DCM) : molettes, boutons, connecteurs, afficheur.
+    dcm = Vector((0.0, -0.19, 1.405))
+    b.add(soft_box((0.085, 0.042, 0.075), 0.012, 0.01), "dur", Matrix.Translation(dcm))
+    b.add(soft_box((0.03, 0.002, 0.018), 0.003, 0.008), "noir", Matrix.Translation(dcm + Vector((-0.035, -0.043, 0.02))))
+    for x, z in ((-0.03, 0.085), (0.03, 0.085)):
+        b.add(cylinder(0.014, 0.02, 16), "bague", Matrix.Translation(dcm + Vector((x, -0.02, z))))
+    for k in range(5):
+        b.add(soft_box((0.008, 0.006, 0.006), 0.002, 0.006), "bague", Matrix.Translation(dcm + Vector((0.065, -0.045, 0.05 - 0.022 * k))))
+    for x in (-0.12, 0.12):
+        b.add(cylinder(0.011, 0.016, 12), "bague", Matrix.Translation((x, -0.172, 1.245)) @ Matrix.Rotation(math.pi / 2, 4, 'X'))
+    # Bras : calotte d'épaule, coudière plissée côté extérieur, bande rouge le long de l'avant-bras, gant.
+    for sx in (-1, 1):
+        sh = Vector((0.30 * sx, 0.0, 1.46))
+        el = Vector((0.345 * sx, -0.025, 1.13))
+        wr = Vector((0.33 * sx, -0.10, 0.89))
+        arm = [sh, sh.lerp(el, 0.5) + Vector((0.008 * sx, 0, 0)), el, el.lerp(wr, 0.5), wr]
+        arm_r = lambda s: 0.082 - 0.02 * min(1.0, s / 0.58)
+        b.add(tube(arm, 0.08, 24, radius_fn=arm_r), "tissu")
+        out = Vector((sx, 0.0, 0.0))
+        fu = seg_frame(sh.lerp(el, 0.55), el.lerp(wr, 0.3))
+        a = local_angle(fu, out)
+        length = (el.lerp(wr, 0.3) - sh.lerp(el, 0.55)).length
+        pleated_pad(b, fu, 0.074, a - 1.25, a + 1.25, 0.0, length, 4)
+        ff = seg_frame(el, wr)
+        n_out = (out + Vector((0, -0.6, 0))).normalized()
+        tg = (wr - el).normalized()
+        n_out = (n_out - tg * n_out.dot(tg)).normalized()
+        stripe = [el.lerp(wr, t) + n_out * (arm_r(0.33 + 0.25 * t) + 0.003) for t in (0.12, 0.4, 0.7, 0.95)]
+        b.add(ribbon(stripe, tg.cross(n_out), 0.02, 0.003), "rouge", smooth=False)
+        q = tg.to_track_quat('Z', 'Y').to_matrix().to_4x4()
+        b.add(torus(0.063, 0.012, 28, 8), "bague", Matrix.Translation(wr) @ q)
+        hand = Matrix.Translation(wr + tg * 0.03) @ q
+        b.add(cylinder(0.056, 0.05, 24, 0.05), "tissu", hand @ Matrix.Translation((0, 0, 0.02)))
+        palm = hand @ Matrix.Translation((0, 0, 0.095)) @ Matrix.Rotation(0.15 * sx, 4, 'Y')
+        b.add(soft_box((0.03, 0.05, 0.05), 0.022, 0.01, puff(0.005)), "tissu", palm)
+        for k in range(4):
+            fy = -0.036 + 0.024 * k
+            fm = palm @ Matrix.Translation((0.004, fy, 0.075)) @ Matrix.Rotation(0.25, 4, 'X' if k % 2 else 'Y')
+            b.add(soft_box((0.011, 0.0105, 0.025), 0.009, 0.006), "tissu", fm)
+            b.add(soft_box((0.0115, 0.011, 0.014), 0.009, 0.005), "pli", fm @ Matrix.Translation((0, 0, 0.033)))
+        tm = palm @ Matrix.Translation((-0.03 * sx, -0.05, 0.02)) @ Matrix.Rotation(-0.6 * sx, 4, 'Y')
+        b.add(soft_box((0.012, 0.012, 0.03), 0.01, 0.006), "tissu", tm)
+        b.add(soft_box((0.0125, 0.0125, 0.012), 0.01, 0.005), "pli", tm @ Matrix.Translation((0, 0, 0.036)))
+    # Casque : bague de cou, bulle teintée, cerclage argent, capuchon blanc (lampes, bande rouge).
+    b.add(torus(0.135, 0.016, 48, 8), "bague", Matrix.Translation((0, -0.02, 1.535)))
+    b.add(sphere(0.19, 48, 24), "bulle", Matrix.Translation(HELMET_C + HELMET_FRONT * 0.02))
+    opening = math.cos(math.radians(47))
+    hood = hood_shell(0.212, 47.0, math.radians(-58))
+    bmesh.ops.solidify(hood, geom=hood.faces[:], thickness=-0.022)
+    b.add(hood, "tissu", Matrix.Translation(HELMET_C))
+    ring_c = HELMET_C + HELMET_FRONT * (0.212 * opening)
+    ring_q = HELMET_FRONT.to_track_quat('Z', 'Y').to_matrix().to_4x4()
+    b.add(torus(0.212 * math.sin(math.radians(47)), 0.011, 64, 10), "bague", Matrix.Translation(ring_c) @ ring_q)
+    for sx in (-1, 1):
+        d = Vector((0.52 * sx, -0.55, 0.65)).normalized()
+        base = HELMET_C + d * 0.214
+        m = Matrix.Translation(base) @ HELMET_FRONT.to_track_quat('Z', 'Y').to_matrix().to_4x4()
+        b.add(soft_box((0.042, 0.03, 0.02), 0.01, 0.01), "tissu", m)
+        for i, j in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
+            lm = m @ Matrix.Translation((0.019 * i, 0.013 * j, 0.024))
+            b.add(cylinder(0.011, 0.016, 16), "bague", lm)
+            b.add(cylinder(0.0085, 0.003, 16), "optique", lm @ Matrix.Translation((0, 0, 0.009)))
+    stripe = [HELMET_C + 0.2135 * Vector((0, -math.cos(math.radians(t)), math.sin(math.radians(t)))) for t in range(52, 140, 8)]
+    b.add(ribbon(stripe, (1, 0, 0), 0.032, 0.003), "rouge", smooth=False)
+    # Grand sac dorsal (housse blanche) jusqu'à hauteur du casque, antenne.
+    b.add(soft_box((0.245, 0.13, 0.37), 0.08, 0.025, puff(0.01)), "tissu", Matrix.Translation((0, 0.30, 1.42)))
+    b.add(soft_box((0.20, 0.10, 0.07), 0.03, 0.02), "tissu", Matrix.Translation((0, 0.28, 0.99)))
+    b.add(cylinder(0.007, 0.14, 8), "noir", Matrix.Translation((0.19, 0.37, 1.85)))
     return b
+
+
+def build_suit_rack():
+    """Porte-combinaison (repère de la combinaison) : deux rails verticaux sur pattes, berceau du sac (deux traverses à
+    sabots), crochets du haut, cale-pieds ; reste en place quand la combinaison est portée."""
+    b = Builder()
+    wall = IN_R - SUIT_Y          # paroi, en y local
+    for sx in (-1, 1):
+        x = 0.22 * sx
+        b.add(tube([(x, wall, 0.25), (x, wall - 0.06, 0.28), (x, wall - 0.06, 1.72), (x, wall, 1.75)], 0.016, 12), "metal")
+        for z in (0.28, 1.0, 1.72):
+            b.add(soft_box((0.022, 0.03, 0.022), 0.006, 0.02), "metal", Matrix.Translation((x, wall - 0.03, z)))
+    for z in (1.17, 1.66):
+        b.add(soft_box((0.25, 0.018, 0.022), 0.008, 0.03), "alu_sombre", Matrix.Translation((0, wall - 0.065, z)))
+        for sx in (-1, 1):
+            b.add(soft_box((0.03, 0.025, 0.035), 0.008, 0.015), "noir", Matrix.Translation((0.17 * sx, wall - 0.085, z)))
+    for sx in (-1, 1):
+        b.add(tube([(0.12 * sx, wall - 0.065, 1.66), (0.12 * sx, wall - 0.075, 1.80), (0.12 * sx, wall - 0.14, 1.82),
+                    (0.12 * sx, wall - 0.15, 1.78)], 0.009, 10), "metal")
+    # Cale-pieds sous les bottes.
+    b.add(soft_box((0.24, 0.12, 0.012), 0.006, 0.02), "alu_sombre", Matrix.Translation((0, wall - 0.31, -0.012)))
+    b.add(tube([(0.0, wall - 0.06, 0.28), (0.0, wall - 0.2, 0.0), (0.0, wall - 0.31, -0.012)], 0.014, 10), "metal")
+    for sx in (-1, 1):
+        b.add(tube([(0.135 * sx - 0.07, wall - 0.36, 0.0), (0.135 * sx - 0.07, wall - 0.36, 0.06),
+                    (0.135 * sx + 0.07, wall - 0.36, 0.06), (0.135 * sx + 0.07, wall - 0.36, 0.0)], 0.008, 8), "sangle")
+    # Plaque d'identification.
+    b.add(soft_box((0.06, 0.003, 0.025), 0.004, 0.01), "etiquette", Matrix.Translation((0, wall - 0.004, 1.88)))
+    return b
+
+
+# ------------------------------------------------------------------------------------------------ valve du sas
+VALVE_AZ, VALVE_Z = 0.0, -3.85
+VALVE_ANIM = "Depressurisation_Sas"
+VALVE_S = 20.0                 # vidange (ou remplissage) : 20 s, temps de jeu
+GAUGE_UP = 0.075               # manomètre : centre (u) sur la platine
+HANDLE_UP = -0.06              # manette : axe (u)
+GAUGE_SPAN = 270.0             # graduation 0–1,2 bar sur 270°
+
+
+def gauge_dir(bar):
+    """Direction d'une graduation dans le repère de la platine (u vers le haut, droite de l'observateur = −Y)."""
+    phi = math.radians(-GAUGE_SPAN / 2 + GAUGE_SPAN * bar / 1.2)
+    return Vector((math.cos(phi), -math.sin(phi), 0.0))
+
+
+def build_valve():
+    """Platine de dépressurisation (paroi +X) : manomètre 0–1,2 bar, manette quart de tour, voyants vert (plein) et
+    rouge (vide), conduit d'évent. Objet Interactif_Valve_Sas (repère de la platine : X haut, Z vers l'axe du sas) ;
+    pivots enfants Pivot_Valve_Sas (manette) et Pivot_Aiguille_Sas (aiguille), axes Z locaux = normale de la platine."""
+    frame = wall_frame(VALVE_AZ, VALVE_Z)
+    b = Builder()
+    b.add(soft_box((0.165, 0.125, 0.012), 0.012, 0.02), "gris", Matrix.Translation((0, 0, 0.006)))
+    b.add(soft_box((0.17, 0.13, 0.004), 0.01, 0.02), "jaune", Matrix.Translation((0, 0, 0.0)))
+    # Manomètre : boîtier, cadran blanc, graduations, lunette, verre.
+    gc = Vector((GAUGE_UP, 0.0, 0.0))
+    b.add(cylinder(0.056, 0.03, 48), "metal", Matrix.Translation(gc + Vector((0, 0, 0.033))))
+    b.add(cylinder(0.05, 0.002, 48), "cadran", Matrix.Translation(gc + Vector((0, 0, 0.049))))
+    for k in range(13):
+        bar = 0.1 * k
+        d = gauge_dir(bar)
+        major = k % 2 == 0
+        length = 0.011 if major else 0.006
+        p = gc + d * (0.042 - length / 2) + Vector((0, 0, 0.0505))
+        m = Matrix.Translation(p) @ Matrix.Rotation(math.atan2(d.y, d.x), 4, 'Z')
+        key = "rouge" if bar < 0.15 else ("vert_marque" if 0.95 < bar < 1.05 else "noir")
+        b.add(soft_box((length / 2, 0.0012 if major else 0.0008, 0.0006), 0.0003, 0.004), key, m)
+    b.add(torus(0.053, 0.005, 48, 8), "metal", Matrix.Translation(gc + Vector((0, 0, 0.052))))
+    b.add(cylinder(0.05, 0.001, 48), "vitrage", Matrix.Translation(gc + Vector((0, 0, 0.0565))))
+    # Manette : bossage et repères « plein » (vert, manette verticale) et « vide » (rouge, horizontale).
+    hc = Vector((HANDLE_UP, 0.0, 0.0))
+    b.add(cylinder(0.038, 0.03, 40), "metal", Matrix.Translation(hc + Vector((0, 0, 0.027))))
+    b.add(soft_box((0.004, 0.012, 0.0008), 0.0008, 0.004), "vert_marque", Matrix.Translation(hc + Vector((0, -0.052, 0.0125))))
+    b.add(soft_box((0.012, 0.004, 0.0008), 0.0008, 0.004), "rouge", Matrix.Translation(hc + Vector((-0.052, 0, 0.0125))))
+    # Voyants (matériaux propres : station.gd les allume ou les éteint) et leurs collerettes.
+    for v, key in ((0.06, "voyant_vert"), (-0.06, "voyant_rouge")):
+        p = Vector((-0.135, v, 0.0))
+        b.add(cylinder(0.016, 0.012, 24), "metal", Matrix.Translation(p + Vector((0, 0, 0.018))))
+        b.add(revolve([(0.0, 0.0), (0.011, 0.0), (0.009, 0.006), (0.0, 0.009)], 20), key, Matrix.Translation(p + Vector((0, 0, 0.024))))
+    # Étiquettes.
+    for p, half in (((0.145, 0.0, 0.0125), (0.012, 0.07)), ((-0.105, 0.0, 0.0125), (0.008, 0.035))):
+        b.add(soft_box((half[0], half[1], 0.0008), 0.001, 0.006), "etiquette", Matrix.Translation(p))
+        b.add(soft_box((half[0] * 0.3, half[1] * 0.7, 0.0005), 0.0004, 0.004), "encre", Matrix.Translation(Vector(p) + Vector((0, 0, 0.001))))
+    # Conduit d'évent : sous la platine, coudé vers la paroi.
+    b.add(tube([(-0.165, 0.0, 0.03), (-0.21, 0.0, 0.03), (-0.24, 0.0, 0.0), (-0.25, 0.0, -0.03)], 0.016, 16), "metal")
+    b.add(torus(0.019, 0.005, 20, 6), "metal", Matrix.Translation((-0.19, 0.0, 0.03)) @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
+    valve = b.write("Interactif_Valve_Sas", cols["Int_Sas"])
+    valve.matrix_world = frame
+    valve["interactif"] = True
+    valve["type"] = "valve_sas"
+    valve["id"] = "Valve_Sas"
+    valve["animation"] = VALVE_ANIM
+    valve["voyant_plein"] = "Int_Voyant_Sas_Vert"
+    valve["voyant_vide"] = "Int_Voyant_Sas_Rouge"
+    valve["note"] = "image 1 : sas plein (1 bar), fin : vide ; a l'envers : remplissage"
+    # Manette (pivot + maillage) : levier jaune à poignée noire, vers la droite au repos (valve fermée, repère vert),
+    # vers le bas une fois ouverte (repère rouge) : elle ne passe jamais devant le manomètre.
+    hp = bpy.data.objects.new("Pivot_Valve_Sas", None)
+    hp.empty_display_type = 'ARROWS'
+    hp.empty_display_size = 0.08
+    cols["Int_Sas"].objects.link(hp)
+    hp.parent = valve
+    hp.location = hc + Vector((0, 0, 0.042))
+    hb = Builder()
+    hb.add(cylinder(0.024, 0.02, 32), "metal", Matrix.Translation((0, 0, 0.0)))
+    hb.add(soft_box((0.013, 0.055, 0.008), 0.006, 0.01), "jaune", Matrix.Translation((0, -0.045, 0.012)))
+    hb.add(cylinder(0.013, 0.05, 20), "noir", Matrix.Translation((0, -0.098, 0.035)))
+    handle = hb.write("Valve_Sas_Manette", cols["Int_Sas"], sharp=40)
+    handle.parent = hp
+    # Aiguille (pivot au centre du cadran) : au repos sur 1 bar.
+    np_ = bpy.data.objects.new("Pivot_Aiguille_Sas", None)
+    np_.empty_display_type = 'ARROWS'
+    np_.empty_display_size = 0.04
+    cols["Int_Sas"].objects.link(np_)
+    np_.parent = valve
+    np_.location = gc + Vector((0, 0, 0.052))
+    nb = Builder()
+    d = gauge_dir(1.0)
+    m = Matrix.Rotation(math.atan2(d.y, d.x), 4, 'Z')
+    nb.add(soft_box((0.022, 0.0015, 0.0008), 0.0006, 0.004), "rouge", m @ Matrix.Translation((0.017, 0, 0)))
+    nb.add(cylinder(0.005, 0.003, 16), "noir")
+    needle = nb.write("Aiguille_Manometre_Sas", cols["Int_Sas"], sharp=40)
+    needle.parent = np_
+    # Piste NLA : manette ouverte (0,5 s), aiguille 1 -> 0 bar (vidange exponentielle, 20 s), manette refermée (0,5 s).
+    fps = scene.render.fps
+    t_open, t_end = round(0.5 * fps), round((0.5 + VALVE_S) * fps)
+    last = t_end + round(0.5 * fps)
+    keys_h = [(1, 0.0), (1 + t_open, -math.pi / 2), (1 + t_end, -math.pi / 2), (1 + last, 0.0)]
+    tau = VALVE_S / 4
+    keys_n = [(1, 0.0)]
+    for k in range(0, 41):
+        t = VALVE_S * k / 40
+        p = (math.exp(-t / tau) - math.exp(-VALVE_S / tau)) / (1 - math.exp(-VALVE_S / tau))
+        keys_n.append((1 + t_open + round(t * fps), math.radians(GAUGE_SPAN * (1.0 - p) / 1.2)))
+    keys_n.append((1 + last, keys_n[-1][1]))
+    for ob, keys, interp in ((hp, keys_h, 'BEZIER'), (np_, keys_n, 'LINEAR')):
+        for f, ang in keys:
+            ob.rotation_euler.z = ang
+            ob.keyframe_insert("rotation_euler", index=2, frame=f)
+        action = ob.animation_data.action
+        action.name = VALVE_ANIM + "__" + ob.name
+        for layer in action.layers:
+            for strip in layer.strips:
+                for bag in strip.channelbags:
+                    for fc in bag.fcurves:
+                        for kp in fc.keyframe_points:
+                            kp.interpolation = interp
+                        fc.update()
+        track = ob.animation_data.nla_tracks.new()
+        track.name = VALVE_ANIM
+        strip = track.strips.new(VALVE_ANIM, 1, action)
+        strip.name = VALVE_ANIM
+        ob.animation_data.action = None
+        ob.rotation_euler.z = 0.0
+    return valve, 1 + last
 
 
 def build_equipment():
@@ -831,14 +1111,23 @@ hull = build_hull()
 interior = build_interior()
 top_door = build_top_hatch()
 bottom_door = build_bottom_hatch()
+# Combinaison debout contre la paroi +Y, face à l'axe, sur son support ; pieds au-dessus du cône du fond.
+# Clic sur la combinaison : elle disparaît (enfilée) ; clic sur le porte-combinaison : elle y revient (station.gd).
 suit_b = build_suit()
-# Combinaison debout contre la paroi +Y, face à l'axe ; pieds au-dessus du cône du fond.
-SUIT_AT = Matrix.Translation((X0, Y0 + IN_R - 0.425, -5.33))
 bmesh.ops.transform(suit_b.bm, matrix=SUIT_AT, verts=suit_b.bm.verts)
 suit = suit_b.write("Interactif_Combinaison", cols["Int_Sas"])
 suit["interactif"] = True
 suit["type"] = "combinaison"
 suit["id"] = "Combinaison_Sas"
+suit["porte"] = "Interactif_Porte_Combinaison"
+rack_b = build_suit_rack()
+bmesh.ops.transform(rack_b.bm, matrix=SUIT_AT, verts=rack_b.bm.verts)
+rack = rack_b.write("Interactif_Porte_Combinaison", cols["Int_Sas"])
+rack["interactif"] = True
+rack["type"] = "porte_combinaison"
+rack["id"] = "Porte_Combinaison_Sas"
+rack["combinaison"] = "Interactif_Combinaison"
+valve, valve_end = build_valve()
 equipment = build_equipment().write("Sas_Equipements", cols["Int_Sas"])
 
 # Lampes : copies de Lum_Arrimage_2 (mêmes réglages ; station.gd recalibre toutes les Lum_*).
@@ -855,5 +1144,6 @@ for k, z in enumerate((-3.55, -4.95), 1):
 
 scene.frame_set(1)
 bpy.ops.wm.save_mainfile()
-result = {"percages": cuts, "objets": {o.name: len(o.data.polygons) for o in (hull, interior, top_door, bottom_door, suit, equipment)},
-          "lampes": lums, "enregistre": True}
+result = {"percages": cuts, "objets": {o.name: len(o.data.polygons) for o in (hull, interior, top_door, bottom_door, suit, rack,
+                                                                             valve, equipment)},
+          "lampes": lums, "valve_images": [1, valve_end], "enregistre": True}
