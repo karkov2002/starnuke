@@ -204,6 +204,9 @@ var _suit_worn := false
 ## Valve du sas (extras type « valve_sas ») : {node, anim, tracks, targets, time, tween, target_full, curve, green, red}.
 var _valve := {}
 var _indicator_time := 0.0
+## L'observateur est sorti de la station (éjection, scripts/death_sequence.gd) : il voit les flashs nucléaires
+## (NukeFlashFX), qui ne l'éblouissent sinon que dans la cupola.
+var observer_outside := false
 var _cargo_docked := true
 var _cargo_busy := false
 

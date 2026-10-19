@@ -995,7 +995,10 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     d'une grille 3 × 3 qui touchent la Terre (`_earth_view`, la Terre domine dès ~60 %) ; la part « intérieur »
     garde la sensibilité de jour (`interior_multiplier` × 1 : lumières artificielles constantes) — sans cela, la
     règle jour / nuit saturait l'intérieur la nuit (sonde `tools/bench/exposure_views_probe.tscn` : Terre,
-    plafond de la cupola, intérieur, de jour et de nuit) ;
+    plafond de la cupola, intérieur, de jour et de nuit). **Hors de la cupola, dans les modules** (caméra à moins
+    de 25 m de la station, `outside_distance_m`, et pas éjectée), le facteur est `interior_multiplier` seul : ni
+    Terre (les rayons de `_earth_view` traversent la coque : viser le plancher la nuit changeait l'exposition), ni
+    soleil, ni flash ;
   - **face au soleil** : depuis la cupola seulement (`Station.is_in_cupola`), quand le disque solaire est dans le
     champ (demi-diagonale, bord progressif sur ±10°), au-dessus du limbe terrestre et sous l'horizontale de la
     station (les fenêtres donnent vers la Terre ; un soleil derrière la coque est caché — viser le plafond
@@ -2084,7 +2087,12 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
       l'éblouissement e = excès / (excès + 0,2), l'excès étant le flux reçu au-delà d'un niveau d'adaptation qui
       le rattrape en 1,5 s (temps réel, `adaptation_s`) ;
     - tout revient aux valeurs d'origine à la fin du flash, et l'exposition automatique réagit ensuite d'elle-même ;
-    - un 50 Mt sature l'écran à la montée du flash ; un 10 kt laisse un éclat net sans saturation.
+    - un 50 Mt sature l'écran à la montée du flash ; un 10 kt laisse un éclat net sans saturation ;
+    - **règle : seulement si l'œil voit le flash** (`NukeFlashFX._eye_exposed`) : dans la cupola
+      (`Station.is_in_cupola`) ou hors de la station (`Station.observer_outside`, mis par l'éjection du sas ; ou à
+      plus de 25 m de la station, `outside_distance_m`). Ailleurs dans les modules, la coque le cache : ni glow, ni
+      bloom, ni éblouissement, ni adaptation de l'œil (le flux d'écran est compté nul) ; la lumière du flash sur la
+      station garde, elle, le flux reçu.
 - **Horloge** (`nuke/nuke_clock.gd`, autoload `NukeClock`), distincte du temps réel :
   - `time_s` avance au rythme du temps de l'orbite (**Pause, x2… x16 s'appliquent aussi aux explosions**),
     multiplié par `acceleration` (1 par défaut) ;

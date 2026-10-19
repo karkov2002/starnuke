@@ -84,6 +84,10 @@ func start(observer: Node3D, disabled: Array[Node], eject := false, eject_door :
 		_look_target = look_target
 		_look_up = look_up.normalized()
 		_start_basis = _camera.global_basis.orthonormalized() if _camera else Basis.IDENTITY
+		# Dehors : les flashs nucléaires l'atteignent (NukeFlashFX).
+		var station := get_tree().get_first_node_in_group(Station.GROUP) as Station
+		if station:
+			station.observer_outside = true
 		# Le corps ne doit plus heurter la station : il est déplacé à la main.
 		for shape: CollisionShape3D in observer.find_children("*", "CollisionShape3D", false, false):
 			shape.disabled = true

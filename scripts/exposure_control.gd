@@ -37,6 +37,9 @@ const GROUP := &"exposure_control"
 @export var day_multiplier := 1.0
 @export var night_multiplier := 2.85
 @export var interior_multiplier := 1.0
+## Hors de la cupola et à moins de cette distance (m) de la station, l'œil est dans les modules : facteur
+## interior_multiplier seul (ni Terre, ni soleil, ni flash : la coque les cache).
+@export var outside_distance_m := 25.0
 const VIEW_GRID := 3
 ## Hauteur du soleil (degrés) au point regardé : plein jour au-dessus, pleine nuit en dessous.
 @export var day_elevation_deg := 8.0
@@ -110,6 +113,10 @@ func _apply() -> void:
 ## avec le facteur jour / nuit du point regardé ; divisé par l'éblouissement du soleil dans le champ (depuis la cupola
 ## seulement : ailleurs la coque le cache) et par l'adaptation au flash.
 func _target_factor() -> float:
+	# Hors de la cupola, dans les modules, la coque cache la Terre et les flashs : l'œil reste réglé sur l'éclairage
+	# intérieur (les rayons de _earth_view traversent la coque). Dehors (éjection), comme dans la cupola.
+	if not _in_cupola() and not _outside():
+		return interior_multiplier
 	var view := _earth_view()
 	var night := 1.0 - smoothstep(night_elevation_deg, day_elevation_deg, view.elevation)
 	var earth_factor := lerpf(log(day_multiplier), log(night_multiplier), night)
@@ -183,3 +190,13 @@ func _earth_view() -> Dictionary:
 func _in_cupola() -> bool:
 	var camera := get_viewport().get_camera_3d()
 	return _station != null and camera != null and _station.call(&"is_in_cupola", camera.global_position)
+
+
+## La caméra est-elle hors de la station ? Éjection (Station.observer_outside), caméra à plus de outside_distance_m
+## de la station (décor du menu : caméra extérieure), ou pas de station.
+func _outside() -> bool:
+	var camera := get_viewport().get_camera_3d()
+	if _station == null or camera == null:
+		return true
+	return bool(_station.get(&"observer_outside")) \
+			or camera.global_position.distance_to((_station as Node3D).global_position) > outside_distance_m

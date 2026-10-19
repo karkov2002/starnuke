@@ -7,7 +7,8 @@ extends Node
 ## - une DirectionalLight3D qui n'éclaire que la station (calque STATION_LIGHT_LAYER, ajouté à ses maillages) : à
 ##   400 km la source est à l'infini pour la station. Énergie = flux reçu × énergie d'un soleil (celle du nœud Sun),
 ##   ombres portées (montants de la Cupola) ;
-## - l'éblouissement : l'intensité du glow suit le flux reçu, g = flux / (flux + screen_flux_half) (la source reste
+## - l'éblouissement (seulement quand l'œil voit le flash : dans la cupola ou hors de la station, _eye_exposed ;
+##   ailleurs dans les modules, la coque le cache : ni éblouissement ni adaptation) : l'intensité du glow suit le flux reçu, g = flux / (flux + screen_flux_half) (la source reste
 ##   éclatante tant qu'elle brille) ; le bloom et le multiplicateur d'exposition de la caméra suivent l'excès du flux
 ##   sur un niveau d'adaptation qui le rattrape en adaptation_s, comme un œil : l'écran sature à la montée du flash,
 ##   puis s'adapte même si le flash dure (jusqu'à ~24 s joués pour 50 Mt). Tout revient aux valeurs d'origine à la fin ;
@@ -25,6 +26,8 @@ const STATION_LIGHT_LAYER := 1 << 19
 @export var adaptation_s := 1.5
 ## Énergie de la lumière pour un flux de 1 soleil (= light_energy du nœud Sun).
 @export var station_light_energy_per_sun := 2.0
+## Au-delà de cette distance (m) du centre de la station, l'œil est dehors (éjection) : il voit le flash.
+@export var outside_distance_m := 25.0
 
 var _launcher: NukeLauncher
 var _environment: Environment
@@ -119,6 +122,10 @@ func _process(delta: float) -> void:
 
 	# Glow : suit le flux reçu (la source reste éclatante). Bloom et exposition : suivent l'éblouissement, l'excès du
 	# flux sur le niveau d'adaptation, qui le rattrape en adaptation_s (temps réel, comme un œil).
+	# Effets d'écran (éblouissement, adaptation de l'œil) : seulement si l'œil voit le flash, dans la cupola ou hors de
+	# la station ; ailleurs, la coque le cache (la lumière sur la station, elle, garde le flux reçu).
+	if camera and not _eye_exposed(camera.global_position):
+		received = 0.0
 	_adapted += (received - _adapted) * (1.0 - exp(-delta / adaptation_s))
 	var excess := maxf(received - _adapted, 0.0)
 	var g := received / (received + screen_flux_half)
@@ -132,3 +139,13 @@ func _process(delta: float) -> void:
 		_exposure.set(&"flash_received", received)
 	elif _camera_attributes:
 		_camera_attributes.exposure_multiplier = _base_exposure * (1.0 + exposure_gain * dazzle)
+
+
+## L'œil voit-il les flashs ? Dans la cupola (Station.is_in_cupola) ou hors de la station (Station.observer_outside :
+## éjection ; ou loin d'elle) ; sans station : oui.
+func _eye_exposed(eye: Vector3) -> bool:
+	var station := get_tree().get_first_node_in_group(Station.GROUP) as Station
+	if station == null:
+		return true
+	return station.observer_outside or station.is_in_cupola(eye) \
+			or eye.distance_to(station.global_position) > outside_distance_m
