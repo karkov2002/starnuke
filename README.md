@@ -592,6 +592,19 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   dans le dôme est ramenée dehors (|y| 3,12–3,24) ; collerette `Missile_<s>_Collerette_Tunnel-col` en métal
   intérieur : boudin arrondi sur la jonction, bord rabattu sur le dôme, 36 vis à tête hexagonale en acier bruni sur
   rondelle inox (une tête de la teinte du bord ne laissait voir que ses flancs : des « chevrons » sombres).
+- **Écoutilles « façon sous-marin »** (`tools/blender/build_submarine_hatches.py`, rejouable) : les 6 écoutilles
+  axiales (Arrimage AV, Habitation AR et AV, Commande AR, Missile 1 et 2) et l'écoutille cargo reprennent le modèle de
+  l'écoutille du sas, à l'échelle de leur passage (porte r 0,74 m sur la bague métal du cadre, dans le liseré jaune) :
+  disque gris, bague satinée, bagues de l'axe, poignées en U jaunes sur les deux faces, volant et contre-volant
+  (`Volant_<id>` sous `Pivot_Volant_<id>`, extras `volant`, `volant_tours` = 1,25 ; volant fixe sur l'écoutille cargo,
+  verrouillée), nœuds de charnière, `Paumelle_<id>` fixe vissée sur le cadre, collision cylindrique. Les portes sont
+  centrées sur l'axe du passage (les anciennes étaient décalées de 4 cm, des pièces dépassaient du cadre) ; la
+  charnière est déplacée hors du bord de la porte (r 0,76 m, à mi-épaisseur), pour qu'elle ne morde plus dans le
+  cadre en pivotant (animation `Fermeture_Ecoutilles` inchangée : rotations seules). Les scripts
+  `smooth_hatch_doors.py` et `build_hatch_hinges.py` visaient les anciennes portes : **ne plus les rejouer**.
+- **Départ dans la couchette** (`tools/blender/add_bunk_view.py`, rejouable) : repère `Point_Vue_Couchette`
+  (collection `Reperes_Jeu`) au-dessus de l'oreiller, regard vers les pieds, un peu plongé vers le sac de couchage ;
+  axes : +Y regard, +Z haut (après conversion glTF : −Z et +Y, la base d'une `Camera3D`).
 - **Séparation du vaisseau cargo** (`tools/blender/build_cargo_undock.py`, rejouable) : les 9 objets `Cargo_*` sont
   enfants d'un pivot `Pivot_Cargo` placé sur le plan d'amarrage (face avant de `Cargo_Anneau`, x = −17,47) ; piste NLA
   `Separation_Cargo` : recul de 10 m selon −X (axe des modules) en 30 s (images 1–721 à 24 i/s), départ et arrêt en
@@ -889,7 +902,11 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     CSG, inclinée de 30°).
 - **Observateur** : corps `Observer` (`CharacterBody3D`, script `scripts/observer.gd`, déplacement en mode
   « flottant », sphère de collision de 0,3 m) portant la caméra `Observer/Camera` (script
-  `scripts/station_camera.gd`, orientation). Départ 1 m sous le repère `Point_Vue_Cupola` du modèle, la tête au
+  `scripts/station_camera.gd`, orientation). **Règle de jeu : on démarre allongé dans la couchette de l'Habitation,
+  le regard vers ses pieds** (on voit le sac de couchage) : au démarrage, `Observer._place_at_start` place la caméra
+  sur le repère `Point_Vue_Couchette` du modèle (`start_marker` ; vide : position de la scène), seulement quand la
+  scène du jeu est la scène courante. Position de la scène (ancien départ, gardée par le décor du menu et les bancs
+  de mesure, qui instancient la scène sous la leur) : 1 m sous le repère `Point_Vue_Cupola` du modèle, la tête au
   ras des vitres ((0, −4,2, −11,6) dans la scène ; plus haut, la paroi de la cupola masque l'horizon), vue initiale
   **dans l'axe de la trajectoire** (la station vole selon son avant : le sol défile du haut vers le bas de l'écran,
   à la rotation de la Terre près, ~4°), plongeant de 24° sous l'horizon de la station : l'horizon terrestre (~20°
