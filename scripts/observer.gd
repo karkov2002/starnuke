@@ -10,6 +10,9 @@ extends CharacterBody3D
 ## Inertie d'apesanteur : double lissage (commande lissée, puis vitesse lissée vers la commande), soit une courbe en S
 ## sans à-coup au démarrage ni à l'arrivée (~1 s pour atteindre la vitesse de croisière ou s'arrêter) ; contre une
 ## paroi, le mouvement glisse le long d'elle.
+## Courant d'air (règle de jeu, StationAtmosphere : porte extérieure du sas ouverte) : une poussée s'ajoute au
+## déplacement (set_air_flow : elle rejoint le courant en air_response_s) ; le joueur garde ses commandes. Dans le vide,
+## plus d'air : la poussée garde son élan ; combinaison enfilée, son propulseur dorsal (SAFER) l'amortit.
 ## Départ (règle de jeu) : allongé dans la couchette de l'Habitation, le regard vers ses pieds : la caméra prend la
 ## position et l'orientation du repère start_marker du modèle de la station (Point_Vue_Couchette).
 
@@ -21,7 +24,14 @@ extends CharacterBody3D
 ## Constante de temps de l'inertie (s).
 @export var smoothing_s := 0.25
 
+## Commandes du joueur (coupées par la séquence de mort : le corps reste porté par le courant).
+var controls_enabled := true
 var _drive := Vector3.ZERO
+## Vitesse propre (commandes) et poussée du courant d'air.
+var _own := Vector3.ZERO
+var _blast := Vector3.ZERO
+var _flow := Vector3.ZERO
+var _flow_response_s := INF
 
 @onready var _camera: Camera3D = get_node(camera_path)
 
@@ -45,18 +55,42 @@ func _place_at_start() -> void:
 	_camera.global_basis = marker.global_basis.orthonormalized()
 
 
+## Courant d'air au point de l'observateur (vitesse visée, m/s, repère global) et temps de réponse de la poussée (s ;
+## INF : elle garde son élan).
+func set_air_flow(flow: Vector3, response_s: float) -> void:
+	_flow = flow
+	_flow_response_s = response_s
+
+
+## Poussée actuelle du courant d'air (m/s, repère global).
+func get_blast() -> Vector3:
+	return _blast
+
+
 func _physics_process(delta: float) -> void:
 	var input := Vector2.ZERO
-	if not StationCamera.is_typing(self):
+	if controls_enabled and not StationCamera.is_typing(self):
 		input = Vector2(Input.get_axis(&"move_left", &"move_right"), Input.get_axis(&"move_back", &"move_forward"))
 	var view := _camera.global_basis.orthonormalized()
 	var wish := (-view.z * input.y + view.x * input.x)
 	if wish.length() > 1.0:
 		wish = wish.normalized()
 	_drive = StationCamera.smooth_toward(_drive, wish * speed, delta, smoothing_s)
-	velocity = StationCamera.smooth_toward(velocity, _drive, delta, smoothing_s)
+	_own = StationCamera.smooth_toward(_own, _drive, delta, smoothing_s)
+	if is_finite(_flow_response_s):
+		_blast = StationCamera.smooth_toward(_blast, _flow, delta, _flow_response_s)
+	velocity = _own + _blast
 	if velocity.length() < 1e-3 and _drive.length() < 1e-3:
 		velocity = Vector3.ZERO
 		_drive = Vector3.ZERO
+		_own = Vector3.ZERO
+		_blast = Vector3.ZERO
 		return
 	move_and_slide()
+	# Contre une paroi, le mouvement glisse le long d'elle (vitesse propre comme poussée).
+	for i in get_slide_collision_count():
+		var normal := get_slide_collision(i).get_normal()
+		if _own.dot(normal) < 0.0:
+			_own = _own.slide(normal)
+		if _blast.dot(normal) < 0.0:
+			_blast = _blast.slide(normal)

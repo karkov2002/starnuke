@@ -758,39 +758,55 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     Habitation AR, les 2 des modules de missiles (`Ecoutille_Missile_1`, `_2`) et les 2 du sas de sortie
     (`Ecoutille_Sas_Haut`, `Ecoutille_Sas_Bas`). Écoutille cargo verrouillée (`ouvrable` faux, rien n'est modélisé
     derrière) : ses commandes renvoient `false`.
-  - **Sas de sortie** (`Station`, groupe « Sas de sortie ») : la valve (`Interactif_Valve_Sas`) vide le sas en
-    rejouant `Depressurisation_Sas` (manette, aiguille de 1 à 0 bar en 20 s) et le remplit en la rejouant à l'envers
-    (un clic pendant un cycle l'inverse) ; la pression est lue sur l'aiguille (rotation cumulée de la piste qui tourne
-    le plus). Le sas est plein au démarrage. **Règle de jeu : aucun verrouillage**, la sécurité est l'affaire du
-    joueur : les deux écoutilles (`airlock_inner_hatch`, plancher de l'Arrimage ; `airlock_outer_hatch`, vers la
-    Terre) et la valve se manœuvrent librement ; les conséquences sont gérées par `AirlockHazard` (ci-dessous).
-    Voyants : vert allumé sas plein, rouge allumé sas vide, rouge clignotant (0,8 s) pendant un cycle
-    (`indicator_energy`, `indicator_blink_s` ; copies émissives des matériaux `extras.voyant_plein` / `voyant_vide`).
-    API : `get_airlock_pressure()`, `is_airlock_cycling()`, `is_airlock_filling()` (état visé),
-    `set_airlock_pressurized(full)`, `toggle_airlock_pressure()` ; signaux `airlock_changed(pressurized)` (fin de
-    cycle) et `hatch_moving(id, open)` (une écoutille commence à bouger).
-  - **Porte extérieure ouverte sur un sas sous pression** (écoutille intérieure fermée) : l'air du sas s'échappe,
-    l'aiguille du manomètre tombe à 0 en `vent_s` × pression (1,5 s pour un sas plein ; la manette ne bouge pas).
-  - **Mort dans le sas** (règles de jeu, `scripts/airlock_hazard.gd`, nœud `AirlockHazard` de `orbit_view.tscn`) :
-    - **décompression**, évaluée dès que la porte extérieure ou l'écoutille intérieure commence à s'ouvrir ;
-      l'observateur est **éjecté**, combinaison ou non (sans attache, il dérive au loin et meurt), avec une force qui
-      dépend de l'air qui s'échappe :
-      - les deux ouvertes en même temps (état visé : une écoutille qui se ferme compte comme fermée) : toute la
-        station se vide par le sas ; s'il est dans le sas (puits compris) ou dans l'Arrimage, il est projeté
-        violemment : 9 m/s puis souffle continu de 5 m/s² (`station_eject_speed`, `station_eject_accel`) ;
-      - écoutille intérieure fermée, porte extérieure ouverte sur un sas pas tout à fait vidé : seul l'air du sas
-        s'échappe (un volume bien plus petit) ; s'il est dans le sas, il est poussé dehors à 3 m/s × la pression
-        restante (`sas_eject_speed` : 3 m/s sas plein, 0,15 m/s à 5 %), sans souffle continu ; sous 0,03 bar
-        (`min_eject_pressure`), pas d'éjection.
-      Aspiré vers la porte (0,35 s à pleine vitesse, jusqu'à 2,5 s pour un faible souffle), puis projeté vers la
-      Terre en roulant lentement sur lui-même, le regard sur la station qui s'éloigne ; ses yeux se ferment après
-      3,5 s (jusqu'à 3 s de plus quand il s'éloigne lentement) ;
-    - **asphyxie**, évaluée à chaque image : observateur dans le sas sans combinaison quand la pression y passe sous
-      `death_pressure` (0,3 bar : vidange par la valve, vers 6 s, ou porte extérieure ouverte ; écoutille intérieure
-      ouverte, le sas garde l'air de la station). Il meurt sur place (yeux fermés après 1,2 s), sans éjection.
-    Volumes : boîtes des maillages `Sas_Paroi*` et `Arrimage_Couloir*` dans le repère de la station.
+  - **Sas de sortie** (`Station`, groupe « Sas de sortie ») : une porte intérieure (`airlock_inner_hatch`,
+    `Ecoutille_Sas_Haut`, plancher de l'Arrimage) et une porte extérieure (`airlock_outer_hatch`,
+    `Ecoutille_Sas_Bas`, vers la Terre). **Règle de jeu : aucun verrouillage**, la sécurité est l'affaire du joueur :
+    les portes, les écoutilles et la valve se manœuvrent librement. La valve (`Interactif_Valve_Sas`) est un
+    robinet : un clic l'ouvre pour vider le sas (ou pour le remplir s'il est vide ; un clic pendant un cycle
+    l'inverse) et elle se referme d'elle-même une fois la pression visée atteinte. Manette : début de
+    `Depressurisation_Sas` (fermée → ouverte en 0,5 s) ; aiguille du manomètre : pression du sas calculée par
+    `StationAtmosphere`, placée sur sa piste (rotation cumulée de la piste qui tourne le plus). Le sas est plein au
+    démarrage. Voyants : vert allumé sas plein, rouge allumé sas vide, rouge clignotant (0,8 s) pendant un cycle
+    (`indicator_energy`, `indicator_blink_s` ; copies émissives des matériaux `extras.voyant_plein` /
+    `voyant_vide`). API : `get_airlock_pressure()`, `get_airlock_valve_mode()` (−1 vidange, +1 remplissage, 0),
+    `is_airlock_cycling()`, `is_airlock_filling()`, `set_airlock_pressurized(full)`, `toggle_airlock_pressure()`,
+    `airlock_step(pression, secondes)` (courbe de vidange du manomètre), `set_airlock_gauge(pression)` ; signaux
+    `airlock_changed(pressurized)` (fin de cycle) et `hatch_moving(id, open)` (une écoutille commence à bouger).
+  - **Air de la station** (règles de jeu, `scripts/station_atmosphere.gd`, classe `StationAtmosphere`, nœud
+    `StationAir` de `orbit_view.tscn`) : une pression (0–1) par volume : modules Commande, Habitation, Arrimage,
+    Missile 1 et 2, jonctions avant et arrière, sas (table `ZONES` : boîtes en coordonnées Blender, volume d'air,
+    modules comptés). Les écoutilles intérieures isolent les modules ; **deux volumes communiquent quand
+    l'écoutille qui les relie est ouverte** (table `HATCHES` ; état visé : une écoutille qui commence à s'ouvrir
+    communique déjà, une écoutille qui commence à se fermer isole déjà).
+    - Des volumes qui communiquent ont la même pression (moyenne pondérée par les volumes d'air, équilibrée en
+      `equalize_s`, 0,5 s).
+    - **Vidange par la valve** : la pression baisse dans **tous les volumes qui communiquent avec le sas**, sur la
+      courbe du manomètre (20 s pour le sas seul ; exponentielle adoucie, plus rapide aux faibles pressions) ; le
+      remplissage la remonte de même (air des réserves de la station).
+    - **Vidange par la porte extérieure** : tout l'ensemble qui communique avec l'espace se vide, sur la même
+      courbe, en `door_vent_s` (1,5 s) pour le sas seul.
+    - Durées multipliées par la racine du volume d'air rapporté à celui du sas (toute la station ouverte : ~8 fois).
+  - **Expulsion** (règle de jeu, `StationAtmosphere.flow_at`, `scripts/airlock_hazard.gd`) : porte extérieure
+    ouverte, un courant d'air porte l'observateur vers la sortie **depuis n'importe quel volume qui communique avec
+    l'espace** : de volume en volume, vers l'écoutille suivante sur le chemin de la porte extérieure (visée 0,8 m
+    au-delà du passage), à travers la station jusque dans le vide. Vitesse : pression de l'ensemble × de 3 m/s (sas
+    seul, `flow_speed_sas`) à 12 m/s (les 5 modules reliés, `flow_speed_max`), proportionnelle au nombre de modules
+    reliés : **toutes les écoutilles ouvertes avant la porte extérieure, l'expulsion est la plus rapide** ; elle
+    faiblit à mesure que l'air s'échappe. **Le joueur garde ses commandes** (déplacement, regard) et peut fermer une
+    écoutille au clic pendant l'expulsion : fermée entre lui et la sortie, son volume ne communique plus avec
+    l'espace et le courant s'arrête (il garde la pression qui lui reste). La poussée rejoint le courant en 0,3 s
+    (`flow_response_s`) et retombe en 0,8 s dans l'air calme (`still_air_response_s`) ; contre une paroi, elle glisse
+    le long d'elle (`Observer.set_air_flow`). Dehors (sorti par la porte extérieure : hors de tous les volumes, le
+    dernier étant le sas ; `Station.observer_outside`, flashs et exposition), plus d'air : l'élan est gardé ;
+    combinaison enfilée, son propulseur dorsal (SAFER) l'amortit en 3 s (`safer_s`) et le joueur peut revenir.
+  - **Mort** (règles de jeu, `AirlockHazard`) : **sans combinaison, dans le vide ou presque** : pression du volume
+    sous `death_pressure` (0,3 bar : vidange par la valve avec la porte intérieure ouverte, expulsion…) ou dehors.
+    **Avec la combinaison, on ne meurt jamais.** Le corps reste porté par le courant après la mort (expulsé, il
+    traverse la station et sort).
   - **Séquence de mort** (`scripts/death_sequence.gd`, classe `DeathSequence`, créée par `AirlockHazard`) : commandes
-    coupées (observateur, regard, interactions, tablette masquée), puis la vue se ferme comme des yeux qui se ferment
+    coupées (déplacements, regard, interactions, tablette masquée ; le corps reste porté par le courant d'air ;
+    dehors, le regard se tourne vers la station qui s'éloigne en roulant lentement ; yeux fermés après 1,2 s sur
+    place, 3,5 s emporté, jusqu'à 3 s de plus quand on s'éloigne lentement), puis la vue se ferme comme des yeux qui se ferment
     (`shaders/eyelids.gdshader`) : deux paupières noires aux bords flous, en arc (les coins se ferment avant le
     centre), qui arrivent du haut et du bas, vue qui se brouille (flou de l'écran) et s'assombrit par les bords ; un
     dernier effort les rouvre un peu avant la fermeture (3,4 s). Écran noir : **écran de mort**
@@ -958,7 +974,8 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     CSG, inclinée de 30°).
 - **Observateur** : corps `Observer` (`CharacterBody3D`, script `scripts/observer.gd`, déplacement en mode
   « flottant », sphère de collision de 0,3 m) portant la caméra `Observer/Camera` (script
-  `scripts/station_camera.gd`, orientation). **Règle de jeu : on démarre allongé dans la couchette de l'Habitation,
+  `scripts/station_camera.gd`, orientation). Le courant d'air de l'expulsion s'ajoute à son déplacement
+  (`set_air_flow`, voir « Expulsion »). **Règle de jeu : on démarre allongé dans la couchette de l'Habitation,
   le regard vers ses pieds** (on voit le sac de couchage) : au démarrage, `Observer._place_at_start` place la caméra
   sur le repère `Point_Vue_Couchette` du modèle (`start_marker` ; vide : position de la scène), seulement quand la
   scène du jeu est la scène courante. Position de la scène (ancien départ, gardée par le décor du menu et les bancs

@@ -119,8 +119,6 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 @export var airlock_outer_hatch := "Ecoutille_Sas_Bas"
 ## Émission des voyants allumés de la valve (vert : plein, rouge : vide ; le rouge clignote pendant un cycle).
 @export var indicator_energy := 8.0
-## Porte extérieure ouverte sur un sas sous pression : l'air s'échappe, l'aiguille tombe à 0 en vent_s × pression.
-@export var vent_s := 1.5
 @export var indicator_blink_s := 0.8
 @export_group("")
 @export_group("Éclairage intérieur")
@@ -299,8 +297,6 @@ func set_hatch_open(id: String, open: bool) -> bool:
 		return true
 	hatch.target = open
 	hatch_moving.emit(id, open)
-	if open and id == airlock_outer_hatch:
-		_vent_airlock()
 	# Fermeture_Ecoutilles : début = ouverte, fin = fermée.
 	_tween_hatch(hatch, open, func() -> void:
 		hatch.is_open = open
@@ -460,8 +456,10 @@ static func _points_aabb(points: PackedVector3Array) -> AABB:
 
 # --- Sas de sortie --------------------------------------------------------------------------------------------------
 # Combinaison (clic : on l'enfile, elle disparaît ; clic sur son support : elle y revient) et valve de
-# dépressurisation (animation Blender Depressurisation_Sas : manette, aiguille du manomètre de 1 à 0 bar ; à l'envers :
-# remplissage). Aucun verrouillage : la sécurité est l'affaire du joueur (conséquences : scripts/airlock_hazard.gd).
+# dépressurisation (animation Blender Depressurisation_Sas : la manette s'ouvre (début), l'aiguille du manomètre
+# descend de 1 à 0 bar (courbe de vidange)). La valve est un robinet (vidange, remplissage, fermée) ; les pressions
+# sont calculées par StationAtmosphere (scripts/station_atmosphere.gd), qui fait suivre la pression du sas à
+# l'aiguille. Aucun verrouillage : la sécurité est l'affaire du joueur (conséquences : scripts/airlock_hazard.gd).
 
 func is_suit_worn() -> bool:
 	return _suit_worn
@@ -495,38 +493,39 @@ func airlock_part_for(node: Node) -> String:
 	return ""
 
 
-## Pression du sas (1 : plein, 0 : vide), lue sur l'aiguille du manomètre.
+## Pression du sas (1 : plein, 0 : vide), affichée par l'aiguille du manomètre (calculée par StationAtmosphere).
 func get_airlock_pressure() -> float:
-	return _pressure_at(_valve.time) if not _valve.is_empty() else 1.0
+	return float(_valve.get("pressure", 1.0))
 
 
 func is_airlock_cycling() -> bool:
-	return not _valve.is_empty() and _valve.tween != null
+	return get_airlock_valve_mode() != 0
 
 
-## État visé de la valve : vrai si le sas est plein ou se remplit.
+## Sens de la valve : −1 vidange, +1 remplissage, 0 fermée.
+func get_airlock_valve_mode() -> int:
+	return int(_valve.get("mode", 0))
+
+
+## État visé de la valve : vrai si elle remplit, ou si, fermée, le sas est plutôt plein.
 func is_airlock_filling() -> bool:
-	return _valve.is_empty() or _valve.target_full
+	var mode := get_airlock_valve_mode()
+	return mode > 0 or (mode == 0 and get_airlock_pressure() >= 0.5)
 
 
-## Remplit (full) ou vide le sas : la valve rejoue Depressurisation_Sas (à l'envers pour remplir), à sa vitesse ; une
-## demande inverse pendant un cycle repart de la position actuelle. Faux sans valve dans le modèle.
+## Ouvre la valve pour remplir (full) ou vider le sas, et avec lui tout ce qui communique avec lui
+## (StationAtmosphere) ; elle se referme d'elle-même une fois la pression visée atteinte. Une demande inverse pendant
+## un cycle l'inverse. Faux sans valve dans le modèle.
 func set_airlock_pressurized(full: bool) -> bool:
 	if _valve.is_empty():
 		return false
-	var anim: Animation = _valve.anim
-	var target := 0.0 if full else anim.length
-	_valve.target_full = full
-	if _valve.tween:
-		(_valve.tween as Tween).kill()
-		_valve.tween = null
-	if is_equal_approx(_valve.time, target):
+	var pressure := get_airlock_pressure()
+	if (full and pressure >= 0.998) or (not full and pressure <= 0.002):
+		_valve.mode = 0
+		_move_lever(0.0)
 		return true
-	_valve.tween = create_tween()
-	_valve.tween.tween_method(_set_valve_time, _valve.time, target, absf(target - _valve.time))
-	_valve.tween.tween_callback(func() -> void:
-		_valve.tween = null
-		airlock_changed.emit(full))
+	_valve.mode = 1 if full else -1
+	_move_lever(1.0)
 	return true
 
 
@@ -534,37 +533,51 @@ func toggle_airlock_pressure() -> bool:
 	return set_airlock_pressurized(not is_airlock_filling())
 
 
-## L'air du sas s'échappe par la porte extérieure : seule l'aiguille tombe à 0 (la manette ne bouge pas : en fin
-## d'animation, elle est refermée, comme au repos).
-func _vent_airlock() -> void:
+## Durée (s) d'une vidange complète du sas seul par la valve (descente de l'aiguille dans Depressurisation_Sas).
+func get_airlock_valve_s() -> float:
+	return maxf(float(_valve.get("t1", 20.0)) - float(_valve.get("t0", 0.0)), 0.01)
+
+
+## Pression après seconds de vidange du sas seul par la valve (seconds < 0 : remplissage), sur la courbe du manomètre
+## (exponentielle adoucie : plus rapide aux faibles pressions qu'une exponentielle pure).
+func airlock_step(pressure: float, seconds: float) -> float:
+	if _valve.is_empty():
+		return clampf(pressure - seconds / 20.0, 0.0, 1.0)
+	var t := clampf(_time_for(pressure, seconds < 0.0) + seconds, float(_valve.t0), float(_valve.t1))
+	return _pressure_at(t)
+
+
+## Pression du sas (StationAtmosphere, à chaque image) : aiguille du manomètre, fin de cycle de la valve.
+func set_airlock_gauge(pressure: float) -> void:
 	if _valve.is_empty():
 		return
-	var anim: Animation = _valve.anim
-	var pressure := get_airlock_pressure()
-	if pressure <= 0.0:
-		return
-	if _valve.tween:
-		(_valve.tween as Tween).kill()
-	_valve.target_full = false
+	_valve.pressure = pressure
 	var needle: int = _valve.needle
 	var node: Node3D = _valve.targets[_valve.tracks.find(needle)]
-	_valve.tween = create_tween()
-	_valve.tween.tween_method(func(time: float) -> void:
-		_valve.time = time
-		if node:
-			_apply_track(anim, needle, node, time), _valve.time, anim.length, vent_s * pressure) \
-			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_EXPO)
-	_valve.tween.tween_callback(func() -> void:
-		_valve.tween = null
-		_set_valve_time(anim.length)
-		airlock_changed.emit(false))
+	if node:
+		_apply_track(_valve.anim, needle, node, _time_for(pressure, false))
+	var mode: int = _valve.mode
+	if (mode < 0 and pressure <= 0.002) or (mode > 0 and pressure >= 0.998):
+		_valve.mode = 0
+		_move_lever(0.0)
+		airlock_changed.emit(mode > 0)
 
 
-func _set_valve_time(time: float) -> void:
-	_valve.time = time
-	for i in _valve.tracks.size():
-		if _valve.targets[i]:
-			_apply_track(_valve.anim, _valve.tracks[i], _valve.targets[i], time)
+## Manette : 0 fermée (début de l'animation), 1 ouverte (quand l'aiguille commence à descendre), à la vitesse de
+## l'animation.
+func _move_lever(open: float) -> void:
+	if _valve.lever_tween:
+		(_valve.lever_tween as Tween).kill()
+	var t0: float = _valve.t0
+	var duration := absf(open - float(_valve.lever)) * t0
+	if duration <= 0.0:
+		return
+	_valve.lever_tween = create_tween()
+	_valve.lever_tween.tween_method(func(u: float) -> void:
+		_valve.lever = u
+		for i in _valve.tracks.size():
+			if _valve.tracks[i] != _valve.needle and _valve.targets[i]:
+				_apply_track(_valve.anim, _valve.tracks[i], _valve.targets[i], u * t0), _valve.lever, open, duration)
 
 
 ## Pression au temps time de l'animation : 1 − rotation cumulée de l'aiguille / rotation totale. L'aiguille est la
@@ -577,6 +590,22 @@ func _pressure_at(time: float) -> float:
 	var x := clampf(time / (_valve.anim as Animation).length, 0.0, 1.0) * last
 	var i := mini(int(x), last - 1)
 	return 1.0 - lerpf(curve[i], curve[i + 1], x - i) / curve[last]
+
+
+## Temps de l'animation où l'aiguille indique pressure (réciproque de _pressure_at), dans sa descente (t0–t1) : au
+## début (early, sens du remplissage) ou à la fin des paliers.
+func _time_for(pressure: float, early: bool) -> float:
+	var curve: PackedFloat32Array = _valve.curve
+	var last := curve.size() - 1
+	if last < 1 or curve[last] <= 0.0:
+		return 0.0
+	var c := (1.0 - clampf(pressure, 0.0, 1.0)) * curve[last]
+	var i := clampi(curve.bsearch(c, early) - (0 if early else 1), 0, last)
+	var x := float(i)
+	if i < last and curve[i + 1] > curve[i] and c > curve[i]:
+		x += minf((c - curve[i]) / (curve[i + 1] - curve[i]), 1.0)
+	var length: float = (_valve.anim as Animation).length
+	return clampf(x / last * length, float(_valve.t0), float(_valve.t1))
 
 
 func _collect_airlock() -> void:
@@ -615,11 +644,22 @@ func _setup_valve(node: MeshInstance3D, extras: Dictionary) -> void:
 		if needle < 0 or curve[240] > needle_curve[240]:
 			needle = t
 			needle_curve = curve
-	_valve = {"node": node, "anim": anim, "tracks": tracks, "targets": targets, "time": 0.0, "tween": null,
-			"target_full": true, "curve": needle_curve, "needle": needle,
+	# Descente de l'aiguille : t0 (manette ouverte) – t1 (sas vide, avant que la manette se referme).
+	var last := needle_curve.size() - 1
+	var first_move := 0
+	while first_move < last and needle_curve[first_move + 1] <= 1e-4:
+		first_move += 1
+	var at_end := last
+	while at_end > 0 and needle_curve[at_end - 1] >= needle_curve[last] - 1e-4:
+		at_end -= 1
+	_valve = {"node": node, "anim": anim, "tracks": tracks, "targets": targets, "curve": needle_curve,
+			"needle": needle, "t0": anim.length * first_move / last, "t1": anim.length * at_end / last,
+			"mode": 0, "pressure": 1.0, "lever": 0.0, "lever_tween": null,
 			"green": _indicator_material(node, String(extras.get("voyant_plein", ""))),
 			"red": _indicator_material(node, String(extras.get("voyant_vide", "")))}
-	_set_valve_time(0.0)
+	for i in tracks.size():
+		if targets[i]:
+			_apply_track(anim, tracks[i], targets[i], 0.0)
 
 
 ## Copie émissive (posée en surcharge) du matériau de voyant material_name du maillage, ou null.
