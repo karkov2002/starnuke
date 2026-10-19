@@ -642,13 +642,16 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     **Règle de jeu (à brancher dans `station.gd` après l'export)** : un clic sur la combinaison la fait disparaître
     (on l'enfile) ; un clic sur le porte-combinaison la remet en place.
   - `Interactif_Valve_Sas` (paroi +X, extras `type` « valve_sas », `animation`, `voyant_plein`, `voyant_vide`) :
-    platine à manomètre 0–1,2 bar (zone rouge près de 0, repère vert à 1 bar), manette quart de tour (vers la droite
+    bien visible : platine orange vif (`Int_Valve_Orange`) dans un cadre à bandes jaunes et noires, agrandie
+    (échelle de l'objet 1,6 : 0,61 × 0,48 m hors tout, centre à z −4,05, entre les nervures), écartée de 4,5 cm de la
+    paroi courbe sur un socle (à plat contre elle, ses bords s'y enfonçaient) ; platine à manomètre 0–1,2 bar (zone rouge près de 0, repère vert à 1 bar), manette quart de tour (vers la droite
     fermée, vers le bas ouverte ; elle ne passe jamais devant le cadran), voyants `Int_Voyant_Sas_Vert` (plein) et
     `Int_Voyant_Sas_Rouge` (vide), conduit d'évent. Pivots enfants `Pivot_Valve_Sas` et `Pivot_Aiguille_Sas` ; piste
     NLA `Depressurisation_Sas` (images 1–505 à 24 i/s) : manette ouverte (0,5 s), aiguille de 1 à 0 bar en 20 s
     (vidange exponentielle adoucie, constante de temps 20 s / 2,2 : elle ne traîne plus aux faibles pressions), manette refermée (0,5 s). **Règle de jeu** : la valve vide le sas, jouée à l'envers elle
     le remplit.
-  - `Sas_Equipements` (sans collision) : trois sacs CTB sous sandows, extincteur, bouteille d'oxygène et masque,
+  - `Sas_Equipements` (sans collision) : trois sacs CTB sous sandows, extincteur (paroi −X, au-dessus de la
+    bouteille : la paroi +X est réservée à la valve), bouteille d'oxygène et masque,
     longe et enrouleur, batteries de rechange sous sangle, sacoche d'outils, fiche de procédure.
   - L'ancien petit sas factice sous l'Habitation (`Habitation_Sas`, `_Fond`, `_Anneau` et la trappe verrouillée
     `Interactif_Trappe_Sas`, sans rien derrière) est retiré : ce module le remplace.

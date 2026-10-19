@@ -81,6 +81,8 @@ MATS = {
     "ecusson": material("Int_Combi_Ecusson", (0.04, 0.08, 0.25), 0.0, 0.7),
     "ecusson_rond": material("Int_Combi_Ecusson_Rond", (0.08, 0.08, 0.10), 0.0, 0.6),
     "cadran": material("Int_Cadran", (0.9, 0.9, 0.88), 0.0, 0.4),
+    "orange": material("Int_Valve_Orange", (0.85, 0.22, 0.0), 0.0, 0.45),
+    "hachure_noire": material("Int_Hachure_Noire", (0.02, 0.02, 0.02), 0.0, 0.6),
     "vert_marque": material("Int_Marque_Verte", (0.05, 0.5, 0.12), 0.0, 0.5),
     "voyant_vert": material("Int_Voyant_Sas_Vert", (0.05, 0.6, 0.15), 0.0, 0.3),
     "voyant_rouge": material("Int_Voyant_Sas_Rouge", (0.6, 0.05, 0.04), 0.0, 0.3),
@@ -918,7 +920,10 @@ def build_suit_rack():
 
 
 # ------------------------------------------------------------------------------------------------ valve du sas
-VALVE_AZ, VALVE_Z = 0.0, -3.85
+VALVE_AZ, VALVE_Z = 0.0, -4.05
+## Platine agrandie (échelle de l'objet, modèle construit à l'échelle 1) pour qu'on la trouve : 0,53 × 0,40 m hors
+## tout, entre les nervures de la paroi (z −3,62 et −4,86).
+VALVE_SCALE = 1.6
 VALVE_ANIM = "Depressurisation_Sas"
 VALVE_S = 20.0                 # vidange (ou remplissage) : 20 s, temps de jeu
 GAUGE_UP = 0.075               # manomètre : centre (u) sur la platine
@@ -936,10 +941,24 @@ def build_valve():
     """Platine de dépressurisation (paroi +X) : manomètre 0–1,2 bar, manette quart de tour, voyants vert (plein) et
     rouge (vide), conduit d'évent. Objet Interactif_Valve_Sas (repère de la platine : X haut, Z vers l'axe du sas) ;
     pivots enfants Pivot_Valve_Sas (manette) et Pivot_Aiguille_Sas (aiguille), axes Z locaux = normale de la platine."""
-    frame = wall_frame(VALVE_AZ, VALVE_Z)
+    # Platine plane écartée de la paroi courbe (sinon ses bords s'y enfoncent), sur un socle.
+    frame = wall_frame(VALVE_AZ, VALVE_Z) @ Matrix.Translation((0, 0, 0.045))
     b = Builder()
-    b.add(soft_box((0.165, 0.125, 0.012), 0.012, 0.02), "gris", Matrix.Translation((0, 0, 0.006)))
-    b.add(soft_box((0.17, 0.13, 0.004), 0.01, 0.02), "jaune", Matrix.Translation((0, 0, 0.0)))
+    b.add(soft_box((0.17, 0.13, 0.03), 0.01, 0.02), "gris", Matrix.Translation((0, 0, -0.03)))
+    # Platine orange vif dans un cadre à bandes jaunes et noires (signalisation de sécurité) : bien visible.
+    b.add(soft_box((0.165, 0.125, 0.012), 0.012, 0.02), "orange", Matrix.Translation((0, 0, 0.006)))
+    b.add(soft_box((0.19, 0.15, 0.004), 0.008, 0.02), "jaune", Matrix.Translation((0, 0, 0.0)))
+    stripe_w = 0.022
+    for edge_u, edge_v, along_v in ((0.1775, 0.0, True), (-0.1775, 0.0, True), (0.0, 0.1375, False), (0.0, -0.1375, False)):
+        length = 0.30 if along_v else 0.38
+        n = int(length / stripe_w)
+        for k in range(n):
+            if k % 2:
+                continue
+            t = -length / 2 + (k + 0.5) * stripe_w
+            pos = Vector((edge_u, t, 0.0045)) if along_v else Vector((t, edge_v, 0.0045))
+            m = Matrix.Translation(pos) @ Matrix.Rotation(math.radians(45), 4, 'Z')
+            b.add(soft_box((0.0075, 0.0075, 0.0008), 0.0005, 0.004), "hachure_noire", m)
     # Manomètre : boîtier, cadran blanc, graduations, lunette, verre.
     gc = Vector((GAUGE_UP, 0.0, 0.0))
     b.add(cylinder(0.056, 0.03, 48), "metal", Matrix.Translation(gc + Vector((0, 0, 0.033))))
@@ -973,7 +992,7 @@ def build_valve():
     b.add(tube([(-0.165, 0.0, 0.03), (-0.21, 0.0, 0.03), (-0.24, 0.0, 0.0), (-0.25, 0.0, -0.03)], 0.016, 16), "metal")
     b.add(torus(0.019, 0.005, 20, 6), "metal", Matrix.Translation((-0.19, 0.0, 0.03)) @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
     valve = b.write("Interactif_Valve_Sas", cols["Int_Sas"])
-    valve.matrix_world = frame
+    valve.matrix_world = frame @ Matrix.Scale(VALVE_SCALE, 4)
     valve["interactif"] = True
     valve["type"] = "valve_sas"
     valve["id"] = "Valve_Sas"
@@ -1056,8 +1075,8 @@ def build_equipment():
         c, _ = wall_point(270 + 17, z, 0.01)
         over = Vector((X0, Y0 - IN_R + 0.235, z))
         bungee(b, a, c, over, Vector((0, 1, 0)))
-    # Extincteur (paroi +X) dans ses deux colliers.
-    p, n = wall_point(0, -4.45, 0.085)
+    # Extincteur (paroi −X, au-dessus de la bouteille d'oxygène) dans ses deux colliers : la paroi +X est à la valve.
+    p, n = wall_point(180, -3.80, 0.085)
     b.add(cylinder(0.062, 0.38, 32), "extincteur", Matrix.Translation(p))
     b.add(revolve([(0.0, 0.19), (0.062, 0.19), (0.05, 0.22), (0.02, 0.235), (0.0, 0.235)], 24), "extincteur", Matrix.Translation(p))
     b.add(cylinder(0.018, 0.05, 16), "metal", Matrix.Translation(p + Vector((0, 0, 0.255))))
@@ -1066,7 +1085,7 @@ def build_equipment():
     b.add(cylinder(0.014, 0.05, 12, 0.006), "noir", Matrix.Translation(p + Vector((-0.03, 0.075, 0.075))))
     for z in (-0.11, 0.11):
         b.add(ring(0.062, 0.072, z - 0.015, z + 0.015, 0.003, 32, (p.x, p.y)), "metal", Matrix.Translation((0, 0, p.z)))
-        b.add(soft_box((0.025, 0.03, 0.015), 0.005, 0.01), "metal", Matrix.Translation(p + Vector((0.075, 0, z))))
+        b.add(soft_box((0.025, 0.03, 0.015), 0.005, 0.01), "metal", Matrix.Translation(p - n * 0.075 + Vector((0, 0, z))))
     # Bouteille d'oxygène portable et masque (paroi −X).
     p, n = wall_point(180, -4.45, 0.08)
     b.add(cylinder(0.058, 0.32, 32), "oxygene", Matrix.Translation(p))
