@@ -642,7 +642,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     **Règle de jeu (à brancher dans `station.gd` après l'export)** : un clic sur la combinaison la fait disparaître
     (on l'enfile) ; un clic sur le porte-combinaison la remet en place.
   - `Interactif_Valve_Sas` (paroi +X, extras `type` « valve_sas », `animation`, `voyant_plein`, `voyant_vide`) :
-    bien visible : platine orange vif (`Int_Valve_Orange`) dans un cadre à bandes jaunes et noires, agrandie
+    bien visible : platine orange vif (`Int_Valve_Orange`) dans un cadre jaune riveté (rivets bombés sombres), agrandie
     (échelle de l'objet 1,6 : 0,61 × 0,48 m hors tout, centre à z −4,05, entre les nervures), écartée de 4,5 cm de la
     paroi courbe sur un socle (à plat contre elle, ses bords s'y enfonçaient) ; platine à manomètre 0–1,2 bar (zone rouge près de 0, repère vert à 1 bar), manette quart de tour (vers la droite
     fermée, vers le bas ouverte ; elle ne passe jamais devant le cadran), voyants `Int_Voyant_Sas_Vert` (plein) et

@@ -82,7 +82,7 @@ MATS = {
     "ecusson_rond": material("Int_Combi_Ecusson_Rond", (0.08, 0.08, 0.10), 0.0, 0.6),
     "cadran": material("Int_Cadran", (0.9, 0.9, 0.88), 0.0, 0.4),
     "orange": material("Int_Valve_Orange", (0.85, 0.22, 0.0), 0.0, 0.45),
-    "hachure_noire": material("Int_Hachure_Noire", (0.02, 0.02, 0.02), 0.0, 0.6),
+    "hachure_noire": material("Int_Hachure_Noire", (0.02, 0.02, 0.02), 0.5, 0.4),
     "vert_marque": material("Int_Marque_Verte", (0.05, 0.5, 0.12), 0.0, 0.5),
     "voyant_vert": material("Int_Voyant_Sas_Vert", (0.05, 0.6, 0.15), 0.0, 0.3),
     "voyant_rouge": material("Int_Voyant_Sas_Rouge", (0.6, 0.05, 0.04), 0.0, 0.3),
@@ -945,20 +945,20 @@ def build_valve():
     frame = wall_frame(VALVE_AZ, VALVE_Z) @ Matrix.Translation((0, 0, 0.045))
     b = Builder()
     b.add(soft_box((0.17, 0.13, 0.03), 0.01, 0.02), "gris", Matrix.Translation((0, 0, -0.03)))
-    # Platine orange vif dans un cadre à bandes jaunes et noires (signalisation de sécurité) : bien visible.
+    # Platine orange vif dans un cadre jaune riveté (rivets bombés sombres, tous les 4,4 cm) : bien visible.
     b.add(soft_box((0.165, 0.125, 0.012), 0.012, 0.02), "orange", Matrix.Translation((0, 0, 0.006)))
     b.add(soft_box((0.19, 0.15, 0.004), 0.008, 0.02), "jaune", Matrix.Translation((0, 0, 0.0)))
-    stripe_w = 0.022
-    for edge_u, edge_v, along_v in ((0.1775, 0.0, True), (-0.1775, 0.0, True), (0.0, 0.1375, False), (0.0, -0.1375, False)):
-        length = 0.30 if along_v else 0.38
-        n = int(length / stripe_w)
-        for k in range(n):
-            if k % 2:
-                continue
-            t = -length / 2 + (k + 0.5) * stripe_w
-            pos = Vector((edge_u, t, 0.0045)) if along_v else Vector((t, edge_v, 0.0045))
-            m = Matrix.Translation(pos) @ Matrix.Rotation(math.radians(45), 4, 'Z')
-            b.add(soft_box((0.0075, 0.0075, 0.0008), 0.0005, 0.004), "hachure_noire", m)
+    rivet = [(0.0, 0.0), (0.0045, 0.0), (0.0042, 0.0012), (0.0032, 0.0024), (0.0018, 0.0031), (0.0, 0.0034)]
+    corner_u, corner_v = 0.1775, 0.1375
+    points = []
+    for k in range(9):                       # bords haut et bas, coins compris
+        t = -corner_u + k * 2 * corner_u / 8
+        points += [(t, corner_v), (t, -corner_v)]
+    for k in range(1, 6):                    # côtés, entre les coins
+        t = -corner_v + k * 2 * corner_v / 6
+        points += [(corner_u, t), (-corner_u, t)]
+    for u, v in points:
+        b.add(revolve(rivet, 16), "hachure_noire", Matrix.Translation((u, v, 0.0035)))
     # Manomètre : boîtier, cadran blanc, graduations, lunette, verre.
     gc = Vector((GAUGE_UP, 0.0, 0.0))
     b.add(cylinder(0.056, 0.03, 48), "metal", Matrix.Translation(gc + Vector((0, 0, 0.033))))
