@@ -2,10 +2,14 @@ class_name AirlockHazard
 extends Node
 ## Conséquences des manœuvres du sas de sortie (nœud AirlockHazard de scenes/orbit_view.tscn). Aucun verrouillage :
 ## la sécurité est l'affaire du joueur. Règles de jeu :
-## - **décompression explosive** (dès que l'une des deux commence à s'ouvrir) : porte extérieure et écoutille
-##   intérieure ouvertes en même temps (état visé : une écoutille qui se ferme compte comme fermée) : l'air de la
-##   station s'échappe par le sas ; l'observateur, s'il est dans le sas (puits compris) ou dans l'Arrimage, est éjecté
-##   dans le vide et meurt, combinaison ou non ;
+## - **décompression** (dès que l'une des deux commence à s'ouvrir), combinaison ou non (éjecté sans attache, on
+##   dérive au loin et on meurt), selon l'air qui s'échappe :
+##   - porte extérieure et écoutille intérieure ouvertes en même temps (état visé : une écoutille qui se ferme compte
+##     comme fermée) : toute la station se vide par le sas ; l'observateur, s'il est dans le sas (puits compris) ou
+##     dans l'Arrimage, est éjecté violemment (station_eject_speed, puis souffle continu station_eject_accel) ;
+##   - porte extérieure ouverte, écoutille intérieure fermée, sas pas tout à fait vidé (au-dessus de
+##     min_eject_pressure) : seul l'air du sas s'échappe ; l'observateur dans le sas est poussé dehors bien moins fort,
+##     à une vitesse proportionnelle à la pression restante (sas_eject_speed × pression), sans souffle continu ;
 ## - **asphyxie** (à chaque image) : observateur dans le sas sans combinaison quand la pression y passe sous
 ##   death_pressure : vidange par la valve, ou porte extérieure ouverte (l'air du sas s'échappe : Station._vent_airlock).
 ##   Il meurt sur place, sans éjection.
@@ -21,6 +25,13 @@ extends Node
 @export var module_mesh := "Arrimage_Couloir*"
 ## Pression (relative, 0–1) sous laquelle on perd connaissance sans combinaison (~0,3 bar).
 @export var death_pressure := 0.3
+## Éjection par l'air de toute la station : vitesse (m/s) et souffle continu (m/s²).
+@export var station_eject_speed := 9.0
+@export var station_eject_accel := 5.0
+## Éjection par l'air du sas seul : vitesse (m/s) sas plein, proportionnelle à la pression restante.
+@export var sas_eject_speed := 3.0
+## En dessous, l'air restant dans le sas ne pousse plus assez pour éjecter.
+@export var min_eject_pressure := 0.03
 
 var _station: Station
 var _observer: Node3D
@@ -58,15 +69,21 @@ func _air_pressure() -> float:
 func _on_hatch_moving(id: String, open: bool) -> void:
 	if _dead or not open or (id != _station.airlock_outer_hatch and id != _station.airlock_inner_hatch):
 		return
-	if not (_station.is_hatch_opening(_station.airlock_outer_hatch)
-			and _station.is_hatch_opening(_station.airlock_inner_hatch)):
+	if not _station.is_hatch_opening(_station.airlock_outer_hatch):
 		return
 	var where := _station.to_local(_eye())
-	if _sas_box.has_point(where) or _module_box.has_point(where):
-		_die(true)
+	var in_sas := _sas_box.has_point(where)
+	if _station.is_hatch_opening(_station.airlock_inner_hatch):
+		if in_sas or _module_box.has_point(where):
+			_die(true, station_eject_speed, station_eject_accel)
+	elif id == _station.airlock_outer_hatch and in_sas:
+		# Pression lue avant que l'air ne s'échappe (Station._vent_airlock suit ce signal).
+		var pressure := _station.get_airlock_pressure()
+		if pressure > min_eject_pressure:
+			_die(true, sas_eject_speed * pressure, 0.0)
 
 
-func _die(eject: bool) -> void:
+func _die(eject: bool, speed := 0.0, accel := 0.0) -> void:
 	_dead = true
 	var disabled: Array[Node] = []
 	for path in disabled_paths:
@@ -80,7 +97,7 @@ func _die(eject: bool) -> void:
 	var door := _station.to_global(Vector3(box.get_center().x, box.position.y, box.get_center().z))
 	var out := -_station.global_basis.y.normalized()
 	var target := _station.to_global(box.get_center())
-	sequence.start(_observer, disabled, eject, door, out, target, _station.global_basis.x)
+	sequence.start(_observer, disabled, eject, door, out, target, _station.global_basis.x, speed, accel)
 
 
 func _eye() -> Vector3:

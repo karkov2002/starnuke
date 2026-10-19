@@ -15,12 +15,16 @@ const CLOSING := [Vector2(0.0, 0.0), Vector2(1.4, 0.62), Vector2(1.9, 0.38), Vec
 ## Délai avant la fermeture des yeux : sans éjection (asphyxie) et avec éjection (on voit la station s'éloigner).
 const DELAY_ASPHYXIA_S := 1.2
 const DELAY_EJECTION_S := 3.5
-## Éjection : durée de l'aspiration jusqu'à la porte, vitesse de sortie (m/s), accélération (m/s², souffle de l'air
-## qui s'échappe puis dérive), rotation sur soi (rad/s).
-const SUCTION_S := 0.35
+## Éjection : vitesse de sortie (m/s) et accélération (m/s², souffle continu) par défaut (toute la station se vide par
+## le sas), rotation sur soi (rad/s). Aspiration jusqu'à la porte : SUCTION_DISTANCE_S / vitesse, bornée (0,35 s à
+## pleine vitesse, plus lente pour un faible souffle). Plus la vitesse est faible, plus on voit longtemps la station
+## s'éloigner avant que les yeux se ferment (jusqu'à SLOW_EXTRA_DELAY_S de plus).
 const EJECT_SPEED := 9.0
 const EJECT_ACCEL := 5.0
 const TUMBLE_RAD_S := 0.45
+const SUCTION_DISTANCE_S := 3.2
+const SUCTION_RANGE_S := Vector2(0.35, 2.5)
+const SLOW_EXTRA_DELAY_S := 3.0
 
 var _observer: Node3D
 var _camera: Camera3D
@@ -34,6 +38,9 @@ var _out := Vector3.DOWN
 var _look_target := Vector3.ZERO
 var _look_up := Vector3.RIGHT
 var _start_basis := Basis.IDENTITY
+var _speed := EJECT_SPEED
+var _accel := EJECT_ACCEL
+var _suction_s := SUCTION_RANGE_S.x
 var _done := false
 
 
@@ -51,9 +58,11 @@ func _ready() -> void:
 
 ## Lance la séquence. observer : corps de l'observateur (sa caméra est l'enfant « Camera ») ; disabled : nœuds à
 ## couper (interactions…). eject vrai : éjection par eject_door (position monde de la porte extérieure), le long de
-## eject_out (direction de sortie), le regard sur look_target (point de la station), look_up : haut de la vue.
+## eject_out (direction de sortie), le regard sur look_target (point de la station), look_up : haut de la vue, à la
+## vitesse speed (m/s) puis avec l'accélération accel (m/s²).
 func start(observer: Node3D, disabled: Array[Node], eject := false, eject_door := Vector3.ZERO,
-		eject_out := Vector3.DOWN, look_target := Vector3.ZERO, look_up := Vector3.RIGHT) -> void:
+		eject_out := Vector3.DOWN, look_target := Vector3.ZERO, look_up := Vector3.RIGHT, speed := EJECT_SPEED,
+		accel := EJECT_ACCEL) -> void:
 	_observer = observer
 	_camera = observer.get_node_or_null("Camera") as Camera3D
 	for node in disabled + [observer as Node, _camera as Node]:
@@ -65,7 +74,10 @@ func start(observer: Node3D, disabled: Array[Node], eject := false, eject_door :
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_ejecting = eject
 	if eject:
-		_delay = DELAY_EJECTION_S
+		_speed = maxf(speed, 0.05)
+		_accel = accel
+		_suction_s = clampf(SUCTION_DISTANCE_S / _speed, SUCTION_RANGE_S.x, SUCTION_RANGE_S.y)
+		_delay = DELAY_EJECTION_S + SLOW_EXTRA_DELAY_S * (1.0 - clampf(_speed / EJECT_SPEED, 0.0, 1.0))
 		_start = observer.global_position
 		_door = eject_door
 		_out = eject_out.normalized()
@@ -105,11 +117,11 @@ func _closure(t: float) -> float:
 ## station, qui tourne lentement (on roule sur soi-même).
 func _eject() -> void:
 	var position: Vector3
-	if _time < SUCTION_S:
-		position = _start.lerp(_door, smoothstep(0.0, 1.0, _time / SUCTION_S))
+	if _time < _suction_s:
+		position = _start.lerp(_door, smoothstep(0.0, 1.0, _time / _suction_s))
 	else:
-		var s := _time - SUCTION_S
-		position = _door + _out * (EJECT_SPEED * s + 0.5 * EJECT_ACCEL * s * s)
+		var s := _time - _suction_s
+		position = _door + _out * (_speed * s + 0.5 * _accel * s * s)
 	_observer.global_position = position
 	if _camera == null:
 		return
@@ -120,5 +132,5 @@ func _eject() -> void:
 	if absf(up.dot(to_target.normalized())) > 0.98:
 		up = _out.cross(_look_up)
 	# Le regard se tourne vers la station pendant l'aspiration (pas de saut de caméra).
-	var w := smoothstep(0.0, 1.0, _time / (SUCTION_S + 0.4))
+	var w := smoothstep(0.0, 1.0, _time / (_suction_s + 0.4))
 	_camera.global_basis = _start_basis.slerp(Basis.looking_at(to_target, up), w)

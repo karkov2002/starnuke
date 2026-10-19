@@ -696,12 +696,19 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   - **Porte extérieure ouverte sur un sas sous pression** (écoutille intérieure fermée) : l'air du sas s'échappe,
     l'aiguille du manomètre tombe à 0 en `vent_s` × pression (1,5 s pour un sas plein ; la manette ne bouge pas).
   - **Mort dans le sas** (règles de jeu, `scripts/airlock_hazard.gd`, nœud `AirlockHazard` de `orbit_view.tscn`) :
-    - **décompression explosive**, évaluée dès que la porte extérieure ou l'écoutille intérieure commence à
-      s'ouvrir : les deux ouvertes en même temps (état visé : une écoutille qui se ferme compte comme fermée ; l'air
-      de la station s'échappe par le sas) : l'observateur, s'il est dans le sas (puits compris) ou dans l'Arrimage,
-      est **éjecté**, combinaison ou non : aspiré vers la porte en 0,35 s puis projeté vers la Terre (9 m/s,
-      +5 m/s²), en roulant lentement sur lui-même, le regard sur la station qui s'éloigne ; ses yeux se ferment après
-      3,5 s. Écoutille intérieure fermée, pas d'éjection, même si le sas était encore plein ;
+    - **décompression**, évaluée dès que la porte extérieure ou l'écoutille intérieure commence à s'ouvrir ;
+      l'observateur est **éjecté**, combinaison ou non (sans attache, il dérive au loin et meurt), avec une force qui
+      dépend de l'air qui s'échappe :
+      - les deux ouvertes en même temps (état visé : une écoutille qui se ferme compte comme fermée) : toute la
+        station se vide par le sas ; s'il est dans le sas (puits compris) ou dans l'Arrimage, il est projeté
+        violemment : 9 m/s puis souffle continu de 5 m/s² (`station_eject_speed`, `station_eject_accel`) ;
+      - écoutille intérieure fermée, porte extérieure ouverte sur un sas pas tout à fait vidé : seul l'air du sas
+        s'échappe (un volume bien plus petit) ; s'il est dans le sas, il est poussé dehors à 3 m/s × la pression
+        restante (`sas_eject_speed` : 3 m/s sas plein, 0,15 m/s à 5 %), sans souffle continu ; sous 0,03 bar
+        (`min_eject_pressure`), pas d'éjection.
+      Aspiré vers la porte (0,35 s à pleine vitesse, jusqu'à 2,5 s pour un faible souffle), puis projeté vers la
+      Terre en roulant lentement sur lui-même, le regard sur la station qui s'éloigne ; ses yeux se ferment après
+      3,5 s (jusqu'à 3 s de plus quand il s'éloigne lentement) ;
     - **asphyxie**, évaluée à chaque image : observateur dans le sas sans combinaison quand la pression y passe sous
       `death_pressure` (0,3 bar : vidange par la valve, vers 6 s, ou porte extérieure ouverte ; écoutille intérieure
       ouverte, le sas garde l'air de la station). Il meurt sur place (yeux fermés après 1,2 s), sans éjection.
