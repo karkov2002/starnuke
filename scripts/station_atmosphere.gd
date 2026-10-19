@@ -5,12 +5,13 @@ extends Node
 ## qui commence à s'ouvrir communique déjà, une écoutille qui commence à se fermer isole déjà). Règles de jeu :
 ## - des volumes qui communiquent s'équilibrent (moyenne pondérée par les volumes d'air, constante equalize_s) ;
 ## - la valve du sas vide **tout l'ensemble qui communique avec le sas**, en suivant la courbe de son manomètre (20 s
-##   pour le sas seul), ou le remplit à débit constant (valve_fill_s pour le sas seul ; réserve d'oxygène illimitée,
-##   porte extérieure fermée : sinon, l'air repart dans l'espace) ;
+##   pour le sas seul), ou le remplit à débit constant (valve_fill_s, 8 s pour le sas seul ; réserve d'oxygène
+##   illimitée, porte extérieure fermée : sinon, l'air repart dans l'espace) ; toute la station : station_valve_s
+##   (35 s) dans les deux sens (_valve_duration) ;
 ## - porte extérieure ouverte : tout l'ensemble qui communique avec l'espace se vide (door_vent_s pour le sas seul) et
 ##   un courant d'air y porte vers la sortie (flow_at), d'autant plus fort que la pression et le nombre de modules
 ##   reliés sont grands : de flow_speed_sas (sas seul, plein) à flow_speed_max (tous les modules reliés).
-## Durées : × racine du volume d'air rapporté à celui du sas (toute la station : ~9 fois plus long).
+## Porte extérieure : durée × racine du volume d'air rapporté à celui du sas (toute la station : ~8 fois plus long).
 ## Volumes et écoutilles : tables ZONES et HATCHES (coordonnées Blender du modèle, converties dans le repère de la
 ## station : x, z, −y). La valve et son manomètre : Station (get_airlock_valve_mode, airlock_step, set_airlock_gauge).
 
@@ -48,6 +49,8 @@ const BEYOND_M := 0.8
 @export var equalize_s := 0.5
 ## Remplissage du sas seul par la valve, de vide à plein (s) : débit constant, réserve d'oxygène illimitée.
 @export var valve_fill_s := 8.0
+## Toute la station ouverte : durée d'une vidange ou d'un remplissage complet par la valve (s).
+@export var station_valve_s := 35.0
 ## Vidange d'un sas plein par la porte extérieure (s).
 @export var door_vent_s := 1.5
 ## Courant d'air vers la sortie (m/s, × pression) : sas seul, et tous les modules reliés.
@@ -61,12 +64,14 @@ var _station: Station
 var _next := {}
 var _flow_speed := {}
 var _modules_total := 0
+var _volume_total := 0.0
 
 
 func _ready() -> void:
 	for zone: String in ZONES:
 		pressures[zone] = 1.0
 		_modules_total += int(ZONES[zone][2])
+		_volume_total += float(ZONES[zone][1])
 	_station = get_node_or_null(station_path) as Station
 	if _station == null:
 		set_process(false)
@@ -94,9 +99,10 @@ func _process(delta: float) -> void:
 		if zones.has(SPACE):
 			target = _station.airlock_step(mean, delta * _station.get_airlock_valve_s() / door_vent_s / scale)
 		elif zones.has(SAS) and valve < 0:
-			target = _station.airlock_step(mean, delta / scale)
+			var valve_s := _station.get_airlock_valve_s()
+			target = _station.airlock_step(mean, delta * valve_s / _valve_duration(volume, valve_s))
 		elif zones.has(SAS) and valve > 0:
-			target = minf(mean + delta / (valve_fill_s * scale), 1.0)
+			target = minf(mean + delta / _valve_duration(volume, valve_fill_s), 1.0)
 		var w := 1.0 - exp(-delta / equalize_s)
 		for zone: String in zones:
 			if zone != SPACE:
@@ -105,6 +111,14 @@ func _process(delta: float) -> void:
 			var speed := target * lerpf(flow_speed_sas, flow_speed_max, float(modules) / maxf(_modules_total, 1))
 			_route(zones, speed)
 	_station.set_airlock_gauge(float(pressures[SAS]))
+
+
+## Durée (s) d'une vidange ou d'un remplissage complet par la valve d'un ensemble de volume volume (m³) : sas_s pour
+## le sas seul, station_valve_s pour toute la station, entre les deux selon la racine de la part du volume ajouté.
+func _valve_duration(volume: float, sas_s: float) -> float:
+	var sas := float(ZONES[SAS][1])
+	var part := clampf((volume - sas) / maxf(_volume_total - sas, 1.0), 0.0, 1.0)
+	return lerpf(sas_s, station_valve_s, sqrt(part))
 
 
 ## Volume (clé de ZONES) qui contient le point global, "" hors de tous.

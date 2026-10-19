@@ -783,11 +783,22 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     - **Vidange par la valve** : la pression baisse dans **tous les volumes qui communiquent avec le sas**, sur la
       courbe du manomètre (20 s pour le sas seul ; exponentielle adoucie, plus rapide aux faibles pressions).
     - **Remplissage par la valve** (porte extérieure fermée : sinon l'air repart dans l'espace) : **réserve
-      d'oxygène illimitée**, débit constant : 8 s de vide à plein pour le sas seul (`valve_fill_s`), ~65 s pour
-      toute la station ouverte.
+      d'oxygène illimitée**, débit constant : 8 s de vide à plein pour le sas seul (`valve_fill_s`).
+    - **Durées par la valve, toute la station ouverte : 35 s au plus**, vidange comme remplissage
+      (`station_valve_s` ; mesuré : 34,4 s et 34,7 s) ; entre le sas seul et la station entière, selon la racine de
+      la part du volume d'air ajouté.
     - **Vidange par la porte extérieure** : tout l'ensemble qui communique avec l'espace se vide, sur la même
       courbe, en `door_vent_s` (1,5 s) pour le sas seul.
-    - Durées multipliées par la racine du volume d'air rapporté à celui du sas (toute la station ouverte : ~8 fois).
+    - Porte extérieure : durée multipliée par la racine du volume d'air rapporté à celui du sas (toute la station
+      ouverte : ~8 fois, ~12 s).
+    - **Témoins de pression** (`scripts/pressure_gauges.gd`, nœud `PressureGauges`) : dans chaque module (Commande,
+      Habitation, Arrimage, Missile 1 et 2), près de son écoutille d'entrée, un afficheur mural construit au
+      démarrage (`Temoin_Pression_<module>`, enfant de la station) : pression du module en bar, voyant et chiffres
+      verts au-dessus de 0,9, orange au-dessous, rouges clignotants sous 0,3 (perte de connaissance sans
+      combinaison) ; plaque « CABIN PRESSURE » (marquage du matériel, hors fichiers de langue). Emplacements relevés
+      par lancer de rayons dans le modèle (table `GAUGES`) : panneau de paroi à 30° au-dessus de l'horizontale, sous
+      les tuyaux et les luminaires ; dans les modules de missiles, cloison de l'écoutille, côté opposé au battant.
+      Le sas a le manomètre de sa valve.
   - **Expulsion** (règle de jeu, `StationAtmosphere.flow_at`, `scripts/airlock_hazard.gd`) : porte extérieure
     ouverte, un courant d'air porte l'observateur vers la sortie **depuis n'importe quel volume qui communique avec
     l'espace** : de volume en volume, vers l'écoutille suivante sur le chemin de la porte extérieure (visée 0,8 m
