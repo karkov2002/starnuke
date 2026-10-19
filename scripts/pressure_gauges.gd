@@ -14,8 +14,8 @@ const GAUGES := {
 	"Commande": [Vector3(7.9, 1.167, 0.674), Vector3(0.0, -0.882, -0.471)],
 	"Habitation": [Vector3(-3.7, -1.167, 0.674), Vector3(0.0, 0.882, -0.471)],
 	"Arrimage": [Vector3(-7.9, 1.167, 0.674), Vector3(0.0, -0.882, -0.471)],
-	"Missile_1": [Vector3(1.1, 2.49, 0.0), Vector3(0.0, 1.0, 0.0)],
-	"Missile_2": [Vector3(-1.1, -2.49, 0.0), Vector3(0.0, -1.0, 0.0)],
+	"Missile_1": [Vector3(1.15, 2.49, 0.0), Vector3(0.0, 1.0, 0.0)],
+	"Missile_2": [Vector3(-1.15, -2.49, 0.0), Vector3(0.0, -1.0, 0.0)],
 }
 const GREEN := Color(0.3, 1.0, 0.45)
 const AMBER := Color(1.0, 0.68, 0.1)
@@ -28,6 +28,8 @@ const RED := Color(1.0, 0.16, 0.1)
 @export var warn_pressure := 0.9
 @export var danger_pressure := 0.3
 @export var blink_s := 0.6
+## Taille de l'afficheur (1 : boîtier de 17 × 11 cm ; agrandi pour se lire à travers le module).
+@export var gauge_scale := 2.0
 ## Émission du voyant allumé.
 @export var led_energy := 4.0
 
@@ -75,7 +77,7 @@ func _build(station: Node3D, zone: String, blender_position: Vector3, blender_no
 	var root := Node3D.new()
 	root.name = "Temoin_Pression_" + zone
 	station.add_child(root)
-	root.transform = Transform3D(Basis(up.cross(normal), up, normal),
+	root.transform = Transform3D(Basis(up.cross(normal), up, normal).scaled_local(Vector3.ONE * gauge_scale),
 			Vector3(blender_position.x, blender_position.z, -blender_position.y) + normal * 0.002)
 	var housing := _material(Color(0.16, 0.17, 0.18), 0.6, 0.45)
 	_box(root, Vector3(0.17, 0.11, 0.03), Vector3(0, 0, 0.015), housing)

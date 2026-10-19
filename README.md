@@ -797,7 +797,8 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
       modules (hors sas) sont repassés au-dessus de 80 % (`alert_clear_pressure`) : l'alerte d'avant est rétablie
       (sauf si le joueur en a choisi une autre entre-temps). Pas d'alerte sans courant (« Plus de lumière »).
     - **Témoins de pression** (`scripts/pressure_gauges.gd`, nœud `PressureGauges`) : dans chaque module (Commande,
-      Habitation, Arrimage, Missile 1 et 2), près de son écoutille d'entrée, un afficheur mural construit au
+      Habitation, Arrimage, Missile 1 et 2), près de son écoutille d'entrée, un afficheur mural de 34 × 22 cm
+      (`gauge_scale` 2 : à taille réelle, 17 × 11 cm, il ne se lisait pas à travers le module) construit au
       démarrage (`Temoin_Pression_<module>`, enfant de la station) : pression du module en bar, voyant et chiffres
       verts au-dessus de 0,9, orange au-dessous, rouges clignotants sous 0,3 (perte de connaissance sans
       combinaison) ; plaque « CABIN PRESSURE » (marquage du matériel, hors fichiers de langue). Emplacements relevés
