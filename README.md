@@ -783,7 +783,9 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     - **Vidange par la valve** : la pression baisse dans **tous les volumes qui communiquent avec le sas**, sur la
       courbe du manomètre (20 s pour le sas seul ; exponentielle adoucie, plus rapide aux faibles pressions).
     - **Remplissage par la valve** (porte extérieure fermée : sinon l'air repart dans l'espace) : **réserve
-      d'oxygène illimitée**, débit constant : 8 s de vide à plein pour le sas seul (`valve_fill_s`).
+      d'oxygène illimitée**, débit constant : 8 s de vide à plein pour le sas seul (`valve_fill_s`). **Règle de jeu :
+      seul le sas fournit de l'air à la station** : un module isolé garde sa pression, il faut l'ouvrir jusqu'au sas
+      pour le remettre en pression (bouteilles d'air dans certains modules : prévues plus tard).
     - **Durées par la valve, toute la station ouverte : 35 s au plus**, vidange comme remplissage
       (`station_valve_s` ; mesuré : 34,4 s et 34,7 s) ; entre le sas seul et la station entière, selon la racine de
       la part du volume d'air ajouté.
