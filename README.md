@@ -602,6 +602,23 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   charnière est déplacée hors du bord de la porte (r 0,76 m, à mi-épaisseur), pour qu'elle ne morde plus dans le
   cadre en pivotant (animation `Fermeture_Ecoutilles` inchangée : rotations seules). Les scripts
   `smooth_hatch_doors.py` et `build_hatch_hinges.py` visaient les anciennes portes : **ne plus les rejouer**.
+- **Matériaux réalistes texturés** (`tools/blender/pbr_kit.py`, chargé par `build_airlock.py` et
+  `build_arrimage_extinguisher.py`) : photos PBR d'ambientCG (licence CC0), 1K JPG, dans `E:\Blender\textures\<id>`
+  (couleur, rugosité, métallicité, normales OpenGL ; une répétition par mètre de coordonnées de texture) :
+  `PaintedMetal001` (métal peint rayé : couleur recalculée par `repainted_color` en orange pour la platine de la
+  valve, `Int_Valve_Orange`, et en jaune pour son cadre et sa manette, `Int_Valve_Cadre` ; JPEG dans
+  `E:\Blender\textures\Generated`), `PaintedMetal004` (peinture rouge écaillée : corps des extincteurs,
+  `Int_Extincteur`), `Metal012` (acier : boîtier et lunette du manomètre, bossages, conduit, socle de la valve,
+  pièces des extincteurs ; `Int_Acier_Poli`, rendu satiné). Métallicité des peintures fixée à 0,15 et usure
+  modérée : le métal nu des écaillures, très réfléchissant, faisait des traînées noires ; l'acier poli d'origine ne
+  reflétait que du noir (rugosité × 2,4, métallicité 0,75).
+  - **Extincteur réaliste** (`build_extinguisher`, poudre 6 kg : Ø 0,13 m) : corps embouti à fond bombé et
+    épaulement, pied en caoutchouc, col fileté en laiton, tête de robinet chromée, levier de percussion et poignée
+    de portage, goupille de sécurité et scellé jaune, manomètre à zone verte, flexible qui contourne le corps par le
+    côté et lance clipsée, étiquette en géométrie (bandeau rouge, consignes, pictogrammes), colliers et platine
+    murale. Dans le sas (paroi −X) et dans l'Arrimage : `build_arrimage_extinguisher.py` remplace le cylindre rouge
+    sommaire du râtelier de la paroi diagonale (îlot `Int_Rouge` d'`Arrimage_Stockage-col`, retiré une fois) par
+    `Arrimage_Extincteur` (9 kg, échelle 1,35, couché le long du module).
 - **Départ dans la couchette** (`tools/blender/add_bunk_view.py`, rejouable) : repère `Point_Vue_Couchette`
   (collection `Reperes_Jeu`) au-dessus de l'oreiller, regard vers les pieds, un peu plongé vers le sac de couchage ;
   axes : +Y regard, +Z haut (après conversion glTF : −Z et +Y, la base d'une `Camera3D`).

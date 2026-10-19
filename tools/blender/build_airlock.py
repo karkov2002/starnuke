@@ -1,4 +1,4 @@
-﻿# Outil hors-jeu : module « sas de sortie » sous le module Arrimage, dans E:\Blender\nuke_station.blend (Blender ouvert,
+# Outil hors-jeu : module « sas de sortie » sous le module Arrimage, dans E:\Blender\nuke_station.blend (Blender ouvert,
 # extension MCP de Blender Lab) :
 #   & ./tools/blender_exec.ps1 -TimeoutS 600 -File tools/blender/build_airlock.py
 # Rejouable : supprime d'abord ce qu'il a créé (collections Module_Sas et Int_Sas, lampes Lum_Sas_*). Les retouches du
@@ -24,6 +24,7 @@ import bpy, bmesh, math
 from mathutils import Matrix, Vector
 
 exec(open(r"E:\Projects\starnuke\tools\blender\props_kit.py", encoding="utf-8").read())
+exec(open(r"E:\Projects\starnuke\tools\blender\pbr_kit.py", encoding="utf-8").read())
 
 X0, Y0 = -10.1, 0.0             # axe du sas (port nadir de l'Arrimage)
 FLOOR_Z = -1.25                 # plancher de l'Arrimage
@@ -81,14 +82,12 @@ MATS = {
     "ecusson": material("Int_Combi_Ecusson", (0.04, 0.08, 0.25), 0.0, 0.7),
     "ecusson_rond": material("Int_Combi_Ecusson_Rond", (0.08, 0.08, 0.10), 0.0, 0.6),
     "cadran": material("Int_Cadran", (0.9, 0.9, 0.88), 0.0, 0.4),
-    "orange": material("Int_Valve_Orange", (0.85, 0.22, 0.0), 0.0, 0.45),
     "hachure_noire": material("Int_Hachure_Noire", (0.02, 0.02, 0.02), 0.5, 0.4),
     "vert_marque": material("Int_Marque_Verte", (0.05, 0.5, 0.12), 0.0, 0.5),
     "voyant_vert": material("Int_Voyant_Sas_Vert", (0.05, 0.6, 0.15), 0.0, 0.3),
     "voyant_rouge": material("Int_Voyant_Sas_Rouge", (0.6, 0.05, 0.04), 0.0, 0.3),
     "noir": material("Int_Combi_Noir", (0.012, 0.012, 0.013), 0.0, 0.4),
     "optique": material("Int_Combi_Optique", (0.85, 0.86, 0.9), 0.0, 0.08),
-    "extincteur": material("Int_Extincteur", (0.55, 0.05, 0.03), 0.2, 0.45),
     "oxygene": material("Int_Bouteille_O2", (0.12, 0.38, 0.16), 0.2, 0.45),
     "masque": material("Int_Masque", (0.85, 0.87, 0.9), 0.0, 0.15),
     "longe": material("Int_Longe", (0.08, 0.30, 0.12), 0.0, 0.8),
@@ -97,6 +96,8 @@ MATS = {
 
 
 MATS["bulle"].node_tree.nodes["Principled BSDF"].inputs["Specular IOR Level"].default_value = 0.2
+# Matériaux réalistes texturés (photos PBR CC0) de la valve et de l'extincteur (pbr_kit.py).
+MATS.update(pbr_materials())
 
 
 # ------------------------------------------------------------------------------------------------ outils
@@ -944,10 +945,10 @@ def build_valve():
     # Platine plane écartée de la paroi courbe (sinon ses bords s'y enfoncent), sur un socle.
     frame = wall_frame(VALVE_AZ, VALVE_Z) @ Matrix.Translation((0, 0, 0.045))
     b = Builder()
-    b.add(soft_box((0.17, 0.13, 0.03), 0.01, 0.02), "gris", Matrix.Translation((0, 0, -0.03)))
+    b.add(soft_box((0.17, 0.13, 0.03), 0.01, 0.02), "acier", Matrix.Translation((0, 0, -0.03)))
     # Platine orange vif dans un cadre jaune riveté (rivets bombés sombres, tous les 4,4 cm) : bien visible.
-    b.add(soft_box((0.165, 0.125, 0.012), 0.012, 0.02), "orange", Matrix.Translation((0, 0, 0.006)))
-    b.add(soft_box((0.19, 0.15, 0.004), 0.008, 0.02), "jaune", Matrix.Translation((0, 0, 0.0)))
+    b.add(soft_box((0.165, 0.125, 0.012), 0.012, 0.02), "valve_orange", Matrix.Translation((0, 0, 0.006)))
+    b.add(soft_box((0.19, 0.15, 0.004), 0.008, 0.02), "valve_jaune", Matrix.Translation((0, 0, 0.0)))
     rivet = [(0.0, 0.0), (0.0045, 0.0), (0.0042, 0.0012), (0.0032, 0.0024), (0.0018, 0.0031), (0.0, 0.0034)]
     corner_u, corner_v = 0.1775, 0.1375
     points = []
@@ -961,7 +962,7 @@ def build_valve():
         b.add(revolve(rivet, 16), "hachure_noire", Matrix.Translation((u, v, 0.0035)))
     # Manomètre : boîtier, cadran blanc, graduations, lunette, verre.
     gc = Vector((GAUGE_UP, 0.0, 0.0))
-    b.add(cylinder(0.056, 0.03, 48), "metal", Matrix.Translation(gc + Vector((0, 0, 0.033))))
+    b.add(cylinder(0.056, 0.03, 48), "acier", Matrix.Translation(gc + Vector((0, 0, 0.033))))
     b.add(cylinder(0.05, 0.002, 48), "cadran", Matrix.Translation(gc + Vector((0, 0, 0.049))))
     for k in range(13):
         bar = 0.1 * k
@@ -972,25 +973,25 @@ def build_valve():
         m = Matrix.Translation(p) @ Matrix.Rotation(math.atan2(d.y, d.x), 4, 'Z')
         key = "rouge" if bar < 0.15 else ("vert_marque" if 0.95 < bar < 1.05 else "noir")
         b.add(soft_box((length / 2, 0.0012 if major else 0.0008, 0.0006), 0.0003, 0.004), key, m)
-    b.add(torus(0.053, 0.005, 48, 8), "metal", Matrix.Translation(gc + Vector((0, 0, 0.052))))
+    b.add(torus(0.053, 0.005, 48, 8), "acier", Matrix.Translation(gc + Vector((0, 0, 0.052))))
     b.add(cylinder(0.05, 0.001, 48), "vitrage", Matrix.Translation(gc + Vector((0, 0, 0.0565))))
     # Manette : bossage et repères « plein » (vert, manette verticale) et « vide » (rouge, horizontale).
     hc = Vector((HANDLE_UP, 0.0, 0.0))
-    b.add(cylinder(0.038, 0.03, 40), "metal", Matrix.Translation(hc + Vector((0, 0, 0.027))))
+    b.add(cylinder(0.038, 0.03, 40), "acier", Matrix.Translation(hc + Vector((0, 0, 0.027))))
     b.add(soft_box((0.004, 0.012, 0.0008), 0.0008, 0.004), "vert_marque", Matrix.Translation(hc + Vector((0, -0.052, 0.0125))))
     b.add(soft_box((0.012, 0.004, 0.0008), 0.0008, 0.004), "rouge", Matrix.Translation(hc + Vector((-0.052, 0, 0.0125))))
     # Voyants (matériaux propres : station.gd les allume ou les éteint) et leurs collerettes.
     for v, key in ((0.06, "voyant_vert"), (-0.06, "voyant_rouge")):
         p = Vector((-0.135, v, 0.0))
-        b.add(cylinder(0.016, 0.012, 24), "metal", Matrix.Translation(p + Vector((0, 0, 0.018))))
+        b.add(cylinder(0.016, 0.012, 24), "acier", Matrix.Translation(p + Vector((0, 0, 0.018))))
         b.add(revolve([(0.0, 0.0), (0.011, 0.0), (0.009, 0.006), (0.0, 0.009)], 20), key, Matrix.Translation(p + Vector((0, 0, 0.024))))
     # Étiquettes.
     for p, half in (((0.145, 0.0, 0.0125), (0.012, 0.07)), ((-0.105, 0.0, 0.0125), (0.008, 0.035))):
         b.add(soft_box((half[0], half[1], 0.0008), 0.001, 0.006), "etiquette", Matrix.Translation(p))
         b.add(soft_box((half[0] * 0.3, half[1] * 0.7, 0.0005), 0.0004, 0.004), "encre", Matrix.Translation(Vector(p) + Vector((0, 0, 0.001))))
     # Conduit d'évent : sous la platine, coudé vers la paroi.
-    b.add(tube([(-0.165, 0.0, 0.03), (-0.21, 0.0, 0.03), (-0.24, 0.0, 0.0), (-0.25, 0.0, -0.03)], 0.016, 16), "metal")
-    b.add(torus(0.019, 0.005, 20, 6), "metal", Matrix.Translation((-0.19, 0.0, 0.03)) @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
+    b.add(tube([(-0.165, 0.0, 0.03), (-0.21, 0.0, 0.03), (-0.24, 0.0, 0.0), (-0.25, 0.0, -0.03)], 0.016, 16), "acier")
+    b.add(torus(0.019, 0.005, 20, 6), "acier", Matrix.Translation((-0.19, 0.0, 0.03)) @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
     valve = b.write("Interactif_Valve_Sas", cols["Int_Sas"])
     valve.matrix_world = frame @ Matrix.Scale(VALVE_SCALE, 4)
     valve["interactif"] = True
@@ -1009,8 +1010,8 @@ def build_valve():
     hp.parent = valve
     hp.location = hc + Vector((0, 0, 0.042))
     hb = Builder()
-    hb.add(cylinder(0.024, 0.02, 32), "metal", Matrix.Translation((0, 0, 0.0)))
-    hb.add(soft_box((0.013, 0.055, 0.008), 0.006, 0.01), "jaune", Matrix.Translation((0, -0.045, 0.012)))
+    hb.add(cylinder(0.024, 0.02, 32), "acier", Matrix.Translation((0, 0, 0.0)))
+    hb.add(soft_box((0.013, 0.055, 0.008), 0.006, 0.01), "valve_jaune", Matrix.Translation((0, -0.045, 0.012)))
     hb.add(cylinder(0.013, 0.05, 20), "noir", Matrix.Translation((0, -0.098, 0.035)))
     handle = hb.write("Valve_Sas_Manette", cols["Int_Sas"], sharp=40)
     handle.parent = hp
@@ -1076,16 +1077,13 @@ def build_equipment():
         over = Vector((X0, Y0 - IN_R + 0.235, z))
         bungee(b, a, c, over, Vector((0, 1, 0)))
     # Extincteur (paroi −X, au-dessus de la bouteille d'oxygène) dans ses deux colliers : la paroi +X est à la valve.
-    p, n = wall_point(180, -3.80, 0.085)
-    b.add(cylinder(0.062, 0.38, 32), "extincteur", Matrix.Translation(p))
-    b.add(revolve([(0.0, 0.19), (0.062, 0.19), (0.05, 0.22), (0.02, 0.235), (0.0, 0.235)], 24), "extincteur", Matrix.Translation(p))
-    b.add(cylinder(0.018, 0.05, 16), "metal", Matrix.Translation(p + Vector((0, 0, 0.255))))
-    b.add(soft_box((0.012, 0.06, 0.008), 0.004, 0.01), "noir", Matrix.Translation(p + Vector((0, 0.03, 0.285))))
-    b.add(tube([p + Vector((0, 0.02, 0.27)), p + Vector((-0.02, 0.07, 0.25)), p + Vector((-0.03, 0.075, 0.10))], 0.009, 10), "noir")
-    b.add(cylinder(0.014, 0.05, 12, 0.006), "noir", Matrix.Translation(p + Vector((-0.03, 0.075, 0.075))))
-    for z in (-0.11, 0.11):
-        b.add(ring(0.062, 0.072, z - 0.015, z + 0.015, 0.003, 32, (p.x, p.y)), "metal", Matrix.Translation((0, 0, p.z)))
-        b.add(soft_box((0.025, 0.03, 0.015), 0.005, 0.01), "metal", Matrix.Translation(p - n * 0.075 + Vector((0, 0, z))))
+    # Modèle réaliste (pbr_kit.build_extinguisher) : dos (+Y local) vers la paroi, face vers l'axe du sas.
+    p, n = wall_point(180, -4.03, 0.085)
+    back = -n
+    up = Vector((0, 0, 1))
+    m = Matrix((back.cross(up), back, up)).transposed().to_4x4()
+    m.translation = p
+    build_extinguisher(b, m)
     # Bouteille d'oxygène portable et masque (paroi −X).
     p, n = wall_point(180, -4.45, 0.08)
     b.add(cylinder(0.058, 0.32, 32), "oxygene", Matrix.Translation(p))
