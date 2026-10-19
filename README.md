@@ -693,15 +693,18 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     API : `get_airlock_pressure()`, `is_airlock_cycling()`, `is_airlock_filling()` (état visé),
     `set_airlock_pressurized(full)`, `toggle_airlock_pressure()` ; signaux `airlock_changed(pressurized)` (fin de
     cycle) et `hatch_moving(id, open)` (une écoutille commence à bouger).
-  - **Mort dans le sas** (règles de jeu, `scripts/airlock_hazard.gd`, nœud `AirlockHazard` de `orbit_view.tscn`),
-    évaluées dès que la porte extérieure ou l'écoutille intérieure commence à s'ouvrir :
-    - **décompression explosive** : porte extérieure ouverte alors que l'écoutille intérieure est ouverte (l'air de
-      la station s'échappe par le sas), ou sur un sas encore sous pression (au-dessus de `vacuum_pressure`, 0,05) :
-      l'observateur, s'il est dans le sas (puits compris) ou dans l'Arrimage, est **éjecté** : aspiré vers la porte en
-      0,35 s puis projeté vers la Terre (9 m/s, +5 m/s²), en roulant lentement sur lui-même, le regard sur la station
-      qui s'éloigne ; ses yeux se ferment après 3,5 s ;
-    - **sans combinaison** : porte extérieure ouverte sur un sas vidé, observateur dans le sas sans combinaison : il
-      meurt sur place (yeux fermés après 1,2 s), sans éjection.
+  - **Porte extérieure ouverte sur un sas sous pression** (écoutille intérieure fermée) : l'air du sas s'échappe,
+    l'aiguille du manomètre tombe à 0 en `vent_s` × pression (1,5 s pour un sas plein ; la manette ne bouge pas).
+  - **Mort dans le sas** (règles de jeu, `scripts/airlock_hazard.gd`, nœud `AirlockHazard` de `orbit_view.tscn`) :
+    - **décompression explosive**, évaluée dès que la porte extérieure ou l'écoutille intérieure commence à
+      s'ouvrir : les deux ouvertes en même temps (état visé : une écoutille qui se ferme compte comme fermée ; l'air
+      de la station s'échappe par le sas) : l'observateur, s'il est dans le sas (puits compris) ou dans l'Arrimage,
+      est **éjecté**, combinaison ou non : aspiré vers la porte en 0,35 s puis projeté vers la Terre (9 m/s,
+      +5 m/s²), en roulant lentement sur lui-même, le regard sur la station qui s'éloigne ; ses yeux se ferment après
+      3,5 s. Écoutille intérieure fermée, pas d'éjection, même si le sas était encore plein ;
+    - **asphyxie**, évaluée à chaque image : observateur dans le sas sans combinaison quand la pression y passe sous
+      `death_pressure` (0,3 bar : vidange par la valve, vers 6 s, ou porte extérieure ouverte ; écoutille intérieure
+      ouverte, le sas garde l'air de la station). Il meurt sur place (yeux fermés après 1,2 s), sans éjection.
     Volumes : boîtes des maillages `Sas_Paroi*` et `Arrimage_Couloir*` dans le repère de la station.
   - **Séquence de mort** (`scripts/death_sequence.gd`, classe `DeathSequence`, créée par `AirlockHazard`) : commandes
     coupées (observateur, regard, interactions, tablette masquée), puis la vue se ferme comme des yeux qui se ferment

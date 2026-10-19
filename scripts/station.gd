@@ -116,6 +116,8 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 @export var airlock_outer_hatch := "Ecoutille_Sas_Bas"
 ## Émission des voyants allumés de la valve (vert : plein, rouge : vide ; le rouge clignote pendant un cycle).
 @export var indicator_energy := 8.0
+## Porte extérieure ouverte sur un sas sous pression : l'air s'échappe, l'aiguille tombe à 0 en vent_s × pression.
+@export var vent_s := 1.5
 @export var indicator_blink_s := 0.8
 @export_group("")
 @export_group("Éclairage intérieur")
@@ -291,6 +293,8 @@ func set_hatch_open(id: String, open: bool) -> bool:
 		return true
 	hatch.target = open
 	hatch_moving.emit(id, open)
+	if open and id == airlock_outer_hatch:
+		_vent_airlock()
 	# Fermeture_Ecoutilles : début = ouverte, fin = fermée.
 	_tween_hinge(hatch, hatch.closed if not open else hatch.open, func() -> void:
 		hatch.is_open = open
@@ -524,6 +528,32 @@ func toggle_airlock_pressure() -> bool:
 	return set_airlock_pressurized(not is_airlock_filling())
 
 
+## L'air du sas s'échappe par la porte extérieure : seule l'aiguille tombe à 0 (la manette ne bouge pas : en fin
+## d'animation, elle est refermée, comme au repos).
+func _vent_airlock() -> void:
+	if _valve.is_empty():
+		return
+	var anim: Animation = _valve.anim
+	var pressure := get_airlock_pressure()
+	if pressure <= 0.0:
+		return
+	if _valve.tween:
+		(_valve.tween as Tween).kill()
+	_valve.target_full = false
+	var needle: int = _valve.needle
+	var node: Node3D = _valve.targets[_valve.tracks.find(needle)]
+	_valve.tween = create_tween()
+	_valve.tween.tween_method(func(time: float) -> void:
+		_valve.time = time
+		if node:
+			_apply_track(anim, needle, node, time), _valve.time, anim.length, vent_s * pressure) \
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_EXPO)
+	_valve.tween.tween_callback(func() -> void:
+		_valve.tween = null
+		_set_valve_time(anim.length)
+		airlock_changed.emit(false))
+
+
 func _set_valve_time(time: float) -> void:
 	_valve.time = time
 	for i in _valve.tracks.size():
@@ -580,7 +610,7 @@ func _setup_valve(node: MeshInstance3D, extras: Dictionary) -> void:
 			needle = t
 			needle_curve = curve
 	_valve = {"node": node, "anim": anim, "tracks": tracks, "targets": targets, "time": 0.0, "tween": null,
-			"target_full": true, "curve": needle_curve,
+			"target_full": true, "curve": needle_curve, "needle": needle,
 			"green": _indicator_material(node, String(extras.get("voyant_plein", ""))),
 			"red": _indicator_material(node, String(extras.get("voyant_vide", "")))}
 	_set_valve_time(0.0)

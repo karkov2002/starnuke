@@ -1,13 +1,14 @@
 class_name AirlockHazard
 extends Node
 ## Conséquences des manœuvres du sas de sortie (nœud AirlockHazard de scenes/orbit_view.tscn). Aucun verrouillage :
-## la sécurité est l'affaire du joueur. Règles de jeu, évaluées dès qu'une écoutille du sas commence à s'ouvrir
-## (Station.hatch_moving) :
-## - **décompression explosive** : porte extérieure et écoutille intérieure ouvertes en même temps (l'air de la
-##   station s'échappe par le sas), ou porte extérieure ouverte sur un sas encore sous pression : l'observateur, s'il
-##   est dans le sas (puits compris) ou dans l'Arrimage, est éjecté dans le vide et meurt ;
-## - **sans combinaison** : porte extérieure ouverte sur un sas vidé, observateur dans le sas sans combinaison : il
-##   meurt, sans éjection.
+## la sécurité est l'affaire du joueur. Règles de jeu :
+## - **décompression explosive** (dès que l'une des deux commence à s'ouvrir) : porte extérieure et écoutille
+##   intérieure ouvertes en même temps (état visé : une écoutille qui se ferme compte comme fermée) : l'air de la
+##   station s'échappe par le sas ; l'observateur, s'il est dans le sas (puits compris) ou dans l'Arrimage, est éjecté
+##   dans le vide et meurt, combinaison ou non ;
+## - **asphyxie** (à chaque image) : observateur dans le sas sans combinaison quand la pression y passe sous
+##   death_pressure : vidange par la valve, ou porte extérieure ouverte (l'air du sas s'échappe : Station._vent_airlock).
+##   Il meurt sur place, sans éjection.
 ## Volumes : boîtes des maillages du sas (sas_mesh, puits compris) et du couloir de l'Arrimage (module_mesh), dans le
 ## repère de la station. Mort : scripts/death_sequence.gd.
 
@@ -18,8 +19,8 @@ extends Node
 ## Maillage du sas (parois, puits compris) et du module relié par l'écoutille intérieure.
 @export var sas_mesh := "Sas_Paroi*"
 @export var module_mesh := "Arrimage_Couloir*"
-## Sas considéré vidé sous cette pression (bar relatifs, 0–1).
-@export var vacuum_pressure := 0.05
+## Pression (relative, 0–1) sous laquelle on perd connaissance sans combinaison (~0,3 bar).
+@export var death_pressure := 0.3
 
 var _station: Station
 var _observer: Node3D
@@ -32,27 +33,37 @@ func _ready() -> void:
 	_station = get_node_or_null(station_path) as Station
 	_observer = get_node_or_null(observer_path) as Node3D
 	if _station == null or _observer == null:
+		set_process(false)
 		return
 	_sas_box = _box_of(sas_mesh)
 	_module_box = _box_of(module_mesh)
 	_station.hatch_moving.connect(_on_hatch_moving)
 
 
+func _process(_delta: float) -> void:
+	if _dead or _station.is_suit_worn():
+		return
+	if _air_pressure() < death_pressure and _sas_box.has_point(_station.to_local(_eye())):
+		_die(false)
+
+
+## Pression dans le sas : celle de la station si l'écoutille intérieure est ouverte, sinon celle du manomètre (qui
+## tombe à 0 quand la porte extérieure s'ouvre).
+func _air_pressure() -> float:
+	if _station.is_hatch_opening(_station.airlock_inner_hatch):
+		return 1.0
+	return _station.get_airlock_pressure()
+
+
 func _on_hatch_moving(id: String, open: bool) -> void:
 	if _dead or not open or (id != _station.airlock_outer_hatch and id != _station.airlock_inner_hatch):
 		return
-	var outer_open := _station.is_hatch_opening(_station.airlock_outer_hatch)
-	if not outer_open:
+	if not (_station.is_hatch_opening(_station.airlock_outer_hatch)
+			and _station.is_hatch_opening(_station.airlock_inner_hatch)):
 		return
-	var inner_open := _station.is_hatch_opening(_station.airlock_inner_hatch) \
-			or _station.is_hatch_open(_station.airlock_inner_hatch)
-	var air := inner_open or _station.get_airlock_pressure() > vacuum_pressure
 	var where := _station.to_local(_eye())
-	var in_sas := _sas_box.has_point(where)
-	if air and (in_sas or (inner_open and _module_box.has_point(where))):
+	if _sas_box.has_point(where) or _module_box.has_point(where):
 		_die(true)
-	elif in_sas and not _station.is_suit_worn():
-		_die(false)
 
 
 func _die(eject: bool) -> void:
