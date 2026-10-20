@@ -16,6 +16,8 @@ extends Node
 ## (comme campaign.json, Campaigns.text_of).
 
 signal message_received(message: Dictionary)
+## Message lu (affiché à l'écran de communication devant le joueur) : départ du chrono d'une mission de campagne.
+signal message_read(message_id: String)
 signal replied(message_id: String, choice: int)
 signal changed
 
@@ -115,6 +117,7 @@ func mark_read(message_id: String) -> void:
 	var message := find(message_id)
 	if not message.is_empty() and not message.read:
 		message.read = true
+		message_read.emit(message_id)
 		changed.emit()
 
 

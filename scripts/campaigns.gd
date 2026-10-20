@@ -28,6 +28,36 @@ static var mode := Mode.FREE
 static var current_id := ""
 static var current: CampaignData
 static var day_index := 0
+## Résultats des missions jouées : identifiant -> {score, success, precision, time_factor, day} (notes sur 20), et
+## note de chaque journée terminée : identifiant -> note.
+static var results := {}
+static var day_scores := {}
+
+
+## Moyenne globale de la campagne (toutes les missions jouées, échecs compris) ; null avant la première.
+static func global_score() -> Variant:
+	if results.is_empty():
+		return null
+	var total := 0.0
+	for id: String in results:
+		total += float(results[id].score)
+	return total / results.size()
+
+
+## Notes connues, pour les conditions de CampaignData (global_score, day_score, mission_score, of) : day_id et
+## mission_id désignent la journée et la mission en cours ("" : aucune).
+static func scores(day_id: String, mission_id: String) -> Dictionary:
+	var of := {}
+	for id: String in results:
+		of[id] = float(results[id].score)
+	var day_total := 0.0
+	var day_count := 0
+	for id: String in results:
+		if results[id].day == day_id:
+			day_total += float(results[id].score)
+			day_count += 1
+	return {"global_score": global_score(), "day_score": day_total / day_count if day_count > 0 else null,
+			"mission_score": of.get(mission_id, null), "of": of}
 
 
 ## Dossier des campagnes (chemin absolu) : à côté de l'exécutable dans le jeu exporté, celui du projet sinon.
@@ -86,6 +116,8 @@ static func start_free() -> void:
 	current_id = ""
 	current = null
 	day_index = 0
+	results = {}
+	day_scores = {}
 
 
 ## Nouvelle campagne id (dossier de campaign/), à sa première journée. Faux si elle est introuvable, illisible ou a
@@ -102,4 +134,6 @@ static func start_campaign(id: String) -> bool:
 	current_id = id
 	current = campaign
 	day_index = 0
+	results = {}
+	day_scores = {}
 	return true

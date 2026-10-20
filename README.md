@@ -40,9 +40,30 @@ permet de piloter le jeu exporté.
   **Free mode** (le jeu tel quel : `orbit_view.tscn`) et **Back**. Le **mode campagne** sera le cœur du jeu
   (`Campaigns.mode`, `current_id`, `current` : `CampaignData` vérifié, `day_index` retenus) : au lancement, le nœud
   `CampaignDirector` (`scripts/campaign_director.gd`) applique le **départ de la journée** (heure UTC et position
-  exacte de la station, `OrbitSimulation.place` ; la manœuvre en préparation est annulée). Briefings, missions et
-  notes : à venir. Une campagne avec des erreurs est proposée **grisée**, avec leur nombre en infobulle, et ne se
-  lance pas.
+  exacte de la station, `OrbitSimulation.place` ; la manœuvre en préparation est annulée). Une campagne avec des
+  erreurs est proposée **grisée**, avec leur nombre en infobulle, et ne se lance pas.
+- **Déroulement d'une journée** (règles de jeu, `CampaignDirector`) :
+  - **Briefing** par la radio (écran de communication ; expéditeur et canal de la mission, sinon `defaults`) :
+    « Mission : titre / Objectif : … / texte / Cible(s) : Photo ou Frappe et coordonnées / Durée avant échec :
+    n jour(s) » (clés `BRIEFING_*`). **Le chrono de la mission part quand le briefing est lu.**
+  - **Objectifs** : une **photo** satellite (point sous la station à la prise de vue) ou un **impact** de missile à
+    moins de la tolérance d'une cible remplit l'objectif correspondant (le premier encore ouvert de ce type, dont
+    l'objectif préalable `after` est rempli) ; plus loin, il ne compte pas.
+  - **Note sur 20** (`scripts/mission_scoring.gd`) : précision d'un objectif = 20 jusqu'à tolérance / 4, puis
+    décroissance linéaire jusqu'à 0 à la tolérance (non rempli : 0) ; précision de la mission = moyenne pondérée
+    (`weight`) ; **facteur temps** = 1 jusqu'au temps de référence (`par_hours`, sinon **le quart de l'échéance**
+    en attendant son calcul d'après le passage le plus tôt possible, banc d'équilibrage), puis décroissance linéaire
+    jusqu'à `time_floor` (0,6) à l'échéance ; note = précision × facteur temps ; **réussite si note ≥ 10**
+    (`success_score`).
+  - **Fin de mission** : tous les objectifs remplis, ou échéance (`deadline_days` après la lecture du briefing) ;
+    résultat retenu (`Campaigns.results` : note, réussite, précision, facteur temps, journée ; **moyenne globale**
+    `Campaigns.global_score()`, toutes missions jouées, échecs compris) et message de résultat (message `result` de
+    la mission choisi selon la note, sinon « Objectif atteint » / « Objectif non atteint », avec la note, RÉUSSITE
+    ou ÉCHEC, la précision et le facteur temps), puis briefing de la mission suivante de la journée dont la
+    condition est vraie.
+  - **Fin de journée** (plus de mission) : note de la journée retenue (`Campaigns.day_scores`), message `debrief` ;
+    à la dernière journée, message de fin de campagne (`ending`, selon la moyenne globale). Couchette « Dormir »,
+    sauvegarde et journée suivante : à venir.
 - **Campagnes** : dossier `campaign/` à côté de `playlist/`, un sous-dossier par campagne (son nom est l'identifiant
   de la campagne) avec un fichier `campaign.json`. Comme les playlists, le dossier est lu sur le disque (`.gdignore`,
   jamais dans le `.pck`) : `campaign/` du projet dans l'éditeur, à côté de l'exécutable dans le jeu exporté (copié
