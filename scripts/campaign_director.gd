@@ -12,18 +12,30 @@ extends Node
 ##   à moins de la tolérance d'une cible de la mission remplit son objectif (le premier objectif encore ouvert de ce
 ##   type, dont l'objectif préalable « after » est rempli), avec la précision obtenue (MissionScoring) ; plus loin, il
 ##   ne compte pas ;
-## - fin de mission : tous les objectifs remplis, ou échéance (deadline_days après la lecture) : note = précision
+## - fin de mission : tous les objectifs remplis, ou échéance (deadline_hours après la lecture) : note = précision
 ##   pondérée × facteur temps (MissionScoring), réussite si ≥ success_score ; résultat retenu (Campaigns.results,
 ##   moyenne globale) et message radio de résultat (message « result » de la mission choisi selon la note, sinon
 ##   RESULT_DEFAULT_*), puis briefing de la mission suivante de la journée dont la condition est vraie ;
 ## - fin de journée (plus de mission) : note de la journée retenue, message « debrief » de la journée (selon les
-##   notes) ; à la dernière journée, message de fin de campagne (« ending », selon la moyenne globale). Couchette,
-##   sauvegarde et journée suivante : étapes 5 et 6.
+##   notes) ; à la dernière journée, message de fin de campagne (« ending », selon la moyenne globale) ;
+## - après la fin de journée, promenade libre : la couchette (Interactif_Couchette) devient cliquable, « Dormir »
+##   (HatchInteraction, can_sleep) : fondu au noir (FADE_S), titre de la journée suivante (DAY_TITLE), réveil dans la
+##   couchette (Observer, point de départ) au départ de la journée suivante : le sien s'il est défini, sinon la station
+##   a continué son orbite jusqu'à l'heure de réveil (wake_up_utc, le lendemain si elle est passée ; sans heure de
+##   réveil, NIGHT_HOURS de sommeil) ; fondu de retour. Après la dernière journée, dormir termine la campagne : retour
+##   à l'écran de démarrage (fin de campagne détaillée : étape 7). Sauvegarde au coucher : étape 6.
 
 signal day_started(day_index: int)
 signal mission_started(mission_id: String)
 signal mission_finished(mission_id: String, result: Dictionary)
 signal day_finished(day_index: int)
+
+const GROUP := &"campaign_director"
+const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
+## Fondu au noir et retour (s), titre affiché (s) ; sommeil sans heure de réveil (h).
+const FADE_S := 1.5
+const TITLE_S := 2.5
+const NIGHT_HOURS := 8.0
 
 @export var orbit_path: NodePath = ^"../Orbit"
 @export var flight_computer_path: NodePath = ^"../FlightComputer"
@@ -42,9 +54,15 @@ var _started_unix := -1.0
 var _precisions: Array = []
 ## Prochaine entrée à examiner dans la liste des missions de la journée.
 var _next_entry := 0
+## Journée terminée (couchette cliquable) ; sommeil en cours (fondu).
+var _day_over := false
+var _sleeping := false
+var _veil: ColorRect
+var _title: Label
 
 
 func _ready() -> void:
+	add_to_group(GROUP)
 	_orbit = get_node_or_null(orbit_path) as OrbitSimulation
 	_flight_computer = get_node_or_null(flight_computer_path) as FlightComputer
 	_radio = get_node_or_null(radio_path) as RadioComms
@@ -83,6 +101,7 @@ func start_day(day_index: int) -> void:
 	Campaigns.day_index = day_index
 	apply_start(Campaigns.current.start_of_day(day_index))
 	_next_entry = 0
+	_day_over = false
 	day_started.emit(day_index)
 	_next_mission()
 
@@ -198,7 +217,81 @@ func _finish_day() -> void:
 		var ending := CampaignData.pick_message(Campaigns.current.data.get("ending", []), scores)
 		if not ending.is_empty():
 			_post({}, Campaigns.text_of(ending, "subject", "BRIEFING_DEBRIEF"), Campaigns.text_of(ending, "body"))
+	_day_over = true
 	day_finished.emit(Campaigns.day_index)
+
+
+# --- Sommeil --------------------------------------------------------------------------------------------------------
+
+## La couchette est-elle cliquable (« Dormir ») ? Journée terminée, pas déjà en train de dormir.
+func can_sleep() -> bool:
+	return is_active() and _day_over and not _sleeping
+
+
+## Dormir : fondu au noir, journée suivante (ou fin de campagne après la dernière), réveil dans la couchette.
+func sleep() -> void:
+	if not can_sleep():
+		return
+	_sleeping = true
+	_build_veil()
+	await create_tween().tween_property(_veil, "color:a", 1.0, FADE_S).finished
+	var next := Campaigns.day_index + 1
+	if next >= Campaigns.current.days().size():
+		Campaigns.start_free()
+		get_tree().change_scene_to_file(MENU_SCENE)
+		return
+	_advance_to_wake_up(next)
+	start_day(next)
+	var observer := get_tree().current_scene.get_node_or_null("Observer")
+	if observer and observer.has_method(&"_place_at_start"):
+		observer.call(&"_place_at_start")
+	_title.text = tr("DAY_TITLE").format({"n": next + 1})
+	await create_tween().tween_property(_title, "modulate:a", 1.0, 0.5).finished
+	await get_tree().create_timer(TITLE_S).timeout
+	var tween := create_tween().set_parallel()
+	tween.tween_property(_title, "modulate:a", 0.0, FADE_S)
+	tween.tween_property(_veil, "color:a", 0.0, FADE_S)
+	await tween.finished
+	_sleeping = false
+
+
+## Nuit : sans départ propre, la station continue son orbite jusqu'au réveil (wake_up_utc de la journée suivante, le
+## lendemain si l'heure est passée ; sinon NIGHT_HOURS).
+func _advance_to_wake_up(day_index: int) -> void:
+	var day: Dictionary = Campaigns.current.days()[day_index]
+	if day.has("start") or _orbit == null:
+		return
+	var now := _orbit.get_utc_unix_s()
+	var sleep_s := NIGHT_HOURS * 3600.0
+	if day.has("wake_up_utc"):
+		var parts := str(day.wake_up_utc).split(":")
+		var wake := floorf(now / 86400.0) * 86400.0 + int(parts[0]) * 3600.0 + int(parts[1]) * 60.0
+		if wake <= now:
+			wake += 86400.0
+		sleep_s = wake - now
+	_orbit.sim_time_s += sleep_s
+
+
+func _build_veil() -> void:
+	if _veil:
+		return
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	add_child(layer)
+	_veil = ColorRect.new()
+	_veil.color = Color(0, 0, 0, 0)
+	_veil.mouse_filter = Control.MOUSE_FILTER_STOP
+	_veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(_veil)
+	_title = Label.new()
+	_title.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_title.add_theme_font_size_override("font_size", 56)
+	_title.add_theme_color_override("font_color", Color(0.9, 0.92, 0.95))
+	_title.modulate.a = 0.0
+	_title.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(_title)
 
 
 # --- Messages -------------------------------------------------------------------------------------------------------
@@ -210,10 +303,12 @@ func _briefing_body(mission: Dictionary) -> String:
 		var kind := tr("OBJECTIVE_PHOTO" if objective.type == "photo" else "OBJECTIVE_STRIKE")
 		targets.append("  %s : %s" % [kind, GroundTarget.format(float(objective.target.lat),
 				float(objective.target.lon))])
-	var days := float(mission.deadline_days)
+	# Durée avant échec : « 6 h », « 5 h 30 min ».
+	var minutes := roundi(float(mission.deadline_hours) * 60.0)
+	var hours := floori(minutes / 60.0)
+	var duration := "%d h" % hours if minutes % 60 == 0 else "%d h %02d min" % [hours, minutes % 60]
 	return tr("BRIEFING_BODY").format({"title": _text(mission, "title"), "objective": _text(mission, "objective"),
-			"description": _text(mission, "description"), "targets": "\n".join(targets),
-			"days": ("%d" % days) if is_equal_approx(days, roundf(days)) else ("%.1f" % days)})
+			"description": _text(mission, "description"), "targets": "\n".join(targets), "duration": duration})
 
 
 ## Message radio de la campagne (expéditeur et canal de la mission, sinon defaults) ; rend son identifiant.
@@ -244,7 +339,7 @@ func _tolerance_km(objective: Dictionary) -> float:
 
 
 func _deadline_s(mission: Dictionary) -> float:
-	return float(mission.deadline_days) * 86400.0
+	return float(mission.deadline_hours) * 3600.0
 
 
 func _par_s(mission: Dictionary) -> float:

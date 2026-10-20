@@ -4,10 +4,13 @@ extends Node
 ## Rayon de la caméra contre les collisions (la porte d'une écoutille a son corps de collision, AnimatableBody3D, qui
 ## suit la charnière ; un rideau, sa zone de clic Area3D, qui suit le tissu) :
 ## - survol à portée (reach_m) : bulle « Ouvrir / Fermer l'écoutille », « Ouvrir / Fermer le rideau », « Enfiler /
-##   Ranger la combinaison », « Vider / Remplir le sas » ;
+##   Ranger la combinaison », « Vider / Remplir le sas », « Dormir » (couchette, en campagne la journée terminée :
+##   CampaignDirector.sleep) ;
 ## - clic gauche : mouvement animé (Station.toggle_hatch, Station.toggle_curtain ; un clic pendant le mouvement
 ##   l'inverse), Station.set_suit_worn, Station.toggle_airlock_pressure.
 ## Inactif au poste de pilotage. Les clics pris avant (tablette, interface) ne lui parviennent pas.
+
+const BUNK := "Interactif_Couchette"
 
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
 @export var observer_path: NodePath = ^"../Observer"
@@ -63,6 +66,8 @@ func _process(_delta: float) -> void:
 				_hover_label.text = "SUIT_STOW"
 			"valve":
 				_hover_label.text = "AIRLOCK_DEPRESSURIZE" if _station.is_airlock_filling() else "AIRLOCK_REPRESSURIZE"
+			"couchette":
+				_hover_label.text = "BUNK_SLEEP"
 			_:
 				_hover_label.text = "HATCH_CLOSE" if _station.is_hatch_opening(target.id) else "HATCH_OPEN"
 		_hover_label.position = _mouse_position + Vector2(18, 14)
@@ -86,6 +91,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_station.set_suit_worn(false)
 		"valve":
 			_station.toggle_airlock_pressure()
+		"couchette":
+			(get_tree().get_first_node_in_group(CampaignDirector.GROUP) as CampaignDirector).sleep()
 		_:
 			_station.toggle_hatch(target.id)
 
@@ -113,7 +120,21 @@ func _target_under(mouse_position: Vector2) -> Dictionary:
 	if part != "":
 		return {"kind": part, "id": ""}
 	var hatch := _station.hatch_id_for(hit.collider as Node)
-	return {"kind": "ecoutille", "id": hatch} if hatch != "" else {}
+	if hatch != "":
+		return {"kind": "ecoutille", "id": hatch}
+	# Couchette : cliquable seulement en campagne, la journée terminée (CampaignDirector.can_sleep).
+	var director := get_tree().get_first_node_in_group(CampaignDirector.GROUP) as CampaignDirector
+	if director and director.can_sleep() and _is_under(hit.collider as Node, BUNK):
+		return {"kind": "couchette", "id": ""}
+	return {}
+
+
+static func _is_under(node: Node, ancestor_name: String) -> bool:
+	while node:
+		if node.name == ancestor_name:
+			return true
+		node = node.get_parent()
+	return false
 
 
 func _bubble_style() -> StyleBoxFlat:

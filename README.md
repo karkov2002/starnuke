@@ -45,7 +45,8 @@ permet de piloter le jeu exporté.
 - **Déroulement d'une journée** (règles de jeu, `CampaignDirector`) :
   - **Briefing** par la radio (écran de communication ; expéditeur et canal de la mission, sinon `defaults`) :
     « Mission : titre / Objectif : … / texte / Cible(s) : Photo ou Frappe et coordonnées / Durée avant échec :
-    n jour(s) » (clés `BRIEFING_*`). **Le chrono de la mission part quand le briefing est lu.**
+    6 h » (ou « 5 h 30 min ») (clés `BRIEFING_*`). **Les délais sont en heures** (règle de jeu : plus précis et plus
+    stressants que des jours). **Le chrono de la mission part quand le briefing est lu.**
   - **Objectifs** : une **photo** satellite (point sous la station à la prise de vue) ou un **impact** de missile à
     moins de la tolérance d'une cible remplit l'objectif correspondant (le premier encore ouvert de ce type, dont
     l'objectif préalable `after` est rempli) ; plus loin, il ne compte pas.
@@ -55,15 +56,21 @@ permet de piloter le jeu exporté.
     en attendant son calcul d'après le passage le plus tôt possible, banc d'équilibrage), puis décroissance linéaire
     jusqu'à `time_floor` (0,6) à l'échéance ; note = précision × facteur temps ; **réussite si note ≥ 10**
     (`success_score`).
-  - **Fin de mission** : tous les objectifs remplis, ou échéance (`deadline_days` après la lecture du briefing) ;
+  - **Fin de mission** : tous les objectifs remplis, ou échéance (`deadline_hours` heures après la lecture du briefing) ;
     résultat retenu (`Campaigns.results` : note, réussite, précision, facteur temps, journée ; **moyenne globale**
     `Campaigns.global_score()`, toutes missions jouées, échecs compris) et message de résultat (message `result` de
     la mission choisi selon la note, sinon « Objectif atteint » / « Objectif non atteint », avec la note, RÉUSSITE
     ou ÉCHEC, la précision et le facteur temps), puis briefing de la mission suivante de la journée dont la
     condition est vraie.
   - **Fin de journée** (plus de mission) : note de la journée retenue (`Campaigns.day_scores`), message `debrief` ;
-    à la dernière journée, message de fin de campagne (`ending`, selon la moyenne globale). Couchette « Dormir »,
-    sauvegarde et journée suivante : à venir.
+    à la dernière journée, message de fin de campagne (`ending`, selon la moyenne globale).
+  - **Nuit** : la journée terminée, promenade libre ; **la couchette devient cliquable** (bulle « Dormir »,
+    `HatchInteraction`, `CampaignDirector.can_sleep` ; avant, elle ne réagit pas). Dormir : fondu au noir (1,5 s),
+    titre « Jour n » (2,5 s), **réveil dans la couchette** au départ de la journée suivante — son `start` s'il est
+    défini (heure et position exactes), sinon **la station a continué son orbite** jusqu'à l'heure de réveil
+    (`wake_up_utc`, le lendemain si elle est passée ; sans heure, 8 h de sommeil) —, fondu de retour, briefing de
+    la première mission. Après la dernière journée, dormir termine la campagne et ramène à l'écran de démarrage
+    (fin de campagne détaillée : à venir). Sauvegarde au coucher : à venir.
 - **Campagnes** : dossier `campaign/` à côté de `playlist/`, un sous-dossier par campagne (son nom est l'identifiant
   de la campagne) avec un fichier `campaign.json`. Comme les playlists, le dossier est lu sur le disque (`.gdignore`,
   jamais dans le `.pck`) : `campaign/` du projet dans l'éditeur, à côté de l'exécutable dans le jeu exporté (copié
@@ -86,8 +93,8 @@ permet de piloter le jeu exporté.
   - **`days`** : journées, dans l'ordre — `id`, `start` (facultatif), `wake_up_utc` (« HH:MM »), `missions` (liste
     de `{mission, when}` : une entrée dont la condition est fausse est sautée, ce qui permet de choisir la mission
     selon les notes), `debrief` (messages de fin de journée).
-  - **`missions`** (dictionnaire par identifiant) : `title`, `objective`, `description`, `deadline_days` (durée avant
-    échec), `par_hours` (temps de référence, `null` : calculé), `objectives` (`type` « photo » ou « strike »,
+  - **`missions`** (dictionnaire par identifiant) : `title`, `objective`, `description`, `deadline_hours` (durée avant
+    échec, en heures : règle de jeu), `par_hours` (temps de référence, `null` : calculé), `objectives` (`type` « photo » ou « strike »,
     `target` {`lat`, `lon`}, `tolerance_km`, `weight`, `yield_kt` pour un tir, `after` : objectif à remplir avant),
     `result` (messages selon la note).
   - **`ending`** : messages de fin de campagne.
@@ -96,7 +103,7 @@ permet de piloter le jeu exporté.
     (exclu), notes sur 20 ; une note encore inconnue rend la condition fausse.
   - **Vérification** : `godot --headless --path . -s tools/check_campaign.gd [-- <campagne>]` liste les erreurs de
     chaque campagne (chemin dans le fichier et explication, en français ; code de sortie 1 s'il y en a). La campagne
-    officielle contient pour l'instant une journée et une mission d'essai (photo de Kourou).
+    officielle contient pour l'instant deux journées d'essai (photos de Kourou, puis de Toulouse).
 
 - **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : titre
   provisoire « Star Nuke » lumineux (`scripts/ui/title_glow.gd`, `shaders/title_glow.gdshader` : texte rendu en
