@@ -19,8 +19,8 @@ peut rester ouvert) construit `../exe/starnuke/` et `../exe/StarNuke.zip` (~1 Go
 - tuiles HD (`assets/earth_tiles`, `earth_night_tiles`, `earth_cloud_tiles`, 3 × 2 592 fichiers) copiées dans
   `assets/` à côté de l'exécutable : leurs dossiers ont un `.gdignore` et ne peuvent pas entrer dans le `.pck`, mais
   un fichier `res://` absent du `.pck` est cherché dans le dossier de l'exécutable, où le jeu les trouve ;
-- dossier `playlist/` (musiques) copié à côté de l'exécutable : jamais dans le `.pck`, le joueur y ajoute ses playlists
-  (voir « Écran de démarrage, paramètres et langues », Audio) ;
+- dossiers `playlist/` (musiques) et `campaign/` (campagnes) copiés à côté de l'exécutable : jamais dans le `.pck`, le
+  joueur y ajoute ses playlists et ses campagnes (voir « Écran de démarrage, paramètres et langues ») ;
 - archive zip du dossier (tar de Windows).
 
 Pour jouer : dézipper, lancer `Star Nuke.exe` (Windows 10/11 64 bits, carte graphique Direct3D 12). Vérifié : jeu
@@ -30,13 +30,29 @@ permet de piloter le jeu exporté.
 
 ## Écran de démarrage, paramètres et langues
 
+- **Modes de jeu** (règle de jeu ; `scripts/ui/main_menu.gd`, pages du menu, Échap : page précédente ;
+  `scripts/campaigns.gd`, classe `Campaigns`, qui retient le mode le temps de la session) : **Start Game** ouvre la
+  page des modes : **Start a new campaign** (choix de la campagne), **Continue current campaign** (cliquable
+  seulement si une campagne est en cours, `Campaigns.has_saved` : jamais pour le moment, pas encore de sauvegarde),
+  **Free mode** (le jeu tel quel : `orbit_view.tscn`) et **Back**. Le **mode campagne** sera le cœur du jeu ; pour
+  le moment, choisir une campagne lance la partie normale (`Campaigns.mode`, `current_id`, `current` retenus).
+- **Campagnes** : dossier `campaign/` à côté de `playlist/`, un sous-dossier par campagne (son nom est l'identifiant
+  de la campagne) avec un fichier `campaign.json`. Comme les playlists, le dossier est lu sur le disque (`.gdignore`,
+  jamais dans le `.pck`) : `campaign/` du projet dans l'éditeur, à côté de l'exécutable dans le jeu exporté (copié
+  par `tools/package_game.ps1`), où **les joueurs ajoutent leurs propres campagnes** ; la liste est relue à chaque
+  ouverture de la page. Campagne officielle : **`starnuke`** (proposée en premier, les autres par ordre
+  alphabétique ; seule versionnée, `.gitignore`). `campaign.json`, format 1 : `format` (1), `name` et `description`
+  (clé des fichiers de langue, comme `CAMPAIGN_STARNUKE_NAME` pour la campagne officielle, texte, ou dictionnaire par
+  langue `{"en": …, "fr": …}` : langue du jeu, sinon l'anglais ; la description sert d'infobulle), `missions`
+  (liste des missions de la campagne, à définir). Un dossier sans `campaign.json` valide n'est pas proposé.
+
 - **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : titre
   provisoire « Star Nuke » lumineux (`scripts/ui/title_glow.gd`, `shaders/title_glow.gdshader` : texte rendu en
   blanc dans un SubViewport puis teinté, avec un halo flou ; sa couleur suit celle d'un corps noir chauffé, allant
   et venant en 18 s de ~700 K, presque noir, au rouge, à l'orange, au jaune puis au blanc ~6 600 K, approximation
   de Tanner Helland ; la luminosité monte vite avec la température pour que le rouge rougeoie ; le halo garde une
-  lueur minimale de braise, `halo_floor` : au plus froid, les lettres sombres restent lisibles) et boutons **Start Game** (charge `orbit_view.tscn`), **Settings** (écran des
-  paramètres, par-dessus) et **Quit** dans la moitié droite ; à gauche, **la station vue de l'extérieur, côté
+  lueur minimale de braise, `halo_floor` : au plus froid, les lettres sombres restent lisibles) et boutons **Start Game** (page des modes de
+  jeu, voir ci-dessous), **Settings** (écran des paramètres, par-dessus) et **Quit** dans la moitié droite ; à gauche, **la station vue de l'extérieur, côté
   soleil et légèrement en plongée, au-dessus de la Terre qui défile** (en temps réel). Ce décor est la scène du jeu elle-même, chargée
   en tâche de fond dès l'ouverture du menu (`ResourceLoader.load_threaded_request`, ~0,9 s) puis affichée en fondu
   (2 s), sans son interface ni le tir (`Hud`, `NukeReport`, `PilotConsole`, tablette,

@@ -1,13 +1,20 @@
 extends Control
-## Écran de démarrage (scène principale scenes/ui/main_menu.tscn) : titre provisoire et boutons à droite
-## (« Commencer la partie », « Paramètres » : écran scenes/ui/settings_menu.tscn par-dessus, « Quitter ») ; à gauche,
+## Écran de démarrage (scène principale scenes/ui/main_menu.tscn) : titre provisoire et boutons à droite, en pages :
+## - accueil : « Commencer la partie » (page des modes), « Paramètres » (écran scenes/ui/settings_menu.tscn
+##   par-dessus), « Quitter » ;
+## - modes de jeu : « Démarrer une nouvelle campagne » (page des campagnes), « Continuer la campagne en cours »
+##   (cliquable seulement si une campagne est en cours, Campaigns.has_saved : jamais pour le moment), « Mode libre »
+##   (le jeu tel quel), « Retour » ;
+## - campagnes : une ligne par campagne du dossier campaign/ (scripts/campaigns.gd), « Retour » ; en choisir une lance
+##   la campagne (pour le moment, la partie normale).
+## Échap revient à la page précédente. Le mode choisi est retenu par Campaigns (mode, current_id). À gauche,
 ## la station vue de l'extérieur au-dessus de la Terre qui défile. Tous les textes sont des clés des fichiers de
 ## langue (locale/strings.csv), traduites automatiquement.
 ##
 ## Décor : la scène du jeu elle-même (Terre, nuages, atmosphère, station), chargée en tâche de fond dès l'ouverture
 ## du menu puis affichée en fondu, sans son interface ni le tir (Hud, NukeReport, NukeLauncher, PilotConsole, tablette retirés),
 ## observateur désactivé, filmée par une caméra extérieure (BACKDROP_CAMERA_*), en temps réel (BACKDROP_TIME_SCALE).
-## Le même chargement sert au lancement de la partie : « Commencer la partie » n'attend plus que la fin du chargement
+## Le même chargement sert au lancement de la partie : le choix d'un mode n'attend plus que la fin du chargement
 ## s'il n'est pas terminé.
 ## Écran de chargement dès le démarrage du jeu : « Chargement en cours… » (points animés, pourcentage) sur le fond noir
 ## jusqu'à ce que le décor soit en place ; le décor et les boutons apparaissent ensuite en fondu.
@@ -29,6 +36,11 @@ const BACKDROP_REMOVED: Array[String] = ["Hud", "NukeReport", "NukeLauncher", "P
 
 var _menu: Control
 var _start_button: Button
+var _main_page: VBoxContainer
+var _mode_page: VBoxContainer
+var _campaign_page: VBoxContainer
+var _continue_button: Button
+var _page: VBoxContainer
 var _veil: ColorRect
 var _loading: Label
 var _loading_dots := 0
@@ -66,9 +78,21 @@ func _ready() -> void:
 	spacer.custom_minimum_size.y = 8.0
 	column.add_child(spacer)
 
-	_start_button = _add_button(column, "MENU_START", _on_start)
-	_add_button(column, "MENU_SETTINGS", _on_settings)
-	_add_button(column, "MENU_QUIT", func() -> void: get_tree().quit())
+	# Pages du menu (une seule visible) : accueil, modes de jeu, choix de la campagne.
+	_main_page = _add_page(column)
+	_start_button = _add_button(_main_page, "MENU_START", func() -> void: _show_page(_mode_page))
+	_add_button(_main_page, "MENU_SETTINGS", _on_settings)
+	_add_button(_main_page, "MENU_QUIT", func() -> void: get_tree().quit())
+	_mode_page = _add_page(column)
+	_add_button(_mode_page, "MENU_NEW_CAMPAIGN", _open_campaigns)
+	# Pas de campagne en cours à continuer pour le moment (Campaigns.has_saved).
+	_continue_button = _add_button(_mode_page, "MENU_CONTINUE_CAMPAIGN", func() -> void: pass)
+	_add_button(_mode_page, "MENU_FREE_MODE", func() -> void:
+		Campaigns.start_free()
+		_on_start())
+	_add_button(_mode_page, "MENU_BACK", func() -> void: _show_page(_main_page))
+	_campaign_page = _add_page(column)
+	_show_page(_main_page)
 
 	# Écran de chargement : le menu reste caché tant que le décor n'est pas en place.
 	_menu.visible = false
@@ -125,7 +149,7 @@ func _show_menu() -> void:
 	_menu.visible = true
 	_menu.modulate.a = 0.0
 	create_tween().tween_property(_menu, "modulate:a", 1.0, 0.5)
-	_start_button.grab_focus()
+	_show_page(_main_page)
 
 
 ## Décor : scène du jeu sans interface ni tir, caméra extérieure, temps accéléré, apparition en fondu.
@@ -154,6 +178,69 @@ func _build_backdrop() -> void:
 	if orbit:
 		orbit.set("time_scale", BACKDROP_TIME_SCALE)
 	create_tween().tween_property(_veil, "color:a", 0.0, BACKDROP_FADE_S)
+
+
+func _add_page(parent: Control) -> VBoxContainer:
+	var page := VBoxContainer.new()
+	page.add_theme_constant_override("separation", 18)
+	page.visible = false
+	parent.add_child(page)
+	return page
+
+
+## Affiche une page du menu (les autres masquées) et donne le focus à son premier bouton actif.
+func _show_page(page: VBoxContainer) -> void:
+	for other: VBoxContainer in [_main_page, _mode_page, _campaign_page]:
+		other.visible = other == page
+	_page = page
+	_continue_button.disabled = not Campaigns.has_saved()
+	for child in page.get_children():
+		var button := child as Button
+		if button and not button.disabled:
+			button.grab_focus.call_deferred()
+			break
+
+
+## Échap : page précédente.
+func _unhandled_input(event: InputEvent) -> void:
+	if not _menu.visible or not event.is_action_pressed(&"ui_cancel"):
+		return
+	if _page == _campaign_page:
+		_show_page(_mode_page)
+	elif _page == _mode_page:
+		_show_page(_main_page)
+	else:
+		return
+	get_viewport().set_input_as_handled()
+
+
+## Choix de la campagne : une ligne par campagne du dossier campaign/ (relu à chaque ouverture : une campagne ajoutée
+## pendant que le jeu tourne apparaît), nom traduit, description en infobulle.
+func _open_campaigns() -> void:
+	for child in _campaign_page.get_children():
+		_campaign_page.remove_child(child)
+		child.queue_free()
+	var title := Label.new()
+	title.text = "MENU_CHOOSE_CAMPAIGN"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 28)
+	_campaign_page.add_child(title)
+	var campaigns := Campaigns.list()
+	if campaigns.is_empty():
+		var none := Label.new()
+		none.text = "MENU_NO_CAMPAIGN"
+		none.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_campaign_page.add_child(none)
+	for campaign: Dictionary in campaigns:
+		var id: String = campaign.id
+		var data: Dictionary = campaign.data
+		var button := _add_button(_campaign_page, Campaigns.text_of(data, "name", id), func() -> void:
+			if Campaigns.start_campaign(id):
+				_on_start())
+		button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		button.tooltip_text = Campaigns.text_of(data, "description")
+	_add_button(_campaign_page, "MENU_BACK", func() -> void: _show_page(_mode_page))
+	_show_page(_campaign_page)
 
 
 func _add_button(parent: Control, key: String, action: Callable) -> Button:
@@ -190,5 +277,5 @@ func _on_settings() -> void:
 	settings.closed.connect(func() -> void:
 		settings.queue_free()
 		_menu.visible = true
-		_start_button.grab_focus())
+		_show_page(_main_page))
 	add_child(settings)

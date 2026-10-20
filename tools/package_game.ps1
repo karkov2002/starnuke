@@ -4,7 +4,8 @@
 #  2. copie des tuiles HD (assets/earth_tiles, earth_night_tiles, earth_cloud_tiles) à côté de l'exécutable : leurs
 #     dossiers ont un .gdignore et ne peuvent pas entrer dans le .pck. Le jeu exporté les trouve quand même : un
 #     fichier res:// absent du .pck est cherché dans le dossier de l'exécutable (<dossier de l'exe>/assets/…) ;
-#  3. copie du dossier playlist/ (musiques, .gdignore : hors du .pck, lu sur le disque par le jeu) ;
+#  3. copie des dossiers playlist/ (musiques) et campaign/ (campagnes) : .gdignore, hors du .pck, lus sur le disque
+#     par le jeu ;
 #  4. archive zip du dossier.
 # Le dossier de sortie est vidé des fichiers d'un export précédent (exe, pck, assets). L'éditeur Godot peut rester
 # ouvert. Usage :
@@ -20,7 +21,7 @@ New-Item -ItemType Directory -Force $Output | Out-Null
 $Output = (Resolve-Path $Output).Path
 $exe = Join-Path $Output "Star Nuke.exe"
 
-foreach ($old in @("Star Nuke.exe", "Star Nuke.console.exe", "Star Nuke.pck", "assets", "playlist")) {
+foreach ($old in @("Star Nuke.exe", "Star Nuke.console.exe", "Star Nuke.pck", "assets", "playlist", "campaign")) {
     $path = Join-Path $Output $old
     if (Test-Path $path) { Remove-Item -Recurse -Force $path }
 }
@@ -46,6 +47,12 @@ foreach ($tiles in @("earth_tiles", "earth_night_tiles", "earth_cloud_tiles")) {
 Write-Host "Playlists"
 robocopy (Join-Path $project "playlist") (Join-Path $Output "playlist") /MIR /XF .gdignore /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "Copie des playlists ratée (robocopy $LASTEXITCODE)" }
+
+# Campagnes : dossier campaign/ à côté de l'exécutable (jamais dans le .pck, .gdignore) ; les joueurs y ajoutent les
+# leurs (un sous-dossier par campagne, avec son campaign.json), lues par scripts/campaigns.gd.
+Write-Host "Campagnes"
+robocopy (Join-Path $project "campaign") (Join-Path $Output "campaign") /MIR /XF .gdignore /NFL /NDL /NJH /NJS /NP | Out-Null
+if ($LASTEXITCODE -ge 8) { throw "Copie des campagnes ratée (robocopy $LASTEXITCODE)" }
 
 $Zip = [System.IO.Path]::GetFullPath($Zip)
 if (Test-Path $Zip) { Remove-Item -Force $Zip }

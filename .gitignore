@@ -8,3 +8,8 @@ locale/*.translation
 playlist/*
 !playlist/.gdignore
 !playlist/starnuke/
+# Campagnes personnelles (dossiers déposés dans campaign/) : seules la campagne officielle « starnuke » et le
+# .gdignore sont versionnés
+campaign/*
+!campaign/.gdignore
+!campaign/starnuke/
