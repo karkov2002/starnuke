@@ -32,7 +32,10 @@ permet de piloter le jeu exporté.
 
 - **Modes de jeu** (règle de jeu ; `scripts/ui/main_menu.gd`, pages du menu, Échap : page précédente ;
   `scripts/campaigns.gd`, classe `Campaigns`, qui retient le mode le temps de la session) : **Start Game** ouvre la
-  page des modes : **Start a new campaign** (choix de la campagne), **Continue current campaign** (cliquable
+  page des modes : **Start a new campaign** (choix de la campagne : il peut y en avoir des dizaines, d'où un
+  **sélecteur déroulant** — bouton qui affiche la campagne choisie et ouvre une liste à défilement, 8 lignes
+  visibles — avec **la campagne officielle toujours en premier, en bleu**, les autres en blanc, la description en
+  infobulle ; puis **Launch campaign** et **Back**), **Continue current campaign** (cliquable
   seulement si une campagne est en cours, `Campaigns.has_saved` : jamais pour le moment, pas encore de sauvegarde),
   **Free mode** (le jeu tel quel : `orbit_view.tscn`) et **Back**. Le **mode campagne** sera le cœur du jeu ; pour
   le moment, choisir une campagne lance la partie normale (`Campaigns.mode`, `current_id`, `current` retenus).

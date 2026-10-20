@@ -8,6 +8,7 @@ MENU_CONTINUE_CAMPAIGN,"Continue current campaign","Continuer la campagne en cou
 MENU_FREE_MODE,"Free mode","Mode libre","Modo libre","Freies Spiel","Modalità libera"
 MENU_BACK,"Back","Retour","Volver","Zurück","Indietro"
 MENU_CHOOSE_CAMPAIGN,"Choose a campaign","Choisir une campagne","Elige una campaña","Kampagne wählen","Scegli una campagna"
+MENU_LAUNCH_CAMPAIGN,"Launch campaign","Lancer la campagne","Iniciar la campaña","Kampagne starten","Avvia la campagna"
 MENU_NO_CAMPAIGN,"No campaign found","Aucune campagne trouvée","No se ha encontrado ninguna campaña","Keine Kampagne gefunden","Nessuna campagna trovata"
 CAMPAIGN_STARNUKE_NAME,"Star Nuke","Star Nuke","Star Nuke","Star Nuke","Star Nuke"
 CAMPAIGN_STARNUKE_DESC,"The official campaign","La campagne officielle","La campaña oficial","Die offizielle Kampagne","La campagna ufficiale"

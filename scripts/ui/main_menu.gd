@@ -5,8 +5,8 @@ extends Control
 ## - modes de jeu : « Démarrer une nouvelle campagne » (page des campagnes), « Continuer la campagne en cours »
 ##   (cliquable seulement si une campagne est en cours, Campaigns.has_saved : jamais pour le moment), « Mode libre »
 ##   (le jeu tel quel), « Retour » ;
-## - campagnes : une ligne par campagne du dossier campaign/ (scripts/campaigns.gd), « Retour » ; en choisir une lance
-##   la campagne (pour le moment, la partie normale).
+## - campagnes : sélecteur déroulant des campagnes du dossier campaign/ (scripts/campaigns.gd ; l'officielle en premier
+##   et en bleu, les autres en blanc), « Lancer la campagne » (pour le moment, la partie normale), « Retour ».
 ## Échap revient à la page précédente. Le mode choisi est retenu par Campaigns (mode, current_id). À gauche,
 ## la station vue de l'extérieur au-dessus de la Terre qui défile. Tous les textes sont des clés des fichiers de
 ## langue (locale/strings.csv), traduites automatiquement.
@@ -22,6 +22,9 @@ extends Control
 const GAME_SCENE := "res://scenes/orbit_view.tscn"
 const SETTINGS_SCENE := preload("res://scenes/ui/settings_menu.tscn")
 const BUTTON_SIZE := Vector2(380.0, 60.0)
+## Choix de la campagne : couleur de la campagne officielle, lignes visibles avant défilement.
+const OFFICIAL_COLOR := Color(0.45, 0.72, 1.0)
+const CAMPAIGN_LIST_ROWS := 8
 ## Caméra du décor (repère de la scène du jeu : station à l'origine, avant −Z, Terre en bas) : position, point visé,
 ## décalage horizontal (positif : station et Terre à gauche de l'écran), champ.
 const BACKDROP_CAMERA_POSITION := Vector3(58.0, 22.0, 45.0)
@@ -41,6 +44,11 @@ var _mode_page: VBoxContainer
 var _campaign_page: VBoxContainer
 var _continue_button: Button
 var _page: VBoxContainer
+## Choix de la campagne : campagnes listées (Campaigns.list), sélecteur, liste déroulante, campagne choisie.
+var _campaigns: Array[Dictionary] = []
+var _campaign_select: Button
+var _campaign_list: ItemList
+var _campaign_index := 0
 var _veil: ColorRect
 var _loading: Label
 var _loading_dots := 0
@@ -214,8 +222,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
-## Choix de la campagne : une ligne par campagne du dossier campaign/ (relu à chaque ouverture : une campagne ajoutée
-## pendant que le jeu tourne apparaît), nom traduit, description en infobulle.
+## Choix de la campagne (il peut y en avoir des dizaines) : sélecteur déroulant (bouton qui affiche la campagne choisie
+## et ouvre une liste à défilement), relu à chaque ouverture (une campagne ajoutée pendant que le jeu tourne apparaît) ;
+## campagne officielle en premier et en bleu (OFFICIAL_COLOR), les autres en blanc ; description en infobulle.
+## « Lancer la campagne » lance celle choisie.
 func _open_campaigns() -> void:
 	for child in _campaign_page.get_children():
 		_campaign_page.remove_child(child)
@@ -225,22 +235,75 @@ func _open_campaigns() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 28)
 	_campaign_page.add_child(title)
-	var campaigns := Campaigns.list()
-	if campaigns.is_empty():
+	_campaigns = Campaigns.list()
+	if _campaigns.is_empty():
 		var none := Label.new()
 		none.text = "MENU_NO_CAMPAIGN"
 		none.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_campaign_page.add_child(none)
-	for campaign: Dictionary in campaigns:
-		var id: String = campaign.id
-		var data: Dictionary = campaign.data
-		var button := _add_button(_campaign_page, Campaigns.text_of(data, "name", id), func() -> void:
-			if Campaigns.start_campaign(id):
+	else:
+		_campaign_select = _add_button(_campaign_page, "", _open_campaign_list)
+		_campaign_select.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		_campaign_select.icon = get_theme_icon(&"arrow", &"OptionButton")
+		_campaign_select.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_campaign_list = _build_campaign_list()
+		_select_campaign(0)
+		_add_button(_campaign_page, "MENU_LAUNCH_CAMPAIGN", func() -> void:
+			if Campaigns.start_campaign(_campaigns[_campaign_index].id):
 				_on_start())
-		button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-		button.tooltip_text = Campaigns.text_of(data, "description")
 	_add_button(_campaign_page, "MENU_BACK", func() -> void: _show_page(_mode_page))
 	_show_page(_campaign_page)
+
+
+## Liste déroulante des campagnes (fenêtre surgissante sous le sélecteur, défilement au-delà de CAMPAIGN_LIST_ROWS).
+func _build_campaign_list() -> ItemList:
+	var popup := PopupPanel.new()
+	_campaign_page.add_child(popup)
+	var list := ItemList.new()
+	list.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	list.add_theme_font_size_override("font_size", 24)
+	for campaign: Dictionary in _campaigns:
+		var index := list.add_item(Campaigns.text_of(campaign.data, "name", campaign.id))
+		list.set_item_custom_fg_color(index, _campaign_color(campaign.id))
+		list.set_item_tooltip(index, Campaigns.text_of(campaign.data, "description"))
+	popup.add_child(list)
+	list.item_activated.connect(func(index: int) -> void:
+		_select_campaign(index)
+		popup.hide()
+		_campaign_select.grab_focus())
+	list.item_clicked.connect(func(index: int, _at: Vector2, button: int) -> void:
+		if button == MOUSE_BUTTON_LEFT:
+			_select_campaign(index)
+			popup.hide()
+			_campaign_select.grab_focus())
+	return list
+
+
+func _open_campaign_list() -> void:
+	var popup := _campaign_list.get_parent() as PopupPanel
+	var row := _campaign_list.get_theme_font_size(&"font_size") * 1.6
+	var rows := mini(_campaigns.size(), CAMPAIGN_LIST_ROWS)
+	var rect := _campaign_select.get_global_rect()
+	popup.popup(Rect2i(Vector2i(rect.position + Vector2(0.0, rect.size.y)),
+			Vector2i(int(rect.size.x), int(rows * row + 16.0))))
+	_campaign_list.select(_campaign_index)
+	_campaign_list.ensure_current_is_visible()
+	_campaign_list.grab_focus()
+
+
+func _select_campaign(index: int) -> void:
+	_campaign_index = index
+	var campaign: Dictionary = _campaigns[index]
+	_campaign_select.text = Campaigns.text_of(campaign.data, "name", campaign.id)
+	_campaign_select.tooltip_text = Campaigns.text_of(campaign.data, "description")
+	var color := _campaign_color(campaign.id)
+	for state: StringName in [&"font_color", &"font_hover_color", &"font_focus_color", &"font_pressed_color"]:
+		_campaign_select.add_theme_color_override(state, color)
+
+
+## Couleur d'une campagne dans le sélecteur : bleu pour l'officielle, blanc pour les autres.
+static func _campaign_color(id: String) -> Color:
+	return OFFICIAL_COLOR if id == Campaigns.OFFICIAL else Color.WHITE
 
 
 func _add_button(parent: Control, key: String, action: Callable) -> Button:
