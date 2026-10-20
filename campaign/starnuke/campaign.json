@@ -1,6 +1,44 @@
 {
-	"format": 1,
+	"format": 2,
 	"name": "CAMPAIGN_STARNUKE_NAME",
 	"description": "CAMPAIGN_STARNUKE_DESC",
-	"missions": []
+	"start": {
+		"utc": "2035-07-15T06:00:00Z",
+		"orbit": { "altitude_km": 400, "inclination_deg": 51.6, "over": { "lat": 40.4, "lon": -3.7 }, "ascending": true }
+	},
+	"defaults": {
+		"from": "COMM_FROM_GROUND",
+		"channel": -1,
+		"success_score": 10,
+		"tolerance_km": { "photo": 40, "strike": 15 },
+		"time_floor": 0.6
+	},
+	"days": [
+		{
+			"id": "d1",
+			"wake_up_utc": "06:00",
+			"missions": [
+				{ "mission": "test_kourou" }
+			],
+			"debrief": [
+				{ "subject": "CAMPAIGN_STARNUKE_END_SUBJECT", "body": "CAMPAIGN_STARNUKE_D1_DEBRIEF" }
+			]
+		}
+	],
+	"missions": {
+		"test_kourou": {
+			"title": "CAMPAIGN_STARNUKE_M_TEST_TITLE",
+			"objective": "CAMPAIGN_STARNUKE_M_TEST_OBJECTIVE",
+			"description": "CAMPAIGN_STARNUKE_M_TEST_DESC",
+			"deadline_days": 1,
+			"par_hours": null,
+			"objectives": [
+				{ "type": "photo", "target": { "lat": 5.24, "lon": -52.77 }, "weight": 1 }
+			]
+		}
+	},
+	"ending": [
+		{ "when": { "global_score": { "min": 10 } }, "subject": "CAMPAIGN_STARNUKE_END_SUBJECT", "body": "CAMPAIGN_STARNUKE_END_GOOD" },
+		{ "subject": "CAMPAIGN_STARNUKE_END_SUBJECT", "body": "CAMPAIGN_STARNUKE_END_BAD" }
+	]
 }

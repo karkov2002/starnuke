@@ -37,17 +37,45 @@ permet de piloter le jeu exporté.
   visibles — avec **la campagne officielle toujours en premier, en bleu**, les autres en blanc, la description en
   infobulle ; puis **Launch campaign** et **Back**), **Continue current campaign** (cliquable
   seulement si une campagne est en cours, `Campaigns.has_saved` : jamais pour le moment, pas encore de sauvegarde),
-  **Free mode** (le jeu tel quel : `orbit_view.tscn`) et **Back**. Le **mode campagne** sera le cœur du jeu ; pour
-  le moment, choisir une campagne lance la partie normale (`Campaigns.mode`, `current_id`, `current` retenus).
+  **Free mode** (le jeu tel quel : `orbit_view.tscn`) et **Back**. Le **mode campagne** sera le cœur du jeu
+  (`Campaigns.mode`, `current_id`, `current` : `CampaignData` vérifié, `day_index` retenus) : au lancement, le nœud
+  `CampaignDirector` (`scripts/campaign_director.gd`) applique le **départ de la journée** (heure UTC et position
+  exacte de la station, `OrbitSimulation.place` ; la manœuvre en préparation est annulée). Briefings, missions et
+  notes : à venir. Une campagne avec des erreurs est proposée **grisée**, avec leur nombre en infobulle, et ne se
+  lance pas.
 - **Campagnes** : dossier `campaign/` à côté de `playlist/`, un sous-dossier par campagne (son nom est l'identifiant
   de la campagne) avec un fichier `campaign.json`. Comme les playlists, le dossier est lu sur le disque (`.gdignore`,
   jamais dans le `.pck`) : `campaign/` du projet dans l'éditeur, à côté de l'exécutable dans le jeu exporté (copié
   par `tools/package_game.ps1`), où **les joueurs ajoutent leurs propres campagnes** ; la liste est relue à chaque
   ouverture de la page. Campagne officielle : **`starnuke`** (proposée en premier, les autres par ordre
-  alphabétique ; seule versionnée, `.gitignore`). `campaign.json`, format 1 : `format` (1), `name` et `description`
-  (clé des fichiers de langue, comme `CAMPAIGN_STARNUKE_NAME` pour la campagne officielle, texte, ou dictionnaire par
-  langue `{"en": …, "fr": …}` : langue du jeu, sinon l'anglais ; la description sert d'infobulle), `missions`
-  (liste des missions de la campagne, à définir). Un dossier sans `campaign.json` valide n'est pas proposé.
+  alphabétique ; seule versionnée, `.gitignore`). Un dossier sans `campaign.json` lisible n'est pas proposé.
+- **Format de `campaign.json`** (format 2, lu et vérifié par `CampaignData`, `scripts/campaign_data.gd`, où il est
+  décrit en entier) :
+  - **Textes** (`name`, `description`, titres, messages…) : clé des fichiers de langue (la campagne officielle n'utilise
+    que des clés, `CAMPAIGN_STARNUKE_*`), texte, ou dictionnaire par langue `{"en": …, "fr": …}` (langue du jeu,
+    sinon l'anglais).
+  - **`start`** : départ de la campagne — `utc` (« 2035-07-15T06:00:00Z ») et `orbit` (`altitude_km` 200 à 800,
+    `inclination_deg` 0 à 80, `over` {`lat`, `lon`} : point survolé à cet instant, `|lat|` ≤ inclinaison,
+    `ascending` : sens de passage). **Chaque journée peut avoir son propre `start`** (heure et position exactes de
+    la station au début de la journée) ; sinon la première prend celui de la campagne et les suivantes reprennent là
+    où la précédente s'est arrêtée.
+  - **`defaults`** : expéditeur des messages (`from`), canal radio (`channel`), note de réussite (`success_score`,
+    10), tolérances par type d'objectif (`tolerance_km` : photo 40 km, tir 15 km), plancher du facteur temps
+    (`time_floor`, 0,6).
+  - **`days`** : journées, dans l'ordre — `id`, `start` (facultatif), `wake_up_utc` (« HH:MM »), `missions` (liste
+    de `{mission, when}` : une entrée dont la condition est fausse est sautée, ce qui permet de choisir la mission
+    selon les notes), `debrief` (messages de fin de journée).
+  - **`missions`** (dictionnaire par identifiant) : `title`, `objective`, `description`, `deadline_days` (durée avant
+    échec), `par_hours` (temps de référence, `null` : calculé), `objectives` (`type` « photo » ou « strike »,
+    `target` {`lat`, `lon`}, `tolerance_km`, `weight`, `yield_kt` pour un tir, `after` : objectif à remplir avant),
+    `result` (messages selon la note).
+  - **`ending`** : messages de fin de campagne.
+  - **Messages** : `{when, subject, body}` ; le premier dont la condition est vraie est retenu. **Conditions**
+    (`when`) : `global_score`, `day_score`, `mission_score` ou `score_of` {`id`} avec `min` (inclus) et/ou `max`
+    (exclu), notes sur 20 ; une note encore inconnue rend la condition fausse.
+  - **Vérification** : `godot --headless --path . -s tools/check_campaign.gd [-- <campagne>]` liste les erreurs de
+    chaque campagne (chemin dans le fichier et explication, en français ; code de sortie 1 s'il y en a). La campagne
+    officielle contient pour l'instant une journée et une mission d'essai (photo de Kourou).
 
 - **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : titre
   provisoire « Star Nuke » lumineux (`scripts/ui/title_glow.gd`, `shaders/title_glow.gdshader` : texte rendu en

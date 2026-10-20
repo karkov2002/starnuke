@@ -10,13 +10,10 @@ extends RefCounted
 ## l'exécutable (copié par tools/package_game.ps1), où les joueurs ajoutent leurs propres campagnes ; dans l'éditeur,
 ## campaign/ du projet. Campagne officielle : « starnuke ».
 ##
-## campaign.json (format 1) :
-##   "format"      : version du format (1) ;
-##   "name"        : nom affiché : clé des fichiers de langue (campagne officielle), texte, ou dictionnaire par langue
-##                   ({"en": "...", "fr": "..."} : langue du jeu, sinon l'anglais, sinon la première) ;
-##   "description" : même forme que name (infobulle du bouton) ;
-##   "missions"    : liste des missions (à définir ; la campagne lance pour le moment la partie normale).
-## Un dossier sans campaign.json lisible (JSON invalide, pas d'objet) n'est pas proposé.
+## campaign.json : format 2, décrit et vérifié par CampaignData (scripts/campaign_data.gd) ; name et description :
+## clé des fichiers de langue (campagne officielle), texte, ou dictionnaire par langue ({"en": "...", "fr": "..."} :
+## langue du jeu, sinon l'anglais, sinon la première). Un dossier sans campaign.json lisible (JSON invalide, pas
+## d'objet) n'est pas proposé ; une campagne avec des erreurs l'est (grisée, avec leur nombre) mais ne se lance pas.
 
 enum Mode { FREE, CAMPAIGN }
 
@@ -26,9 +23,11 @@ const OFFICIAL := "starnuke"
 
 ## Mode de la partie en cours (ou de la dernière lancée).
 static var mode := Mode.FREE
-## Campagne en cours : identifiant (nom du dossier) et contenu de son campaign.json ; vides en mode libre.
+## Campagne en cours : identifiant (nom du dossier), contenu vérifié de son campaign.json et journée en cours
+## (indice) ; vides en mode libre.
 static var current_id := ""
-static var current := {}
+static var current: CampaignData
+static var day_index := 0
 
 
 ## Dossier des campagnes (chemin absolu) : à côté de l'exécutable dans le jeu exporté, celui du projet sinon.
@@ -38,13 +37,14 @@ static func root() -> String:
 	return OS.get_executable_path().get_base_dir().path_join(FOLDER)
 
 
-## Campagnes disponibles : [{id, data}], la campagne officielle d'abord, puis par ordre alphabétique.
+## Campagnes disponibles : [{id, data, campaign (CampaignData : erreurs)}], la campagne officielle d'abord, puis par
+## ordre alphabétique.
 static func list() -> Array[Dictionary]:
 	var found: Array[Dictionary] = []
 	for id in DirAccess.get_directories_at(root()):
 		var data := read(id)
 		if not data.is_empty():
-			found.append({"id": id, "data": data})
+			found.append({"id": id, "data": data, "campaign": CampaignData.parse(data)})
 	found.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if (a.id == OFFICIAL) != (b.id == OFFICIAL):
 			return a.id == OFFICIAL
@@ -84,15 +84,22 @@ static func has_saved() -> bool:
 static func start_free() -> void:
 	mode = Mode.FREE
 	current_id = ""
-	current = {}
+	current = null
+	day_index = 0
 
 
-## Nouvelle campagne id (dossier de campaign/). Faux si elle est introuvable ou illisible.
+## Nouvelle campagne id (dossier de campaign/), à sa première journée. Faux si elle est introuvable, illisible ou a
+## des erreurs (détail dans la console).
 static func start_campaign(id: String) -> bool:
 	var data := read(id)
 	if data.is_empty():
 		return false
+	var campaign := CampaignData.parse(data)
+	if not campaign.is_valid():
+		push_warning("Campaigns : %s a %d erreur(s) :\n%s" % [id, campaign.errors.size(), "\n".join(campaign.errors)])
+		return false
 	mode = Mode.CAMPAIGN
 	current_id = id
-	current = data
+	current = campaign
+	day_index = 0
 	return true

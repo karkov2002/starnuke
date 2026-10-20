@@ -186,6 +186,20 @@ func set_orbit_plane(inclination: float, raan_at_time: float, altitude: float, t
 	_arg_lat_epoch = u - get_mean_motion() * time_s
 	orbit_changed.emit()
 
+## Place exactement la station (départ d'une campagne ou d'une journée) : instant UTC (secondes Unix), altitude,
+## inclinaison, point survolé (latitude, longitude) maintenant, en phase montante ou descendante. Nécessite
+## |latitude| ≤ inclinaison (sinon la latitude est ramenée à ±inclinaison, cf. pass_over). Orbite circulaire.
+func place(utc_unix_s: float, altitude: float, inclination: float, latitude_deg: float, longitude_deg: float,
+		ascending: bool) -> void:
+	epoch_unix_s = utc_unix_s - sim_time_s
+	_raw = true
+	altitude_km = clampf(altitude, MIN_ALTITUDE_KM, MAX_ALTITUDE_KM)
+	inclination_deg = clampf(inclination, 0.0, MAX_INCLINATION_DEG)
+	_raw = false
+	pass_over(latitude_deg, longitude_deg, ascending)
+	_update_scene()
+
+
 ## Change la date et l'heure (instant UTC en secondes Unix) sans déplacer la station : elle reste au-dessus du même
 ## point, dans le même sens de passage (l'orbite est recalculée). Le soleil, les étoiles et les nuages, eux, se
 ## placent selon la nouvelle heure.

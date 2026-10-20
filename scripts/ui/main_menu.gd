@@ -24,6 +24,8 @@ const SETTINGS_SCENE := preload("res://scenes/ui/settings_menu.tscn")
 const BUTTON_SIZE := Vector2(380.0, 60.0)
 ## Choix de la campagne : couleur de la campagne officielle, lignes visibles avant défilement.
 const OFFICIAL_COLOR := Color(0.45, 0.72, 1.0)
+## Campagne avec des erreurs (grisée, ne se lance pas).
+const INVALID_COLOR := Color(0.5, 0.5, 0.5)
 const CAMPAIGN_LIST_ROWS := 8
 ## Caméra du décor (repère de la scène du jeu : station à l'origine, avant −Z, Terre en bas) : position, point visé,
 ## décalage horizontal (positif : station et Terre à gauche de l'écran), champ.
@@ -47,6 +49,7 @@ var _page: VBoxContainer
 ## Choix de la campagne : campagnes listées (Campaigns.list), sélecteur, liste déroulante, campagne choisie.
 var _campaigns: Array[Dictionary] = []
 var _campaign_select: Button
+var _launch_button: Button
 var _campaign_list: ItemList
 var _campaign_index := 0
 var _veil: ColorRect
@@ -247,10 +250,10 @@ func _open_campaigns() -> void:
 		_campaign_select.icon = get_theme_icon(&"arrow", &"OptionButton")
 		_campaign_select.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		_campaign_list = _build_campaign_list()
-		_select_campaign(0)
-		_add_button(_campaign_page, "MENU_LAUNCH_CAMPAIGN", func() -> void:
+		_launch_button = _add_button(_campaign_page, "MENU_LAUNCH_CAMPAIGN", func() -> void:
 			if Campaigns.start_campaign(_campaigns[_campaign_index].id):
 				_on_start())
+		_select_campaign(0)
 	_add_button(_campaign_page, "MENU_BACK", func() -> void: _show_page(_mode_page))
 	_show_page(_campaign_page)
 
@@ -264,8 +267,8 @@ func _build_campaign_list() -> ItemList:
 	list.add_theme_font_size_override("font_size", 24)
 	for campaign: Dictionary in _campaigns:
 		var index := list.add_item(Campaigns.text_of(campaign.data, "name", campaign.id))
-		list.set_item_custom_fg_color(index, _campaign_color(campaign.id))
-		list.set_item_tooltip(index, Campaigns.text_of(campaign.data, "description"))
+		list.set_item_custom_fg_color(index, _campaign_color(campaign))
+		list.set_item_tooltip(index, _campaign_tooltip(campaign))
 	popup.add_child(list)
 	list.item_activated.connect(func(index: int) -> void:
 		_select_campaign(index)
@@ -295,15 +298,27 @@ func _select_campaign(index: int) -> void:
 	_campaign_index = index
 	var campaign: Dictionary = _campaigns[index]
 	_campaign_select.text = Campaigns.text_of(campaign.data, "name", campaign.id)
-	_campaign_select.tooltip_text = Campaigns.text_of(campaign.data, "description")
-	var color := _campaign_color(campaign.id)
+	_campaign_select.tooltip_text = _campaign_tooltip(campaign)
+	_launch_button.disabled = not (campaign.campaign as CampaignData).is_valid()
+	var color := _campaign_color(campaign)
 	for state: StringName in [&"font_color", &"font_hover_color", &"font_focus_color", &"font_pressed_color"]:
 		_campaign_select.add_theme_color_override(state, color)
 
 
-## Couleur d'une campagne dans le sélecteur : bleu pour l'officielle, blanc pour les autres.
-static func _campaign_color(id: String) -> Color:
-	return OFFICIAL_COLOR if id == Campaigns.OFFICIAL else Color.WHITE
+## Couleur d'une campagne dans le sélecteur : bleu pour l'officielle, blanc pour les autres, gris si elle a des
+## erreurs (elle ne se lance pas).
+static func _campaign_color(campaign: Dictionary) -> Color:
+	if not (campaign.campaign as CampaignData).is_valid():
+		return INVALID_COLOR
+	return OFFICIAL_COLOR if campaign.id == Campaigns.OFFICIAL else Color.WHITE
+
+
+## Infobulle : description, ou nombre d'erreurs (détail : tools/check_campaign.gd, ou la console du jeu).
+func _campaign_tooltip(campaign: Dictionary) -> String:
+	var errors := (campaign.campaign as CampaignData).errors.size()
+	if errors > 0:
+		return tr("MENU_CAMPAIGN_INVALID").format({"count": errors})
+	return Campaigns.text_of(campaign.data, "description")
 
 
 func _add_button(parent: Control, key: String, action: Callable) -> Button:
