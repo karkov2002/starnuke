@@ -11,12 +11,13 @@ extends Control
 ## très clair) et les orbites_ahead orbites suivantes (0 à MAX_ORBITS_AHEAD, 1 par défaut), d'un vert de plus en plus
 ## sombre (la dernière vert sombre, toujours bien visible).
 ##
-## Cibles au sol (GroundTarget, jusqu'à 5, numérotées) : cercles jaunes numérotés avec leurs coordonnées, la cible
-## choisie en trait épais avec une croix. Carte modifiable (targets_editable : celle du poste de pilotage seulement,
-## règle de jeu) : menu des cibles en haut à gauche — numéros 1 à 5 (choisir la cible ; en jaune ceux qui sont posés),
-## « Effacer » ; les cibles se placent à la main (pas de saisie de coordonnées) : un clic (sans glisser) sur la carte
-## place la cible choisie au point cliqué, un clic sur une cible la choisit. Ailleurs (tablette), les cibles sont seulement affichées. Au survol, les coordonnées du point sous le
-## pointeur le suivent.
+## Cibles au sol (GroundTarget, jusqu'à 5, une couleur chacune) : icône de cible dans sa couleur avec ses
+## coordonnées, la cible choisie en trait épais. Carte modifiable (targets_editable : celle du poste de pilotage
+## seulement, règle de jeu) : menu des cibles en haut à gauche — un bouton par cible portant son icône dans sa couleur
+## (pâle tant qu'elle n'est pas posée ; le bouton de la cible choisie en surbrillance), « Effacer » ; les cibles se
+## placent à la main (pas de saisie de coordonnées) : un clic (sans glisser) sur la carte place la cible choisie au
+## point cliqué, un clic sur une cible la choisit. Ailleurs (tablette), les cibles sont seulement affichées. Au
+## survol, les coordonnées du point sous le pointeur le suivent.
 ##
 ## Navigation, à la manière d'une carte en ligne : molette = zoom centré sur le curseur ; glisser (bouton gauche
 ## maintenu, au-delà de CLICK_SLOP px) = déplacer la carte dans le sens de la souris ; boutons en bas : « − » / « + » (zoom centré sur le
@@ -100,7 +101,7 @@ var _base: Control
 var _base_image: TextureRect
 var _overlay: Control
 var _orbit_buttons: Array[Button] = []
-## Menu des cibles (carte modifiable) : boutons des numéros.
+## Menu des cibles (carte modifiable) : un bouton par cible.
 var _slot_buttons: Array[Button] = []
 
 
@@ -385,8 +386,8 @@ func _draw_overlay() -> void:
 	_draw_hover()
 
 
-## Cibles au sol (GroundTarget) : cercles jaunes, numéro et coordonnées à côté ; la cible choisie en trait épais avec
-## une croix, les autres plus fines et un peu transparentes.
+## Cibles au sol (GroundTarget) : icône de chaque cible dans sa couleur, coordonnées à côté ; la cible choisie en
+## trait épais, les autres plus fines et un peu transparentes.
 func _draw_target(copies: Array[int]) -> void:
 	var target := _get_target()
 	if target == null:
@@ -396,15 +397,13 @@ func _draw_target(copies: Array[int]) -> void:
 	for slot in target.active_slots():
 		var point := target.get_target(slot)
 		var chosen := slot == target.selected
-		var color := GroundTarget.COLOR if chosen else Color(GroundTarget.COLOR, 0.75)
-		var text := "%d  %s" % [slot + 1, GroundTarget.format(point.x, point.y)]
+		var color := GroundTarget.color_of(slot)
+		if not chosen:
+			color.a = 0.8
+		var text := GroundTarget.format(point.x, point.y)
 		for copy in copies:
 			var at := project(point.x, point.y, copy)
-			_overlay.draw_arc(at, 9.0, 0.0, TAU, 32, color, 2.5 if chosen else 1.5, true)
-			_overlay.draw_circle(at, 2.5, color, true, -1.0, true)
-			if chosen:
-				for direction: Vector2 in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
-					_overlay.draw_line(at + direction * 12.0, at + direction * 18.0, color, 2.0, true)
+			GroundTarget.draw_icon(_overlay, at, 18.0, color, 2.5 if chosen else 1.5)
 			_draw_label(at + Vector2(22.0, -10.0), text, font, font_size, color)
 
 
@@ -567,7 +566,7 @@ func _build_controls() -> void:
 		_build_target_menu(height, font, margin)
 
 
-## Menu des cibles (en haut à gauche) : numéros (choisir la cible), « Effacer » (la cible choisie).
+## Menu des cibles (en haut à gauche) : un bouton par cible (la choisir), « Effacer » (la cible choisie).
 func _build_target_menu(height: float, font: int, margin: float) -> void:
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 4)
@@ -582,12 +581,18 @@ func _build_target_menu(height: float, font: int, margin: float) -> void:
 	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	bar.add_child(label)
 	for slot in GroundTarget.MAX_TARGETS:
-		var slot_button := _make_button(str(slot + 1), height, font)
-		slot_button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		# Icône de la cible dans sa couleur (pâle tant qu'elle n'est pas posée), dessinée sur le bouton.
+		var slot_button := _make_button("", height, font)
 		slot_button.pressed.connect(func() -> void:
 			var target := _get_target()
 			if target:
 				target.select(slot))
+		slot_button.draw.connect(func() -> void:
+			var target := _target
+			var placed := target != null and target.has_target(slot)
+			var color := GroundTarget.color_of(slot)
+			GroundTarget.draw_icon(slot_button, slot_button.size * 0.5, slot_button.size.y * 0.36,
+					color if placed else Color(color, 0.35), 2.5 if placed else 2.0))
 		bar.add_child(slot_button)
 		_slot_buttons.append(slot_button)
 	var erase := _make_button("MAP_TARGET_CLEAR", height, font)
@@ -599,17 +604,14 @@ func _build_target_menu(height: float, font: int, margin: float) -> void:
 	_get_target()
 
 
-## Menu des cibles : numéro choisi en surbrillance, numéros posés en jaune.
+## Menu des cibles : bouton de la cible choisie en surbrillance ; icônes redessinées (posées : couleur vive).
 func _refresh_target_menu() -> void:
 	var target := _target
 	if target == null or _slot_buttons.is_empty():
 		return
 	for slot in _slot_buttons.size():
-		var slot_button := _slot_buttons[slot]
-		_style_button(slot_button, slot == target.selected)
-		var color := GroundTarget.COLOR if target.has_target(slot) else COLOR_PANEL_DIM
-		for state in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
-			slot_button.add_theme_color_override(state, color)
+		_style_button(_slot_buttons[slot], slot == target.selected)
+		_slot_buttons[slot].queue_redraw()
 
 
 func _make_button(text: String, height: float, font: int) -> Button:

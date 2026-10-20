@@ -1,14 +1,15 @@
 class_name TargetMarker
 extends Control
-## Cibles au sol (GroundTarget, jusqu'à 5) en surimpression jaune sur la Terre, dans la cupola en mode « HUD : On »
-## (calque du Hud) :
+## Cibles au sol (GroundTarget, jusqu'à 5) en surimpression sur la Terre, chacune de sa couleur (GroundTarget.COLORS),
+## dans la cupola en mode « HUD : On » (calque du Hud) :
 ## - chaque cible posée à l'horizontale sur la Terre, qui en épouse la courbure : trois anneaux concentriques et une
 ##   croix (RINGS_KM, ARMS_KM), tracés sur la sphère (distances le long du sol depuis le point visé) dans un maillage
-##   enfant du nœud Earth (il tourne avec la planète) ; la cible choisie pleine, les autres plus pâles (OTHER_ALPHA) ;
-##   matériau sans éclairage, dessiné après les nuages (tri) avec test de profondeur (cachée par la station, pas par
-##   les nuages qui n'écrivent pas de profondeur), reconstruit quand les cibles changent ;
-## - le numéro de chaque cible visible, à côté d'elle (calque 2D), et une flèche au bord de l'écran quand la cible
-##   choisie est hors champ. Pas de coordonnées dans le HUD (elles masqueraient la vue) : elles sont sur les cartes.
+##   enfant du nœud Earth (il tourne avec la planète ; une surface par cible) ; la cible choisie pleine, les autres
+##   plus pâles (OTHER_ALPHA) ; matériau sans éclairage, dessiné après les nuages (tri) avec test de profondeur
+##   (cachée par la station, pas par les nuages qui n'écrivent pas de profondeur), reconstruit quand les cibles
+##   changent ;
+## - une flèche au bord de l'écran (calque 2D), dans sa couleur, quand la cible choisie est hors champ. Pas de
+##   coordonnées dans le HUD (elles masqueraient la vue) : elles sont sur les cartes.
 ## Rien n'est affiché pour un point sous l'horizon (face cachée de la Terre) ou derrière la caméra.
 
 ## Anneaux : distance au centre et largeur (km, le long du sol).
@@ -22,9 +23,6 @@ const SEGMENTS := 96
 const EDGE_MARGIN := 36.0
 ## Opacité des cibles non choisies.
 const OTHER_ALPHA := 0.45
-## Numéro d'une cible : décalage depuis son centre à l'écran (px), taille de police.
-const NUMBER_OFFSET := Vector2(18.0, -18.0)
-const NUMBER_SIZE := 22
 
 var earth: Node3D
 ## Affichée (Hud : cupola et overlay_enabled).
@@ -35,8 +33,8 @@ var shown := false:
 
 var _target: GroundTarget
 var _mesh: MeshInstance3D
-var _chosen_material: StandardMaterial3D
-var _other_material: StandardMaterial3D
+## Matériaux par cible : Vector2i(emplacement, choisie) -> StandardMaterial3D.
+var _materials := {}
 
 
 func _ready() -> void:
@@ -47,8 +45,6 @@ func _ready() -> void:
 		_mesh.name = "GroundTargetMarker"
 		_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_mesh.visible = false
-		_chosen_material = _make_material(0.95)
-		_other_material = _make_material(OTHER_ALPHA)
 		# Tri des objets transparents : après les nuages et l'atmosphère (qui sinon la recouvrent).
 		_mesh.sorting_offset = 100000.0
 		earth.add_child.call_deferred(_mesh)
@@ -59,16 +55,21 @@ func _exit_tree() -> void:
 		_mesh.queue_free()
 
 
-func _make_material(alpha: float) -> StandardMaterial3D:
+## Matériau d'une cible : sa couleur, pleine si elle est choisie, pâle sinon (créé une fois).
+func _material(slot: int, chosen: bool) -> StandardMaterial3D:
+	var key := Vector2i(slot, int(chosen))
+	if _materials.has(key):
+		return _materials[key]
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	# Couleur de la cible, saturée (au-delà de 1, le tonemapping la blanchirait sur les nuages).
-	material.albedo_color = Color(GroundTarget.COLOR, alpha)
+	material.albedo_color = Color(GroundTarget.color_of(slot), 0.95 if chosen else OTHER_ALPHA)
 	# Test de profondeur gardé : la station (structure de la cupola) la cache ; les nuages et l'atmosphère
 	# n'écrivent pas de profondeur, ils ne la cachent pas.
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	material.render_priority = 10
+	_materials[key] = material
 	return material
 
 
@@ -107,28 +108,18 @@ func _screen_point(point: Vector2) -> Vector2:
 	return camera.unproject_position(world)
 
 
-## Maillage des cibles, sur la sphère (repère du nœud Earth) : une surface pour la cible choisie, une pour les autres.
+## Maillage des cibles, sur la sphère (repère du nœud Earth) : une surface par cible, dans sa couleur.
 func _rebuild() -> void:
 	if _mesh == null or _target == null:
 		return
-	var chosen := PackedVector3Array()
-	var others := PackedVector3Array()
+	var mesh := ArrayMesh.new()
 	for slot in _target.active_slots():
 		var point := _target.get_target(slot)
-		if slot == _target.selected:
-			chosen.append_array(_target_vertices(point.x, point.y))
-		else:
-			others.append_array(_target_vertices(point.x, point.y))
-	var mesh := ArrayMesh.new()
-	for part: Array in [[chosen, _chosen_material], [others, _other_material]]:
-		var vertices: PackedVector3Array = part[0]
-		if vertices.is_empty():
-			continue
 		var arrays := []
 		arrays.resize(Mesh.ARRAY_MAX)
-		arrays[Mesh.ARRAY_VERTEX] = vertices
+		arrays[Mesh.ARRAY_VERTEX] = _target_vertices(point.x, point.y)
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-		mesh.surface_set_material(mesh.get_surface_count() - 1, part[1])
+		mesh.surface_set_material(mesh.get_surface_count() - 1, _material(slot, slot == _target.selected))
 	_mesh.mesh = mesh
 
 
@@ -177,24 +168,17 @@ func _draw() -> void:
 	var target := _get_target()
 	if target == null:
 		return
+	if not target.has_target(target.selected):
+		return
+	var at := _screen_point(target.get_target(target.selected))
 	var screen := get_viewport_rect().size
-	var inner := Rect2(Vector2.ZERO, screen).grow(-EDGE_MARGIN)
-	var font := get_theme_default_font()
-	for slot in target.active_slots():
-		var chosen := slot == target.selected
-		var color := GroundTarget.COLOR if chosen else Color(GroundTarget.COLOR, 0.7)
-		var at := _screen_point(target.get_target(slot))
-		if at == Vector2.INF:
-			continue
-		if inner.has_point(at):
-			draw_string_outline(font, at + NUMBER_OFFSET, str(slot + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, NUMBER_SIZE, 4,
-					Color(0, 0, 0, 0.8))
-			draw_string(font, at + NUMBER_OFFSET, str(slot + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, NUMBER_SIZE, color)
-		elif chosen:
-			# Cible choisie hors champ : flèche au bord de l'écran, vers elle.
-			var middle := screen * 0.5
-			var direction := (at - middle).normalized()
-			var edge := middle + direction * minf((screen.x * 0.5 - EDGE_MARGIN) / maxf(absf(direction.x), 1e-3),
-					(screen.y * 0.5 - EDGE_MARGIN) / maxf(absf(direction.y), 1e-3))
-			var side := direction.orthogonal() * 9.0
-			draw_colored_polygon(PackedVector2Array([edge + direction * 14.0, edge + side, edge - side]), color)
+	if at == Vector2.INF or Rect2(Vector2.ZERO, screen).grow(-EDGE_MARGIN).has_point(at):
+		return
+	# Cible choisie hors champ : flèche au bord de l'écran, vers elle, dans sa couleur.
+	var middle := screen * 0.5
+	var direction := (at - middle).normalized()
+	var edge := middle + direction * minf((screen.x * 0.5 - EDGE_MARGIN) / maxf(absf(direction.x), 1e-3),
+			(screen.y * 0.5 - EDGE_MARGIN) / maxf(absf(direction.y), 1e-3))
+	var side := direction.orthogonal() * 9.0
+	draw_colored_polygon(PackedVector2Array([edge + direction * 14.0, edge + side, edge - side]),
+			GroundTarget.color_of(target.selected))

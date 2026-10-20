@@ -1,18 +1,21 @@
 class_name GroundTarget
 extends Node
 ## Cibles au sol (nœud GroundTarget de scenes/orbit_view.tscn, groupe GROUP) : jusqu'à MAX_TARGETS points de la Terre,
-## numérotés de 1 à MAX_TARGETS, dont une cible choisie (selected). Règle de jeu : on ne les place que sur la carte
+## un par emplacement, chacun de sa couleur (COLORS), dont une cible choisie (selected). Règle de jeu : on ne les place que sur la carte
 ## de l'écran de pilotage (OrbitalMap.targets_editable : menu des cibles, clic sur la carte, saisie des coordonnées) ;
-## la carte de la tablette les affiche seulement. Affichées sur les cartes avec leur numéro et leurs coordonnées et,
-## dans la cupola en mode « HUD : On », en surimpression jaune sur la Terre (Hud, TargetMarker ; la cible choisie
-## pleine, les autres plus pâles).
+## la carte de la tablette les affiche seulement. Affichées sur les cartes dans leur couleur avec leurs coordonnées et,
+## dans la cupola en mode « HUD : On », en surimpression sur la Terre (Hud, TargetMarker ; la cible choisie pleine,
+## les autres plus pâles).
 
 signal changed
 
 const GROUP := &"ground_target"
 const MAX_TARGETS := 5
-## Jaune doré : lisible sur la mer et les nuages, distinct du jaune pâle de la station sur la carte.
-const COLOR := Color(1.0, 0.78, 0.1)
+## Couleur de chaque cible (une par emplacement, sur les cartes, les boutons et dans le HUD) : jaune doré, rouge,
+## magenta, violet, orange ; lisibles sur la mer et les nuages, distinctes du jaune pâle de la station, du vert des
+## traces et du cyan de l'orbite visée.
+const COLORS: Array[Color] = [Color(1.0, 0.8, 0.1), Color(1.0, 0.32, 0.28), Color(1.0, 0.38, 0.85),
+		Color(0.62, 0.52, 1.0), Color(1.0, 0.56, 0.12)]
 
 ## Cible de chaque numéro (indice 0 à MAX_TARGETS − 1) : Vector2(latitude, longitude) en degrés, ou null (vide).
 var targets: Array = []
@@ -43,6 +46,18 @@ func select(slot: int) -> void:
 	if slot != selected:
 		selected = slot
 		changed.emit()
+
+
+static func color_of(slot: int) -> Color:
+	return COLORS[clampi(slot, 0, COLORS.size() - 1)]
+
+
+## Icône de cible (cercle, point central, quatre branches), comme sur les cartes, centrée en center, de rayon radius.
+static func draw_icon(canvas: CanvasItem, center: Vector2, radius: float, color: Color, width: float) -> void:
+	canvas.draw_arc(center, radius * 0.5, 0.0, TAU, 32, color, width, true)
+	canvas.draw_circle(center, maxf(radius * 0.14, 1.5), color, true, -1.0, true)
+	for direction: Vector2 in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+		canvas.draw_line(center + direction * radius * 0.66, center + direction * radius, color, width, true)
 
 
 func has_target(slot: int) -> bool:
