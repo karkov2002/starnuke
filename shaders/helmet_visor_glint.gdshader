@@ -6,7 +6,7 @@ shader_type spatial;
 render_mode blend_add, unshaded, depth_draw_never, cull_disabled;
 
 uniform vec3 glint_color : source_color = vec3(0.85, 0.9, 1.0);
-uniform float energy : hint_range(0.0, 2.0) = 0.22;
+uniform float energy : hint_range(0.0, 2.0) = 0.11;
 // Direction (vers le bord où se trouve l'arc principal), distance au centre de la fenêtre, largeur.
 uniform vec2 streak_dir = vec2(-0.5, 1.0);
 uniform float streak_offset : hint_range(0.0, 1.0) = 0.66;

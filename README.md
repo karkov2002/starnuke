@@ -701,8 +701,9 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     sur pattes, berceau du sac à sabots, crochets, cale-pieds), qui reste en place quand la combinaison est portée.
     **Casque porté** (`scripts/suit_helmet.gd`, nœud `Observer/Camera/Helmet`) : tant que la combinaison est portée
     (`Station.suit_changed`), on voit l'intérieur du casque, qui suit la tête : coque noire mate (sphère de 16,5 cm
-    de rayon centrée 7 cm derrière l'œil), fenêtre aux coins arrondis (±56° de côté, +33° en haut, −48° en bas, vus
-    de l'œil : bande en haut et coins masqués, la tablette sortie reste entière), joint gris foncé, visière
+    de rayon centrée 7 cm derrière l'œil), fenêtre ronde comme la visière vue de l'extérieur (ellipse dans le plan de
+    la vue, demi-axes ±59° de côté, +37° en haut, −46° en bas vus de l'œil : bord haut en dôme, au ras du haut de
+    l'image au centre et descendant sur les côtés ; la tablette sortie reste entière), joint gris foncé, visière
     transparente (`shaders/helmet_visor.gdshader` : voile gris-bleu vers les bords et en incidence rasante) et ses
     reflets en arc (passe additive `shaders/helmet_visor_glint.gdshader`, en haut à gauche et plus faible en bas à
     droite : nets sur fond sombre, discrets sur fond clair, jamais d'assombrissement). Maillage généré par le script

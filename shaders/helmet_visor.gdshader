@@ -21,6 +21,6 @@ void fragment() {
 	ALBEDO = tint;
 	ROUGHNESS = 0.04;
 	METALLIC = 0.0;
-	SPECULAR = 0.9;
+	SPECULAR = 0.45;
 	ALPHA = clamp(base_alpha + rim_alpha * rim + edge_alpha * fresnel, 0.0, 1.0);
 }

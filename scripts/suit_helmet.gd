@@ -5,9 +5,10 @@ extends Node3D
 ## Maillage généré ici (pas de modèle Blender : une sphère percée d'une fenêtre, dimensionnée sur le champ de vue) :
 ## - coque intérieure noire mate (sphère de radius_m, centrée center_offset derrière l'œil, comme la tête dans un vrai
 ##   casque) ; elle encadre la vue : bande en haut, bords sur les côtés, coins arrondis ;
-## - fenêtre : superellipse dans l'espace des angles vus de l'œil (azimut ±window_half_width_deg, élévation
-##   +window_top_deg / −window_bottom_deg, exposant window_squareness) ; assez large pour la tablette sortie (bas à
-##   droite de la vue), qui se tient derrière la visière, à ~15 cm de l'œil ;
+## - fenêtre : ellipse dans le plan de la vue (ronde à l'écran comme vue de l'extérieur, bord haut en dôme : au ras du
+##   haut de l'image au centre, descendant sur les côtés), demi-axes ±window_half_width_deg, +window_top_deg /
+##   −window_bottom_deg vus de l'œil ; assez large pour la tablette sortie (bas à droite de la vue), qui se tient
+##   derrière la visière, à ~15 cm de l'œil ;
 ## - joint gris foncé au bord de la fenêtre ;
 ## - visière transparente (shaders/helmet_visor.gdshader : voile teinté vers les bords, Fresnel) et ses reflets en arc
 ##   (passe additive shaders/helmet_visor_glint.gdshader : en haut à gauche, plus faible en bas à droite).
@@ -19,11 +20,11 @@ const GLINT_SHADER := preload("res://shaders/helmet_visor_glint.gdshader")
 ## Rayon de la coque (m) et position de son centre par rapport à l'œil (repère de la caméra : −Z vers l'avant).
 @export var radius_m := 0.165
 @export var center_offset := Vector3(0.0, -0.02, 0.07)
-## Fenêtre, en angles vus de l'œil (degrés).
-@export var window_half_width_deg := 56.0
-@export var window_top_deg := 33.0
-@export var window_bottom_deg := 48.0
-@export var window_squareness := 2.6
+## Fenêtre : ellipse dans le plan de la vue (bord ronde à l'écran, bord haut en dôme), donnée par ses demi-axes en
+## angles vus de l'œil depuis l'axe du regard (degrés) ; demi-ellipses différentes en haut et en bas.
+@export var window_half_width_deg := 59.0
+@export var window_top_deg := 37.0
+@export var window_bottom_deg := 46.0
 ## Largeur du joint (part du rayon de la fenêtre).
 @export var seal_width := 0.045
 
@@ -62,30 +63,32 @@ func _build() -> void:
 	visor.shader = VISOR_SHADER
 	visor.next_pass = ShaderMaterial.new()
 	(visor.next_pass as ShaderMaterial).shader = GLINT_SHADER
-	# r : distance au centre de la fenêtre (1 : son bord) ; la coque va jusqu'à r = 4, derrière la tête.
-	_add_part("Visiere", 0.0, 1.0, 12, visor, 0.004)
-	_add_part("Joint", 1.0, 1.0 + seal_width, 2, seal, 0.006)
-	_add_part("Coque", 1.0 + seal_width, 4.0, 24, shell, 0.0)
+	# r : distance au centre de la fenêtre (1 : son bord) ; la coque va jusqu'à r = 14 (~87° de l'axe du regard,
+	# au-delà de tout champ de vue), ses rangées resserrées près du joint.
+	_add_part("Visiere", 0.0, 1.0, 12, visor, 0.004, 1.0)
+	_add_part("Joint", 1.0, 1.0 + seal_width, 2, seal, 0.006, 1.0)
+	_add_part("Coque", 1.0 + seal_width, 14.0, 32, shell, 0.0, 2.0)
 
 
-## Anneau de la fenêtre entre r0 et r1 (rings rangées, 96 secteurs), rapproché de l'œil de inset_m.
-func _add_part(part_name: String, r0: float, r1: float, rings: int, material: Material, inset_m: float) -> void:
-	const SECTORS := 96
+## Anneau de la fenêtre entre r0 et r1 (rings rangées réparties selon t^spacing, 128 secteurs), rapproché de l'œil
+## de inset_m. Fenêtre ellipse dans le plan z = −1 de la caméra : point (X, Y) = r·(cos θ·a, sin θ·b).
+func _add_part(part_name: String, r0: float, r1: float, rings: int, material: Material, inset_m: float,
+		spacing: float) -> void:
+	const SECTORS := 128
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var uvs := PackedVector2Array()
 	var indices := PackedInt32Array()
-	var exponent := 2.0 / window_squareness
+	var half_width := tan(deg_to_rad(window_half_width_deg))
+	var top := tan(deg_to_rad(window_top_deg))
+	var bottom := tan(deg_to_rad(window_bottom_deg))
 	for i in rings + 1:
-		var r := lerpf(r0, r1, float(i) / rings)
+		var r := lerpf(r0, r1, pow(float(i) / rings, spacing))
 		for k in SECTORS + 1:
 			var theta := TAU * k / SECTORS
-			var c := cos(theta)
-			var s := sin(theta)
-			var uv := Vector2(signf(c) * pow(absf(c), exponent), signf(s) * pow(absf(s), exponent)) * r
-			var azimuth := clampf(uv.x * window_half_width_deg, -175.0, 175.0)
-			var elevation := clampf(uv.y * (window_top_deg if uv.y > 0.0 else window_bottom_deg), -85.0, 85.0)
-			var point := _on_shell(deg_to_rad(azimuth), deg_to_rad(elevation), radius_m - inset_m)
+			var uv := Vector2(cos(theta), sin(theta)) * r
+			var plane := Vector2(uv.x * half_width, uv.y * (top if uv.y > 0.0 else bottom))
+			var point := _on_shell(Vector3(plane.x, plane.y, -1.0).normalized(), radius_m - inset_m)
 			vertices.append(point)
 			normals.append((center_offset - point).normalized())   # vers l'intérieur : la face vue
 			uvs.append(uv)
@@ -113,8 +116,7 @@ func _add_part(part_name: String, r0: float, r1: float, rings: int, material: Ma
 	add_child(instance)
 
 
-## Point de la sphère (centre center_offset, rayon radius) vu de l'œil dans la direction (azimut, élévation).
-func _on_shell(azimuth: float, elevation: float, radius: float) -> Vector3:
-	var d := Vector3(cos(elevation) * sin(azimuth), sin(elevation), -cos(elevation) * cos(azimuth))
+## Point de la sphère (centre center_offset, rayon radius) vu de l'œil dans la direction d (unitaire).
+func _on_shell(d: Vector3, radius: float) -> Vector3:
 	var b := d.dot(center_offset)
 	return d * (b + sqrt(b * b - center_offset.length_squared() + radius * radius))
