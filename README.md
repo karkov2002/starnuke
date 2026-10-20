@@ -67,15 +67,18 @@ permet de piloter le jeu exporté.
     à la dernière journée, message de fin de campagne (`ending`, selon la moyenne globale).
   - **Nuit** : la journée terminée, promenade libre ; **la couchette devient cliquable** (bulle « Dormir »,
     `HatchInteraction`, `CampaignDirector.can_sleep` ; avant, elle ne réagit pas). Dormir : fondu au noir (1,5 s),
-    titre « Jour n » (2,5 s), **réveil dans la couchette** au départ de la journée suivante — son `start` s'il est
-    défini (heure et position exactes), sinon **la station a continué son orbite** jusqu'à l'heure de réveil
-    (`wake_up_utc`, le lendemain si elle est passée ; sans heure, 8 h de sommeil) —, briefing de la première mission.
-  - **Réveil** (début de chaque journée, la première comprise, au lancement de la campagne) : « Jour n » sur le noir,
-    puis **ouverture des paupières**, comme la séquence de mort à l'envers (`shaders/eyelids.gdshader`) : elles
-    s'entrouvrent, clignent une fois puis s'ouvrent tout à fait (~1,7 s, `WAKE_STEPS` ; titre 1,8 s) ; la
+    puis **réveil dans la couchette** au départ de la journée suivante — son `start` s'il est défini (heure et
+    position exactes), sinon **la station a continué son orbite** jusqu'à l'heure de réveil (`wake_up_utc`, le
+    lendemain si elle est passée ; sans heure, 8 h de sommeil) —, briefing de la première mission. Après la dernière
+    journée, dormir termine la campagne et ramène à l'écran de démarrage (fin de campagne détaillée : à venir).
+    Sauvegarde au coucher : à venir.
+  - **Réveil** (règle de jeu, `scripts/wake_up.gd`, nœud `WakeUp`) : **au lancement de toute partie (mode libre
+    compris)** et au début de chaque journée de campagne : noir, titre « Jour n » (campagne seulement), puis
+    **ouverture des paupières**, comme la séquence de mort à l'envers (`shaders/eyelids.gdshader`) : elles
+    s'entrouvrent, clignent une fois puis s'ouvrent tout à fait (~1,7 s, `WakeUp.WAKE_STEPS` ; titre 1,8 s) ; la
     vue, d'abord floue et sombre sur les bords, devient nette. Pendant le sommeil et le réveil, les clics sont
-    bloqués ; le voile est retiré ensuite (il gardait sinon le clic droit qui tourne la tête). Après la dernière journée, dormir termine la campagne et ramène à l'écran de démarrage
-    (fin de campagne détaillée : à venir). Sauvegarde au coucher : à venir.
+    bloqués ; le voile est retiré ensuite (il gardait sinon le clic droit qui tourne la tête). Ni au décor de
+    l'écran de démarrage ni aux bancs de mesure (la scène du jeu n'y est pas la scène courante).
 - **Campagnes** : dossier `campaign/` à côté de `playlist/`, un sous-dossier par campagne (son nom est l'identifiant
   de la campagne) avec un fichier `campaign.json`. Comme les playlists, le dossier est lu sur le disque (`.gdignore`,
   jamais dans le `.pck`) : `campaign/` du projet dans l'éditeur, à côté de l'exécutable dans le jeu exporté (copié

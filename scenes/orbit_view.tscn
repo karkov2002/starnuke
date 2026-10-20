@@ -35,6 +35,7 @@
 [ext_resource type="Script" uid="uid://c6iao1laubem6" path="res://scripts/comm_console.gd" id="33_m75us"]
 [ext_resource type="Script" uid="uid://dr7vu7jojb2xj" path="res://scripts/photo_archive.gd" id="34_crbbg"]
 [ext_resource type="Script" uid="uid://c5ppfc2stod21" path="res://scripts/campaign_director.gd" id="35_vnf77"]
+[ext_resource type="Script" uid="uid://dg8apa0r08bm5" path="res://scripts/wake_up.gd" id="36_4hs2m"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -201,3 +202,6 @@ script = ExtResource("34_crbbg")
 
 [node name="CampaignDirector" type="Node" parent="." unique_id=1735610363]
 script = ExtResource("35_vnf77")
+
+[node name="WakeUp" type="CanvasLayer" parent="." unique_id=649541164]
+script = ExtResource("36_4hs2m")
