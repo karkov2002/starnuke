@@ -3,7 +3,7 @@ extends Control
 ## - accueil : « Commencer la partie » (page des modes), « Paramètres » (écran scenes/ui/settings_menu.tscn
 ##   par-dessus), « Quitter » ;
 ## - modes de jeu : « Démarrer une nouvelle campagne » (page des campagnes), « Continuer la campagne en cours »
-##   (cliquable seulement si une campagne est en cours, Campaigns.has_saved : jamais pour le moment), « Mode libre »
+##   (cliquable seulement si une campagne est en cours, Campaigns.has_saved : reprend la sauvegarde du dernier coucher), « Mode libre »
 ##   (le jeu tel quel), « Retour » ;
 ## - campagnes : sélecteur déroulant des campagnes du dossier campaign/ (scripts/campaigns.gd ; l'officielle en premier
 ##   et en bleu, les autres en blanc), « Lancer la campagne » (pour le moment, la partie normale), « Retour ».
@@ -96,8 +96,10 @@ func _ready() -> void:
 	_add_button(_main_page, "MENU_QUIT", func() -> void: get_tree().quit())
 	_mode_page = _add_page(column)
 	_add_button(_mode_page, "MENU_NEW_CAMPAIGN", _open_campaigns)
-	# Pas de campagne en cours à continuer pour le moment (Campaigns.has_saved).
-	_continue_button = _add_button(_mode_page, "MENU_CONTINUE_CAMPAIGN", func() -> void: pass)
+	# Reprend la campagne sauvegardée au dernier coucher (grisé sans sauvegarde : Campaigns.has_saved).
+	_continue_button = _add_button(_mode_page, "MENU_CONTINUE_CAMPAIGN", func() -> void:
+		if Campaigns.continue_saved():
+			_on_start())
 	_add_button(_mode_page, "MENU_FREE_MODE", func() -> void:
 		Campaigns.start_free()
 		_on_start())

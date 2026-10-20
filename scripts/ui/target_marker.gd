@@ -60,17 +60,17 @@ func _material(slot: int, chosen: bool) -> StandardMaterial3D:
 	var key := Vector2i(slot, int(chosen))
 	if _materials.has(key):
 		return _materials[key]
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var marker_material := StandardMaterial3D.new()
+	marker_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	marker_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	# Couleur de la cible, saturée (au-delà de 1, le tonemapping la blanchirait sur les nuages).
-	material.albedo_color = Color(GroundTarget.color_of(slot), 0.95 if chosen else OTHER_ALPHA)
+	marker_material.albedo_color = Color(GroundTarget.color_of(slot), 0.95 if chosen else OTHER_ALPHA)
 	# Test de profondeur gardé : la station (structure de la cupola) la cache ; les nuages et l'atmosphère
 	# n'écrivent pas de profondeur, ils ne la cachent pas.
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	material.render_priority = 10
-	_materials[key] = material
-	return material
+	marker_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	marker_material.render_priority = 10
+	_materials[key] = marker_material
+	return marker_material
 
 
 func _process(_delta: float) -> void:

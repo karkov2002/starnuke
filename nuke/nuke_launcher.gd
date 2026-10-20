@@ -118,6 +118,32 @@ func launch_at(latitude_deg: float, longitude_deg: float, yield_kt: float) -> Nu
 	params.latitude_deg = latitude_deg
 	params.longitude_deg = longitude_deg
 	params.start_time_s = NukeClock.time_s
+	if NukeClock.orbit:
+		params.detonation_utc_s = NukeClock.orbit.get_utc_unix_s()
+	_fill_place(params)
+	return fire(params)
+
+
+## Recrée une explosion passée (chargement d'une sauvegarde) : même point et même puissance, âgée de clock_age_s sur
+## l'horloge des explosions (incendies, traces au sol, black-out où ils en étaient) ; marquée restored (pas un nouveau
+## tir : ni objectif de mission, ni édition spéciale de la télévision).
+func restore_at(latitude_deg: float, longitude_deg: float, yield_kt: float, clock_age_s: float,
+		utc_unix_s: float) -> NukeEffect:
+	var params := NukeParams.new()
+	params.yield_kt = clampf(yield_kt, NukeScaling.MIN_YIELD_KT, NukeScaling.MAX_YIELD_KT)
+	params.latitude_deg = latitude_deg
+	params.longitude_deg = longitude_deg
+	params.start_time_s = NukeClock.time_s - maxf(clock_age_s, 0.0)
+	params.detonation_utc_s = utc_unix_s
+	params.restored = true
+	_fill_place(params)
+	return fire(params)
+
+
+## Vent réel GFS, mer ou terre, pays du point d'impact.
+func _fill_place(params: NukeParams) -> void:
+	var latitude_deg := params.latitude_deg
+	var longitude_deg := params.longitude_deg
 	var wind := NukeWind.sample(latitude_deg, longitude_deg)
 	if wind != Vector2.ZERO:
 		params.wind_direction_deg = NukeWind.from_direction_deg(wind)
@@ -125,7 +151,6 @@ func launch_at(latitude_deg: float, longitude_deg: float, yield_kt: float) -> Nu
 	params.wind_profile = NukeWind.sample_profile(latitude_deg, longitude_deg)
 	params.over_ocean = OceanMask.is_ocean(latitude_deg, longitude_deg)
 	params.country_code = CountryMask.country_at(latitude_deg, longitude_deg).get("code", "")
-	return fire(params)
 
 
 ## Crée l'explosion décrite par params. Son bilan (pertes, réseau électrique, retombées) est calculé par le nœud

@@ -75,9 +75,13 @@ func _ready() -> void:
 	var launcher := get_node_or_null(launcher_path) as NukeLauncher
 	if launcher:
 		launcher.detonated.connect(func(effect: NukeEffect) -> void:
-			if effect.params:
+			# Une explosion recréée au chargement n'est pas un tir : elle ne remplit aucun objectif.
+			if effect.params and not effect.params.restored:
 				_record("strike", effect.params.latitude_deg, effect.params.longitude_deg))
-	# Après la mise en place de l'orbite (son _ready).
+	# Après la mise en place de l'orbite (son _ready) : monde d'une sauvegarde recréé (« Continuer »), puis journée.
+	if not Campaigns.pending_world.is_empty():
+		_restore_world.call_deferred(Campaigns.pending_world)
+		Campaigns.pending_world = {}
 	start_day.call_deferred(Campaigns.day_index)
 
 
@@ -236,10 +240,14 @@ func sleep() -> void:
 		await wake.fall_asleep()
 	var next := Campaigns.day_index + 1
 	if next >= Campaigns.current.days().size():
+		Campaigns.delete_save()
 		Campaigns.start_free()
 		get_tree().change_scene_to_file(MENU_SCENE)
 		return
 	_advance_to_wake_up(next)
+	# Sauvegarde au coucher (règle de jeu) : journée à venir, notes, monde au réveil.
+	Campaigns.day_index = next
+	Campaigns.save(_capture_world())
 	start_day(next)
 	var observer := get_tree().current_scene.get_node_or_null("Observer")
 	if observer and observer.has_method(&"_place_at_start"):
@@ -251,6 +259,50 @@ func sleep() -> void:
 
 func _wake_up() -> WakeUp:
 	return get_tree().get_first_node_in_group(WakeUp.GROUP) as WakeUp
+
+
+## Monde à sauvegarder : orbite au réveil (heure UTC, altitude, inclinaison, point survolé, sens de passage),
+## explosions (point, puissance, âge sur l'horloge des explosions, heure UTC), photos, cibles.
+func _capture_world() -> Dictionary:
+	var world := {}
+	if _orbit:
+		var point := _orbit.get_subsatellite_point()
+		world.orbit = {"utc": _orbit.get_utc_unix_s(), "altitude_km": _orbit.altitude_km,
+				"inclination_deg": _orbit.inclination_deg, "lat": point.x, "lon": point.y,
+				"ascending": _orbit.is_ascending()}
+	var launcher := get_node_or_null(launcher_path) as NukeLauncher
+	if launcher:
+		world.detonations = []
+		for effect in launcher.get_effects():
+			var p := effect.params
+			if p:
+				world.detonations.append({"lat": p.latitude_deg, "lon": p.longitude_deg, "yield_kt": p.yield_kt,
+						"clock_age_s": NukeClock.time_s - p.start_time_s, "utc": p.detonation_utc_s})
+	var photos := get_node_or_null(photos_path) as PhotoArchive
+	if photos:
+		world.photos = photos.to_save()
+	var targets := get_tree().get_first_node_in_group(GroundTarget.GROUP) as GroundTarget
+	if targets:
+		world.targets = targets.to_save()
+	return world
+
+
+## Recrée le monde d'une sauvegarde (_capture_world) : orbite, explosions avec leur âge, photos, cibles.
+func _restore_world(world: Dictionary) -> void:
+	var orbit: Dictionary = world.get("orbit", {})
+	if _orbit and not orbit.is_empty():
+		_orbit.place(float(orbit.utc), float(orbit.altitude_km), float(orbit.inclination_deg), float(orbit.lat),
+				float(orbit.lon), bool(orbit.ascending))
+	var launcher := get_node_or_null(launcher_path) as NukeLauncher
+	if launcher:
+		for d: Dictionary in world.get("detonations", []):
+			launcher.restore_at(float(d.lat), float(d.lon), float(d.yield_kt), float(d.clock_age_s), float(d.utc))
+	var photos := get_node_or_null(photos_path) as PhotoArchive
+	if photos and world.has("photos"):
+		photos.restore(world.photos)
+	var targets := get_tree().get_first_node_in_group(GroundTarget.GROUP) as GroundTarget
+	if targets and world.has("targets"):
+		targets.restore(world.targets)
 
 
 ## Nuit : sans départ propre, la station continue son orbite jusqu'au réveil (wake_up_utc de la journée suivante, le
@@ -268,6 +320,8 @@ func _advance_to_wake_up(day_index: int) -> void:
 			wake += 86400.0
 		sleep_s = wake - now
 	_orbit.sim_time_s += sleep_s
+	# Les explosions vieillissent aussi pendant la nuit (incendies, fumées).
+	NukeClock.time_s += sleep_s
 
 
 

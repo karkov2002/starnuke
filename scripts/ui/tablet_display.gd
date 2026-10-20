@@ -47,6 +47,7 @@ var archive: PhotoArchive:
 		archive = value
 		if archive:
 			archive.photo_taken.connect(func(_photo: Dictionary) -> void: _show_photo(_photo_index))
+			archive.restored.connect(func() -> void: _show_photo(-1))
 		if _gallery_button:
 			_show_photo(_photo_index)
 var current_tab := Tab.PILOT

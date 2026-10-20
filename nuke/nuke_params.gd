@@ -17,6 +17,10 @@ extends Resource
 @export var wind_profile := PackedVector3Array()
 ## Instant de l'explosion sur l'horloge des explosions (NukeClock.time_s).
 @export var start_time_s := 0.0
+## Instant UTC de l'explosion (secondes Unix, horloge du jeu ; −1 : inconnu), et explosion recréée au chargement d'une
+## sauvegarde (NukeLauncher.restore_at : pas un nouveau tir).
+@export var detonation_utc_s := -1.0
+@export var restored := false
 ## Hauteur d'explosion (0 = au sol). Règle de jeu : explosion en altitude à NukeScaling.DEFAULT_BURST_HEIGHT_KM (500 m),
 ## pas de cratère ; la boule de feu touche encore le sol à partir de ~1 Mt (retombées, cf. NukeScaling.low_burst).
 @export_range(0.0, 50.0, 0.01, "suffix:km") var burst_height_km := NukeScaling.DEFAULT_BURST_HEIGHT_KM

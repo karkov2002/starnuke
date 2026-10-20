@@ -105,9 +105,11 @@ func _ready() -> void:
 	_screen.set_surface_override_material(surface, _material)
 	_build_hints()
 	if _launcher:
-		_launcher.detonated.connect(func(_effect: NukeEffect) -> void:
-			if _orbit:
-				_last_detonation_unix = _orbit.get_utc_unix_s()
+		_launcher.detonated.connect(func(effect: NukeEffect) -> void:
+			# Explosion recréée (sauvegarde) : l'édition spéciale suit son heure réelle, pas le chargement.
+			var at := effect.params.detonation_utc_s if effect.params and effect.params.detonation_utc_s >= 0.0 \
+					else (_orbit.get_utc_unix_s() if _orbit else -INF)
+			_last_detonation_unix = maxf(_last_detonation_unix, at)
 			_update_off_air()
 			# Nouveau tir : le bandeau repart tout de suite avec le nouveau bilan (après le calcul des pertes).
 			if _display:

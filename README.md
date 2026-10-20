@@ -36,7 +36,7 @@ permet de piloter le jeu exporté.
   **sélecteur déroulant** — bouton qui affiche la campagne choisie et ouvre une liste à défilement, 8 lignes
   visibles — avec **la campagne officielle toujours en premier, en bleu**, les autres en blanc, la description en
   infobulle ; puis **Launch campaign** et **Back**), **Continue current campaign** (cliquable
-  seulement si une campagne est en cours, `Campaigns.has_saved` : jamais pour le moment, pas encore de sauvegarde),
+  seulement s'il y a une sauvegarde, `Campaigns.has_saved` : voir « Sauvegarde au coucher »),
   **Free mode** (le jeu tel quel : `orbit_view.tscn`) et **Back**. Le **mode campagne** sera le cœur du jeu
   (`Campaigns.mode`, `current_id`, `current` : `CampaignData` vérifié, `day_index` retenus) : au lancement, le nœud
   `CampaignDirector` (`scripts/campaign_director.gd`) applique le **départ de la journée** (heure UTC et position
@@ -70,8 +70,19 @@ permet de piloter le jeu exporté.
     puis **réveil dans la couchette** au départ de la journée suivante — son `start` s'il est défini (heure et
     position exactes), sinon **la station a continué son orbite** jusqu'à l'heure de réveil (`wake_up_utc`, le
     lendemain si elle est passée ; sans heure, 8 h de sommeil) —, briefing de la première mission. Après la dernière
-    journée, dormir termine la campagne et ramène à l'écran de démarrage (fin de campagne détaillée : à venir).
-    Sauvegarde au coucher : à venir.
+    journée, dormir termine la campagne, efface la sauvegarde et ramène à l'écran de démarrage (fin de campagne
+    détaillée : à venir). Pendant la nuit, les explosions vieillissent avec l'orbite (horloge `NukeClock` avancée
+    d'autant : incendies, fumées).
+  - **Sauvegarde au coucher** (règle de jeu ; `Campaigns.save`, `user://saves/campaign.json`, un seul emplacement :
+    la campagne en cours) : campagne, **journée à venir**, notes (missions, journées, **moyenne globale**
+    `global_score`) et monde au réveil — orbite (heure UTC, altitude, inclinaison, point survolé, sens de passage),
+    **explosions** (point, puissance, âge sur l'horloge des explosions, heure UTC), photos (fichiers de
+    `user://photos/` et leurs vignettes `user://photos/thumbs/`), cibles. La radio n'est pas gardée (la journée
+    commence par son briefing). **« Continuer la campagne en cours »** (cliquable s'il y a une sauvegarde valide,
+    `Campaigns.continue_saved`) relance la partie au réveil de la journée sauvegardée : orbite replacée, explosions
+    **recréées à leur âge** (`NukeLauncher.restore_at` : incendies, traces au sol, black-out où ils en étaient ;
+    marquées `restored` : elles ne remplissent aucun objectif et la télévision garde leur heure réelle pour
+    l'édition spéciale), galerie et cibles rétablies.
   - **Réveil** (règle de jeu, `scripts/wake_up.gd`, nœud `WakeUp`) : **au lancement de toute partie (mode libre
     compris)** et au début de chaque journée de campagne : noir, titre « Jour n » (campagne seulement), puis
     **ouverture des paupières**, comme la séquence de mort à l'envers (`shaders/eyelids.gdshader`) : elles

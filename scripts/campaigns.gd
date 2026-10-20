@@ -20,6 +20,9 @@ enum Mode { FREE, CAMPAIGN }
 const FOLDER := "campaign"
 const FILE := "campaign.json"
 const OFFICIAL := "starnuke"
+## Sauvegarde de la campagne en cours (un seul emplacement) et version de son format.
+const SAVE_PATH := "user://saves/campaign.json"
+const SAVE_FORMAT := 1
 
 ## Mode de la partie en cours (ou de la dernière lancée).
 static var mode := Mode.FREE
@@ -32,6 +35,8 @@ static var day_index := 0
 ## note de chaque journée terminée : identifiant -> note.
 static var results := {}
 static var day_scores := {}
+## Monde d'une sauvegarde à recréer au lancement (continue_saved ; vidé par CampaignDirector une fois recréé).
+static var pending_world := {}
 
 
 ## Moyenne globale de la campagne (toutes les missions jouées, échecs compris) ; null avant la première.
@@ -56,7 +61,10 @@ static func scores(day_id: String, mission_id: String) -> Dictionary:
 		if results[id].day == day_id:
 			day_total += float(results[id].score)
 			day_count += 1
-	return {"global_score": global_score(), "day_score": day_total / day_count if day_count > 0 else null,
+	var day_score: Variant = null
+	if day_count > 0:
+		day_score = day_total / day_count
+	return {"global_score": global_score(), "day_score": day_score,
 			"mission_score": of.get(mission_id, null), "of": of}
 
 
@@ -106,9 +114,51 @@ static func text_of(data: Dictionary, field: String, fallback := "") -> String:
 	return TranslationServer.translate(str(value))
 
 
-## Une campagne en cours peut-elle être continuée ? (Pas de sauvegarde de campagne pour le moment.)
+## Une campagne en cours peut-elle être continuée ? Sauvegarde présente et lisible, campagne toujours là et valide.
 static func has_saved() -> bool:
-	return false
+	var saved := _read_save()
+	return not saved.is_empty() and CampaignData.parse(read(str(saved.get("campaign", "")))).is_valid()
+
+
+## Sauvegarde de la campagne en cours (au coucher, CampaignDirector) : campagne, journée à venir, notes (missions,
+## journées, moyenne globale) et monde (world : orbite, explosions, photos, cibles). Un seul emplacement : la campagne
+## en cours. Rend vrai si le fichier est écrit.
+static func save(world: Dictionary) -> bool:
+	if DirAccess.make_dir_recursive_absolute(SAVE_PATH.get_base_dir()) != OK:
+		return false
+	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file == null:
+		push_warning("Campaigns : sauvegarde impossible (%s)" % SAVE_PATH)
+		return false
+	file.store_string(JSON.stringify({"format": SAVE_FORMAT, "campaign": current_id, "day_index": day_index,
+			"results": results, "day_scores": day_scores, "global_score": global_score(), "world": world}, "\t"))
+	return true
+
+
+## Reprend la campagne sauvegardée : mode campagne, journée, notes ; le monde à recréer est rendu (et gardé dans
+## pending_world pour CampaignDirector). Faux si la sauvegarde ou la campagne manque ou n'est plus valide.
+static func continue_saved() -> bool:
+	var saved := _read_save()
+	if saved.is_empty() or not start_campaign(str(saved.get("campaign", ""))):
+		return false
+	day_index = clampi(int(saved.get("day_index", 0)), 0, current.days().size() - 1)
+	results = saved.get("results", {})
+	day_scores = saved.get("day_scores", {})
+	pending_world = saved.get("world", {})
+	return true
+
+
+## Campagne terminée : plus rien à continuer.
+static func delete_save() -> void:
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+
+
+static func _read_save() -> Dictionary:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return {}
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
+	return parsed if parsed is Dictionary and int(parsed.get("format", 0)) == SAVE_FORMAT else {}
 
 
 static func start_free() -> void:
@@ -118,6 +168,7 @@ static func start_free() -> void:
 	day_index = 0
 	results = {}
 	day_scores = {}
+	pending_world = {}
 
 
 ## Nouvelle campagne id (dossier de campaign/), à sa première journée. Faux si elle est introuvable, illisible ou a
@@ -136,4 +187,5 @@ static func start_campaign(id: String) -> bool:
 	day_index = 0
 	results = {}
 	day_scores = {}
+	pending_world = {}
 	return true

@@ -69,6 +69,21 @@ func get_target(slot: int) -> Vector2:
 	return targets[slot] if has_target(slot) else Vector2.INF
 
 
+## Cibles pour une sauvegarde : [[lat, lon] ou null] par emplacement, et l'emplacement choisi.
+func to_save() -> Dictionary:
+	return {"targets": targets.map(func(t: Variant) -> Variant: return [t.x, t.y] if t != null else null),
+			"selected": selected}
+
+
+func restore(saved: Dictionary) -> void:
+	var list: Array = saved.get("targets", [])
+	for slot in MAX_TARGETS:
+		var t: Variant = list[slot] if slot < list.size() else null
+		targets[slot] = Vector2(t[0], t[1]) if t is Array else null
+	selected = clampi(int(saved.get("selected", 0)), 0, MAX_TARGETS - 1)
+	changed.emit()
+
+
 ## Numéros (indices) des cibles posées.
 func active_slots() -> Array[int]:
 	var slots: Array[int] = []
