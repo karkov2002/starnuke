@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://msb2y85g7wf7" path="res://scripts/torch.gd" id="5_i8rd8"]
 [ext_resource type="Material" path="res://materials/cloud_volume.tres" id="6_0pmab"]
 [ext_resource type="PackedScene" path="res://scenes/station_spatiale.tscn" id="7_0pmab"]
+[ext_resource type="Script" uid="uid://v2ujlnu50ch3" path="res://scripts/suit_helmet.gd" id="7_5e3xn"]
 [ext_resource type="Script" uid="uid://nmhxi1tug17e" path="res://scripts/orbit.gd" id="8_3kqp2"]
 [ext_resource type="Material" path="res://materials/atmosphere_ground.tres" id="8_pecem"]
 [ext_resource type="Script" uid="uid://dq6gx0b0wpihd" path="res://scripts/ui/hud.gd" id="10_hud"]
@@ -27,8 +28,8 @@
 [ext_resource type="Script" uid="uid://bymj57t40bbqg" path="res://scripts/tv_console.gd" id="25_is60b"]
 [ext_resource type="Script" uid="uid://bn6ojh3a6d3ed" path="res://scripts/ground_target.gd" id="26_tkc1l"]
 [ext_resource type="Script" uid="uid://d3e0q16qmm60o" path="res://scripts/airlock_hazard.gd" id="27_kgvqe"]
-[ext_resource type="Script" path="res://scripts/station_atmosphere.gd" id="28_atmos"]
-[ext_resource type="Script" path="res://scripts/pressure_gauges.gd" id="29_gauges"]
+[ext_resource type="Script" uid="uid://dpi707lbf4kgi" path="res://scripts/station_atmosphere.gd" id="28_atmos"]
+[ext_resource type="Script" uid="uid://bjktprilx271p" path="res://scripts/pressure_gauges.gd" id="29_gauges"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -97,6 +98,9 @@ script = ExtResource("5_i8rd8")
 
 [node name="Tablet" type="Node3D" parent="Observer/Camera" unique_id=1734502211]
 script = ExtResource("22_tab")
+
+[node name="Helmet" type="Node3D" parent="Observer/Camera" unique_id=787335109]
+script = ExtResource("7_5e3xn")
 
 [node name="Station" type="Node3D" parent="." unique_id=241936533]
 

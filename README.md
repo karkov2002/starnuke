@@ -699,6 +699,14 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     zone de texture ; l'anneau du cou garde son métal sombre) ; hauteur de l'ancienne combinaison (1,93 m).
   - `Interactif_Porte_Combinaison` (extras `type` « porte_combinaison », `combinaison`) : support séparé (deux rails
     sur pattes, berceau du sac à sabots, crochets, cale-pieds), qui reste en place quand la combinaison est portée.
+    **Casque porté** (`scripts/suit_helmet.gd`, nœud `Observer/Camera/Helmet`) : tant que la combinaison est portée
+    (`Station.suit_changed`), on voit l'intérieur du casque, qui suit la tête : coque noire mate (sphère de 16,5 cm
+    de rayon centrée 7 cm derrière l'œil), fenêtre aux coins arrondis (±56° de côté, +33° en haut, −48° en bas, vus
+    de l'œil : bande en haut et coins masqués, la tablette sortie reste entière), joint gris foncé, visière
+    transparente (`shaders/helmet_visor.gdshader` : voile gris-bleu vers les bords et en incidence rasante) et ses
+    reflets en arc (passe additive `shaders/helmet_visor_glint.gdshader`, en haut à gauche et plus faible en bas à
+    droite : nets sur fond sombre, discrets sur fond clair, jamais d'assombrissement). Maillage généré par le script
+    (pas de modèle Blender), sans ombre portée ni collision, sur le calque `Station.INTERIOR_LAYER`.
     **Règle de jeu** (`station.gd`) : un clic sur la combinaison la fait disparaître
     (on l'enfile) ; un clic sur le porte-combinaison la remet en place.
   - `Interactif_Valve_Sas` (paroi +X, extras `type` « valve_sas », `animation`, `voyant_plein`, `voyant_vide`) :
