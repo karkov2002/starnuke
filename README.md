@@ -825,6 +825,17 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
       par lancer de rayons dans le modèle (table `GAUGES`) : panneau de paroi à 30° au-dessus de l'horizontale, sous
       les tuyaux et les luminaires ; dans les modules de missiles, cloison de l'écoutille, côté opposé au battant.
       Le sas a le manomètre de sa valve.
+  - **Jets d'air** (`scripts/air_vent_fx.gd`, nœud `AirVentFx`, placé de lui-même à la porte extérieure, +Y vers
+    l'espace ; `StationAtmosphere.hatch_center`, `hatch_axis_from`) : porte extérieure ouverte et de l'air dans le
+    sas (et ce qui communique avec lui), l'air jaillit vers l'espace. Détendu dans le vide, il se refroidit et son
+    humidité se condense en glace : brouillard blanc, visible là où il est éclairé. Dans le sas, brouillard aspiré
+    vers le centre de la porte et poussé dehors (calque `Station.INTERIOR_LAYER` : lampes du sas, rouges en
+    alerte) ; dehors, panache comme d'un pot d'échappement (16 à 34 m/s, cône de 16°, ~4 m de large en fin de vie,
+    0,7 s), éclairé par le soleil. Intensité = pression du sas (nombre de particules et vitesse) : bouffée violente à
+    l'ouverture, puis le jet faiblit jusqu'à s'éteindre (sous 2 %) ; bien plus long si toute la station communique.
+    **Son** : souffle généré au démarrage (sifflement et grondement en boucle de 3 s, fondu au raccord), à la porte
+    côté intérieur, bus SFX, plus fort et plus aigu à forte pression ; il ne porte que dans l'air : volume × racine
+    de la pression du volume de l'auditeur (rien dans le vide, ni dehors).
   - **Expulsion** (règle de jeu, `StationAtmosphere.flow_at`, `scripts/airlock_hazard.gd`) : porte extérieure
     ouverte, un courant d'air porte l'observateur vers la sortie **depuis n'importe quel volume qui communique avec
     l'espace** : de volume en volume, vers l'écoutille suivante sur le chemin de la porte extérieure (visée 0,8 m

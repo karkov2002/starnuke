@@ -200,6 +200,22 @@ func zone_center(zone: String) -> Vector3:
 	return _station.to_global(_from_blender(_zone_center(zone)))
 
 
+## Centre (global) du passage de l'écoutille id.
+func hatch_center(id: String) -> Vector3:
+	return _station.to_global(_from_blender(HATCHES[id][2]))
+
+
+## Axe (global, unitaire) du passage de l'écoutille id, orienté du volume from_zone vers l'autre côté (l'espace est
+## sous le sas).
+func hatch_axis_from(id: String, from_zone: String) -> Vector3:
+	var hatch: Array = HATCHES[id]
+	var axis := _station.global_basis.orthonormalized() * _from_blender(hatch[3])
+	var other: String = hatch[1] if hatch[0] == from_zone else hatch[0]
+	var toward := zone_center(other) - hatch_center(id) if other != SPACE \
+			else hatch_center(id) - zone_center(from_zone)
+	return axis.normalized() * signf(axis.dot(toward))
+
+
 ## Ensembles de volumes qui communiquent (SPACE compris), par union des écoutilles ouvertes.
 func _groups() -> Array:
 	var parent := {SPACE: SPACE}
