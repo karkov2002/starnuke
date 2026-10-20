@@ -22,7 +22,8 @@ extends Node
 ##   (HatchInteraction, can_sleep) : fondu au noir (FADE_S), titre de la journée suivante (DAY_TITLE), réveil dans la
 ##   couchette (Observer, point de départ) au départ de la journée suivante : le sien s'il est défini, sinon la station
 ##   a continué son orbite jusqu'à l'heure de réveil (wake_up_utc, le lendemain si elle est passée ; sans heure de
-##   réveil, NIGHT_HOURS de sommeil) ; fondu de retour. Après la dernière journée, dormir termine la campagne : retour
+##   réveil, NIGHT_HOURS de sommeil) ; réveil par ouverture des paupières (_wake_up, aussi au lancement de la
+##   campagne). Après la dernière journée, dormir termine la campagne : retour
 ##   à l'écran de démarrage (fin de campagne détaillée : étape 7). Sauvegarde au coucher : étape 6.
 
 signal day_started(day_index: int)
@@ -36,6 +37,10 @@ const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 const FADE_S := 1.5
 const TITLE_S := 2.5
 const NIGHT_HOURS := 8.0
+const EYELIDS_SHADER := preload("res://shaders/eyelids.gdshader")
+## Ouverture des yeux au réveil : (fermeture visée de 1 à 0, durée en s) — entrouverts, refermés, rouverts, ouverts.
+const WAKE_STEPS: Array[Vector2] = [Vector2(0.62, 0.9), Vector2(0.95, 0.35), Vector2(0.4, 1.0), Vector2(0.72, 0.3),
+		Vector2(0.0, 1.4)]
 
 @export var orbit_path: NodePath = ^"../Orbit"
 @export var flight_computer_path: NodePath = ^"../FlightComputer"
@@ -59,6 +64,8 @@ var _day_over := false
 var _sleeping := false
 var _veil: ColorRect
 var _title: Label
+var _eyelids_rect: ColorRect
+var _eyelids: ShaderMaterial
 
 
 func _ready() -> void:
@@ -82,6 +89,7 @@ func _ready() -> void:
 				_record("strike", effect.params.latitude_deg, effect.params.longitude_deg))
 	# Après la mise en place de l'orbite (son _ready).
 	start_day.call_deferred(Campaigns.day_index)
+	_wake_up.call_deferred(Campaigns.day_index)
 
 
 func is_active() -> bool:
@@ -245,13 +253,34 @@ func sleep() -> void:
 	var observer := get_tree().current_scene.get_node_or_null("Observer")
 	if observer and observer.has_method(&"_place_at_start"):
 		observer.call(&"_place_at_start")
-	_title.text = tr("DAY_TITLE").format({"n": next + 1})
+	await _wake_up(next)
+
+
+## Réveil (début de chaque journée, la première comprise) : titre « Jour n » sur le noir, puis ouverture des
+## paupières (shaders/eyelids.gdshader, comme la séquence de mort mais à l'envers) : elles s'entrouvrent, se
+## referment, se rouvrent davantage puis s'ouvrent tout à fait (WAKE_STEPS) ; la vue, d'abord floue, devient nette.
+func _wake_up(day_index: int) -> void:
+	_sleeping = true
+	_build_veil()
+	_veil.color.a = 1.0
+	_title.text = tr("DAY_TITLE").format({"n": day_index + 1})
 	await create_tween().tween_property(_title, "modulate:a", 1.0, 0.5).finished
 	await get_tree().create_timer(TITLE_S).timeout
-	var tween := create_tween().set_parallel()
-	tween.tween_property(_title, "modulate:a", 0.0, FADE_S)
-	tween.tween_property(_veil, "color:a", 0.0, FADE_S)
+	await create_tween().tween_property(_title, "modulate:a", 0.0, 0.8).finished
+	# Paupières closes (noir complet) à la place du voile, puis ouverture.
+	_eyelids.set_shader_parameter("closure", 1.0)
+	_eyelids_rect.visible = true
+	_veil.color.a = 0.0
+	var tween := create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	var from := 1.0
+	for step: Vector2 in WAKE_STEPS:
+		tween.tween_method(func(c: float) -> void: _eyelids.set_shader_parameter("closure", c), from, step.x, step.y)
+		from = step.x
 	await tween.finished
+	_eyelids_rect.visible = false
+	# Le voile prend la souris (pas de clic pendant le sommeil) : masqué une fois réveillé, sinon il garde tous les
+	# clics, dont le clic droit qui tourne la tête.
+	_veil.visible = false
 	_sleeping = false
 
 
@@ -272,8 +301,10 @@ func _advance_to_wake_up(day_index: int) -> void:
 	_orbit.sim_time_s += sleep_s
 
 
+## Voile noir, titre et paupières (créés une fois) ; le voile est rendu visible.
 func _build_veil() -> void:
 	if _veil:
+		_veil.visible = true
 		return
 	var layer := CanvasLayer.new()
 	layer.layer = 50
@@ -283,6 +314,15 @@ func _build_veil() -> void:
 	_veil.mouse_filter = Control.MOUSE_FILTER_STOP
 	_veil.set_anchors_preset(Control.PRESET_FULL_RECT)
 	layer.add_child(_veil)
+	# Paupières (réveil) : visibles seulement pendant l'ouverture (elles lisent l'image de l'écran).
+	_eyelids = ShaderMaterial.new()
+	_eyelids.shader = EYELIDS_SHADER
+	_eyelids_rect = ColorRect.new()
+	_eyelids_rect.material = _eyelids
+	_eyelids_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	_eyelids_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_eyelids_rect.visible = false
+	layer.add_child(_eyelids_rect)
 	_title = Label.new()
 	_title.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

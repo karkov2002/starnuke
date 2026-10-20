@@ -68,8 +68,12 @@ permet de piloter le jeu exporté.
     `HatchInteraction`, `CampaignDirector.can_sleep` ; avant, elle ne réagit pas). Dormir : fondu au noir (1,5 s),
     titre « Jour n » (2,5 s), **réveil dans la couchette** au départ de la journée suivante — son `start` s'il est
     défini (heure et position exactes), sinon **la station a continué son orbite** jusqu'à l'heure de réveil
-    (`wake_up_utc`, le lendemain si elle est passée ; sans heure, 8 h de sommeil) —, fondu de retour, briefing de
-    la première mission. Après la dernière journée, dormir termine la campagne et ramène à l'écran de démarrage
+    (`wake_up_utc`, le lendemain si elle est passée ; sans heure, 8 h de sommeil) —, briefing de la première mission.
+  - **Réveil** (début de chaque journée, la première comprise, au lancement de la campagne) : « Jour n » sur le noir,
+    puis **ouverture des paupières**, comme la séquence de mort à l'envers (`shaders/eyelids.gdshader`) : elles
+    s'entrouvrent, se referment, se rouvrent davantage, clignent puis s'ouvrent tout à fait (~4 s, `WAKE_STEPS`) ; la
+    vue, d'abord floue et sombre sur les bords, devient nette. Pendant le sommeil et le réveil, les clics sont
+    bloqués ; le voile est retiré ensuite (il gardait sinon le clic droit qui tourne la tête). Après la dernière journée, dormir termine la campagne et ramène à l'écran de démarrage
     (fin de campagne détaillée : à venir). Sauvegarde au coucher : à venir.
 - **Campagnes** : dossier `campaign/` à côté de `playlist/`, un sous-dossier par campagne (son nom est l'identifiant
   de la campagne) avec un fichier `campaign.json`. Comme les playlists, le dossier est lu sur le disque (`.gdignore`,
