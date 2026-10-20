@@ -9,6 +9,7 @@ extends CanvasLayer
 ## - « Cargo » : sépare le vaisseau cargo de la station, ou le réamarre (Station.set_cargo_docked) ;
 ## - « Ouverture totale » / « Fermeture totale » : toutes les écoutilles ouvrables, porte extérieure du sas comprise
 ##   (Station.set_all_hatches_open : tests d'expulsion depuis n'importe quel module) ;
+## - « Combinaison » : combinaison du sas portée ou rangée (Station.set_suit_worn), la case suit l'état réel ;
 ## - orbite (partie en cours seulement) : altitude (200–800 km) et inclinaison (0–80°) appliquées directement au
 ##   nœud Orbit, au point courant, sans manœuvre (outil de développement : en jeu, l'orbite se pilote au poste de
 ##   pilotage). L'inclinaison est bornée par la latitude courante ;
@@ -31,6 +32,7 @@ var _scrub: HSlider
 var _scrub_label: Label
 var _replay: CheckBox
 var _markers: CheckBox
+var _suit: CheckBox
 var _last: NukeEffect
 var _orbit_label: Label
 var _altitude: HSlider
@@ -116,6 +118,15 @@ func _ready() -> void:
 				station.set_all_hatches_open(open))
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		hatches.add_child(button)
+	# Combinaison du sas portée ou rangée sur son support (Station.set_suit_worn : casque vu de l'intérieur).
+	_suit = CheckBox.new()
+	_suit.text = "Combinaison"
+	_suit.focus_mode = Control.FOCUS_NONE
+	_suit.toggled.connect(func(on: bool) -> void:
+		var station := get_tree().get_first_node_in_group(Station.GROUP) as Station
+		if station:
+			station.set_suit_worn(on))
+	hatches.add_child(_suit)
 
 	var scrub_row := HBoxContainer.new()
 	scrub_row.add_theme_constant_override("separation", 6)
@@ -156,6 +167,11 @@ func _process(_delta: float) -> void:
 	if _last and not _replay.button_pressed:
 		_scrub.set_value_no_signal(pow(minf(_last.get_time_s() / SCRUB_MAX_S, 1.0), 1.0 / SCRUB_POWER))
 	_scrub_label.text = "t = %s" % _format_duration(_scrub_time()) if _last else "t = —"
+	# La combinaison s'enfile aussi au clic dans le sas : la case suit l'état réel.
+	var station := get_tree().get_first_node_in_group(Station.GROUP) as Station
+	_suit.disabled = station == null
+	if station:
+		_suit.set_pressed_no_signal(station.is_suit_worn())
 	var orbit := _get_orbit()
 	if orbit and _orbit_label:
 		_orbit_label.text = "Orbite : altitude %d km · inclinaison %.1f°" % [roundi(orbit.altitude_km), orbit.inclination_deg]
