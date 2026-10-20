@@ -689,14 +689,17 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     la Terre défiler), face intérieure `Int_` à poignées jaunes et levier, face extérieure `Metal_Furtif` à poignée de
     sortie ; charnière d'axe X côté −Y : elle s'ouvre vers le bas, vers la Terre (−100°). Les deux portes suivent la
     convention de `Fermeture_Ecoutilles` (image 1 ouverte, 40 fermée).
-  - `Interactif_Combinaison` (extras `type` « combinaison », `porte`) : scaphandre d'après la combinaison lunaire
-    Axiom AxEMU, debout contre la paroi +Y : grande bulle teintée sombre (`Int_Combi_Bulle`) cerclée d'argent dans un
-    capuchon blanc à deux grappes de quatre lampes et bande rouge, torse ample à boîtier de commande poitrine, plastron
-    du bas à bord droit et bande rouge, coudières et genouillères grises plissées, bandes rouges des avant-bras,
-    sangles grises en V, poches de cuisse, gants blancs à bouts gris, bottes à semelle bleu clair, grand sac dorsal.
+  - `Interactif_Combinaison` (extras `type` « combinaison », `porte`) : scaphandre texturé debout contre la paroi +Y,
+    dos contre son support. Maillage remplacé par `tools/blender/build_suit_model.py` (à rejouer après
+    `build_airlock.py`, qui recrée l'ancienne combinaison procédurale d'après l'Axiom AxEMU, gardée dans le `.blend`
+    sous `Interactif_Combinaison_Procedurale`) : modèle « Walking astronaut » (`E:\Blender\astronaute\`, hors dépôt ;
+    58 000 triangles, textures 2K/1K `Combi_Astro_*`) figé en pose de repos, bras abaissés (72°, 12° vers l'avant) et
+    raccourcis (bras ×0,99, avant-bras ×0,825 : mains en haut des cuisses), squelette et animations supprimés ;
+    pare-soleil doré `Int_Combi_Visiere_Or` (faces noires du casque trouvées par lancer de rayons, complétées par leur
+    zone de texture ; l'anneau du cou garde son métal sombre) ; hauteur de l'ancienne combinaison (1,93 m).
   - `Interactif_Porte_Combinaison` (extras `type` « porte_combinaison », `combinaison`) : support séparé (deux rails
     sur pattes, berceau du sac à sabots, crochets, cale-pieds), qui reste en place quand la combinaison est portée.
-    **Règle de jeu (à brancher dans `station.gd` après l'export)** : un clic sur la combinaison la fait disparaître
+    **Règle de jeu** (`station.gd`) : un clic sur la combinaison la fait disparaître
     (on l'enfile) ; un clic sur le porte-combinaison la remet en place.
   - `Interactif_Valve_Sas` (paroi +X, extras `type` « valve_sas », `animation`, `voyant_plein`, `voyant_vide`) :
     bien visible : platine orange vif (`Int_Valve_Orange`) dans un cadre jaune riveté (rivets bombés sombres), agrandie
