@@ -3,9 +3,6 @@
 addons/godot_mcp/cache/
 # Traductions compilées par l'import des CSV de langue (locale/*.csv), régénérées par l'éditeur
 locale/*.translation
-# Textures extraites du .glb de la station par l'import (régénérées) ; leurs .import restent versionnés (UID, réglages)
-assets/station/station_spatiale_*.png
-assets/station/station_spatiale_*.jpg
 # Playlists personnelles (musiques déposées dans playlist/) : seules la playlist par défaut « starnuke » et le
 # .gdignore sont versionnés
 playlist/*

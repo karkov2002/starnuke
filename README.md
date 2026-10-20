@@ -479,7 +479,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 
 ## Station spatiale (modèle Blender)
 
-Modèle `assets/station/station_spatiale.glb` (Blender, ~70 Mo, textures intégrées ; conventions dans
+Modèle `assets/station/station_spatiale.glb` (Blender, ~48 Mo de géométrie et d'animations, en Git LFS ; textures à
+côté, voir « Import » ; conventions dans
 `assets/station/LISEZMOI_GODOT.md`). **Ne jamais retoucher le .glb à la main** : il n'est produit que par l'export Blender, avec les mêmes
 noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script de post-import et la scène héritée.
 - **Export depuis Blender** (`tools/blender/export_station.py`, envoyé au Blender ouvert par `tools/blender_exec.ps1`,
@@ -488,7 +489,10 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   **jamais les transformations** (les pivots `Pivot_*`, `Charniere_*`, `Radiateur_*_Articulation_*` portent les axes
   des animations et des Tweens), une piste NLA = une animation (`Fermeture_Ecoutilles`, `Ouverture_Trappes`,
   `Lancement_Missile`, `Balayage_Antennes`, `Rotation_Panneaux`, `Retraction_Radiateurs`, contrôlées avant export),
-  copie de la notice `LISEZMOI_GODOT.md`. Orientation : axe des modules = +X (Commande vers +X), Terre vers −Y.
+  copie de la notice `LISEZMOI_GODOT.md`. Les textures sont ensuite **sorties du .glb** (`externalize_images`) :
+  fichiers `station_spatiale_<image>.png/.jpg` à côté, référencés par URI, réécrits seulement si leur contenu change,
+  et ceux qui ne servent plus sont supprimés avec leur `.import`. Un réexport n'ajoute ainsi à Git LFS que la
+  géométrie (~48 Mo) et les textures modifiées, au lieu d'une copie complète de 114 Mo (quota GitHub : 10 Go). Orientation : axe des modules = +X (Commande vers +X), Terre vers −Y.
   Règle : pas de réexport vers le projet sans le feu vert de l'utilisateur.
 - **Faces sans coordonnées de texture** (`tools/blender/fix_collapsed_uvs.py`, MODE « report » ou « apply ») : une
   face dont tous les coins ont la même UV n'a pas de tangente ; dans Godot, la normal map de son matériau l'éclaire
@@ -716,8 +720,8 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 - **Import** (`station_spatiale.glb.import`) : échelle 1 (mètres), racine `StationSpatiale`, collisions par
   suffixes de noms (`-col` : collision statique concave + maillage ; `-convcolonly` : collision convexe seule),
   LOD générés, animations à 24 i/s, **Rotation_Panneaux** (plus jouée : suivi du soleil, voir plus bas) et **Balayage_Antennes** en boucle (les autres jouées
-  une fois). Textures extraites à côté du .glb (compression GPU S3TC/BPTC) : les images sont régénérées à chaque
-  import et ne sont pas versionnées (`.gitignore`) ; leurs `.import` le sont (UID et réglages stables).
+  une fois). Textures à côté du .glb, écrites par l'export Blender et versionnées avec leurs `.import`
+  (compression GPU S3TC/BPTC, normal maps, UID stables) ; mêmes noms que l'ancienne extraction de Godot.
 - **Post-import** (`tools/import/station_import.gd`) :
   - collisions des portes et trappes (enfants d'une `Charniere_*` animée) converties en `AnimatableBody3D` (dont
     `station.gd` coupe `sync_to_physics` : voir « Collisions des portes et trappes » plus bas) ;
