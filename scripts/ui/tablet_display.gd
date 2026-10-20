@@ -8,12 +8,15 @@ extends Control
 ##   et trace fantôme), de MAP_MAX_LAT_DEG nord à sud (comme au poste), et, dans une colonne à droite, la commande
 ##   de poussée (BurnControl en colonne : compte à rebours, gros bouton BURN bleu, jauge verticale) ;
 ## - onglet Photographie : la vue au nadir en temps réel (texture nadir_texture, rendue par la tablette seulement
-##   quand l'onglet est affiché) et le bouton « Photo » (pour l'instant : un flash) ;
+##   quand l'onglet est affiché), le bouton « Photo » (flash ; la tablette prend la photo, PhotoArchive) et la
+##   galerie des photos prises (◀ ▶, légende : date, point survolé, altitude, emprise au sol) ;
 ## - onglet Tir de missile : la commande de tir (LaunchControl : 48 silos, puissance, gros bouton rouge), agrandie
 ##   pour occuper la page (ses boutons ont une taille fixe en pixels).
 ## Taille : celle du SubViewport (proportions de la dalle de la tablette).
 
 signal tab_changed(tab: int)
+## Bouton Photo pressé : la tablette prend la photo (scripts/tablet.gd).
+signal photo_requested
 
 enum Tab { PILOT, PHOTO, MISSILE }
 
@@ -38,6 +41,14 @@ var orbit: OrbitSimulation
 var flight_computer: FlightComputer
 ## Image de la vue au nadir (SubViewport de la tablette).
 var nadir_texture: Texture2D
+## Photos prises (galerie de l'onglet Photographie) ; réglé par la tablette.
+var archive: PhotoArchive:
+	set(value):
+		archive = value
+		if archive:
+			archive.photo_taken.connect(func(_photo: Dictionary) -> void: _show_photo(_photo_index))
+		if _gallery_button:
+			_show_photo(_photo_index)
 var current_tab := Tab.PILOT
 
 var _clock: Label
@@ -45,6 +56,13 @@ var _pages: Array[Control] = []
 var _tab_buttons: Array[Button] = []
 var _hud_button: Button
 var _flash: ColorRect
+var _photo_view: TextureRect
+var _photo_caption: Label
+var _gallery_button: Button
+var _previous_button: Button
+var _next_button: Button
+## Photo affichée dans la galerie (−1 : vue en direct).
+var _photo_index := -1
 ## État du HUD affiché sur le bouton (null avant la première image).
 var _hud_shown = null
 
@@ -163,29 +181,38 @@ func _build_pilot_page(page_size: Vector2) -> Control:
 	return page
 
 
-## Vue au nadir en temps réel (légende en incrustation) et bouton Photo.
+## Vue au nadir en temps réel (légende en incrustation), bouton Photo et galerie des photos prises (PhotoArchive) :
+## « Galerie » remplace la vue en direct par la dernière photo (◀ ▶ : précédente, suivante ; légende : numéro, date,
+## point survolé, altitude, emprise), « Vue en direct » y revient ; le bouton Photo revient aussi à la vue en direct.
 func _build_photo_page(page_size: Vector2) -> Control:
 	var page := HBoxContainer.new()
 	page.add_theme_constant_override("separation", 16)
-	var view := TextureRect.new()
-	view.texture = nadir_texture
-	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	view.custom_minimum_size = Vector2(page_size.x - SIDE_WIDTH - 16.0, page_size.y)
-	view.clip_contents = true
-	page.add_child(view)
+	_photo_view = TextureRect.new()
+	_photo_view.texture = nadir_texture
+	_photo_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_photo_view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_photo_view.custom_minimum_size = Vector2(page_size.x - SIDE_WIDTH - 16.0, page_size.y)
+	_photo_view.clip_contents = true
+	page.add_child(_photo_view)
 	_flash = ColorRect.new()
 	_flash.color = Color(1, 1, 1, 0)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
-	view.add_child(_flash)
-	var caption := Label.new()
-	caption.text = "TABLET_NADIR"
-	caption.add_theme_font_size_override("font_size", 20)
-	caption.add_theme_color_override("font_color", PilotDisplay.COLOR_TEXT)
-	caption.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
-	caption.position = Vector2(10, 6)
-	view.add_child(caption)
+	_photo_view.add_child(_flash)
+	_photo_caption = Label.new()
+	_photo_caption.text = "TABLET_NADIR"
+	_photo_caption.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_photo_caption.add_theme_font_size_override("font_size", 20)
+	_photo_caption.add_theme_color_override("font_color", PilotDisplay.COLOR_TEXT)
+	_photo_caption.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	# Fond sombre : légende lisible sur une photo claire (nuages, désert).
+	var caption_style := StyleBoxFlat.new()
+	caption_style.bg_color = Color(0.0, 0.0, 0.0, 0.6)
+	caption_style.set_corner_radius_all(4)
+	caption_style.set_content_margin_all(6)
+	_photo_caption.add_theme_stylebox_override("normal", caption_style)
+	_photo_caption.position = Vector2(8, 6)
+	_photo_view.add_child(_photo_caption)
 	var side := VBoxContainer.new()
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -204,7 +231,57 @@ func _build_photo_page(page_size: Vector2) -> Control:
 	label.add_theme_font_size_override("font_size", 26)
 	label.add_theme_color_override("font_color", PilotDisplay.COLOR_TEXT)
 	side.add_child(label)
+	side.add_child(HSeparator.new())
+	_gallery_button = Button.new()
+	_gallery_button.focus_mode = Control.FOCUS_NONE
+	_gallery_button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_gallery_button.pressed.connect(func() -> void: _show_photo(-1 if _photo_index >= 0 else _photo_count() - 1))
+	side.add_child(_gallery_button)
+	var browse := HBoxContainer.new()
+	browse.alignment = BoxContainer.ALIGNMENT_CENTER
+	browse.add_theme_constant_override("separation", 10)
+	side.add_child(browse)
+	_previous_button = _make_arrow_button("◀", func() -> void: _show_photo(maxi(_photo_index - 1, 0)))
+	_next_button = _make_arrow_button("▶", func() -> void: _show_photo(mini(_photo_index + 1, _photo_count() - 1)))
+	browse.add_child(_previous_button)
+	browse.add_child(_next_button)
+	_show_photo(-1)
 	return page
+
+
+func _make_arrow_button(text: String, action: Callable) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	button.custom_minimum_size = Vector2(64.0, 44.0)
+	button.pressed.connect(action)
+	return button
+
+
+func _photo_count() -> int:
+	return archive.photos.size() if archive else 0
+
+
+## Affiche la photo index de la galerie, ou la vue en direct (index −1).
+func _show_photo(index: int) -> void:
+	_photo_index = index if index >= 0 and index < _photo_count() else -1
+	var count := _photo_count()
+	if _photo_index < 0:
+		_photo_view.texture = nadir_texture
+		_photo_caption.text = tr("TABLET_NADIR")
+	else:
+		var photo: Dictionary = archive.photos[_photo_index]
+		var footprint: Vector2 = photo.footprint_km
+		_photo_view.texture = photo.texture
+		_photo_caption.text = tr("TABLET_PHOTO_CAPTION").format({"n": _photo_index + 1, "count": count,
+				"date": Time.get_datetime_string_from_unix_time(int(photo.utc_unix), true).substr(0, 16),
+				"place": GroundTarget.format(photo.lat, photo.lon), "altitude": roundi(photo.altitude_km),
+				"width": roundi(footprint.x), "height": roundi(footprint.y)})
+	_gallery_button.text = tr("TABLET_LIVE") if _photo_index >= 0 else tr("TABLET_GALLERY").format({"count": count})
+	_gallery_button.disabled = count == 0 and _photo_index < 0
+	_previous_button.disabled = _photo_index <= 0
+	_next_button.disabled = _photo_index < 0 or _photo_index >= count - 1
 
 
 ## Commande de tir, mise à l'échelle pour occuper la page (centrée).
@@ -223,9 +300,12 @@ func _build_missile_page(page_size: Vector2) -> Control:
 	return page
 
 
+## Bouton Photo : retour à la vue en direct, flash, et prise de vue par la tablette (photo_requested).
 func _take_photo() -> void:
+	_show_photo(-1)
 	_flash.color.a = 0.9
 	create_tween().tween_property(_flash, "color:a", 0.0, FLASH_S)
+	photo_requested.emit()
 
 
 # --- Style ----------------------------------------------------------------------------------------------------------

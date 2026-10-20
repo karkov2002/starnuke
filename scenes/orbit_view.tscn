@@ -33,6 +33,7 @@
 [ext_resource type="Script" uid="uid://dv84mbg0t8djt" path="res://scripts/air_vent_fx.gd" id="31_4c2qw"]
 [ext_resource type="Script" uid="uid://o2oc0mxlhhjj" path="res://scripts/radio_comms.gd" id="32_ev06u"]
 [ext_resource type="Script" uid="uid://c6iao1laubem6" path="res://scripts/comm_console.gd" id="33_m75us"]
+[ext_resource type="Script" uid="uid://dr7vu7jojb2xj" path="res://scripts/photo_archive.gd" id="34_crbbg"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -193,3 +194,6 @@ script = ExtResource("32_ev06u")
 
 [node name="CommConsole" type="Node" parent="." unique_id=604244139]
 script = ExtResource("33_m75us")
+
+[node name="Photos" type="Node" parent="." unique_id=581876227]
+script = ExtResource("34_crbbg")

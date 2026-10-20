@@ -24,6 +24,8 @@ const BODY_NODE := "Tablette_Coque"
 const VIEWPORT_HEIGHT := 560
 ## Taille de l'image de la vue au nadir (pixels, proche de sa taille sur la tablette).
 const NADIR_SIZE := Vector2i(600, 470)
+## Taille des photos satellites (pixels, mêmes proportions que la vue au nadir).
+const PHOTO_SIZE := Vector2i(1600, 1253)
 ## Échelle de la tablette (et de sa distance à l'œil) : voir _update_pose.
 const NEAR_SCALE := 0.4
 ## Part de la rotation vers l'œil à l'arrivée (1 : face à l'œil, 0 : parallèle au plan de la vue).
@@ -73,6 +75,7 @@ var _display: TabletDisplay
 ## Vue au nadir : rendue seulement quand la tablette est sortie sur l'onglet Photographie.
 var _nadir_viewport: SubViewport
 var _nadir_camera: Camera3D
+var _taking_photo := false
 var _earth: Node3D
 var _console: PilotConsole
 ## Dalle dans le repère du maillage de l'écran : coin haut gauche, côté vers la droite, côté vers le bas.
@@ -134,7 +137,9 @@ func _ready() -> void:
 	display.nadir_texture = _nadir_viewport.get_texture()
 	display.orbit = get_node(orbit_path) as OrbitSimulation
 	display.flight_computer = get_node(flight_computer_path) as FlightComputer
+	display.photo_requested.connect(_take_photo)
 	_viewport.add_child(display)
+	_connect_archive.call_deferred()
 	# Même shader que l'écran du poste de pilotage : émission brute (un StandardMaterial3D émet en nits avec les
 	# unités de lumière physiques du projet, 1 000 par défaut : écran tout blanc).
 	var material := ShaderMaterial.new()
@@ -343,6 +348,47 @@ func _build_nadir_camera() -> void:
 		_nadir_camera.environment = environment
 	_nadir_camera.current = true
 	_nadir_viewport.add_child(_nadir_camera)
+
+
+## Galerie de la tablette : photos de PhotoArchive.
+func _connect_archive() -> void:
+	_display.archive = get_tree().get_first_node_in_group(PhotoArchive.GROUP) as PhotoArchive
+
+
+## Photo satellite (bouton Photo) : la vue au nadir est rendue une fois en PHOTO_SIZE avec le rendu final du jeu
+## (environnement d'origine : mappage tonal et halo, que la vue en direct n'a pas, cf. _build_nadir_camera), puis
+## remise en l'état ; la photo garde le point survolé, l'heure, l'altitude et son emprise au sol (PhotoArchive).
+func _take_photo() -> void:
+	var archive := get_tree().get_first_node_in_group(PhotoArchive.GROUP) as PhotoArchive
+	var orbit := get_node_or_null(orbit_path) as OrbitSimulation
+	if archive == null or orbit == null or _nadir_viewport == null or _taking_photo:
+		return
+	_taking_photo = true
+	var point := orbit.get_subsatellite_point()
+	var utc := orbit.get_utc_unix_s()
+	var altitude := orbit.altitude_km
+	var live_environment := _nadir_camera.environment
+	var world_environment := get_node_or_null(world_environment_path) as WorldEnvironment
+	if world_environment:
+		_nadir_camera.environment = world_environment.environment
+	_nadir_viewport.size = PHOTO_SIZE
+	_nadir_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	# Deux images : la première au nouveau format, la seconde lue une fois le rendu terminé.
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var image := _nadir_viewport.get_texture().get_image()
+	# Image de la galerie : rendu de la vue en direct (l'écran de la tablette, filmé par la caméra, applique déjà le
+	# mappage tonal : avec le rendu final, elle serait délavée), deux images plus tard (~250 m de vol).
+	_nadir_camera.environment = live_environment
+	_nadir_viewport.size = NADIR_SIZE
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var screen_image := _nadir_viewport.get_texture().get_image()
+	_taking_photo = false
+	# Emprise : hauteur de l'image au sol = 2 h tan(champ / 2) (champ vertical), largeur selon les proportions.
+	var height_km := 2.0 * altitude * tan(deg_to_rad(nadir_fov_deg) * 0.5)
+	archive.add(image, screen_image, point.x, point.y, utc, altitude,
+			Vector2(height_km * float(PHOTO_SIZE.x) / PHOTO_SIZE.y, height_km))
 
 
 func _update_nadir() -> void:
