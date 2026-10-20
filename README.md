@@ -392,17 +392,24 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   en cours** (une période à partir de maintenant) en **vert très clair**, puis les **orbites à venir** (0 à 4, 1 par
   défaut) d'un vert de plus en plus sombre, la 4ᵉ vert sombre mais bien visible ; station en jaune (flèche dans le
   sens du déplacement, cerclée) ; prochain nœud et trace fantôme en cyan (voir ci-dessus).
-  - **Cible au sol** (`scripts/ground_target.gd`, nœud `GroundTarget`, partagée par la carte du poste et celle de la
-    tablette) : un **clic** sur la carte (sans la glisser : moins de 5 px de déplacement) pose la cible au point
-    cliqué, cercle et croix **jaunes** (jaune doré, distinct du jaune pâle de la station) avec ses coordonnées à côté (« 48.86° N  2.35° E ») ; un nouveau clic la
-    déplace, un clic dessus la retire. Au **survol**, la latitude et la longitude du point sous le pointeur le
-    suivent. Dans la **cupola en mode « HUD : On »**, la cible apparaît en surimpression jaune **posée à
-    l'horizontale sur la Terre**, dont elle épouse la courbure (`scripts/ui/target_marker.gd`, calque du `Hud`) :
-    trois anneaux (40, 80 et 120 km) et une croix tracés sur la sphère, le long du sol, dans un maillage enfant de
-    `Earth` (il tourne avec la planète), sans éclairage, dessiné après les nuages et l'atmosphère (qui n'écrivent pas de profondeur :
+  - **Cibles au sol** (règle de jeu ; `scripts/ground_target.gd`, nœud `GroundTarget`, affichées par la carte du
+    poste et celle de la tablette) : **jusqu'à 5 cibles numérotées**, dont une **cible choisie**. **Elles ne se placent
+    que sur la carte du poste de pilotage** (`OrbitalMap.targets_editable`), **à la main** (pas de saisie de
+    coordonnées) : menu des cibles en haut à gauche de la carte — « Cibles » **1 2 3 4 5** (choisir la cible ; en
+    jaune les numéros posés) et **« Effacer »** (la cible choisie) ; un **clic** sur la carte (sans la glisser : moins
+    de 5 px de déplacement) place la cible choisie au point cliqué, un clic sur une cible la choisit. La carte de la
+    tablette les affiche seulement (un clic n'y fait rien). Sur les cartes : cercle **jaune** (jaune doré, distinct du
+    jaune pâle de la station), numéro et coordonnées à côté (« 2  48.86° N  2.35° E ») ; la cible choisie en trait
+    épais avec une croix, les autres plus fines et un peu transparentes. Au **survol**, la latitude et la longitude du
+    point sous le pointeur le suivent. Dans la **cupola en mode « HUD : On »**, chaque cible apparaît en
+    surimpression jaune **posée à l'horizontale sur la Terre**, dont elle épouse la courbure
+    (`scripts/ui/target_marker.gd`, calque du `Hud`) : trois anneaux (40, 80 et 120 km) et une croix tracés sur la
+    sphère, le long du sol, dans un maillage enfant de `Earth` (il tourne avec la planète ; la cible choisie pleine,
+    les autres pâles), sans éclairage, dessiné après les nuages et l'atmosphère (qui n'écrivent pas de profondeur :
     elle reste par-dessus) mais avec test de profondeur (la structure de la coupole la cache), masqué sous
-    l'horizon, sans coordonnées (elles masqueraient la vue : elles sont sur les cartes) ; flèche au bord de l'écran
-    quand elle est hors champ.
+    l'horizon, avec **son numéro** à côté et sans coordonnées (elles masqueraient la vue : elles sont sur les
+    cartes) ; flèche au bord de l'écran quand la cible choisie est hors champ. Le tir de missile reste visé au
+    réticule (centre de la vue).
   - **Survol des écrans en SubViewport** (poste, télévision, tablette) : un tel viewport, affiché comme texture,
     ne reçoit jamais de lui-même l'entrée de la souris ; sans elle, Godot ne lui transmet que les clics et les
     glisser, pas le simple survol. `ScreenSeat.set_mouse_inside` lui envoie l'entrée et la sortie de la souris

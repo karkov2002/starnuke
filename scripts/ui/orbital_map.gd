@@ -11,8 +11,12 @@ extends Control
 ## très clair) et les orbites_ahead orbites suivantes (0 à MAX_ORBITS_AHEAD, 1 par défaut), d'un vert de plus en plus
 ## sombre (la dernière vert sombre, toujours bien visible).
 ##
-## Cible au sol (GroundTarget) : un clic (sans glisser) pose la cible au point cliqué (cercle jaune, coordonnées à côté),
-## un clic dessus la retire ; au survol, les coordonnées du point sous le pointeur le suivent.
+## Cibles au sol (GroundTarget, jusqu'à 5, numérotées) : cercles jaunes numérotés avec leurs coordonnées, la cible
+## choisie en trait épais avec une croix. Carte modifiable (targets_editable : celle du poste de pilotage seulement,
+## règle de jeu) : menu des cibles en haut à gauche — numéros 1 à 5 (choisir la cible ; en jaune ceux qui sont posés),
+## « Effacer » ; les cibles se placent à la main (pas de saisie de coordonnées) : un clic (sans glisser) sur la carte
+## place la cible choisie au point cliqué, un clic sur une cible la choisit. Ailleurs (tablette), les cibles sont seulement affichées. Au survol, les coordonnées du point sous le
+## pointeur le suivent.
 ##
 ## Navigation, à la manière d'une carte en ligne : molette = zoom centré sur le curseur ; glisser (bouton gauche
 ## maintenu, au-delà de CLICK_SLOP px) = déplacer la carte dans le sens de la souris ; boutons en bas : « − » / « + » (zoom centré sur le
@@ -58,7 +62,7 @@ const COLOR_PANEL_DIM := Color(0.45, 0.6, 0.5)
 const DASH := 2
 ## Déplacement maximal (px) entre l'appui et le relâchement pour un clic (au-delà : la carte a été glissée).
 const CLICK_SLOP := 5.0
-## Rayon (px) autour de la cible où un clic la retire.
+## Rayon (px) autour d'une cible où un clic la choisit.
 const TARGET_PICK := 14.0
 const COLOR_HOVER := Color(0.85, 1.0, 0.88)
 
@@ -71,6 +75,9 @@ var orbit: OrbitSimulation
 var flight_computer: FlightComputer
 ## Nombre d'orbites à venir dessinées après l'orbite en cours (0 à MAX_ORBITS_AHEAD).
 var orbits_ahead := 1
+## Cibles modifiables (menu des cibles, clic qui les place) : carte du poste de pilotage seulement. Fixé avant l'ajout
+## à l'arbre.
+var targets_editable := false
 
 ## Vue : centre (coordonnées du monde u = longitude, v = Mercator, de 0 à 1 ; u croît vers l'est, v vers le sud) et
 ## zoom (1 : le monde entier à la largeur de la carte).
@@ -93,6 +100,8 @@ var _base: Control
 var _base_image: TextureRect
 var _overlay: Control
 var _orbit_buttons: Array[Button] = []
+## Menu des cibles (carte modifiable) : boutons des numéros.
+var _slot_buttons: Array[Button] = []
 
 
 func _ready() -> void:
@@ -255,23 +264,27 @@ func _notification(what: int) -> void:
 		_hover = Vector2.INF
 
 
-## Clic (sans glisser) sur la carte : pose la cible au point cliqué, ou la retire si on clique dessus.
+## Clic (sans glisser) sur la carte modifiable : choisit la cible cliquée, sinon place la cible choisie au point cliqué.
 func _click(at: Vector2) -> void:
 	var target := _get_target()
-	if target == null:
+	if target == null or not targets_editable:
 		return
-	if target.active:
+	for slot in target.active_slots():
+		var point := target.get_target(slot)
 		for copy in _visible_copies():
-			if project(target.latitude_deg, target.longitude_deg, copy).distance_to(at) <= TARGET_PICK:
-				target.clear()
+			if project(point.x, point.y, copy).distance_to(at) <= TARGET_PICK:
+				target.select(slot)
 				return
-	var point := lat_lon_at(at)
-	target.set_target(point.x, point.y)
+	var clicked := lat_lon_at(at)
+	target.set_target(target.selected, clicked.x, clicked.y)
 
 
 func _get_target() -> GroundTarget:
 	if _target == null or not is_instance_valid(_target):
 		_target = get_tree().get_first_node_in_group(GroundTarget.GROUP) as GroundTarget
+		if _target and targets_editable:
+			_target.changed.connect(_refresh_target_menu)
+			_refresh_target_menu()
 	return _target
 
 
@@ -372,21 +385,27 @@ func _draw_overlay() -> void:
 	_draw_hover()
 
 
-## Cible au sol (GroundTarget) : cercle et croix jaunes, coordonnées à côté.
+## Cibles au sol (GroundTarget) : cercles jaunes, numéro et coordonnées à côté ; la cible choisie en trait épais avec
+## une croix, les autres plus fines et un peu transparentes.
 func _draw_target(copies: Array[int]) -> void:
 	var target := _get_target()
-	if target == null or not target.active:
+	if target == null:
 		return
 	var font := get_theme_default_font()
 	var font_size := _label_size()
-	var text := GroundTarget.format(target.latitude_deg, target.longitude_deg)
-	for copy in copies:
-		var at := project(target.latitude_deg, target.longitude_deg, copy)
-		_overlay.draw_arc(at, 9.0, 0.0, TAU, 32, GroundTarget.COLOR, 2.5, true)
-		_overlay.draw_circle(at, 2.5, GroundTarget.COLOR, true, -1.0, true)
-		for direction: Vector2 in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
-			_overlay.draw_line(at + direction * 12.0, at + direction * 18.0, GroundTarget.COLOR, 2.0, true)
-		_draw_label(at + Vector2(22.0, -10.0), text, font, font_size, GroundTarget.COLOR)
+	for slot in target.active_slots():
+		var point := target.get_target(slot)
+		var chosen := slot == target.selected
+		var color := GroundTarget.COLOR if chosen else Color(GroundTarget.COLOR, 0.75)
+		var text := "%d  %s" % [slot + 1, GroundTarget.format(point.x, point.y)]
+		for copy in copies:
+			var at := project(point.x, point.y, copy)
+			_overlay.draw_arc(at, 9.0, 0.0, TAU, 32, color, 2.5 if chosen else 1.5, true)
+			_overlay.draw_circle(at, 2.5, color, true, -1.0, true)
+			if chosen:
+				for direction: Vector2 in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+					_overlay.draw_line(at + direction * 12.0, at + direction * 18.0, color, 2.0, true)
+			_draw_label(at + Vector2(22.0, -10.0), text, font, font_size, color)
 
 
 ## Coordonnées sous le pointeur (au survol de la carte, hors glisser).
@@ -544,6 +563,53 @@ func _build_controls() -> void:
 		orbit_bar.position = Vector2(size.x - orbit_bar.size.x - margin, size.y - height - margin)
 	orbit_bar.resized.connect(place)
 	place.call_deferred()
+	if targets_editable:
+		_build_target_menu(height, font, margin)
+
+
+## Menu des cibles (en haut à gauche) : numéros (choisir la cible), « Effacer » (la cible choisie).
+func _build_target_menu(height: float, font: int, margin: float) -> void:
+	var bar := HBoxContainer.new()
+	bar.add_theme_constant_override("separation", 4)
+	bar.position = Vector2(margin, margin)
+	add_child(bar)
+	var label := Label.new()
+	label.text = "MAP_TARGETS"
+	label.add_theme_font_size_override("font_size", font)
+	label.add_theme_color_override("font_color", COLOR_PANEL_TEXT)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	label.add_theme_constant_override("shadow_outline_size", 4)
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.add_child(label)
+	for slot in GroundTarget.MAX_TARGETS:
+		var slot_button := _make_button(str(slot + 1), height, font)
+		slot_button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		slot_button.pressed.connect(func() -> void:
+			var target := _get_target()
+			if target:
+				target.select(slot))
+		bar.add_child(slot_button)
+		_slot_buttons.append(slot_button)
+	var erase := _make_button("MAP_TARGET_CLEAR", height, font)
+	erase.pressed.connect(func() -> void:
+		var target := _get_target()
+		if target:
+			target.clear_target(target.selected))
+	bar.add_child(erase)
+	_get_target()
+
+
+## Menu des cibles : numéro choisi en surbrillance, numéros posés en jaune.
+func _refresh_target_menu() -> void:
+	var target := _target
+	if target == null or _slot_buttons.is_empty():
+		return
+	for slot in _slot_buttons.size():
+		var slot_button := _slot_buttons[slot]
+		_style_button(slot_button, slot == target.selected)
+		var color := GroundTarget.COLOR if target.has_target(slot) else COLOR_PANEL_DIM
+		for state in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
+			slot_button.add_theme_color_override(state, color)
 
 
 func _make_button(text: String, height: float, font: int) -> Button:

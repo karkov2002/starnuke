@@ -43,6 +43,8 @@ func _ready() -> void:
 	_map = OrbitalMap.new()
 	_map.orbit = orbit
 	_map.flight_computer = flight_computer
+	# Règle de jeu : les cibles ne se placent que sur cette carte (pas sur celle de la tablette).
+	_map.targets_editable = true
 	_map.position = Vector2(MARGIN, MARGIN)
 	_map.size = Vector2(map_height * OrbitalMap.ASPECT, map_height)
 	add_child(_map)

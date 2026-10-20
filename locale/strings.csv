@@ -77,6 +77,8 @@ TABLET_PHOTO_CAPTION,"Photo {n}/{count} · {date} UTC\n{place} · {altitude} km 
 MAP_ZOOM_IN,"Zoom in","Zoomer","Acercar","Vergrößern","Ingrandisci"
 MAP_ZOOM_OUT,"Zoom out","Dézoomer","Alejar","Verkleinern","Riduci"
 MAP_ORBITS_AHEAD,"Orbits ahead","Orbites à venir","Órbitas siguientes","Kommende Umläufe","Orbite successive"
+MAP_TARGETS,"Targets","Cibles","Objetivos","Ziele","Bersagli"
+MAP_TARGET_CLEAR,"Clear","Effacer","Borrar","Löschen","Cancella"
 CURTAIN_OPEN,"Open the curtain","Ouvrir le rideau","Abrir la cortina","Vorhang öffnen","Apri la tenda"
 CURTAIN_CLOSE,"Close the curtain","Fermer le rideau","Cerrar la cortina","Vorhang schließen","Chiudi la tenda"
 SUIT_PUT_ON,"Put on the spacesuit","Enfiler la combinaison","Ponerse el traje espacial","Raumanzug anziehen","Indossa la tuta spaziale"

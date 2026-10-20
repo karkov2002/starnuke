@@ -1,14 +1,15 @@
 class_name TargetMarker
 extends Control
-## Cible au sol (GroundTarget) en surimpression jaune sur la Terre, dans la cupola en mode « HUD : On » (calque du
-## Hud) :
-## - une cible posée à l'horizontale sur la Terre, qui en épouse la courbure : trois anneaux concentriques et une croix
-##   (RINGS_KM, ARMS_KM), tracés sur la sphère (distances le long du sol depuis le point visé) dans un maillage enfant
-##   du nœud Earth (il tourne avec la planète) ; matériau sans éclairage, dessiné après les nuages (tri) avec test de
-##   profondeur (cachée par la station, pas par les nuages qui n'écrivent pas de profondeur), reconstruit quand la cible change ;
-## - une flèche au bord de l'écran (calque 2D) quand la cible est hors champ. Pas de coordonnées dans le HUD (elles
-##   masqueraient la vue) : elles sont sur les cartes.
-## Rien n'est affiché si le point visé est sous l'horizon (face cachée de la Terre) ou derrière la caméra.
+## Cibles au sol (GroundTarget, jusqu'à 5) en surimpression jaune sur la Terre, dans la cupola en mode « HUD : On »
+## (calque du Hud) :
+## - chaque cible posée à l'horizontale sur la Terre, qui en épouse la courbure : trois anneaux concentriques et une
+##   croix (RINGS_KM, ARMS_KM), tracés sur la sphère (distances le long du sol depuis le point visé) dans un maillage
+##   enfant du nœud Earth (il tourne avec la planète) ; la cible choisie pleine, les autres plus pâles (OTHER_ALPHA) ;
+##   matériau sans éclairage, dessiné après les nuages (tri) avec test de profondeur (cachée par la station, pas par
+##   les nuages qui n'écrivent pas de profondeur), reconstruit quand les cibles changent ;
+## - le numéro de chaque cible visible, à côté d'elle (calque 2D), et une flèche au bord de l'écran quand la cible
+##   choisie est hors champ. Pas de coordonnées dans le HUD (elles masqueraient la vue) : elles sont sur les cartes.
+## Rien n'est affiché pour un point sous l'horizon (face cachée de la Terre) ou derrière la caméra.
 
 ## Anneaux : distance au centre et largeur (km, le long du sol).
 const RINGS_KM: Array[Vector2] = [Vector2(40.0, 8.0), Vector2(80.0, 7.0), Vector2(120.0, 6.0)]
@@ -19,6 +20,11 @@ const CENTER_KM := 10.0
 const LIFT_KM := 2.0
 const SEGMENTS := 96
 const EDGE_MARGIN := 36.0
+## Opacité des cibles non choisies.
+const OTHER_ALPHA := 0.45
+## Numéro d'une cible : décalage depuis son centre à l'écran (px), taille de police.
+const NUMBER_OFFSET := Vector2(18.0, -18.0)
+const NUMBER_SIZE := 22
 
 var earth: Node3D
 ## Affichée (Hud : cupola et overlay_enabled).
@@ -29,6 +35,8 @@ var shown := false:
 
 var _target: GroundTarget
 var _mesh: MeshInstance3D
+var _chosen_material: StandardMaterial3D
+var _other_material: StandardMaterial3D
 
 
 func _ready() -> void:
@@ -39,18 +47,10 @@ func _ready() -> void:
 		_mesh.name = "GroundTargetMarker"
 		_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_mesh.visible = false
-		var material := StandardMaterial3D.new()
-		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		# Couleur de la cible, saturée (au-delà de 1, le tonemapping la blanchirait sur les nuages).
-		material.albedo_color = Color(GroundTarget.COLOR, 0.95)
-		# Test de profondeur gardé : la station (structure de la cupola) la cache ; les nuages et l'atmosphère
-		# n'écrivent pas de profondeur, ils ne la cachent pas.
-		material.cull_mode = BaseMaterial3D.CULL_DISABLED
-		material.render_priority = 10
+		_chosen_material = _make_material(0.95)
+		_other_material = _make_material(OTHER_ALPHA)
 		# Tri des objets transparents : après les nuages et l'atmosphère (qui sinon la recouvrent).
 		_mesh.sorting_offset = 100000.0
-		_mesh.material_override = material
 		earth.add_child.call_deferred(_mesh)
 
 
@@ -59,17 +59,29 @@ func _exit_tree() -> void:
 		_mesh.queue_free()
 
 
+func _make_material(alpha: float) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# Couleur de la cible, saturée (au-delà de 1, le tonemapping la blanchirait sur les nuages).
+	material.albedo_color = Color(GroundTarget.COLOR, alpha)
+	# Test de profondeur gardé : la station (structure de la cupola) la cache ; les nuages et l'atmosphère
+	# n'écrivent pas de profondeur, ils ne la cachent pas.
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.render_priority = 10
+	return material
+
+
 func _process(_delta: float) -> void:
 	var target := _get_target()
-	var visible_point := false
-	if shown and target and target.active:
-		var camera := get_viewport().get_camera_3d()
-		if camera:
-			var point := earth.global_transform * GroundTarget.earth_local(target.latitude_deg, target.longitude_deg)
-			visible_point = (camera.global_position - point).dot(point - earth.global_position) > 0.0 \
-					and not camera.is_position_behind(point)
+	var any_visible := false
+	if shown and target:
+		for slot in target.active_slots():
+			if _screen_point(target.get_target(slot)) != Vector2.INF:
+				any_visible = true
+				break
 	if _mesh:
-		_mesh.visible = visible_point
+		_mesh.visible = any_visible
 	if shown:
 		queue_redraw()
 
@@ -83,11 +95,46 @@ func _get_target() -> GroundTarget:
 	return _target
 
 
-## Maillage de la cible, sur la sphère, autour du point visé (repère du nœud Earth).
+## Position à l'écran d'une cible (latitude, longitude) visible de la caméra : devant elle et au-dessus de l'horizon ;
+## Vector2.INF sinon (y compris hors de l'écran, voir _draw pour la flèche).
+func _screen_point(point: Vector2) -> Vector2:
+	var camera := get_viewport().get_camera_3d()
+	if camera == null or earth == null:
+		return Vector2.INF
+	var world := earth.global_transform * GroundTarget.earth_local(point.x, point.y)
+	if (camera.global_position - world).dot(world - earth.global_position) <= 0.0 or camera.is_position_behind(world):
+		return Vector2.INF
+	return camera.unproject_position(world)
+
+
+## Maillage des cibles, sur la sphère (repère du nœud Earth) : une surface pour la cible choisie, une pour les autres.
 func _rebuild() -> void:
-	if _mesh == null or _target == null or not _target.active:
+	if _mesh == null or _target == null:
 		return
-	var up := GroundTarget.earth_local(_target.latitude_deg, _target.longitude_deg).normalized()
+	var chosen := PackedVector3Array()
+	var others := PackedVector3Array()
+	for slot in _target.active_slots():
+		var point := _target.get_target(slot)
+		if slot == _target.selected:
+			chosen.append_array(_target_vertices(point.x, point.y))
+		else:
+			others.append_array(_target_vertices(point.x, point.y))
+	var mesh := ArrayMesh.new()
+	for part: Array in [[chosen, _chosen_material], [others, _other_material]]:
+		var vertices: PackedVector3Array = part[0]
+		if vertices.is_empty():
+			continue
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = vertices
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		mesh.surface_set_material(mesh.get_surface_count() - 1, part[1])
+	_mesh.mesh = mesh
+
+
+## Triangles d'une cible (anneaux, croix, centre) autour de (lat, lon).
+func _target_vertices(lat_deg: float, lon_deg: float) -> PackedVector3Array:
+	var up := GroundTarget.earth_local(lat_deg, lon_deg).normalized()
 	var east := Vector3.UP.cross(up)
 	if east.length() < 1e-4:
 		east = Vector3.RIGHT
@@ -121,33 +168,33 @@ func _rebuild() -> void:
 		var a0 := TAU * i / 24.0
 		var a1 := TAU * (i + 1) / 24.0
 		vertices.append_array(PackedVector3Array([up * radius, ground.call(CENTER_KM, a0), ground.call(CENTER_KM, a1)]))
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = vertices
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	_mesh.mesh = mesh
+	return vertices
 
 
 func _draw() -> void:
 	if not shown or earth == null:
 		return
 	var target := _get_target()
-	var camera := get_viewport().get_camera_3d()
-	if target == null or not target.active or camera == null:
+	if target == null:
 		return
-	var point := earth.global_transform * GroundTarget.earth_local(target.latitude_deg, target.longitude_deg)
-	if (camera.global_position - point).dot(point - earth.global_position) <= 0.0 or camera.is_position_behind(point):
-		return
-	var color := GroundTarget.COLOR
 	var screen := get_viewport_rect().size
-	var at := camera.unproject_position(point)
-	if not Rect2(Vector2.ZERO, screen).grow(-EDGE_MARGIN).has_point(at):
-		# Hors champ : flèche au bord de l'écran, vers la cible.
-		var middle := screen * 0.5
-		var direction := (at - middle).normalized()
-		var edge := middle + direction * minf((screen.x * 0.5 - EDGE_MARGIN) / maxf(absf(direction.x), 1e-3),
-				(screen.y * 0.5 - EDGE_MARGIN) / maxf(absf(direction.y), 1e-3))
-		var side := direction.orthogonal() * 9.0
-		draw_colored_polygon(PackedVector2Array([edge + direction * 14.0, edge + side, edge - side]), color)
-		return
+	var inner := Rect2(Vector2.ZERO, screen).grow(-EDGE_MARGIN)
+	var font := get_theme_default_font()
+	for slot in target.active_slots():
+		var chosen := slot == target.selected
+		var color := GroundTarget.COLOR if chosen else Color(GroundTarget.COLOR, 0.7)
+		var at := _screen_point(target.get_target(slot))
+		if at == Vector2.INF:
+			continue
+		if inner.has_point(at):
+			draw_string_outline(font, at + NUMBER_OFFSET, str(slot + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, NUMBER_SIZE, 4,
+					Color(0, 0, 0, 0.8))
+			draw_string(font, at + NUMBER_OFFSET, str(slot + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, NUMBER_SIZE, color)
+		elif chosen:
+			# Cible choisie hors champ : flèche au bord de l'écran, vers elle.
+			var middle := screen * 0.5
+			var direction := (at - middle).normalized()
+			var edge := middle + direction * minf((screen.x * 0.5 - EDGE_MARGIN) / maxf(absf(direction.x), 1e-3),
+					(screen.y * 0.5 - EDGE_MARGIN) / maxf(absf(direction.y), 1e-3))
+			var side := direction.orthogonal() * 9.0
+			draw_colored_polygon(PackedVector2Array([edge + direction * 14.0, edge + side, edge - side]), color)
