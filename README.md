@@ -45,8 +45,9 @@ permet de piloter le jeu exporté.
 - **Déroulement d'une journée** (règles de jeu, `CampaignDirector`) :
   - **Briefing** par la radio (écran de communication ; expéditeur et canal de la mission, sinon `defaults`) :
     « Mission : titre / Objectif : … / texte / Cible(s) : Photo ou Frappe et coordonnées / Durée avant échec :
-    6 h » (ou « 5 h 30 min ») (clés `BRIEFING_*`). **Les délais sont en heures** (règle de jeu : plus précis et plus
-    stressants que des jours). **Le chrono de la mission part quand le briefing est lu.**
+    6 h 00 min » (toujours avec les minutes : « 5 h 30 min ») (clés `BRIEFING_*`). **Les délais sont en heures et
+    minutes** (règle de jeu : plus précis et plus stressants que des jours). **Le chrono de la mission part quand le
+    briefing est lu.**
   - **Objectifs** : une **photo** satellite (point sous la station à la prise de vue) ou un **impact** de missile à
     moins de la tolérance d'une cible remplit l'objectif correspondant (le premier encore ouvert de ce type, dont
     l'objectif préalable `after` est rempli) ; plus loin, il ne compte pas.
@@ -71,7 +72,7 @@ permet de piloter le jeu exporté.
     (`wake_up_utc`, le lendemain si elle est passée ; sans heure, 8 h de sommeil) —, briefing de la première mission.
   - **Réveil** (début de chaque journée, la première comprise, au lancement de la campagne) : « Jour n » sur le noir,
     puis **ouverture des paupières**, comme la séquence de mort à l'envers (`shaders/eyelids.gdshader`) : elles
-    s'entrouvrent, se referment, se rouvrent davantage, clignent puis s'ouvrent tout à fait (~4 s, `WAKE_STEPS`) ; la
+    s'entrouvrent, clignent une fois puis s'ouvrent tout à fait (~1,7 s, `WAKE_STEPS` ; titre 1,8 s) ; la
     vue, d'abord floue et sombre sur les bords, devient nette. Pendant le sommeil et le réveil, les clics sont
     bloqués ; le voile est retiré ensuite (il gardait sinon le clic droit qui tourne la tête). Après la dernière journée, dormir termine la campagne et ramène à l'écran de démarrage
     (fin de campagne détaillée : à venir). Sauvegarde au coucher : à venir.
@@ -97,7 +98,7 @@ permet de piloter le jeu exporté.
   - **`days`** : journées, dans l'ordre — `id`, `start` (facultatif), `wake_up_utc` (« HH:MM »), `missions` (liste
     de `{mission, when}` : une entrée dont la condition est fausse est sautée, ce qui permet de choisir la mission
     selon les notes), `debrief` (messages de fin de journée).
-  - **`missions`** (dictionnaire par identifiant) : `title`, `objective`, `description`, `deadline_hours` (durée avant
+  - **`missions`** (dictionnaire par identifiant) : `title`, `objective`, `description`, `deadline_hours` et `deadline_minutes` (facultatif, 0 à 59) (durée avant
     échec, en heures : règle de jeu), `par_hours` (temps de référence, `null` : calculé), `objectives` (`type` « photo » ou « strike »,
     `target` {`lat`, `lon`}, `tolerance_km`, `weight`, `yield_kt` pour un tir, `after` : objectif à remplir avant),
     `result` (messages selon la note).

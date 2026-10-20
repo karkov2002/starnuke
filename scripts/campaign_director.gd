@@ -35,12 +35,11 @@ const GROUP := &"campaign_director"
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 ## Fondu au noir et retour (s), titre affiché (s) ; sommeil sans heure de réveil (h).
 const FADE_S := 1.5
-const TITLE_S := 2.5
+const TITLE_S := 1.8
 const NIGHT_HOURS := 8.0
 const EYELIDS_SHADER := preload("res://shaders/eyelids.gdshader")
-## Ouverture des yeux au réveil : (fermeture visée de 1 à 0, durée en s) — entrouverts, refermés, rouverts, ouverts.
-const WAKE_STEPS: Array[Vector2] = [Vector2(0.62, 0.9), Vector2(0.95, 0.35), Vector2(0.4, 1.0), Vector2(0.72, 0.3),
-		Vector2(0.0, 1.4)]
+## Ouverture des yeux au réveil : (fermeture visée de 1 à 0, durée en s) — entrouverts, un clignement, ouverts.
+const WAKE_STEPS: Array[Vector2] = [Vector2(0.55, 0.6), Vector2(0.9, 0.2), Vector2(0.0, 0.9)]
 
 @export var orbit_path: NodePath = ^"../Orbit"
 @export var flight_computer_path: NodePath = ^"../FlightComputer"
@@ -343,10 +342,9 @@ func _briefing_body(mission: Dictionary) -> String:
 		var kind := tr("OBJECTIVE_PHOTO" if objective.type == "photo" else "OBJECTIVE_STRIKE")
 		targets.append("  %s : %s" % [kind, GroundTarget.format(float(objective.target.lat),
 				float(objective.target.lon))])
-	# Durée avant échec : « 6 h », « 5 h 30 min ».
-	var minutes := roundi(float(mission.deadline_hours) * 60.0)
-	var hours := floori(minutes / 60.0)
-	var duration := "%d h" % hours if minutes % 60 == 0 else "%d h %02d min" % [hours, minutes % 60]
+	# Durée avant échec, toujours avec les minutes : « 6 h 00 min », « 5 h 30 min ».
+	var minutes := roundi(_deadline_s(mission) / 60.0)
+	var duration := "%d h %02d min" % [floori(minutes / 60.0), minutes % 60]
 	return tr("BRIEFING_BODY").format({"title": _text(mission, "title"), "objective": _text(mission, "objective"),
 			"description": _text(mission, "description"), "targets": "\n".join(targets), "duration": duration})
 
@@ -378,8 +376,9 @@ func _tolerance_km(objective: Dictionary) -> float:
 	return float(objective.get("tolerance_km", defaults.get(objective.type, fallback)))
 
 
+## Échéance (s) : deadline_hours et deadline_minutes (facultatif) additionnés.
 func _deadline_s(mission: Dictionary) -> float:
-	return float(mission.deadline_hours) * 3600.0
+	return float(mission.get("deadline_hours", 0.0)) * 3600.0 + float(mission.get("deadline_minutes", 0.0)) * 60.0
 
 
 func _par_s(mission: Dictionary) -> float:

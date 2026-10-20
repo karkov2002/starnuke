@@ -15,7 +15,8 @@ extends RefCounted
 ##              "missions": [ {"mission": ID, "when": CONDITION (facultatif)} … ],
 ##              "debrief": [ MESSAGE … ] (facultatif) } … ],
 ##   "missions": { ID: {"title", "objective", "description": TEXTE, "from": TEXTE (facultatif),
-##                      "channel": entier (facultatif), "deadline_hours": > 0, "par_hours": > 0 ou null,
+##                      "channel": entier (facultatif), "deadline_hours": >= 0, "deadline_minutes": 0–59 (facultatif ; total > 0),
+##                      "par_hours": > 0 ou null,
 ##                      "objectives": [ {"type": "photo" | "strike", "target": {"lat", "lon"},
 ##                                       "tolerance_km" (facultatif), "weight" (1), "yield_kt" (tir, facultatif),
 ##                                       "after": indice d'un objectif précédent (facultatif)} … ],
@@ -201,8 +202,10 @@ func _check_mission(id: String, mission_data: Variant) -> void:
 		return
 	for field in ["title", "objective", "description"]:
 		_check_text(mission_data, field, where)
-	if float(mission_data.get("deadline_hours", 0.0)) <= 0.0:
-		_error("%s.deadline_hours : durée (heures) positive attendue" % where)
+	var hours := float(mission_data.get("deadline_hours", -1.0))
+	var minutes := float(mission_data.get("deadline_minutes", 0.0))
+	if hours < 0.0 or minutes < 0.0 or minutes >= 60.0 or hours * 60.0 + minutes <= 0.0:
+		_error("%s.deadline_hours / deadline_minutes : durée positive attendue (heures, minutes de 0 à 59)" % where)
 	if mission_data.get("par_hours", null) != null and float(mission_data.par_hours) <= 0.0:
 		_error("%s.par_hours : durée (heures) positive, ou null" % where)
 	var objectives: Variant = mission_data.get("objectives", null)

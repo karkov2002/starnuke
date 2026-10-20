@@ -50,7 +50,8 @@
 			"title": "CAMPAIGN_STARNUKE_M_TEST2_TITLE",
 			"objective": "CAMPAIGN_STARNUKE_M_TEST2_OBJECTIVE",
 			"description": "CAMPAIGN_STARNUKE_M_TEST2_DESC",
-			"deadline_hours": 6,
+			"deadline_hours": 5,
+			"deadline_minutes": 30,
 			"par_hours": null,
 			"objectives": [
 				{ "type": "photo", "target": { "lat": 43.6, "lon": 1.44 }, "weight": 1 }
