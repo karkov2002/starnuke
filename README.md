@@ -162,7 +162,7 @@ permet de piloter le jeu exporté.
 | Silos | **48 voyants ronds numérotés de 1 à 48** en bas de la tablette, un par tube de lancement, en 2 blocs de 3 × 8 placés comme les deux silos sur la station (vue de dessus, l'avant en haut ; silo 1 à gauche). **Orange** : missile prêt ; clic → **vert** : tube choisi pour le prochain tir (un seul à la fois, nouveau clic pour annuler) ; **gris** : tube vide. **48 missiles en tout**, sans rechargement. Choisir un tube **ouvre sa trappe** (animation Blender) et allume à côté un **gyrophare rouge** à éclats, qui éclaire la trappe et le dessous de la coque ; le tube choisi auparavant referme sa trappe et éteint son gyrophare (de même si on annule le choix). Après le tir, quand le missile a quitté la station, la trappe se referme et le gyrophare s'éteint |
 | Tir nucléaire | **Gros bouton rouge** à droite des silos (tablette), **depuis la cupola seulement** (ailleurs, il est grisé avec « Actif uniquement dans la coupole ») : lance le missile du **tube choisi (vert)** sur le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie sous les silos (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Le point visé et la puissance sont figés à l'appui. Le missile sort de son tube (animation de lancement, 5 s : trappe, descente, allumage), le tube passe au gris, puis le missile tourne vers la cible en accélérant pendant que son moteur brûle (9 s) et part vers la zone d'impact ; moteur éteint, on le perd de vue ; dans les dernières secondes, sa **rentrée atmosphérique** apparaît au-dessus de la cible, comme une étoile filante, puis l'explosion a lieu. **Durée du vol : de 20 s (cible au nadir) à 2 min (cible à l'horizon)**, proportionnelle à la distance (temps de jeu : le vol se fige en pause et s'accélère avec le temps). Un **chronomètre** par missile, en bas à droite de l'écran (« Silo 7 · impact dans 0:43 », toujours visible, même hors de la cupola), décompte jusqu'à l'impact, passe au rouge et clignote dans les 10 dernières secondes. Sans tube choisi, ou si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien et le missile reste dans son tube. Voir « Explosions nucléaires » |
 | Bilan des explosions | Sur l'écran mural à droite en face de la télévision (module Commande) : pays touchés et pertes, cumulées sur toutes les explosions ; la liste défile seule quand elle déborde |
-| Compteur de performances et panneau de debug | **F4** ouvre ou masque le **panneau de debug des explosions** dans la partie en cours (outil de développement, en français : puissance, coordonnées, scrubber du temps, alerte de la station, case **Combinaison** (enfilée ou rangée, `Station.set_suit_worn`, suit aussi l'enfilage au clic), altitude et inclinaison directes de l'orbite, date et heure UTC, redémarrage ; voir « Scène de debug » dans « Explosions nucléaires »). **F3** affiche ou masque la ligne en haut à droite (visible par défaut, outil de développement, non traduite) : images par seconde, temps CPU et GPU moyens par image, appels de dessin, mémoire vidéo (moyennes sur 0,5 s). Nœud `FpsOverlay` de `scenes/orbit_view.tscn`, script `scripts/ui/fps_overlay.gd` ; voir « Performances » |
+| Compteur de performances et panneau de debug | **F4** ouvre ou masque le **panneau de debug des explosions** dans la partie en cours (outil de développement, en français : puissance, coordonnées, scrubber du temps, alerte de la station, case **Combinaison** (enfilée ou rangée, `Station.set_suit_worn`, suit aussi l'enfilage au clic), bouton **Radio** (message radio d'essai), altitude et inclinaison directes de l'orbite, date et heure UTC, redémarrage ; voir « Scène de debug » dans « Explosions nucléaires »). **F3** affiche ou masque la ligne en haut à droite (visible par défaut, outil de développement, non traduite) : images par seconde, temps CPU et GPU moyens par image, appels de dessin, mémoire vidéo (moyennes sur 0,5 s). Nœud `FpsOverlay` de `scenes/orbit_view.tscn`, script `scripts/ui/fps_overlay.gd` ; voir « Performances » |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
 Les touches sont définies par leur **position physique** sur le clavier (actions `move_forward`, `move_back`,
@@ -418,6 +418,31 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   et seulement quand la caméra est dans un module qui a des écrans animés (`MODULES_X` : Commande, Arrimage) ; écrans éteints avec « plus de lumière »
   (`Station.get_blackout`). Mesure : 120 im/s inchangés dans le module. Les textes affichés sont du pseudo-code et
   des valeurs techniques, sans langue : ils ne passent pas par les fichiers de langue.
+- **Communication radio** (`scripts/comm_console.gd`, nœud `CommConsole` ; interface `scripts/ui/comm_display.gd` ;
+  radio `scripts/radio_comms.gd`, nœud `Radio`, groupe `radio`) : l'écran 08 du module Commande (paroi −Y, retiré des
+  écrans d'ambiance `TechScreens`) affiche le programme **COMM.EXE**, interface « MS-DOS années 80 » façon Norton
+  Commander en mode texte : grille de 80 × 25 caractères d'une police à chasse fixe (Consolas, sinon Lucida Console
+  ou Courier New), palette CGA (fond bleu, cadres doubles cyan clair, barre de menu cyan avec l'heure UTC du jeu,
+  barre des touches de fonction en bas, curseur clignotant), lignes de balayage du shader des écrans.
+  - **Vue radio** : comme la télévision (survol à 2,5 m → bulle « Communications radio » ; clic → la vue se cadre
+    face à l'écran ; clic droit ou F10 → on quitte ; groupe `ScreenSeat`). En vue radio, souris **et clavier** vont à
+    l'écran : F1 aide, F2 choix du canal, F10 quitter, flèches (message ou canal précédent / suivant), chiffres
+    (envoyer la réponse correspondante), Entrée (valider le canal), Échap (fermer une fenêtre) ; tout se fait aussi à
+    la souris.
+  - Écran : ligne d'état (canal, fréquence, bande ; liaison en barre de signal avec la station au sol, ou « PAS DE
+    LIAISON » clignotant) ; à gauche les messages reçus (heure, expéditeur ; non lus en jaune, lus quand on s'installe
+    devant l'écran ou qu'on les choisit), à droite le message choisi (expéditeur, objet, réception et fréquence, texte)
+    et ses réponses `[1]`, `[2]`… ; une réponse envoyée s'affiche en vert.
+  - **Règles de jeu** (`RadioComms`) : **liaison** seulement avec une station au sol en vue (16 stations du réseau de
+    suivi, de Houston à Canberra ; élévation de la station d'au moins 5° au-dessus de leur horizon) : qualité de
+    15 % au ras de l'horizon à 100 % dès 25° d'élévation, nulle hors de vue (coupures sur les océans). **Canaux** :
+    6 (143,625 et 145,800 MHz VHF, 437,800 MHz UHF, 2 265 et 2 287,5 MHz bande S, 8 400 MHz bande X) ; un message
+    posté sur un canal n'arrive que la radio réglée dessus (canal −1 : tous), et **attend au sol** que la liaison et le
+    bon canal le permettent. **Réponses** : un message peut en proposer ; en envoyer une demande la liaison (sinon
+    « Échec de l'émission ») ; une seule réponse par message (signal `replied`).
+  - API pour la campagne : `RadioComms.post({from, subject, body, channel, replies})` (textes : clé des fichiers de
+    langue, texte, ou dictionnaire par langue comme `campaign.json`), signaux `message_received`, `replied`. Panneau
+    de debug : bouton « Radio » (message d'essai du contrôle sol, deux réponses).
 - **Télévision** (`scripts/tv_console.gd`, nœud `TvConsole` ; interface `scripts/ui/tv_display.gd`) : l'écran
   `Interactif_Ecran_03` du module Commande (retiré des écrans d'ambiance) diffuse les chaînes d'information du monde.
   - **Vue TV** : survol à portée (2,5 m) → bulle « Télévision » ; clic gauche → la vue se cadre face à l'écran, comme

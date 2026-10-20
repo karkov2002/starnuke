@@ -31,6 +31,8 @@
 [ext_resource type="Script" uid="uid://dpi707lbf4kgi" path="res://scripts/station_atmosphere.gd" id="28_atmos"]
 [ext_resource type="Script" uid="uid://bjktprilx271p" path="res://scripts/pressure_gauges.gd" id="29_gauges"]
 [ext_resource type="Script" uid="uid://dv84mbg0t8djt" path="res://scripts/air_vent_fx.gd" id="31_4c2qw"]
+[ext_resource type="Script" uid="uid://o2oc0mxlhhjj" path="res://scripts/radio_comms.gd" id="32_ev06u"]
+[ext_resource type="Script" uid="uid://c6iao1laubem6" path="res://scripts/comm_console.gd" id="33_m75us"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -185,3 +187,9 @@ script = ExtResource("27_kgvqe")
 
 [node name="AirVentFx" type="Node3D" parent="." unique_id=243908019]
 script = ExtResource("31_4c2qw")
+
+[node name="Radio" type="Node" parent="." unique_id=1767027247]
+script = ExtResource("32_ev06u")
+
+[node name="CommConsole" type="Node" parent="." unique_id=604244139]
+script = ExtResource("33_m75us")

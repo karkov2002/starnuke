@@ -10,6 +10,7 @@ extends CanvasLayer
 ## - « Ouverture totale » / « Fermeture totale » : toutes les écoutilles ouvrables, porte extérieure du sas comprise
 ##   (Station.set_all_hatches_open : tests d'expulsion depuis n'importe quel module) ;
 ## - « Combinaison » : combinaison du sas portée ou rangée (Station.set_suit_worn), la case suit l'état réel ;
+## - « Radio » : message radio d'essai du contrôle sol, avec deux réponses (RadioComms.post) ;
 ## - orbite (partie en cours seulement) : altitude (200–800 km) et inclinaison (0–80°) appliquées directement au
 ##   nœud Orbit, au point courant, sans manœuvre (outil de développement : en jeu, l'orbite se pilote au poste de
 ##   pilotage). L'inclinaison est bornée par la latitude courante ;
@@ -127,6 +128,12 @@ func _ready() -> void:
 		if station:
 			station.set_suit_worn(on))
 	hatches.add_child(_suit)
+	# Message radio d'essai (RadioComms.post) : arrive à l'écran de communication dès que la liaison le permet.
+	hatches.add_child(_make_button("Radio", func() -> void:
+		var radio := get_tree().get_first_node_in_group(RadioComms.GROUP) as RadioComms
+		if radio:
+			radio.post({"from": "COMM_FROM_GROUND", "subject": "COMM_TEST_SUBJECT", "body": "COMM_TEST_BODY",
+					"replies": ["COMM_TEST_REPLY_1", "COMM_TEST_REPLY_2"]})))
 
 	var scrub_row := HBoxContainer.new()
 	scrub_row.add_theme_constant_override("separation", 6)
