@@ -70,9 +70,16 @@ permet de piloter le jeu exporté.
     puis **réveil dans la couchette** au départ de la journée suivante — son `start` s'il est défini (heure et
     position exactes), sinon **la station a continué son orbite** jusqu'à l'heure de réveil (`wake_up_utc`, le
     lendemain si elle est passée ; sans heure, 8 h de sommeil) —, briefing de la première mission. Après la dernière
-    journée, dormir termine la campagne, efface la sauvegarde et ramène à l'écran de démarrage (fin de campagne
-    détaillée : à venir). Pendant la nuit, les explosions vieillissent avec l'orbite (horloge `NukeClock` avancée
+    journée, dormir termine la campagne : la sauvegarde est effacée et l'**écran de fin de campagne** s'affiche
+    (voir ci-dessous). Pendant la nuit, les explosions vieillissent avec l'orbite (horloge `NukeClock` avancée
     d'autant : incendies, fumées).
+  - **Fin de campagne** (`scenes/ui/campaign_end_screen.tscn`, `scripts/ui/campaign_end_screen.gd`), sur fond noir
+    en fondu : « Campagne terminée », nom de la campagne, **message de fin** (`ending`, le même que celui de la
+    radio : choisi d'après les notes de la dernière journée), **moyenne globale** sur 20 avec RÉUSSITE / ÉCHEC
+    (`success_score`), puis le **détail à défilement** : pour chaque journée, « Jour n » et sa note, et chaque
+    mission jouée (titre, note, verdict ; vert si réussie, rouge sinon), dans l'ordre de la campagne (« — » et
+    « Aucune mission jouée » pour une journée sans mission). « Retour au menu » vide les notes
+    (`Campaigns.start_free`) et ramène à l'écran de démarrage.
   - **Sauvegarde au coucher** (règle de jeu ; `Campaigns.save`, `user://saves/campaign.json`, un seul emplacement :
     la campagne en cours) : campagne, **journée à venir**, notes (missions, journées, **moyenne globale**
     `global_score`) et monde au réveil — orbite (heure UTC, altitude, inclinaison, point survolé, sens de passage),

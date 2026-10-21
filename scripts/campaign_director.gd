@@ -23,8 +23,9 @@ extends Node
 ##   de départ) au départ de la journée suivante : le sien s'il est défini, sinon la station a continué son orbite
 ##   jusqu'à l'heure de réveil (wake_up_utc, le lendemain si elle est passée ; sans heure de réveil, NIGHT_HOURS de
 ##   sommeil) ; « Jour n » et ouverture des paupières (WakeUp.play ; au lancement, WakeUp joue lui-même le réveil).
-##   Après la dernière journée, dormir termine la campagne : retour
-##   à l'écran de démarrage (fin de campagne détaillée : étape 7). Sauvegarde au coucher : étape 6.
+##   Après la dernière journée, dormir termine la campagne : sauvegarde effacée, écran de fin de campagne
+##   (scenes/ui/campaign_end_screen.tscn : message de fin, moyenne globale, notes par journée et par mission), puis
+##   écran de démarrage. Sauvegarde au coucher (Campaigns.save).
 
 signal day_started(day_index: int)
 signal mission_started(mission_id: String)
@@ -32,7 +33,7 @@ signal mission_finished(mission_id: String, result: Dictionary)
 signal day_finished(day_index: int)
 
 const GROUP := &"campaign_director"
-const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
+const END_SCENE := "res://scenes/ui/campaign_end_screen.tscn"
 ## Sommeil sans heure de réveil (h).
 const NIGHT_HOURS := 8.0
 
@@ -229,8 +230,8 @@ func can_sleep() -> bool:
 	return is_active() and _day_over and not _sleeping
 
 
-## Dormir : fondu au noir (WakeUp), journée suivante (ou fin de campagne après la dernière), réveil dans la
-## couchette (WakeUp.play, titre « Jour n »).
+## Dormir : fondu au noir (WakeUp), journée suivante, réveil dans la couchette (WakeUp.play, titre « Jour n ») ;
+## après la dernière, écran de fin de campagne (il vide les notes de Campaigns au retour au menu).
 func sleep() -> void:
 	if not can_sleep():
 		return
@@ -241,8 +242,7 @@ func sleep() -> void:
 	var next := Campaigns.day_index + 1
 	if next >= Campaigns.current.days().size():
 		Campaigns.delete_save()
-		Campaigns.start_free()
-		get_tree().change_scene_to_file(MENU_SCENE)
+		get_tree().change_scene_to_file(END_SCENE)
 		return
 	_advance_to_wake_up(next)
 	# Sauvegarde au coucher (règle de jeu) : journée à venir, notes, monde au réveil.
