@@ -56,13 +56,10 @@ permet de piloter le jeu exporté.
     réception, le chrono de la mission part** (pas avant), **le temps revient à ×1** et l'**appel prioritaire**
     retentit.
   - **Appel prioritaire** (règle de jeu, `scripts/priority_call.gd`, `PriorityCall`, créé par `CampaignDirector`) :
-    **sonnerie propre aux briefings**, distincte des sirènes d'alerte, par l'interphone (audible partout dans la
-    station, même en combinaison ; bus SFX) : `assets/audio/alarms/briefing_call.ogg` (deux tons alternés 880 et
-    1 175 Hz, 0,12 s chacun, en salves de 0,72 s séparées de 0,78 s) en boucle **jusqu'à la lecture du
-    briefing**, au plus 20 s, puis un cycle de rappel toutes les 60 s tant qu'il n'est pas lu. **Un appel passe la
-    station en alerte jaune simple** (`Station.set_alert` : luminaires jaunes ; la sirène jaune se tait au profit
-    de la sonnerie) jusqu'à la lecture, puis retour au normal (sauf si le niveau a changé entre-temps) ; une alerte
-    déjà en cours (jaune, orange, rouge, plus de lumière) est gardée. **La tablette est le récepteur de l'appel, comme un téléphone** : elle passe sur son onglet
+    **un appel passe la station en alerte jaune simple** (`Station.set_alert` : luminaires jaunes et **sirène
+    jaune**, voir « Sirènes d'alerte » ; pas de sonnerie propre) **jusqu'à la lecture du briefing**, puis retour au
+    normal (sauf si le niveau a changé entre-temps) ; une alerte déjà en cours (jaune, orange, rouge, plus de
+    lumière) est gardée. **La tablette est le récepteur de l'appel, comme un téléphone** : elle passe sur son onglet
     **Alertes** (appel en cours, bandeau clignotant « TRANSMISSION PRIORITAIRE — poste COMM, module Commande »,
     `PRIORITY_CALL_BANNER`, jusqu'à la lecture ; voir « Tablette ») ; plus rien ne s'affiche par-dessus la vue. Le
     briefing se lit au poste COMM. Une mission terminée sans que son briefing ait été lu arrête l'appel.
@@ -72,8 +69,12 @@ permet de piloter le jeu exporté.
     position) : **jaune** (précaution), carillon doux de deux notes descendantes 660 puis 523 Hz toutes les 4 s ;
     **orange** (avertissement), trois bips secs à 740 Hz toutes les 2,4 s ; **rouge** (urgence), sirène montante
     de 550 à 1 450 Hz, continue. Normal et « Tout éteindre » (courant coupé) : silence. Volume croissant avec
-    l'urgence (−12, −9, −8 dB). Sons Ogg Vorbis **synthétisés par `tools/build_alarm_sounds.ps1`** (ffmpeg,
-    formules d'onde ; à relancer pour les retoucher) dans `assets/audio/alarms/`.
+    l'urgence (−12, −9, −8 dB, `AlertSirens.VOLUMES_DB`). Sons **provisoires** : `assets/audio/alarms/`
+    `alert_yellow.ogg`, `alert_orange.ogg`, `alert_red.ogg`, synthétisés par `tools/build_alarm_sounds.ps1`
+    (ffmpeg, formules d'onde). **Pour les remplacer**, déposer à leur place des fichiers **Ogg Vorbis de même
+    nom** : l'éditeur les réimporte, et le fichier entier est joué en boucle (`loop` réglé par le code ; durée
+    libre, prévoir un raccord propre entre la fin et le début). Le script n'écrase jamais un son présent, sauf avec
+    `-Force`.
   - **Objectifs** : une **photo** satellite (point sous la station à la prise de vue) ou un **impact** de missile à
     moins de la tolérance d'une cible remplit l'objectif correspondant (le premier encore ouvert de ce type, dont
     l'objectif préalable `after` est rempli) ; plus loin, il ne compte pas.

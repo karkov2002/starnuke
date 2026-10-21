@@ -4,8 +4,9 @@ extends Node
 ## est en alerte jaune, orange ou rouge (Station.set_alert : tablette, panneau de debug, sas), le son de ce niveau
 ## passe en boucle par l'interphone, audible partout dans la station (bus SFX, sans position) : jaune, carillon doux
 ## toutes les 4 s ; orange, trois bips secs ; rouge, sirène montante continue (assets/audio/alarms, générés par
-## tools/build_alarm_sounds.ps1). Normal et « plus de lumière » (courant coupé) : silence. Pendant un appel
-## prioritaire (PriorityCall, qui met la station en alerte jaune), c'est sa sonnerie qui joue, pas la sirène jaune.
+## tools/build_alarm_sounds.ps1 ; remplaçables par des sons faits à la main, même nom, Ogg Vorbis : le fichier entier
+## est joué en boucle). Normal et « plus de lumière » (courant coupé) : silence. Un appel prioritaire (PriorityCall)
+## met la station en alerte jaune : c'est la sirène jaune qui l'annonce.
 
 const SOUNDS := {
 	Station.Alert.YELLOW: preload("res://assets/audio/alarms/alert_yellow.ogg"),
@@ -32,9 +33,6 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	var station := get_tree().get_first_node_in_group(Station.GROUP) as Station
 	var level := station.get_alert() if station else Station.Alert.NONE
-	var call := get_tree().get_first_node_in_group(PriorityCall.GROUP) as PriorityCall
-	if call and call.is_ringing() and level == Station.Alert.YELLOW:
-		level = Station.Alert.NONE
 	var wanted: int = level if SOUNDS.has(level) else -1
 	if wanted == _playing:
 		return
