@@ -7,6 +7,7 @@ extends Node
 ## tools/build_alarm_sounds.ps1 ; remplaçables par des sons faits à la main, même nom, Ogg Vorbis : le fichier entier
 ## est joué en boucle). Normal et « plus de lumière » (courant coupé) : silence. Un appel prioritaire (PriorityCall)
 ## met la station en alerte jaune : c'est la sirène jaune qui l'annonce.
+## Abonné à Station.alert_changed (pas de sondage par image).
 
 const SOUNDS := {
 	Station.Alert.YELLOW: preload("res://assets/audio/alarms/alert_yellow.ogg"),
@@ -28,11 +29,13 @@ func _ready() -> void:
 	for level: int in SOUNDS:
 		var sound: AudioStreamOggVorbis = SOUNDS[level]
 		sound.loop = true
-
-
-func _process(_delta: float) -> void:
 	var station := get_tree().get_first_node_in_group(Station.GROUP) as Station
-	var level := station.get_alert() if station else Station.Alert.NONE
+	if station:
+		station.alert_changed.connect(_on_alert_changed)
+		_on_alert_changed(station.get_alert())
+
+
+func _on_alert_changed(level: int) -> void:
 	var wanted: int = level if SOUNDS.has(level) else -1
 	if wanted == _playing:
 		return

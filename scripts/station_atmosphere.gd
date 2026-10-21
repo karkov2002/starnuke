@@ -17,6 +17,8 @@ extends Node
 ##   (_update_alert) ;
 ## Volumes et écoutilles : tables ZONES et HATCHES (coordonnées Blender du modèle, converties dans le repère de la
 ## station : x, z, −y). La valve et son manomètre : Station (get_airlock_valve_mode, airlock_step, set_airlock_gauge).
+## Les ensembles qui communiquent et le chemin du courant vers la sortie ne sont recalculés qu'au mouvement d'une
+## écoutille (Station.hatch_moving, hatch_changed) ; à chaque image, seuls les mélanges de pression sont intégrés.
 
 const SPACE := "Espace"
 const SAS := "Sas"
@@ -66,6 +68,8 @@ const BEYOND_M := 0.8
 ## Pression de chaque volume (1 : pleine).
 var pressures := {}
 var _station: Station
+## Ensembles de volumes qui communiquent (_groups), recalculés au mouvement d'une écoutille.
+var _groups_cache: Array = []
 ## Volume → écoutille suivante vers l'espace (volumes qui communiquent avec l'espace), et vitesse du courant (m/s).
 var _next := {}
 var _flow_speed := {}
@@ -84,14 +88,25 @@ func _ready() -> void:
 	_station = get_node_or_null(station_path) as Station
 	if _station == null:
 		set_process(false)
+		return
+	_station.hatch_moving.connect(func(_id: String, _open: bool) -> void: _refresh_groups())
+	_station.hatch_changed.connect(func(_id: String, _open: bool) -> void: _refresh_groups())
+	_refresh_groups()
+
+
+## Ensembles qui communiquent et chemin du courant vers la sortie, d'après l'état visé des écoutilles.
+func _refresh_groups() -> void:
+	_groups_cache = _groups()
+	_next.clear()
+	_flow_speed.clear()
+	for zones: Array in _groups_cache:
+		if zones.has(SPACE):
+			_route(zones)
 
 
 func _process(delta: float) -> void:
-	var groups := _groups()
 	var valve := _station.get_airlock_valve_mode()
-	_next.clear()
-	_flow_speed.clear()
-	for zones: Array in groups:
+	for zones: Array in _groups_cache:
 		var volume := 0.0
 		var mean := 0.0
 		var modules := 0
@@ -118,7 +133,9 @@ func _process(delta: float) -> void:
 				pressures[zone] = clampf(lerpf(float(pressures[zone]) + target - mean, target, w), 0.0, 1.0)
 		if zones.has(SPACE):
 			var speed := target * lerpf(flow_speed_sas, flow_speed_max, float(modules) / maxf(_modules_total, 1))
-			_route(zones, speed)
+			for zone: String in zones:
+				if zone != SPACE:
+					_flow_speed[zone] = speed
 	_station.set_airlock_gauge(float(pressures[SAS]))
 	_update_alert()
 
@@ -140,7 +157,7 @@ func _update_alert() -> void:
 		return
 	if outer:
 		return
-	for zones: Array in _groups():
+	for zones: Array in _groups_cache:
 		if zones.has(SAS):
 			for zone: String in zones:
 				if snappedf(float(pressures[zone]), 0.01) < alert_clear_pressure:
@@ -242,7 +259,7 @@ func _find(parent: Dictionary, zone: String) -> String:
 
 
 ## Parcours en largeur depuis l'espace dans un ensemble qui communique avec lui : écoutille suivante de chaque volume.
-func _route(zones: Array, speed: float) -> void:
+func _route(zones: Array) -> void:
 	var queue: Array[String] = [SPACE]
 	var seen := {SPACE: true}
 	while not queue.is_empty():
@@ -256,7 +273,6 @@ func _route(zones: Array, speed: float) -> void:
 				continue
 			seen[other] = true
 			_next[other] = id
-			_flow_speed[other] = speed
 			queue.append(other)
 
 

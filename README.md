@@ -69,7 +69,8 @@ permet de piloter le jeu exporté.
     position) : **jaune** (précaution), carillon doux de deux notes descendantes 660 puis 523 Hz toutes les 4 s ;
     **orange** (avertissement), trois bips secs à 740 Hz toutes les 2,4 s ; **rouge** (urgence), sirène montante
     de 550 à 1 450 Hz, continue. Normal et « Tout éteindre » (courant coupé) : silence. Volume croissant avec
-	l'urgence (−12, −9, −8 dB, `AlertSirens.VOLUMES_DB`). Sons **provisoires** : `assets/audio/alarms/`
+	l'urgence (−12, −9, −8 dB, `AlertSirens.VOLUMES_DB`) ; abonné au signal `Station.alert_changed`. Sons
+	**provisoires** : `assets/audio/alarms/`
 	`alert_yellow.ogg`, `alert_orange.ogg`, `alert_red.ogg`, synthétisés par `tools/build_alarm_sounds.ps1`
 	(ffmpeg, formules d'onde). **Pour les remplacer**, déposer à leur place des fichiers **Ogg Vorbis de même
 	nom** : l'éditeur les réimporte, et le fichier entier est joué en boucle (`loop` réglé par le code ; durée
@@ -1022,7 +1023,9 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	Missile 1 et 2, jonctions avant et arrière, sas (table `ZONES` : boîtes en coordonnées Blender, volume d'air,
 	modules comptés). Les écoutilles intérieures isolent les modules ; **deux volumes communiquent quand
 	l'écoutille qui les relie est ouverte** (table `HATCHES` ; état visé : une écoutille qui commence à s'ouvrir
-	communique déjà, une écoutille qui commence à se fermer isole déjà).
+	communique déjà, une écoutille qui commence à se fermer isole déjà). Les ensembles qui communiquent et le
+	chemin du courant vers la sortie sont recalculés au mouvement d'une écoutille (signaux `Station.hatch_moving`
+	et `hatch_changed`), pas à chaque image.
 	- Des volumes qui communiquent ont la même pression (moyenne pondérée par les volumes d'air, équilibrée en
       `equalize_s`, 0,5 s).
     - **Vidange par la valve** : la pression baisse dans **tous les volumes qui communiquent avec le sas**, sur la
