@@ -170,49 +170,15 @@ func _build_video(page: VBoxContainer) -> void:
 	_resolution.item_selected.connect(func(index: int) -> void:
 		GameSettings.set_resolution(_resolution.get_item_metadata(index)))
 	# Luminosité : curseur de 25 à 150 % (facteur d'exposition, GameSettings.brightness).
-	var label := Label.new()
-	label.text = "VIDEO_BRIGHTNESS"
-	label.add_theme_font_size_override("font_size", 20)
-	grid.add_child(label)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	grid.add_child(row)
-	_brightness = HSlider.new()
-	_brightness.min_value = GameSettings.BRIGHTNESS_RANGE.x * 100.0
-	_brightness.max_value = GameSettings.BRIGHTNESS_RANGE.y * 100.0
-	_brightness.step = 5.0
-	_brightness.custom_minimum_size = Vector2(360.0, 44.0)
-	_brightness.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(_brightness)
-	_brightness_value = Label.new()
-	_brightness_value.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	_brightness_value.add_theme_font_size_override("font_size", 20)
-	row.add_child(_brightness_value)
-	_brightness.value_changed.connect(func(value: float) -> void:
-		_brightness_value.text = "%d %%" % roundi(value)
-		GameSettings.set_brightness(value / 100.0))
+	var brightness := _add_percent_slider(grid, "VIDEO_BRIGHTNESS", func(value: float) -> void:
+		GameSettings.set_brightness(value / 100.0), GameSettings.BRIGHTNESS_RANGE)
+	_brightness = brightness[0]
+	_brightness_value = brightness[1]
 	# Éclairage intérieur : curseur de 10 à 150 % (puissance des lampes de la station, GameSettings.interior_light).
-	var light_label := Label.new()
-	light_label.text = "VIDEO_INTERIOR_LIGHT"
-	light_label.add_theme_font_size_override("font_size", 20)
-	grid.add_child(light_label)
-	var light_row := HBoxContainer.new()
-	light_row.add_theme_constant_override("separation", 12)
-	grid.add_child(light_row)
-	_interior_light = HSlider.new()
-	_interior_light.min_value = GameSettings.INTERIOR_LIGHT_RANGE.x * 100.0
-	_interior_light.max_value = GameSettings.INTERIOR_LIGHT_RANGE.y * 100.0
-	_interior_light.step = 5.0
-	_interior_light.custom_minimum_size = Vector2(360.0, 44.0)
-	_interior_light.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	light_row.add_child(_interior_light)
-	_interior_light_value = Label.new()
-	_interior_light_value.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	_interior_light_value.add_theme_font_size_override("font_size", 20)
-	light_row.add_child(_interior_light_value)
-	_interior_light.value_changed.connect(func(value: float) -> void:
-		_interior_light_value.text = "%d %%" % roundi(value)
-		GameSettings.set_interior_light(value / 100.0))
+	var light := _add_percent_slider(grid, "VIDEO_INTERIOR_LIGHT", func(value: float) -> void:
+		GameSettings.set_interior_light(value / 100.0), GameSettings.INTERIOR_LIGHT_RANGE)
+	_interior_light = light[0]
+	_interior_light_value = light[1]
 	_resolution_note = _add_note(page, "")
 	_resolution_note.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 
@@ -277,30 +243,32 @@ class SpeakerButton extends Button:
 				draw_arc(c + Vector2(0.4, 0.0) * s, radius, -PI / 3.5, PI / 3.5, 16, color, 2.0, true)
 
 
-## Curseur de 0 à 100 % et sa valeur affichée ; rend [curseur, étiquette, ligne].
-func _add_percent_slider(grid: GridContainer, key: String, on_change: Callable) -> Array:
-	var label := Label.new()
-	label.text = key
-	label.add_theme_font_size_override("font_size", 20)
-	grid.add_child(label)
+## Curseur en pour cent (bornes range, facteurs 0–1 : 0 à 100 % par défaut) et sa valeur affichée ; on_change reçoit
+## la valeur en pour cent. Rend [curseur, étiquette, ligne].
+func _add_percent_slider(grid: GridContainer, key: String, on_change: Callable, range_factor := Vector2(0.0, 1.0)) -> Array:
+	grid.add_child(UiKit.label(key, 20))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	grid.add_child(row)
 	var slider := HSlider.new()
-	slider.max_value = 100.0
+	slider.min_value = range_factor.x * 100.0
+	slider.max_value = range_factor.y * 100.0
 	slider.step = 5.0
 	slider.custom_minimum_size = Vector2(360.0, 44.0)
 	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(slider)
-	var value_label := Label.new()
-	value_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	value_label.add_theme_font_size_override("font_size", 20)
+	var value_label := UiKit.label("", 20, Color.WHITE, false)
+	value_label.custom_minimum_size.x = 70.0
 	row.add_child(value_label)
 	slider.value_changed.connect(func(value: float) -> void:
-		value_label.text = "%d %%" % roundi(value)
+		value_label.text = _percent(value)
 		on_change.call(value))
-	value_label.custom_minimum_size.x = 70.0
 	return [slider, value_label, row]
+
+
+## « 85 % » d'une valeur en pour cent.
+static func _percent(value: float) -> String:
+	return "%d %%" % roundi(value)
 
 
 ## Onglet Commandes : aide (action, touches). Les touches sont des touches physiques : leur lettre est celle du
@@ -357,12 +325,8 @@ func _action_keys(action: StringName) -> Array[String]:
 ## Touche dessinée (cadre arrondi) ; « =CLE » : texte traduit (souris, Échap…).
 func _keycap(key_name: String) -> Control:
 	var cap := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.16, 0.18, 0.22)
-	style.border_color = Color(0.55, 0.6, 0.68)
-	style.set_border_width_all(1)
+	var style := UiKit.flat_box(Color(0.16, 0.18, 0.22), Color(0.55, 0.6, 0.68), 1, 6)
 	style.border_width_bottom = 3
-	style.set_corner_radius_all(6)
 	style.content_margin_left = 10.0
 	style.content_margin_right = 10.0
 	style.content_margin_top = 2.0
@@ -408,14 +372,12 @@ func _refresh() -> void:
 	if not GameSettings.can_change_display():
 		_resolution_note.text += "\n\n" + tr("VIDEO_EMBEDDED_NOTE")
 	_language.select(GameSettings.LOCALES.find(GameSettings.locale))
-	_brightness.set_value_no_signal(GameSettings.brightness * 100.0)
-	_brightness_value.text = "%d %%" % roundi(GameSettings.brightness * 100.0)
-	_interior_light.set_value_no_signal(GameSettings.interior_light * 100.0)
-	_interior_light_value.text = "%d %%" % roundi(GameSettings.interior_light * 100.0)
-	_music_volume.set_value_no_signal(GameSettings.music_volume * 100.0)
-	_music_volume_value.text = "%d %%" % roundi(GameSettings.music_volume * 100.0)
-	_sfx_volume.set_value_no_signal(GameSettings.sfx_volume * 100.0)
-	_sfx_volume_value.text = "%d %%" % roundi(GameSettings.sfx_volume * 100.0)
+	for triple: Array in [[_brightness, _brightness_value, GameSettings.brightness],
+			[_interior_light, _interior_light_value, GameSettings.interior_light],
+			[_music_volume, _music_volume_value, GameSettings.music_volume],
+			[_sfx_volume, _sfx_volume_value, GameSettings.sfx_volume]]:
+		(triple[0] as HSlider).set_value_no_signal(float(triple[2]) * 100.0)
+		(triple[1] as Label).text = _percent(float(triple[2]) * 100.0)
 	for pair in [[_music_mute, _music_volume, _music_volume_value, GameSettings.music_muted],
 			[_sfx_mute, _sfx_volume, _sfx_volume_value, GameSettings.sfx_muted]]:
 		pair[0].set_pressed_no_signal(pair[3])

@@ -83,10 +83,4 @@ func is_over_controls(screen_position: Vector2) -> bool:
 
 ## Style des panneaux de l'interface à l'écran.
 static func panel_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.07, 0.1, 0.72)
-	style.border_color = Color(0.55, 0.7, 0.9, 0.35)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(10)
-	style.set_content_margin_all(6)
-	return style
+	return UiKit.flat_box(Color(0.05, 0.07, 0.1, 0.72), Color(0.55, 0.7, 0.9, 0.35), 1, 10, 6.0)

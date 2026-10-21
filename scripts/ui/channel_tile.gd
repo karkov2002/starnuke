@@ -150,7 +150,4 @@ func _centered(font: Font, r: Rect2, label: String, font_size: float, color: Col
 
 
 func _box(r: Rect2, color: Color, radius: float) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.set_corner_radius_all(int(radius))
-	draw_style_box(style, r)
+	draw_style_box(UiKit.flat_box(color, Color.TRANSPARENT, 0, int(radius)), r)

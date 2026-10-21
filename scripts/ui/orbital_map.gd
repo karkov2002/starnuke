@@ -54,18 +54,18 @@ const COLOR_TRACK := Color(0.62, 1.0, 0.66)
 const COLOR_TRACK_LAST := Color(0.1, 0.45, 0.17)
 const COLOR_TRACK_PAST := Color(0.4, 0.5, 0.43, 0.8)
 const COLOR_STATION := Color(1.0, 0.95, 0.4)
-const COLOR_GHOST := Color(0.3, 0.85, 1.0)
-const COLOR_PANEL := Color(0.04, 0.06, 0.05, 0.85)
-const COLOR_PANEL_ACTIVE := Color(0.12, 0.3, 0.2, 0.95)
-const COLOR_PANEL_TEXT := Color(0.85, 1.0, 0.88)
-const COLOR_PANEL_DIM := Color(0.45, 0.6, 0.5)
+const COLOR_GHOST := ScreenPalette.GHOST
+const COLOR_PANEL := ScreenPalette.PANEL
+const COLOR_PANEL_ACTIVE := ScreenPalette.PANEL_ACTIVE
+const COLOR_PANEL_TEXT := ScreenPalette.TEXT
+const COLOR_PANEL_DIM := ScreenPalette.DIM
 ## Pointillés de la trace fantôme : DASH pas de la trace tracés, puis DASH pas vides.
 const DASH := 2
 ## Déplacement maximal (px) entre l'appui et le relâchement pour un clic (au-delà : la carte a été glissée).
 const CLICK_SLOP := 5.0
 ## Rayon (px) autour d'une cible où un clic la choisit.
 const TARGET_PICK := 14.0
-const COLOR_HOVER := Color(0.85, 1.0, 0.88)
+const COLOR_HOVER := ScreenPalette.TEXT
 
 ## Rapport largeur / hauteur de la carte du poste (±MAX_LAT_DEG).
 static var ASPECT := aspect_for(MAX_LAT_DEG)
@@ -625,11 +625,8 @@ func _make_button(text: String, height: float, font: int) -> Button:
 
 
 func _style_button(button: Button, active: bool) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = COLOR_PANEL_ACTIVE if active else COLOR_PANEL
-	style.border_color = COLOR_PANEL_TEXT if active else COLOR_PANEL_DIM
-	style.set_border_width_all(2 if active else 1)
-	style.set_corner_radius_all(5)
+	var style := UiKit.flat_box(COLOR_PANEL_ACTIVE if active else COLOR_PANEL,
+			COLOR_PANEL_TEXT if active else COLOR_PANEL_DIM, 2 if active else 1, 5)
 	style.content_margin_left = 6
 	style.content_margin_right = 6
 	for state in ["normal", "hover", "pressed", "hover_pressed"]:

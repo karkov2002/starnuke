@@ -344,14 +344,8 @@ func _format_duration(seconds: float) -> String:
 	return "%d j %02d h" % [floori(s / 86400.0), floori(s / 3600.0) % 24]
 
 
-func _make_panel_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.05, 0.05, 0.75)
-	style.border_color = Color(0.9, 0.4, 0.3, 0.4)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(10)
-	style.set_content_margin_all(14)
-	return style
+static func _make_panel_style() -> StyleBoxFlat:
+	return UiKit.flat_box(Color(0.1, 0.05, 0.05, 0.75), Color(0.9, 0.4, 0.3, 0.4), 1, 10, 14.0)
 
 
 func _scrub_time() -> float:

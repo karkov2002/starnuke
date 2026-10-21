@@ -258,11 +258,5 @@ func _make_cell(text: String, width: float, color: Color, translate := false) ->
 	return label
 
 
-func _label(text: String, font_size: int, color: Color, translate := false) -> Label:
-	var label := Label.new()
-	label.text = text
-	if not translate:
-		label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
-	return label
+static func _label(text: String, font_size: int, color: Color, translate := false) -> Label:
+	return UiKit.label(text, font_size, color, translate)

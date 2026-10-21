@@ -9,7 +9,8 @@ extends VBoxContainer
 ## bas vers le haut) à leur droite, sur toute la hauteur du bloc (précision du dosage).
 
 const COLOR_BURN := Color(0.12, 0.38, 0.95)
-const COLOR_GHOST := Color(0.3, 0.85, 1.0)
+const COLOR_GHOST := ScreenPalette.GHOST
+## Texte atténué, un peu plus clair que ScreenPalette.DIM (petites tailles de la colonne de la tablette).
 const COLOR_DIM := Color(0.55, 0.65, 0.6)
 const COLOR_GOOD := Color(0.3, 1.0, 0.4)
 const COLOR_BAD := Color(1.0, 0.55, 0.15)
@@ -165,14 +166,9 @@ func _gauge_span(from_ratio: float, to_ratio: float, inset: float) -> Rect2:
 	return Rect2(from_ratio * unit_x, extent.y * inset, (to_ratio - from_ratio) * unit_x, extent.y * (1.0 - 2.0 * inset))
 
 
-func _make_label(color: Color, font_size: int) -> Label:
-	var label := Label.new()
-	# Textes composés à chaque image : pas de traduction automatique.
-	label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	label.add_theme_color_override("font_color", color)
-	if font_size > 0:
-		label.add_theme_font_size_override("font_size", font_size)
-	return label
+## Textes composés à chaque image : pas de traduction automatique.
+static func _make_label(color: Color, font_size: int) -> Label:
+	return UiKit.label("", font_size, color, false)
 
 
 ## « 12:34 » (minutes:secondes de temps de jeu), « 1:02:03 » au-delà d'une heure ; 00:00 dans la fenêtre passée.

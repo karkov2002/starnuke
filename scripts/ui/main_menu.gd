@@ -22,7 +22,6 @@ extends Control
 const GAME_SCENE := "res://scenes/orbit_view.tscn"
 const SETTINGS_SCENE := preload("res://scenes/ui/settings_menu.tscn")
 const CREDITS_SCENE := preload("res://scenes/ui/credits_menu.tscn")
-const BUTTON_SIZE := Vector2(380.0, 60.0)
 ## Choix de la campagne : couleur de la campagne officielle, lignes visibles avant défilement.
 const OFFICIAL_COLOR := Color(0.45, 0.72, 1.0)
 ## Campagne avec des erreurs (grisée, ne se lance pas).
@@ -326,11 +325,7 @@ func _campaign_tooltip(campaign: Dictionary) -> String:
 
 
 func _add_button(parent: Control, key: String, action: Callable) -> Button:
-	var button := Button.new()
-	button.text = key
-	button.custom_minimum_size = BUTTON_SIZE
-	button.add_theme_font_size_override("font_size", 26)
-	button.pressed.connect(action)
+	var button := UiKit.menu_button(key, action)
 	parent.add_child(button)
 	return button
 

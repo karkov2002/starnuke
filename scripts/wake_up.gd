@@ -123,11 +123,7 @@ func _build() -> void:
 	_subtitle = _add_title_label(column, 26, Color(0.62, 0.66, 0.72))
 
 
-func _add_title_label(parent: Control, font_size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
+static func _add_title_label(parent: Control, font_size: int, color: Color) -> Label:
+	var label := UiKit.label("", font_size, color, false, HORIZONTAL_ALIGNMENT_CENTER)
 	parent.add_child(label)
 	return label

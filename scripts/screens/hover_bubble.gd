@@ -55,12 +55,6 @@ static func _make_label(key: String) -> Label:
 	return label
 
 
-## Style des bulles : fond sombre translucide, liseré bleuté.
+## Style des bulles : fond sombre translucide, liseré bleuté (comme les panneaux du Hud, plus opaque).
 static func bubble_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.07, 0.1, 0.8)
-	style.border_color = Color(0.55, 0.7, 0.9, 0.5)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(6)
-	style.set_content_margin_all(8)
-	return style
+	return UiKit.flat_box(Color(0.05, 0.07, 0.1, 0.8), Color(0.55, 0.7, 0.9, 0.5), 1, 6, 8.0)

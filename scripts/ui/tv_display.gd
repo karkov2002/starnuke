@@ -344,11 +344,5 @@ func _draw_no_signal() -> void:
 			HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, COLOR_TEXT)
 
 
-func _box(fill: Color, border: Color, border_width: int, margin: int) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.border_color = border
-	style.set_border_width_all(border_width)
-	style.set_corner_radius_all(6)
-	style.set_content_margin_all(margin)
-	return style
+static func _box(fill: Color, border: Color, border_width: int, margin: int) -> StyleBoxFlat:
+	return UiKit.flat_box(fill, border, border_width, 6, margin)

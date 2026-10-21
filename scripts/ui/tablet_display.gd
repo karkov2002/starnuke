@@ -29,7 +29,7 @@ enum Tab { PILOT, PHOTO, MISSILE, ALERTS }
 
 const MARGIN := 18.0
 const FONT_SIZE := 22
-const MAP_MAX_LAT_DEG := 80.0
+const MAP_MAX_LAT_DEG := OrbitalMap.MAX_LAT_DEG
 ## Largeur réservée à la colonne BURN, à droite de la carte, et à celle du bouton Photo (pixels).
 const SIDE_WIDTH := 210.0
 ## Marge supplémentaire à droite (pixels) : le pouce de la main qui tient la tablette, posé sur la bordure de
@@ -49,8 +49,6 @@ const ALERT_CAPS: Array[Color] = [Color(0.86, 0.87, 0.88), Color(0.95, 0.78, 0.1
 const ALERT_BUTTON_SIZE := Vector2(80.0, 74.0)
 const COLOR_CALL := Color(1.0, 0.62, 0.18)
 const BLINK_S := 0.5
-const COLOR_TAB := Color(0.06, 0.09, 0.08)
-const COLOR_TAB_ACTIVE := Color(0.12, 0.3, 0.2)
 const FLASH_S := 0.35
 
 var orbit: OrbitSimulation
@@ -139,7 +137,7 @@ func _ready() -> void:
 	_clock.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_clock.custom_minimum_size = Vector2(0.0, CLOCK_HEIGHT)
 	_clock.add_theme_font_size_override("font_size", 22)
-	_clock.add_theme_color_override("font_color", PilotDisplay.COLOR_TEXT)
+	_clock.add_theme_color_override("font_color", ScreenPalette.TEXT)
 	column.add_child(_clock)
 
 	# Pages (une seule visible), dans la hauteur restante (calculée : un conteneur grandit pour loger son contenu,
@@ -338,37 +336,24 @@ func _build_alerts_page(page_size: Vector2) -> Control:
 	page.add_theme_constant_override("separation", 10)
 	var screen := PanelContainer.new()
 	screen.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var screen_style := StyleBoxFlat.new()
-	screen_style.bg_color = Color(0.02, 0.035, 0.03)
-	screen_style.border_color = PilotDisplay.COLOR_FRAME
-	screen_style.set_border_width_all(1)
-	screen_style.set_corner_radius_all(6)
-	screen_style.set_content_margin_all(16)
-	screen.add_theme_stylebox_override("panel", screen_style)
+	screen.add_theme_stylebox_override("panel", UiKit.flat_box(Color(0.02, 0.035, 0.03), ScreenPalette.FRAME, 1, 6, 16.0))
 	page.add_child(screen)
 	var center := CenterContainer.new()
 	screen.add_child(center)
-	_call_idle = _make_alert_label("TABLET_ALERT_IDLE", 26, PilotDisplay.COLOR_DIM)
+	_call_idle = _make_alert_label("TABLET_ALERT_IDLE", 26, ScreenPalette.DIM)
 	center.add_child(_call_idle)
 	_call_box = VBoxContainer.new()
 	_call_box.add_theme_constant_override("separation", 10)
 	center.add_child(_call_box)
 	_call_box.add_child(_make_alert_label("TABLET_CALL_TITLE", 34, COLOR_CALL))
-	_call_from = _make_alert_label("", 24, PilotDisplay.COLOR_TEXT)
-	_call_subject = _make_alert_label("", 24, PilotDisplay.COLOR_TEXT)
-	_call_time = _make_alert_label("", 22, PilotDisplay.COLOR_DIM)
+	_call_from = _make_alert_label("", 24, ScreenPalette.TEXT, false)
+	_call_subject = _make_alert_label("", 24, ScreenPalette.TEXT, false)
+	_call_time = _make_alert_label("", 22, ScreenPalette.DIM, false)
 	for label in [_call_from, _call_subject, _call_time]:
-		label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 		_call_box.add_child(label)
 	# Bandeau de l'appel, au-dessus des boutons : orange sur fond sombre, clignotant.
 	_call_banner = PanelContainer.new()
-	var banner_style := StyleBoxFlat.new()
-	banner_style.bg_color = Color(0.08, 0.04, 0.02)
-	banner_style.border_color = COLOR_CALL
-	banner_style.set_border_width_all(2)
-	banner_style.set_corner_radius_all(4)
-	banner_style.set_content_margin_all(6)
-	_call_banner.add_theme_stylebox_override("panel", banner_style)
+	_call_banner.add_theme_stylebox_override("panel", UiKit.flat_box(Color(0.08, 0.04, 0.02), COLOR_CALL, 2, 4, 6.0))
 	var banner_text := _make_alert_label("PRIORITY_CALL_BANNER", 17, COLOR_CALL)
 	# Texte coupé plutôt que page élargie (traductions longues).
 	banner_text.clip_text = true
@@ -395,21 +380,16 @@ func _build_alerts_page(page_size: Vector2) -> Control:
 				station.set_alert(level as Station.Alert))
 		cell.add_child(button)
 		# Texte traduit dès le départ (la clé brute, plus large, élargirait la page pour de bon).
-		var label := _make_alert_label(tr(ALERT_KEYS[level]), 18, PilotDisplay.COLOR_DIM)
-		label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		var label := _make_alert_label(tr(ALERT_KEYS[level]), 18, ScreenPalette.DIM, false)
 		cell.add_child(label)
 		_alert_labels.append(label)
 	_show_call({})
 	return page
 
 
-func _make_alert_label(key: String, font_size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = key
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
-	return label
+## Étiquette centrée de la page Alertes (texte : clé de langue, ou composé si translate est faux).
+static func _make_alert_label(text: String, font_size: int, color: Color, translate := true) -> Label:
+	return UiKit.label(text, font_size, color, translate, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 ## Appel prioritaire (suivi dès qu'il existe : il est créé par le directeur de campagne), clignotement du bandeau et
@@ -435,7 +415,7 @@ func _update_alerts(delta: float) -> void:
 	for level in _alert_labels.size():
 		var label := _alert_labels[level]
 		var active := level == current
-		label.add_theme_color_override("font_color", PilotDisplay.COLOR_TEXT if active else PilotDisplay.COLOR_DIM)
+		label.add_theme_color_override("font_color", ScreenPalette.TEXT if active else ScreenPalette.DIM)
 		label.text = ("▲ %s" if active else "%s") % tr(ALERT_KEYS[level])
 
 
@@ -478,16 +458,13 @@ func _make_tab_button(key: String) -> Button:
 
 
 func _style_tab(button: Button, active: bool) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = COLOR_TAB_ACTIVE if active else COLOR_TAB
-	style.border_color = PilotDisplay.COLOR_TEXT if active else PilotDisplay.COLOR_FRAME
-	style.set_border_width_all(2 if active else 1)
-	style.set_corner_radius_all(6)
+	var style := UiKit.flat_box(ScreenPalette.TAB_ACTIVE if active else ScreenPalette.TAB,
+			ScreenPalette.TEXT if active else ScreenPalette.FRAME, 2 if active else 1, 6)
 	style.content_margin_left = 14
 	style.content_margin_right = 14
 	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 		button.add_theme_stylebox_override(state, style)
-	var text_color := PilotDisplay.COLOR_TEXT if active else PilotDisplay.COLOR_DIM
+	var text_color := ScreenPalette.TEXT if active else ScreenPalette.DIM
 	for state in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color"]:
 		button.add_theme_color_override(state, text_color)
 

@@ -28,18 +28,9 @@ func _ready() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 48)
 	center.add_child(column)
-	var title := Label.new()
-	title.text = "DEATH_TITLE"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 72)
-	title.add_theme_color_override("font_color", Color(0.78, 0.08, 0.06))
-	column.add_child(title)
-	var back := Button.new()
-	back.text = "DEATH_BACK_TO_MENU"
-	back.custom_minimum_size = Vector2(380.0, 60.0)
+	column.add_child(UiKit.label("DEATH_TITLE", 72, Color(0.78, 0.08, 0.06), true, HORIZONTAL_ALIGNMENT_CENTER))
+	var back := UiKit.menu_button("DEATH_BACK_TO_MENU", func() -> void: get_tree().change_scene_to_file(MAIN_MENU))
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	back.add_theme_font_size_override("font_size", 26)
-	back.pressed.connect(func() -> void: get_tree().change_scene_to_file(MAIN_MENU))
 	column.add_child(back)
 
 	center.modulate.a = 0.0

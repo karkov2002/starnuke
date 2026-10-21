@@ -592,7 +592,9 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	que les clics et les glisser, pas le simple survol : il lui envoie l'entrée et la sortie de la souris
 	(`NOTIFICATION_VP_MOUSE_ENTER` / `EXIT`) quand le pointeur arrive sur l'écran ou le quitte, et transmet le
 	relâchement du bouton gauche tenu même hors de la dalle (BURN, curseurs). `HoverBubble` : bulles de survol et
-	de sortie (écrans, écoutilles, sas), masquées en pause.
+	de sortie (écrans, écoutilles, sas), masquées en pause. Interface construite en code : fabriques partagées
+	`UiKit` (`scripts/ui/ui_kit.gd` : étiquettes, boutons des menus plein écran, boîtes de style) et couleurs des
+	écrans verts `ScreenPalette` (`scripts/ui/screen_palette.gd`), référencées par les écrans plutôt que recopiées.
   - **Navigation, comme une carte en ligne** (même carte au poste et sur la tablette, chacune sa vue) : **molette** =
 	zoom centré sur le curseur ; **glisser** (bouton gauche) = déplacer la carte dans le sens de la souris ; boutons
 	en bas à gauche **« − » / « + »** = zoom centré sur le centre de la carte ; en bas à droite **« Orbites à

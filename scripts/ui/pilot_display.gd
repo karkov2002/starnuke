@@ -11,10 +11,10 @@ extends Control
 
 const MARGIN := 24.0
 const FONT_SIZE := 26
-const COLOR_TEXT := Color(0.85, 1.0, 0.88)
-const COLOR_DIM := Color(0.45, 0.6, 0.5)
-const COLOR_FRAME := Color(0.35, 0.5, 0.4)
-const COLOR_GHOST := OrbitalMap.COLOR_GHOST
+const COLOR_TEXT := ScreenPalette.TEXT
+const COLOR_DIM := ScreenPalette.DIM
+const COLOR_FRAME := ScreenPalette.FRAME
+const COLOR_GHOST := ScreenPalette.GHOST
 
 var orbit: OrbitSimulation
 var flight_computer: FlightComputer
@@ -60,19 +60,19 @@ func _ready() -> void:
 	column.size = Vector2(size.x - column.position.x - MARGIN, map_height)
 	column.add_theme_constant_override("separation", 8)
 	add_child(column)
-	column.add_child(_make_label("PILOT_TITLE", COLOR_TEXT, 36))
+	column.add_child(UiKit.label("PILOT_TITLE", 36, COLOR_TEXT))
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 18)
 	grid.add_theme_constant_override("v_separation", 2)
 	column.add_child(grid)
 	for key: String in ["PILOT_UTC", "PILOT_POSITION", "PILOT_ALTITUDE", "PILOT_INCLINATION", "PILOT_PERIOD", "PILOT_SPEED"]:
-		grid.add_child(_make_label(key, COLOR_DIM))
+		grid.add_child(UiKit.label(key, 0, COLOR_DIM))
 		_values[key] = _make_value(COLOR_TEXT)
 		grid.add_child(_values[key])
 
 	column.add_child(HSeparator.new())
-	column.add_child(_make_label("PILOT_MANEUVER", COLOR_GHOST, 30))
+	column.add_child(UiKit.label("PILOT_MANEUVER", 30, COLOR_GHOST))
 	_target_inclination = _add_target_row(column, "PILOT_TARGET_INCLINATION")
 	_inclination_slider = _make_slider(0.0, OrbitSimulation.MAX_INCLINATION_DEG, 0.1)
 	column.add_child(_inclination_slider)
@@ -91,7 +91,7 @@ func _ready() -> void:
 
 	var delta_row := HBoxContainer.new()
 	column.add_child(delta_row)
-	delta_row.add_child(_make_label("PILOT_DELTA_V", COLOR_DIM))
+	delta_row.add_child(UiKit.label("PILOT_DELTA_V", 0, COLOR_DIM))
 	_delta_v = _make_value(COLOR_TEXT)
 	_delta_v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	delta_row.add_child(_delta_v)
@@ -154,7 +154,7 @@ func _process(_delta: float) -> void:
 func _add_target_row(parent: Control, key: String) -> Label:
 	var row := HBoxContainer.new()
 	parent.add_child(row)
-	var name_label := _make_label(key, COLOR_DIM)
+	var name_label := UiKit.label(key, 0, COLOR_DIM)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(name_label)
 	var value := _make_value(COLOR_GHOST)
@@ -162,21 +162,9 @@ func _add_target_row(parent: Control, key: String) -> Label:
 	return value
 
 
-func _make_label(key: String, color: Color, font_size := 0) -> Label:
-	var label := Label.new()
-	label.text = key
-	label.add_theme_color_override("font_color", color)
-	if font_size > 0:
-		label.add_theme_font_size_override("font_size", font_size)
-	return label
-
-
 ## Label de valeur composée à chaque image : pas de traduction automatique.
-func _make_value(color: Color) -> Label:
-	var label := Label.new()
-	label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	label.add_theme_color_override("font_color", color)
-	return label
+static func _make_value(color: Color) -> Label:
+	return UiKit.label("", 0, color, false)
 
 
 func _make_slider(min_value: float, max_value: float, step: float) -> HSlider:
@@ -195,10 +183,8 @@ func _format_shift(degrees: float) -> String:
 
 
 func _frame_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
+	var style := UiKit.flat_box(Color.TRANSPARENT, COLOR_FRAME, 2, 0)
 	style.draw_center = false
-	style.border_color = COLOR_FRAME
-	style.set_border_width_all(2)
 	return style
 
 
@@ -220,14 +206,9 @@ static func make_theme(font_size: int) -> Theme:
 	result.set_icon("grabber", "HSlider", grabber)
 	result.set_icon("grabber_highlight", "HSlider", _disc_texture(30, Color.WHITE))
 	for state: String in ["normal", "hover", "pressed", "disabled"]:
-		var box := StyleBoxFlat.new()
-		box.bg_color = {"normal": Color(0.08, 0.16, 0.1), "hover": Color(0.12, 0.26, 0.16),
+		var fill: Color = {"normal": Color(0.08, 0.16, 0.1), "hover": Color(0.12, 0.26, 0.16),
 				"pressed": Color(0.2, 0.4, 0.25), "disabled": Color(0.06, 0.06, 0.06)}[state]
-		box.border_color = COLOR_FRAME
-		box.set_border_width_all(2)
-		box.set_corner_radius_all(6)
-		box.set_content_margin_all(10)
-		result.set_stylebox(state, "Button", box)
+		result.set_stylebox(state, "Button", UiKit.flat_box(fill, COLOR_FRAME, 2, 6, 10.0))
 	result.set_color("font_color", "Button", COLOR_TEXT)
 	result.set_color("font_hover_color", "Button", Color.WHITE)
 	result.set_color("separator", "HSeparator", COLOR_FRAME)

@@ -52,14 +52,10 @@ func _ready() -> void:
 	if campaign:
 		column.add_child(_build_details(campaign, success_score))
 
-	var back := Button.new()
-	back.text = "CAMPAIGN_END_BACK_TO_MENU"
-	back.custom_minimum_size = Vector2(380.0, 60.0)
-	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	back.add_theme_font_size_override("font_size", 26)
-	back.pressed.connect(func() -> void:
+	var back := UiKit.menu_button("CAMPAIGN_END_BACK_TO_MENU", func() -> void:
 		Campaigns.start_free()
 		get_tree().change_scene_to_file(MAIN_MENU))
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(back)
 
 	center.modulate.a = 0.0
@@ -130,14 +126,8 @@ func _add_score_cells(grid: GridContainer, score: Variant, success_score: float,
 	verdict.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 
 
-## Étiquette centrée ; translate : traduction automatique (texte = clé), sinon texte déjà traduit.
-func _add_label(parent: Control, text: String, font_size: int, color: Color, translate := true) -> Label:
-	var label := Label.new()
-	label.text = text
-	if not translate:
-		label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
+## Étiquette centrée ajoutée à parent ; translate : traduction automatique (texte = clé), sinon texte déjà traduit.
+static func _add_label(parent: Control, text: String, font_size: int, color: Color, translate := true) -> Label:
+	var label := UiKit.label(text, font_size, color, translate, HORIZONTAL_ALIGNMENT_CENTER)
 	parent.add_child(label)
 	return label
