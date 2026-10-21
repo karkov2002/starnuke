@@ -2,7 +2,7 @@ class_name MissionScoring
 extends RefCounted
 ## Règles de notation des missions de campagne (calculs purs, sans état ; utilisés par CampaignDirector et, à terme,
 ## par le banc d'équilibrage). Notes sur 20. Règles de jeu :
-## - précision d'un objectif : distance au sol d (km) entre la cible et le point obtenu (photo : point sous la
+## - précision d'un objectif : distance au sol d (km, GeoMath.distance_km) entre la cible et le point obtenu (photo : point sous la
 ##   station à la prise de vue ; tir : point d'impact) : 20 jusqu'à tolérance / 4 (zone parfaite), puis décroît en
 ##   ligne droite jusqu'à 0 à la tolérance ; un objectif non rempli vaut 0 ;
 ## - précision de la mission : moyenne des précisions des objectifs, pondérée par leur poids (weight) ;
@@ -15,14 +15,6 @@ extends RefCounted
 const MAX_SCORE := 20.0
 ## Part de la tolérance où la précision est parfaite.
 const PERFECT_SHARE := 0.25
-
-
-## Distance au sol (km, grand cercle) entre deux points (latitude, longitude en degrés).
-static func distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-	var a := deg_to_rad(lat1)
-	var b := deg_to_rad(lat2)
-	var d := sin((b - a) * 0.5) ** 2 + cos(a) * cos(b) * sin(deg_to_rad(lon2 - lon1) * 0.5) ** 2
-	return 2.0 * OrbitSimulation.EARTH_RADIUS_KM * asin(sqrt(minf(d, 1.0)))
 
 
 ## Tolérance (km) d'un objectif : la sienne, sinon celle de defaults.tolerance_km pour son type, sinon 40 km (photo)

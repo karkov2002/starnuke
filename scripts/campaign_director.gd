@@ -194,7 +194,7 @@ func day_heading() -> String:
 	var point := _orbit.get_subsatellite_point()
 	return tr("WAKE_HEADING").format({"day": now.day, "month": tr("MONTH_%d" % now.month), "year": now.year,
 			"hour": "%02d" % now.hour, "minute": "%02d" % now.minute,
-			"position": GroundTarget.format(point.x, point.y)})
+			"position": GeoMath.format_lat_lon(point.x, point.y)})
 
 
 # --- Missions -------------------------------------------------------------------------------------------------------
@@ -278,7 +278,7 @@ func _record(type: String, lat: float, lon: float) -> void:
 		var objective: Dictionary = objectives[k]
 		if objective.type != type:
 			continue
-		var d := MissionScoring.distance_km(lat, lon, float(objective.target.lat), float(objective.target.lon))
+		var d := GeoMath.distance_km(lat, lon, float(objective.target.lat), float(objective.target.lon))
 		nearest = minf(nearest, d)
 		if filled >= 0 or not is_nan(_precisions[k]):
 			continue
@@ -452,7 +452,7 @@ func _briefing_body(mission: Dictionary) -> String:
 	var targets := PackedStringArray()
 	for objective: Dictionary in mission.objectives:
 		var kind := tr("OBJECTIVE_PHOTO" if objective.type == "photo" else "OBJECTIVE_STRIKE")
-		targets.append("  %s : %s" % [kind, GroundTarget.format(float(objective.target.lat),
+		targets.append("  %s : %s" % [kind, GeoMath.format_lat_lon(float(objective.target.lat),
 				float(objective.target.lon))])
 	# Durée avant échec, toujours avec les minutes : « 6 h 00 min », « 5 h 30 min ».
 	var minutes := roundi(_deadline_s(mission) / 60.0)

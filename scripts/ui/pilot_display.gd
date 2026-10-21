@@ -129,7 +129,7 @@ func _process(_delta: float) -> void:
 	var now := orbit.get_utc_datetime()
 	var point := orbit.get_subsatellite_point()
 	_values.PILOT_UTC.text = "%02d:%02d:%02d" % [now.hour, now.minute, now.second]
-	_values.PILOT_POSITION.text = "%s  %s" % [_format_angle(point.x, "DIR_N", "DIR_S"), _format_angle(point.y, "DIR_E", "DIR_W")]
+	_values.PILOT_POSITION.text = GeoMath.format_lat_lon(point.x, point.y, 1)
 	_values.PILOT_ALTITUDE.text = "%d km" % roundi(orbit.altitude_km)
 	_values.PILOT_INCLINATION.text = "%.1f°  ·  %s" % [orbit.inclination_deg,
 			tr("PILOT_PER_DAY").format({"value": "%+.2f" % rad_to_deg(orbit.get_raan_rate() * 86400.0)})]
@@ -144,7 +144,7 @@ func _process(_delta: float) -> void:
 	# Altitude visée et décalage par tour qu'elle donnerait (phasage par l'altitude).
 	_target_altitude.text = "%d km  ·  %s" % [roundi(flight_computer.target_altitude_km),
 			_format_shift(orbit.ground_shift_per_orbit_deg(flight_computer.target_altitude_km, flight_computer.target_inclination_deg))]
-	_target_shift.text = _format_angle(flight_computer.target_node_shift_deg, "DIR_E", "DIR_W")
+	_target_shift.text = GeoMath.format_angle(flight_computer.target_node_shift_deg, "DIR_E", "DIR_W", 1)
 	_delta_v.text = "%d m/s" % roundi(flight_computer.get_delta_v_km_s() * 1000.0) if flight_computer.has_plan() else "—"
 	for button in _mode_buttons:
 		button.set_pressed_no_signal(button.get_meta(&"mode") == flight_computer.mode)
@@ -192,11 +192,6 @@ func _make_slider(min_value: float, max_value: float, step: float) -> HSlider:
 ## « −23.21°/tour » : décalage de la trace au sol d'un tour à l'autre.
 func _format_shift(degrees: float) -> String:
 	return tr("PILOT_PER_ORBIT").format({"value": "%+.2f" % degrees})
-
-
-## « 42.0° N » : positive et negative sont les clés de langue des directions (DIR_N, DIR_S…).
-func _format_angle(value: float, positive: String, negative: String) -> String:
-	return "%.1f° %s" % [absf(value), tr(positive if value >= 0.0 else negative)]
 
 
 func _frame_style() -> StyleBoxFlat:

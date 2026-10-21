@@ -32,7 +32,6 @@ const PHASE_FLASH := 0.3
 const PHASE_SHOCK := 0.5
 const PHASE_DELAYED := 0.2
 const PHASE_DELAYED_TAU_S := 21600.0
-const KM_PER_DEGREE := 111.195
 
 ## Abandon des calculs en cours (estimate, NukeFallout.estimate), testé à chaque ligne de la grille : levé par
 ## NukeImpact à la fin de la partie, avant d'attendre ses tâches.
@@ -61,14 +60,14 @@ static func estimate(params: NukeParams) -> Dictionary:
 	var lat0 := params.latitude_deg
 	var lon0 := params.longitude_deg
 	var cell_deg := 1.0 / PopulationGrid.CELLS_PER_DEGREE
-	var first_row := PopulationGrid.row_of(minf(lat0 + reach / KM_PER_DEGREE, 90.0))
-	var last_row := PopulationGrid.row_of(maxf(lat0 - reach / KM_PER_DEGREE, -90.0))
+	var first_row := PopulationGrid.row_of(minf(lat0 + reach / GeoMath.KM_PER_DEGREE, 90.0))
+	var last_row := PopulationGrid.row_of(maxf(lat0 - reach / GeoMath.KM_PER_DEGREE, -90.0))
 	for row in range(first_row, last_row + 1):
 		if abort:
 			return result
 		var lat := PopulationGrid.cell_latitude(row)
-		var km_x := KM_PER_DEGREE * maxf(cos(deg_to_rad(lat)), 1e-3)
-		var km_y := KM_PER_DEGREE
+		var km_x := GeoMath.KM_PER_DEGREE * maxf(cos(deg_to_rad(lat)), 1e-3)
+		var km_y := GeoMath.KM_PER_DEGREE
 		var dy := (lat - lat0) * km_y
 		if absf(dy) > reach + km_y * cell_deg:
 			continue

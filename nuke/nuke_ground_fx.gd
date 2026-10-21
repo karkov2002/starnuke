@@ -257,10 +257,8 @@ func _rebuild_smoke() -> void:
 			var radius := (half_width + 2.0 * sigma) / 1000.0 + SMOKE_CELL_STEP_KM
 			# Point du grand cercle à la distance along, dans la direction du vent (repère du maillage).
 			var angle := along / OrbitSimulation.EARTH_RADIUS_KM
-			var p := origin * cos(angle) + direction * sin(angle)
-			var lat := rad_to_deg(asin(clampf(p.y, -1.0, 1.0)))
-			var lon := rad_to_deg(atan2(-p.x, -p.z))
-			for cell in _cells_within(lat, lon, radius):
+			var point := GeoMath.mesh_to_lat_lon(origin * cos(angle) + direction * sin(angle))
+			for cell in _cells_within(point.x, point.y, radius):
 				_add_to_cell(lists, cell, i)
 	_upload_index(lists, _smoke_cells_texture, _smoke_index_texture)
 	_set_parameter("nuke_smoke_cells", _smoke_cells_texture)

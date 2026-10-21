@@ -28,7 +28,7 @@ static func assess(params: NukeParams) -> Dictionary:
 	hit.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.capacity_mw > b.capacity_mw)
 	result.plants = hit
 	# Pays : celui du point zéro, à défaut (en mer, près d'une côte) celui qui perd le plus de capacité.
-	var index := mask.index_at_row(CountryMask._row_of(params.latitude_deg), wrapf(params.longitude_deg, -180.0, 180.0))
+	var index := mask.index_at(params.latitude_deg, params.longitude_deg)
 	if index < 0:
 		for country: int in lost_by_country:
 			if country >= 0 and (index < 0 or lost_by_country[country] > lost_by_country[index]):

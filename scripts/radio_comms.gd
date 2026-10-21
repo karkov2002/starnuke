@@ -184,7 +184,7 @@ func _update_link() -> void:
 	var best := -90.0
 	var best_name := ""
 	for ground in GROUND_STATIONS:
-		var angle := _central_angle(point.x, point.y, ground.lat, ground.lon)
+		var angle := GeoMath.central_angle_rad(point.x, point.y, ground.lat, ground.lon)
 		# Élévation vue du sol : tan ε = (cos γ − R/(R+h)) / sin γ.
 		var elevation := rad_to_deg(atan2(cos(angle) - ratio, sin(angle)))
 		if elevation > best:
@@ -193,10 +193,3 @@ func _update_link() -> void:
 	link = lerpf(0.15, 1.0, smoothstep(MIN_ELEVATION_DEG, FULL_ELEVATION_DEG, best)) \
 			if best >= MIN_ELEVATION_DEG else 0.0
 	link_station = best_name if link > 0.0 else ""
-
-
-static func _central_angle(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-	var a := deg_to_rad(lat1)
-	var b := deg_to_rad(lat2)
-	var d := sin((b - a) * 0.5) ** 2 + cos(a) * cos(b) * sin(deg_to_rad(lon2 - lon1) * 0.5) ** 2
-	return 2.0 * asin(sqrt(minf(d, 1.0)))

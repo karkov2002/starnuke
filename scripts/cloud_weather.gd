@@ -14,7 +14,6 @@ extends RefCounted
 const COVER_PATH := "res://assets/cloud_cover.res"
 const WIND_PATH := "res://assets/textures/cloud_wind.exr"
 const SNAPSHOT_LOCAL_HOUR := 13.5
-const EARTH_RADIUS_M := 6371000.0
 const STEPS := 6
 
 static var _cover: Image
@@ -66,8 +65,8 @@ static func _wind_at(point: Vector2) -> Vector2:
 
 
 static func _move(point: Vector2, wind: Vector2, dt: float) -> Vector2:
-	var lat := point.x + rad_to_deg(wind.y * dt / EARTH_RADIUS_M)
-	var lon := point.y + rad_to_deg(wind.x * dt / (EARTH_RADIUS_M * maxf(cos(deg_to_rad(point.x)), 0.05)))
+	var lat := point.x + rad_to_deg(wind.y * dt / GeoMath.EARTH_RADIUS_M)
+	var lon := point.y + rad_to_deg(wind.x * dt / (GeoMath.EARTH_RADIUS_M * maxf(cos(deg_to_rad(point.x)), 0.05)))
 	return Vector2(clampf(lat, -89.9, 89.9), wrapf(lon, -180.0, 180.0))
 
 

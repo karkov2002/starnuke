@@ -32,6 +32,9 @@ affiché en dur : une clé (traduction automatique des contrôles) ou `tr("CLE")
 ses 5 traductions. Seuls la console et le panneau de debug (outils de développement) restent en français.
 Arborescence : `scenes/` (dont `scenes/ui/`), `scripts/`, `shaders/`, `materials/` (matériaux et Environment en `.tres`), `assets/textures/`,
 `nuke/` (tout le code des explosions nucléaires, dont l'autoload `NukeClock` et la scène de debug `nuke/debug/nuke_debug.tscn`).
+Socle géographique commun `scripts/geo/` : `GeoMath` (rayon terrestre, km par degré, haversine, lat/lon ↔ maillage de la
+Terre, rayon-sphère, formatage des coordonnées : **une seule source**, jamais de copie locale de ces constantes ou formules),
+`GeoGrid` (cellules de 1/120°), `DataResource` (chargement unique des ressources générées) ; nombres : `NumberFormat`.
 Masques géographiques (Natural Earth) : mers et océans (`scripts/ocean_mask.gd`, `assets/ocean_mask.res`) et pays
 (`scripts/country_mask.gd`, `assets/country_mask.res`), générés par `tools/build_ocean_mask.gd` et `tools/build_country_mask.gd`.
 Population 2030 (GHS-POP, `scripts/population_grid.gd`, `assets/population_2030.bin` ~74 Mo, `tools/build_population.ps1`) :

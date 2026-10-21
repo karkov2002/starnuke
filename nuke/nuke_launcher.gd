@@ -80,29 +80,18 @@ func get_aim() -> Dictionary:
 	var center := get_viewport().get_visible_rect().size * 0.5
 	var origin := camera.project_ray_origin(center)
 	var direction := camera.project_ray_normal(center)
-	var radius := OrbitSimulation.EARTH_RADIUS_KM * OrbitSimulation.SCENE_UNITS_PER_KM
-	var oc := origin - _earth.global_position
-	var b := oc.dot(direction)
-	var discriminant := b * b - (oc.length_squared() - radius * radius)
-	if discriminant < 0.0:
-		return {}
-	var t := -b - sqrt(discriminant)
-	if t <= 0.0:
+	var t := GeoMath.ray_sphere(origin, direction, _earth.global_position, OrbitSimulation.EARTH_RADIUS_UNITS)
+	if t < 0.0:
 		return {}
 	var local := _earth.global_transform.affine_inverse() * (origin + direction * t)
-	# Repère du maillage (SphereMesh : +Y = nord, +Z = longitude −180°) vers ECEF, cf. Orbit.mesh_to_ecef.
-	var lat_lon := OrbitSimulation.ecef_to_lat_lon(Vector3(-local.z, -local.x, local.y))
+	var lat_lon := GeoMath.mesh_to_lat_lon(local)
 	return {"local": local, "latitude": lat_lon.x, "longitude": lat_lon.y}
 
 
 ## Point de coordonnées données (degrés), dans la même forme que get_aim : {local (repère de Earth), latitude,
 ## longitude}.
 func aim_at(latitude_deg: float, longitude_deg: float) -> Dictionary:
-	var lat := deg_to_rad(latitude_deg)
-	var lon := deg_to_rad(longitude_deg)
-	# ECEF vers le repère du maillage (SphereMesh : +Y nord, +Z vers −180°), cf. NukeEffect.place.
-	var up := Vector3(-cos(lat) * sin(lon), sin(lat), -cos(lat) * cos(lon))
-	return {"local": up * OrbitSimulation.EARTH_RADIUS_KM * OrbitSimulation.SCENE_UNITS_PER_KM,
+	return {"local": GeoMath.lat_lon_to_mesh(latitude_deg, longitude_deg) * OrbitSimulation.EARTH_RADIUS_UNITS,
 			"latitude": latitude_deg, "longitude": longitude_deg}
 
 

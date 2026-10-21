@@ -4,10 +4,7 @@ extends RefCounted
 ## and Analysis of the WSEG-10 Fallout Prediction Model*, thèse, Air Force Institute of Technology, 1980) : débit de
 ## dose à H+1 et heure d'arrivée des retombées en chaque point, dans le repère du vent (x sous le vent, y en travers).
 ## Unités : miles, mph, kilopieds, heures, mégatonnes. Transcription d'après le paquet Python open source *glasstone*
-## (MIT), corrigée (voir NukeFallout). Utilisé par NukeFallout, qui en tire doses et pertes.
-
-const MPH_PER_M_S := 2.23694
-const KFT_PER_KM := 3.28084
+## (MIT), corrigée (voir NukeFallout). Utilisé par NukeFallout, qui en tire doses et pertes. Unités : NukeScaling.
 
 var yield_mt: float
 var ff: float
@@ -38,16 +35,16 @@ func _init(params: NukeParams, low_burst: float) -> void:
 	s_h = 0.18 * h_c
 	t_c = 1.0573203 * (12.0 * (h_c / 60.0) - 2.5 * pow(h_c / 60.0, 2.0)) * (1.0 - 0.5 * exp(-pow(h_c / 25.0, 2.0)))
 	# Vent effectif : moyenne du profil réel (GFS) entre le sol et le centre du nuage ; cisaillement entre les deux.
-	var h_km := h_c / KFT_PER_KM
+	var h_km := h_c / NukeScaling.KILOFEET_PER_KM
 	var mean := Vector2.ZERO
 	for i in 16:
 		mean += params.wind_at((i + 0.5) / 16.0 * h_km)
 	mean /= 16.0
-	wind_mph = maxf(mean.length() * MPH_PER_M_S, 1.0)
+	wind_mph = maxf(mean.length() * NukeScaling.MPH_PER_M_S, 1.0)
 	dir = mean.normalized() if mean.length() > 0.01 else Vector2(1.0, 0.0)
 	var top := params.wind_at(h_km)
 	var bottom := params.wind_at(0.0)
-	shear = (top - bottom).length() * MPH_PER_M_S / maxf(h_c, 1.0)
+	shear = (top - bottom).length() * NukeScaling.MPH_PER_M_S / maxf(h_c, 1.0)
 	l0 = wind_mph * t_c
 	var s02 := s0 * s0
 	var l02 := l0 * l0

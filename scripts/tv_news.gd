@@ -93,7 +93,7 @@ static func compose(code: String, lang: String, state: Dictionary, rng: RandomNu
 		"count": str(effects.size()),
 		"yield": _yield_text(total_kt, lang),
 		"countries": _join(hit.map(func(c: String) -> String: return country_name(c, lang)), lang),
-		"deaths": _number(_round_estimate(killed), lang),
+		"deaths": NumberFormat.count(killed, _format("THOUSANDS", lang)),
 		"capitals": _join(capitals.map(func(c: String) -> String: return capital_name(c, lang)), lang),
 		"city": capital_name(code, lang),
 		"temp": str(roundi(facts.temperature)),
@@ -207,9 +207,9 @@ static func _join(names: Array, lang: String) -> String:
 ## Puissance cumulée : kilotonnes entières sous 1 Mt, mégatonnes à une décimale au-delà (« 1,5 Mt », « 20 Mt »).
 static func _yield_text(kt: float, lang: String) -> String:
 	if kt < 1000.0:
-		return _format("UNIT_KT", lang).format({"n": _number(roundi(kt), lang)})
+		return _format("UNIT_KT", lang).format({"n": NumberFormat.group(roundi(kt), _format("THOUSANDS", lang))})
 	var mt := snappedf(kt / 1000.0, 0.1)
-	var text := _number(int(mt), lang)
+	var text := NumberFormat.group(int(mt), _format("THOUSANDS", lang))
 	if not is_equal_approx(mt, roundf(mt)):
 		text += _format("DECIMAL", lang) + str(roundi(mt * 10.0) % 10)
 	return _format("UNIT_MT", lang).format({"n": text})
@@ -219,24 +219,6 @@ static func _yield_text(kt: float, lang: String) -> String:
 static func _decimal(value: float, lang: String) -> String:
 	var cents := roundi(value * 100.0)
 	return "%d%s%02d" % [cents / 100, _format("DECIMAL", lang), cents % 100]
-
-
-## Estimation arrondie à trois chiffres significatifs (175 342 -> 175 000).
-static func _round_estimate(value: int) -> int:
-	if value < 1000:
-		return value
-	var step := int(pow(10.0, floorf(log(float(value)) / log(10.0)) - 2.0))
-	return roundi(float(value) / step) * step
-
-
-static func _number(value: int, lang: String) -> String:
-	var digits := str(absi(value))
-	var separator := _format("THOUSANDS", lang)
-	var grouped := ""
-	while digits.length() > 3:
-		grouped = separator + digits.right(3) + grouped
-		digits = digits.left(digits.length() - 3)
-	return ("-" if value < 0 else "") + digits + grouped
 
 
 static func _load() -> void:

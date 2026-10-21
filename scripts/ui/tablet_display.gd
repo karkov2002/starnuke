@@ -307,7 +307,7 @@ func _show_photo(index: int) -> void:
 		_photo_view.texture = photo.texture
 		_photo_caption.text = tr("TABLET_PHOTO_CAPTION").format({"n": _photo_index + 1, "count": count,
 				"date": Time.get_datetime_string_from_unix_time(int(photo.utc_unix), true).substr(0, 16),
-				"place": GroundTarget.format(photo.lat, photo.lon), "altitude": roundi(photo.altitude_km),
+				"place": GeoMath.format_lat_lon(photo.lat, photo.lon), "altitude": roundi(photo.altitude_km),
 				"width": roundi(footprint.x), "height": roundi(footprint.y)})
 	_gallery_button.text = tr("TABLET_LIVE") if _photo_index >= 0 else tr("TABLET_GALLERY").format({"count": count})
 	_gallery_button.disabled = count == 0 and _photo_index < 0

@@ -172,10 +172,10 @@ func _show(tally: Dictionary, none: bool) -> void:
 		_projection.text = ""
 	else:
 		_summary.text = tr("REPORT_SUMMARY_ONE" if count == 1 else "REPORT_SUMMARY_MANY").format({"count": count,
-				"killed": NukeReportText.count(tally.killed, style.thousands),
-				"injured": NukeReportText.count(tally.injured, style.thousands)})
+				"killed": NumberFormat.count(tally.killed, style.thousands),
+				"injured": NumberFormat.count(tally.injured, style.thousands)})
 		_projection.text = tr("REPORT_PROJECTION").format({"days": roundi(NukeFallout.HORIZON_H / 24.0),
-				"killed": NukeReportText.count(tally.final_killed, style.thousands)})
+				"killed": NumberFormat.count(tally.final_killed, style.thousands)})
 		if tally.pending > 0:
 			_projection.text += " " + tr("REPORT_PENDING")
 	var codes: Array[String] = []
@@ -189,8 +189,8 @@ func _show(tally: Dictionary, none: bool) -> void:
 		labels[0].text = _country_name(entry.code, entry.label) + ("  ⚡" if entry.blackout else "")
 		labels[0].add_theme_color_override("font_color", BLACKOUT_COLOR if entry.blackout else COLORS[0])
 		labels[1].text = str(entry.explosions) if entry.explosions > 0 else "—"
-		labels[2].text = NukeReportText.count(entry.killed, style.thousands)
-		labels[3].text = NukeReportText.count(entry.injured, style.thousands)
+		labels[2].text = NumberFormat.count(entry.killed, style.thousands)
+		labels[3].text = NumberFormat.count(entry.injured, style.thousands)
 		labels[4].text = NukeReportText.share(entry.killed, entry.pop_est, style)
 
 

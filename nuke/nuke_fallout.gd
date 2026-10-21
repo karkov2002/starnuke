@@ -22,7 +22,6 @@ extends RefCounted
 ## Le calcul (quelques secondes pour 50 Mt) est lancé dans un thread par NukeLauncher.
 
 const MI_PER_KM := 0.621371
-const MPH_PER_M_S := 2.23694
 ## Grandeurs de la population et des doses.
 const R_TO_GY := 0.0087
 const PROTECTION_FACTOR := 3.0
@@ -68,7 +67,7 @@ static func estimate(params: NukeParams, blast_radii: PackedFloat64Array) -> Dic
 	while x <= x_max_mi:
 		y_max_mi = maxf(y_max_mi, 3.5 * w.crosswind_sigma(x))
 		x += maxf((x_max_mi - x_min_mi) / 32.0, 0.5)
-	var result := {"times_h": times, "countries": [], "wind_m_s": w.wind_mph / MPH_PER_M_S,
+	var result := {"times_h": times, "countries": [], "wind_m_s": w.wind_mph / NukeScaling.MPH_PER_M_S,
 			"hotline_km": x_max_mi / MI_PER_KM, "direction_deg": rad_to_deg(atan2(w.dir.x, w.dir.y))}
 	var reach_km := Vector2(maxf(x_max_mi, -x_min_mi), y_max_mi).length() / MI_PER_KM
 
@@ -77,15 +76,15 @@ static func estimate(params: NukeParams, blast_radii: PackedFloat64Array) -> Dic
 	var lat0 := params.latitude_deg
 	var lon0 := params.longitude_deg
 	var block_deg := float(BLOCK) / PopulationGrid.CELLS_PER_DEGREE
-	var first_row := PopulationGrid.row_of(minf(lat0 + reach_km / NukeCasualties.KM_PER_DEGREE, 89.0))
-	var last_row := PopulationGrid.row_of(maxf(lat0 - reach_km / NukeCasualties.KM_PER_DEGREE, -89.0))
+	var first_row := PopulationGrid.row_of(minf(lat0 + reach_km / GeoMath.KM_PER_DEGREE, 89.0))
+	var last_row := PopulationGrid.row_of(maxf(lat0 - reach_km / GeoMath.KM_PER_DEGREE, -89.0))
 	first_row -= first_row % BLOCK
 	for row in range(first_row, last_row + 1, BLOCK):
 		if NukeCasualties.abort:
 			return {}
 		var lat := PopulationGrid.cell_latitude(row) - 0.5 * (BLOCK - 1) / float(PopulationGrid.CELLS_PER_DEGREE)
-		var km_x := NukeCasualties.KM_PER_DEGREE * maxf(cos(deg_to_rad(lat)), 1e-3)
-		var dy_km := (lat - lat0) * NukeCasualties.KM_PER_DEGREE
+		var km_x := GeoMath.KM_PER_DEGREE * maxf(cos(deg_to_rad(lat)), 1e-3)
+		var dy_km := (lat - lat0) * GeoMath.KM_PER_DEGREE
 		var half_cols := int(ceil(minf(reach_km / km_x, 180.0) / block_deg)) + 1
 		var center_col := PopulationGrid.col_of(lon0)
 		center_col -= center_col % BLOCK

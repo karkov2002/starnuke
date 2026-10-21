@@ -13,18 +13,9 @@ const MIN_STEP_DEG := 0.05
 ## Début de chaque anneau dans points (taille : nombre d'anneaux + 1).
 @export var ring_offsets := PackedInt32Array()
 
-static var _instance: WorldMapLines
-static var _load_failed := false
-
-
 ## Contours chargés une fois (null si le fichier manque).
 static func get_lines() -> WorldMapLines:
-	if _instance == null and not _load_failed:
-		_instance = load(PATH) as WorldMapLines if ResourceLoader.exists(PATH) else null
-		_load_failed = _instance == null
-		if _load_failed:
-			push_warning("WorldMapLines : %s introuvable (tools/build_map_lines.gd)" % PATH)
-	return _instance
+	return DataResource.cached(PATH, "tools/build_map_lines.gd") as WorldMapLines
 
 
 func ring_count() -> int:

@@ -2,14 +2,14 @@ class_name PopulationGrid
 extends RefCounted
 ## Grille mondiale de population (assets/population_2030.bin, générée par tools/build_population.ps1 à partir de
 ## GHS-POP R2023A, JRC / Commission européenne, époque 2030, licence CC BY 4.0) : habitants par cellule de 1/120°
-## (~0,9 km), ligne 0 = 90° N, colonne 0 = 180° O, même découpage en lignes que OceanMask et CountryMask.
+## (~0,9 km), ligne 0 = 90° N, colonne 0 = 180° O (découpage GeoGrid, le même que OceanMask et CountryMask).
 ##
 ## Le fichier est découpé en tuiles de 5° (600 x 600 cellules, compressées) ; seules les tuiles utiles sont lues et
 ## gardées en mémoire (MAX_CACHED_TILES, ~1,4 Mo chacune). Chaque cellule est stockée sur 16 bits :
 ## habitants = (q / quant)².
 
 const PATH := "res://assets/population_2030.bin"
-const CELLS_PER_DEGREE := 120
+const CELLS_PER_DEGREE := GeoGrid.CELLS_PER_DEGREE
 const MAX_CACHED_TILES := 24
 
 static var _file: FileAccess
@@ -34,29 +34,30 @@ static func is_available() -> bool:
 	return ok
 
 
+## Découpage (GeoGrid), rappelé ici pour les lecteurs de la grille.
 static func row_count() -> int:
-	return 180 * CELLS_PER_DEGREE
+	return GeoGrid.row_count()
 
 
 static func col_count() -> int:
-	return 360 * CELLS_PER_DEGREE
+	return GeoGrid.col_count()
 
 
 static func row_of(latitude_deg: float) -> int:
-	return clampi(int(floor((90.0 - latitude_deg) * CELLS_PER_DEGREE)), 0, row_count() - 1)
+	return GeoGrid.row_of(latitude_deg)
 
 
 static func col_of(longitude_deg: float) -> int:
-	return posmod(int(floor((wrapf(longitude_deg, -180.0, 180.0) + 180.0) * CELLS_PER_DEGREE)), col_count())
+	return GeoGrid.col_of(longitude_deg)
 
 
 ## Latitude et longitude (degrés) du centre d'une cellule.
 static func cell_latitude(row: int) -> float:
-	return 90.0 - (row + 0.5) / CELLS_PER_DEGREE
+	return GeoGrid.row_latitude(row)
 
 
 static func cell_longitude(col: int) -> float:
-	return -180.0 + (posmod(col, col_count()) + 0.5) / CELLS_PER_DEGREE
+	return GeoGrid.col_longitude(col)
 
 
 ## Habitants de la cellule (ligne, colonne ; la colonne fait le tour du globe). Sûr depuis un autre thread.

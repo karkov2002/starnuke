@@ -7,6 +7,7 @@ extends SceneTree
 
 const PowerPlantsScript := preload("res://scripts/power_plants.gd")
 const CountryMaskScript := preload("res://scripts/country_mask.gd")
+const GeoGridScript := preload("res://scripts/geo/geo_grid.gd")
 ## Recherche du pays d'une centrale côtière : 16 lignes de 1/120° (~15 km).
 const COAST_SEARCH := 16
 
@@ -35,7 +36,7 @@ func _init() -> void:
 		var lon := float(row[col.longitude])
 		var mw := float(row[col.capacity_mw])
 		# Centrale côtière que le trait de côte au 1:10 M place en mer : pays le plus proche à moins de ~15 km.
-		var index: int = mask.index_near(CountryMaskScript._row_of(lat), lon, COAST_SEARCH)
+		var index: int = mask.index_near(GeoGridScript.row_of(lat), lon, COAST_SEARCH)
 		plants.names.append(row[col.name])
 		plants.fuels.append(row[col.primary_fuel])
 		plants.latitudes.append(lat)

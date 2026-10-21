@@ -400,7 +400,7 @@ func _draw_target(copies: Array[int]) -> void:
 		var color := GroundTarget.color_of(slot)
 		if not chosen:
 			color.a = 0.8
-		var text := GroundTarget.format(point.x, point.y)
+		var text := GeoMath.format_lat_lon(point.x, point.y)
 		for copy in copies:
 			var at := project(point.x, point.y, copy)
 			GroundTarget.draw_icon(_overlay, at, 18.0, color, 2.5 if chosen else 1.5)
@@ -413,7 +413,7 @@ func _draw_hover() -> void:
 			or not Rect2(Vector2.ZERO, size).has_point(_hover):
 		return
 	var point := lat_lon_at(_hover)
-	_draw_label(_hover + Vector2(18.0, 22.0), GroundTarget.format(point.x, point.y), get_theme_default_font(),
+	_draw_label(_hover + Vector2(18.0, 22.0), GeoMath.format_lat_lon(point.x, point.y), get_theme_default_font(),
 			_label_size(), COLOR_HOVER)
 
 

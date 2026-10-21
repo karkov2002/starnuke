@@ -65,17 +65,12 @@ func received_flux(at: Vector3) -> float:
 		return 0.0
 	var source := global_transform * get_light_position()
 	var earth := _effect.get_parent() as Node3D
-	var radius := OrbitSimulation.EARTH_RADIUS_KM * OrbitSimulation.SCENE_UNITS_PER_KM
 	var to := source - at
 	var length := to.length()
 	var direction := to / length
-	var oc := at - earth.global_position
-	var b := oc.dot(direction)
-	var discriminant := b * b - (oc.length_squared() - radius * radius)
-	if discriminant > 0.0:
-		var t := -b - sqrt(discriminant)
-		if t > 0.0 and t < length * 0.9999:
-			return 0.0
+	var t := GeoMath.ray_sphere(at, direction, earth.global_position, OrbitSimulation.EARTH_RADIUS_UNITS)
+	if t > 0.0 and t < length * 0.9999:
+		return 0.0
 	var distance_km := length / OrbitSimulation.SCENE_UNITS_PER_KM
 	var to_planet_km := earth.global_transform.affine_inverse()
 	var air := NukeAtmosphere.luminance_transmittance(to_planet_km * source / OrbitSimulation.SCENE_UNITS_PER_KM,

@@ -6,7 +6,6 @@ extends RefCounted
 ## dans nuke/shaders/nuke_flash.gdshaderinc : intégration en STEPS pas, resserrés près de l'extrémité la plus basse
 ## (là où l'air est le plus dense).
 
-const PLANET_RADIUS_KM := 6371.0
 const RAYLEIGH_BETA := Vector3(5.802e-3, 13.558e-3, 33.1e-3) # par km, au niveau de la mer
 const MIE_EXTINCTION := 4.4e-3
 const RAYLEIGH_HEIGHT_KM := 8.0
@@ -27,7 +26,7 @@ static func transmittance(a: Vector3, b: Vector3) -> Vector3:
 	for k in STEPS:
 		var t0 := pow(float(k) / STEPS, 2.0)
 		var t1 := pow(float(k + 1) / STEPS, 2.0)
-		var h := maxf((low + segment * (0.5 * (t0 + t1))).length() - PLANET_RADIUS_KM, 0.0)
+		var h := maxf((low + segment * (0.5 * (t0 + t1))).length() - GeoMath.EARTH_RADIUS_KM, 0.0)
 		rayleigh += exp(-h / RAYLEIGH_HEIGHT_KM) * (t1 - t0)
 		mie += exp(-h / MIE_HEIGHT_KM) * (t1 - t0)
 	var length := segment.length()

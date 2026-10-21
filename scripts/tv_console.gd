@@ -268,7 +268,7 @@ func _update_off_air() -> void:
 		var radius := NukeScaling.overpressure_range_km(p.yield_kt, OFF_AIR_PSI, p.burst_height_km)
 		for code: String in _channels:
 			var c: Dictionary = _channels[code]
-			if _distance_km(p.latitude_deg, p.longitude_deg, c.lat, c.lon) <= radius:
+			if GeoMath.distance_km(p.latitude_deg, p.longitude_deg, c.lat, c.lon) <= radius:
 				off[code] = true
 	var since := _orbit.get_utc_unix_s() - _last_detonation_unix if _orbit else INF
 	var alert := since >= 0.0 and since < ALERT_HOURS * 3600.0
@@ -277,13 +277,6 @@ func _update_off_air() -> void:
 		_off_air = off
 		if _display:
 			_display.refresh()
-
-
-static func _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-	var a := deg_to_rad(lat1)
-	var b := deg_to_rad(lat2)
-	var d := sin((b - a) * 0.5) ** 2 + cos(a) * cos(b) * sin(deg_to_rad(lon2 - lon1) * 0.5) ** 2
-	return 2.0 * OrbitSimulation.EARTH_RADIUS_KM * asin(sqrt(minf(d, 1.0)))
 
 
 # --- Vue TV ---------------------------------------------------------------------------------------------------------

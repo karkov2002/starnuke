@@ -173,6 +173,8 @@ const STEAM_FADE_S := 600.0
 # racine cubique de la puissance ; hauteur d'explosion quelconque, surface idéale, pression ambiante du niveau de la
 # mer ; précision ~10 %. Résultat en psi (1 psi = 6,895 kPa).
 const KILOFEET_PER_KM := 3.28084
+## Unités impériales des modèles de retombées (NukeWSEG10, NukeFallout).
+const MPH_PER_M_S := 2.23694
 
 # Black-out électrique (NukeGridImpact, NukeGroundFX, nuke/shaders/nuke_blackout.gdshaderinc ; visible de nuit, sur les
 # lumières des villes). Règle de jeu : le black-out dure jusqu'à la fin de la partie (réseau détruit, aucune remise en
@@ -403,7 +405,7 @@ static func smoke_table() -> PackedFloat32Array:
 ## bâti (charge proportionnelle à la population, grille GHS-POP). Sûr depuis un autre thread (lectures seules).
 static func smoke_yield_kg_m2(params: NukeParams) -> float:
 	var radius := fire_radius_km(params.yield_kt, INF)
-	var km_per_deg := 111.32
+	var km_per_deg := GeoMath.KM_PER_DEGREE
 	var cos_lat := maxf(cos(deg_to_rad(params.latitude_deg)), 0.05)
 	var cell_km2 := pow(km_per_deg / PopulationGrid.CELLS_PER_DEGREE, 2.0) * cos_lat
 	var has_population := PopulationGrid.is_available()

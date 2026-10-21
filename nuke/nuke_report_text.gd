@@ -19,17 +19,7 @@ static func number_style(locale: String) -> Dictionary:
 
 ## Nombre arrondi à 3 chiffres significatifs, séparateur de milliers thousands (« 1 230 000 » par défaut).
 static func count(value: float, thousands := " ") -> String:
-	var n := int(round(value))
-	if n >= 1000:
-		var magnitude := pow(10.0, floor(log(float(n)) / log(10.0)) - 2.0)
-		n = int(round(n / magnitude) * magnitude)
-	var digits := str(n)
-	var out := ""
-	for i in digits.length():
-		if i > 0 and (digits.length() - i) % 3 == 0:
-			out += thousands
-		out += digits[i]
-	return out
+	return NumberFormat.count(value, thousands)
 
 
 ## Part de la population d'un pays : « 0 % », « < 0,01 % », « 1,23 % » ; « — » sans population connue. style :

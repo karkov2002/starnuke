@@ -25,11 +25,13 @@ signal orbit_changed
 
 const GROUP := &"orbit"
 const MU_KM3_S2 := 398600.4418
-const EARTH_RADIUS_KM := 6371.0
+const EARTH_RADIUS_KM := GeoMath.EARTH_RADIUS_KM
 const EARTH_ROTATION_RAD_S := 7.2921159e-5 # rotation sidérale
 ## Coefficient d'aplatissement de la Terre (harmonique zonal J2, WGS 84 / EGM96).
 const J2 := 1.08263e-3
 const SCENE_UNITS_PER_KM := 0.1
+## Rayon de la Terre dans la scène (unités, 1/10 000).
+const EARTH_RADIUS_UNITS := EARTH_RADIUS_KM * SCENE_UNITS_PER_KM
 const MIN_ALTITUDE_KM := 200.0
 const MAX_ALTITUDE_KM := 800.0
 ## Limite de la carte de l'écran de pilotage (Mercator ±80°). Au-delà de ~70° de latitude, la fenêtre de tuiles HD

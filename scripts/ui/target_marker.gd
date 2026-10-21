@@ -102,7 +102,7 @@ func _screen_point(point: Vector2) -> Vector2:
 	var camera := get_viewport().get_camera_3d()
 	if camera == null or earth == null:
 		return Vector2.INF
-	var world := earth.global_transform * GroundTarget.earth_local(point.x, point.y)
+	var world := earth.global_transform * (GeoMath.lat_lon_to_mesh(point.x, point.y) * OrbitSimulation.EARTH_RADIUS_UNITS)
 	if (camera.global_position - world).dot(world - earth.global_position) <= 0.0 or camera.is_position_behind(world):
 		return Vector2.INF
 	return camera.unproject_position(world)
@@ -125,7 +125,7 @@ func _rebuild() -> void:
 
 ## Triangles d'une cible (anneaux, croix, centre) autour de (lat, lon).
 func _target_vertices(lat_deg: float, lon_deg: float) -> PackedVector3Array:
-	var up := GroundTarget.earth_local(lat_deg, lon_deg).normalized()
+	var up := GeoMath.lat_lon_to_mesh(lat_deg, lon_deg)
 	var east := Vector3.UP.cross(up)
 	if east.length() < 1e-4:
 		east = Vector3.RIGHT

@@ -137,9 +137,7 @@ func _sun_in_view() -> float:
 	if sun_dir.dot(-oc.normalized()) < -0.05:
 		return 0.0
 	# Soleil derrière la Terre : le rayon caméra → soleil traverse la sphère.
-	var radius := OrbitSimulation.EARTH_RADIUS_KM * OrbitSimulation.SCENE_UNITS_PER_KM
-	var b := oc.dot(sun_dir)
-	if b < 0.0 and b * b - (oc.length_squared() - radius * radius) > 0.0:
+	if GeoMath.ray_sphere(camera.global_position, sun_dir, _earth.global_position, OrbitSimulation.EARTH_RADIUS_UNITS) > 0.0:
 		return 0.0
 	var size := get_viewport().get_visible_rect().size
 	var half_vertical := deg_to_rad(camera.fov) * 0.5
@@ -157,7 +155,6 @@ func _earth_view() -> Dictionary:
 	if _earth == null or _sun == null or camera == null:
 		return {"fraction": 1.0, "elevation": 90.0}
 	var size := get_viewport().get_visible_rect().size
-	var radius := OrbitSimulation.EARTH_RADIUS_KM * OrbitSimulation.SCENE_UNITS_PER_KM
 	var hits := 0
 	var up := Vector3.ZERO
 	for i in VIEW_GRID:
@@ -165,15 +162,10 @@ func _earth_view() -> Dictionary:
 			var point := Vector2((i + 0.5) / VIEW_GRID, (j + 0.5) / VIEW_GRID) * size
 			var origin := camera.project_ray_origin(point)
 			var direction := camera.project_ray_normal(point)
-			var oc := origin - _earth.global_position
-			var b := oc.dot(direction)
-			var discriminant := b * b - (oc.length_squared() - radius * radius)
-			if discriminant < 0.0:
-				continue
-			var t := -b - sqrt(discriminant)
+			var t := GeoMath.ray_sphere(origin, direction, _earth.global_position, OrbitSimulation.EARTH_RADIUS_UNITS)
 			if t > 0.0:
 				hits += 1
-				up += (oc + direction * t).normalized()
+				up += (origin + direction * t - _earth.global_position).normalized()
 	if hits == 0:
 		# Point survolé : la station est au zénith de ce point.
 		up = camera.global_position - _earth.global_position

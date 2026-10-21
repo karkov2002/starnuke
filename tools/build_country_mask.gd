@@ -1,12 +1,13 @@
 extends SceneTree
 ## Outil hors-jeu : construit le masque des pays (assets/country_mask.res, classe CountryMask) à partir de la couche
-## « admin 0 countries » de Natural Earth 1:10 M (GeoJSON). Pour chaque ligne de latitude (CountryMask.ROWS_PER_DEGREE
+## « admin 0 countries » de Natural Earth 1:10 M (GeoJSON). Pour chaque ligne de latitude (GeoGrid.CELLS_PER_DEGREE
 ## par degré, au milieu de la ligne), il calcule les longitudes où les contours de chaque pays la traversent, puis
 ## parcourt la ligne d'ouest en est (règle pair-impair par pays) pour savoir quel pays l'occupe entre deux
 ## traversées. Usage :
 ##   godot --headless --path <projet> --script res://tools/build_country_mask.gd -- <ne_10m_admin_0_countries.geojson>
 
 const CountryMaskScript := preload("res://scripts/country_mask.gd")
+const GeoGridScript := preload("res://scripts/geo/geo_grid.gd")
 
 
 func _init() -> void:
@@ -21,7 +22,7 @@ func _init() -> void:
 		quit(1)
 		return
 
-	var rows: int = CountryMaskScript.row_count()
+	var rows: int = GeoGridScript.row_count()
 	# Traversées de chaque ligne : Vector2(longitude, indice du pays), triées nativement (longitude puis pays).
 	var per_row: Array[Array] = []
 	per_row.resize(rows)
@@ -109,7 +110,7 @@ func _save_id_texture(breaks: PackedFloat32Array, owners: PackedInt32Array, offs
 	data.resize(width * height * 2)
 	for y in height:
 		var lat := 90.0 - (y + 0.5) * 180.0 / height
-		var row: int = CountryMaskScript._row_of(lat)
+		var row: int = GeoGridScript.row_of(lat)
 		var i := offsets[row]
 		var end := offsets[row + 1]
 		var owner := -1
@@ -156,7 +157,7 @@ func _add_edge(per_row: Array[Array], a: Array, b: Array, country: int) -> void:
 	var by: float = b[1]
 	if ay == by:
 		return
-	var n: int = CountryMaskScript.ROWS_PER_DEGREE
+	var n: int = GeoGridScript.CELLS_PER_DEGREE
 	var lo := minf(ay, by)
 	var hi := maxf(ay, by)
 	var first := maxi(int(ceil((90.0 - hi) * n - 0.5)), 0)

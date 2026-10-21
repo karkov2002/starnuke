@@ -1,11 +1,12 @@
 extends SceneTree
 ## Outil hors-jeu : construit le masque mers et océans (assets/ocean_mask.res, classe OceanMask) à partir de la couche
-## « ocean » de Natural Earth 1:10 M (GeoJSON). Pour chaque ligne de latitude (OceanMask.ROWS_PER_DEGREE par degré,
+## « ocean » de Natural Earth 1:10 M (GeoJSON). Pour chaque ligne de latitude (GeoGrid.CELLS_PER_DEGREE par degré,
 ## au milieu de la ligne), il calcule les longitudes où les contours des polygones la traversent et les trie.
 ## Usage :
 ##   godot --headless --path <projet> --script res://tools/build_ocean_mask.gd -- <ne_10m_ocean.geojson>
 
 const OceanMaskScript := preload("res://scripts/ocean_mask.gd")
+const GeoGridScript := preload("res://scripts/geo/geo_grid.gd")
 
 
 func _init() -> void:
@@ -20,7 +21,7 @@ func _init() -> void:
 		quit(1)
 		return
 
-	var rows: int = OceanMaskScript.row_count()
+	var rows: int = GeoGridScript.row_count()
 	# Tableaux génériques : un PackedFloat32Array lu dans un Array est une copie, append ne le modifierait pas.
 	var per_row: Array[Array] = []
 	per_row.resize(rows)
@@ -70,7 +71,7 @@ func _add_edge(per_row: Array[Array], a: Array, b: Array) -> void:
 	var by: float = b[1]
 	if ay == by:
 		return
-	var n: int = OceanMaskScript.ROWS_PER_DEGREE
+	var n: int = GeoGridScript.CELLS_PER_DEGREE
 	var lo := minf(ay, by)
 	var hi := maxf(ay, by)
 	var first := maxi(int(ceil((90.0 - hi) * n - 0.5)), 0)

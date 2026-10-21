@@ -50,15 +50,11 @@ func _ready() -> void:
 
 ## Place l'effet au point (latitude, longitude) de params, sur la sphère terrestre du parent (nœud Earth).
 func place() -> void:
-	var lat := deg_to_rad(params.latitude_deg)
-	var lon := deg_to_rad(params.longitude_deg)
-	# ECEF (x vers 0°, y vers 90° E, z nord) vers le repère du maillage (SphereMesh : +Y nord, +Z vers −180°).
-	var up := Vector3(-cos(lat) * sin(lon), sin(lat), -cos(lat) * cos(lon))
-	var east := Vector3(-cos(lon), 0.0, sin(lon))
+	var up := GeoMath.lat_lon_to_mesh(params.latitude_deg, params.longitude_deg)
+	var east := GeoMath.mesh_east(params.longitude_deg)
 	var south := east.cross(up)
-	var radius := OrbitSimulation.EARTH_RADIUS_KM * OrbitSimulation.SCENE_UNITS_PER_KM
 	transform = Transform3D(Basis(east, up, south).scaled(Vector3.ONE * OrbitSimulation.SCENE_UNITS_PER_KM),
-			up * radius)
+			up * OrbitSimulation.EARTH_RADIUS_UNITS)
 
 
 ## Temps physique (s) écoulé depuis l'explosion.

@@ -91,18 +91,3 @@ func active_slots() -> Array[int]:
 		if has_target(slot):
 			slots.append(slot)
 	return slots
-
-
-## « 48.86° N  2.35° E » (directions traduites : DIR_N, DIR_S, DIR_E, DIR_W).
-static func format(lat_deg: float, lon_deg: float) -> String:
-	return "%.2f° %s  %.2f° %s" % [absf(lat_deg), TranslationServer.translate("DIR_N" if lat_deg >= 0.0 else "DIR_S"),
-			absf(lon_deg), TranslationServer.translate("DIR_E" if lon_deg >= 0.0 else "DIR_W")]
-
-
-## Point de la surface (repère du nœud Earth) de coordonnées données, comme NukeLauncher.aim_at.
-static func earth_local(lat_deg: float, lon_deg: float) -> Vector3:
-	var lat := deg_to_rad(lat_deg)
-	var lon := deg_to_rad(lon_deg)
-	# ECEF vers le repère du maillage (SphereMesh : +Y nord, +Z vers −180°), cf. NukeEffect.place.
-	var up := Vector3(-cos(lat) * sin(lon), sin(lat), -cos(lat) * cos(lon))
-	return up * OrbitSimulation.EARTH_RADIUS_KM * OrbitSimulation.SCENE_UNITS_PER_KM
