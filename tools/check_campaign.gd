@@ -34,42 +34,18 @@ func _initialize() -> void:
 	quit(1 if failed > 0 else 0)
 
 
-## Passages au plus tôt, journée par journée (temps en s depuis le temps 0 de l'orbite state).
+## Passages au plus tôt, journée par journée (MissionPlanner.timeline).
 func _print_timing(campaign: CampaignData) -> void:
-	var state := {}
-	var t := 0.0
-	var days := campaign.days()
-	for i in days.size():
-		var day: Dictionary = days[i]
-		var start := campaign.start_of_day(i)
-		if not start.is_empty():
-			state = MissionPlanner.state_from_start(start)
-			t = 0.0
-		elif day.has("wake_up_utc"):
-			var now: float = state.unix + t
-			var parts := str(day.wake_up_utc).split(":")
-			var wake := floorf(now / 86400.0) * 86400.0 + int(parts[0]) * 3600.0 + int(parts[1]) * 60.0
-			t += wake - now + (86400.0 if wake <= now else 0.0)
+	var day := ""
+	for row in MissionPlanner.timeline(campaign):
+		if row.day != day:
+			day = row.day
+			print("    %s (réveil %s UTC)" % [day, Time.get_datetime_string_from_unix_time(int(row.wake_unix))])
+		if row.earliest_s == INF:
+			print("      ⚠ %s : impossible dans le délai (échéance %s)" % [row.mission, _hours(row.deadline_s)])
 		else:
-			t += CampaignData.NIGHT_HOURS * 3600.0
-		print("    %s (réveil %s UTC)" % [day.id, Time.get_datetime_string_from_unix_time(int(state.unix + t))])
-		for entry: Dictionary in day.get("missions", []):
-			var mission := campaign.mission(str(entry.mission))
-			var deadline := float(mission.get("deadline_hours", 0.0)) * 3600.0 \
-					+ float(mission.get("deadline_minutes", 0.0)) * 60.0
-			var grace := MissionScoring.START_GRACE_S
-			var plan := MissionPlanner.earliest(state, mission.objectives, t, t + grace + deadline)
-			if plan.time == INF:
-				print("      ⚠ %s : impossible dans le délai (échéance %s)" % [entry.mission, _hours(deadline)])
-				t += grace + deadline
-				continue
-			var par := maxf(plan.time - t - grace, 0.0) + MissionPlanner.period_s(state)
-			var fixed: Variant = mission.get("par_hours", null)
-			print("      %s : au plus tôt %s après le briefing ; référence %s%s ; échéance %s" % [entry.mission,
-					_hours(plan.time - t), _hours(minf(par, deadline)),
-					"" if fixed == null else " (par_hours : %s)" % _hours(float(fixed) * 3600.0), _hours(deadline)])
-			t = plan.time
-			state = plan.state
+			print("      %s : au plus tôt %s après le briefing ; référence %s ; échéance %s" % [row.mission,
+					_hours(row.earliest_s), _hours(row.par_s), _hours(row.deadline_s)])
 
 
 static func _hours(seconds: float) -> String:

@@ -27,6 +27,13 @@ static func distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> f
 	return 2.0 * OrbitSimulation.EARTH_RADIUS_KM * asin(sqrt(minf(d, 1.0)))
 
 
+## Tolérance (km) d'un objectif : la sienne, sinon celle de defaults.tolerance_km pour son type, sinon 40 km (photo)
+## ou 15 km (tir).
+static func tolerance_km(objective: Dictionary, defaults: Dictionary) -> float:
+	var fallback := 40.0 if objective.type == "photo" else 15.0
+	return float(objective.get("tolerance_km", defaults.get("tolerance_km", {}).get(objective.type, fallback)))
+
+
 ## Précision (0 à 20) d'un résultat à d km de la cible, pour une tolérance (km).
 static func precision(d_km: float, tolerance_km: float) -> float:
 	var perfect := tolerance_km * PERFECT_SHARE

@@ -399,9 +399,7 @@ func _mission() -> Dictionary:
 
 
 func _tolerance_km(objective: Dictionary) -> float:
-	var defaults: Dictionary = Campaigns.current.defaults().get("tolerance_km", {})
-	var fallback := 40.0 if objective.type == "photo" else 15.0
-	return float(objective.get("tolerance_km", defaults.get(objective.type, fallback)))
+	return MissionScoring.tolerance_km(objective, Campaigns.current.defaults())
 
 
 ## Échéance (s) : deadline_hours et deadline_minutes (facultatif) additionnés.

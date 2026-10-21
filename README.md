@@ -155,7 +155,19 @@ permet de piloter le jeu exporté.
     campagne valide, il donne aussi, journée par journée, le **passage le plus tôt possible**, le **temps de
     référence** et l'échéance de chaque mission (missions enchaînées comme si chacune était remplie au plus tôt,
     conditions `when` ignorées, coucher dès la fin de la journée) et signale par « ⚠ » une mission **impossible
-    dans son délai** (avertissement, pas une erreur). La campagne
+    dans son délai** (avertissement, pas une erreur).
+  - **Banc d'équilibrage** : `godot --headless --path . -s tools/balance_campaign.gd [-- <campagne> [tirages]
+    [graine]]` (campagne officielle, 1 000 tirages, graine 1 par défaut ; moins d'une seconde) simule chaque
+    mission en **Monte-Carlo** pour **trois profils de joueur** et compare la note moyenne à leur cible :
+    **expert ≥ 17, moyen 12 à 15, débutant 8 à 11** (« ⚠ » hors cible, par mission et pour la campagne). Modèle :
+    déroulement au plus tôt (`MissionPlanner.timeline`, comme `check_campaign.gd`), retard tiré au hasard après le
+    passage le plus tôt possible (expert 0 à 0,3 orbite, moyen 0,3 à 1,2, débutant 1 à 2,5), passage manqué
+    (5 %, 20 %, 35 %), écart au sol demi-normal (écart type photo 5, 12, 20 km ; tir 3, 6, 10 km) ; chaque
+    passage manqué ou raté (écart ≥ tolérance) coûte une orbite ; au-delà de l'échéance, les objectifs restants
+    valent 0. Ces profils sont des **estimations à recaler** avec les journaux de vraies parties. Rapport Markdown
+    dans `tools/bench/results/balance_<campagne>_<date>.md` (part de réussites, note moyenne ± écart type). Il
+    sert à régler les missions (échéance, tolérance, `par_hours`) pour que chaque profil tombe dans sa cible.
+    La campagne
     officielle contient pour l'instant deux journées d'essai (photos de Kourou, puis de Toulouse).
 
 - **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : titre
