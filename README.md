@@ -1027,9 +1027,9 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	chemin du courant vers la sortie sont recalculés au mouvement d'une écoutille (signaux `Station.hatch_moving`
 	et `hatch_changed`), pas à chaque image.
 	- Des volumes qui communiquent ont la même pression (moyenne pondérée par les volumes d'air, équilibrée en
-      `equalize_s`, 0,5 s).
-    - **Vidange par la valve** : la pression baisse dans **tous les volumes qui communiquent avec le sas**, sur la
-      courbe du manomètre (20 s pour le sas seul ; exponentielle adoucie, plus rapide aux faibles pressions).
+	  `equalize_s`, 0,5 s).
+	- **Vidange par la valve** : la pression baisse dans **tous les volumes qui communiquent avec le sas**, sur la
+	  courbe du manomètre (20 s pour le sas seul ; exponentielle adoucie, plus rapide aux faibles pressions).
 	- **Remplissage par la valve** (porte extérieure fermée : sinon l'air repart dans l'espace) : **réserve
 	  d'oxygène illimitée**, débit constant : 8 s de vide à plein pour le sas seul (`valve_fill_s`). **Règle de jeu :
 	  seul le sas fournit de l'air à la station** : un module isolé garde sa pression, il faut l'ouvrir jusqu'au sas
@@ -1038,7 +1038,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	  (`station_valve_s` ; mesuré : 34,4 s et 34,7 s) ; entre le sas seul et la station entière, selon la racine de
 	  la part du volume d'air ajouté.
 	- **Vidange par la porte extérieure** : tout l'ensemble qui communique avec l'espace se vide, sur la même
-      courbe, en `door_vent_s` (1,5 s) pour le sas seul.
+	  courbe, en `door_vent_s` (1,5 s) pour le sas seul.
 	- Porte extérieure : durée multipliée par la racine du volume d'air rapporté à celui du sas (toute la station
 	  ouverte : ~8 fois, ~12 s).
 	- **Alerte rouge automatique** (règle de jeu, `StationAtmosphere._update_alert`) : dès que la porte intérieure
@@ -1050,13 +1050,13 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	  entre-temps). Pas d'alerte sans courant (« Plus de lumière »).
 	- **Témoins de pression** (`scripts/pressure_gauges.gd`, nœud `PressureGauges`) : dans chaque module (Commande,
 	  Habitation, Arrimage, Missile 1 et 2), près de son écoutille d'entrée, un afficheur mural de 34 × 22 cm
-      (`gauge_scale` 2 : à taille réelle, 17 × 11 cm, il ne se lisait pas à travers le module) construit au
-      démarrage (`Temoin_Pression_<module>`, enfant de la station) : pression du module en bar, voyant et chiffres
-      verts au-dessus de 0,9, orange au-dessous, rouges clignotants sous 0,3 (perte de connaissance sans
-      combinaison) ; plaque « CABIN PRESSURE » (marquage du matériel, hors fichiers de langue). Emplacements relevés
+	  (`gauge_scale` 2 : à taille réelle, 17 × 11 cm, il ne se lisait pas à travers le module) construit au
+	  démarrage (`Temoin_Pression_<module>`, enfant de la station) : pression du module en bar, voyant et chiffres
+	  verts au-dessus de 0,9, orange au-dessous, rouges clignotants sous 0,3 (perte de connaissance sans
+	  combinaison) ; plaque « CABIN PRESSURE » (marquage du matériel, hors fichiers de langue). Emplacements relevés
 	  par lancer de rayons dans le modèle (table `GAUGES`) : panneau de paroi à 30° au-dessus de l'horizontale, sous
 	  les tuyaux et les luminaires ; dans les modules de missiles, cloison de l'écoutille, côté opposé au battant.
-      Le sas a le manomètre de sa valve.
+	  Le sas a le manomètre de sa valve.
   - **Jets d'air** (`scripts/air_vent_fx.gd`, nœud `AirVentFx`, placé de lui-même à la porte extérieure, +Y vers
 	l'espace ; `StationAtmosphere.hatch_center`, `hatch_axis_from`) : porte extérieure ouverte et de l'air dans le
 	sas (et ce qui communique avec lui), l'air jaillit vers l'espace. Détendu dans le vide, il se refroidit et son
@@ -1065,14 +1065,14 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	alerte) ; dehors, panache comme d'un pot d'échappement (16 à 34 m/s, cône de 16°, ~4 m de large en fin de vie,
 	0,7 s), éclairé par le soleil. Intensité = pression du sas (nombre de particules et vitesse) : bouffée violente à
 	l'ouverture, puis le jet faiblit jusqu'à s'éteindre (sous 2 %) ; bien plus long si toute la station communique.
-    **Son** : souffle généré au démarrage (sifflement et grondement en boucle de 3 s, fondu au raccord), à la porte
+	**Son** : souffle généré au démarrage (sifflement et grondement en boucle de 3 s, fondu au raccord), à la porte
 	côté intérieur, bus SFX, plus fort et plus aigu à forte pression ; il ne porte que dans l'air : volume × racine
 	de la pression du volume de l'auditeur (rien dans le vide, ni dehors).
   - **Expulsion** (règle de jeu, `StationAtmosphere.flow_at`, `scripts/airlock_hazard.gd`) : porte extérieure
 	ouverte, un courant d'air porte l'observateur vers la sortie **depuis n'importe quel volume qui communique avec
 	l'espace** : de volume en volume, vers l'écoutille suivante sur le chemin de la porte extérieure (visée 0,8 m
 	au-delà du passage), à travers la station jusque dans le vide. Vitesse : pression de l'ensemble × de 3 m/s (sas
-    seul, `flow_speed_sas`) à 12 m/s (les 5 modules reliés, `flow_speed_max`), proportionnelle au nombre de modules
+	seul, `flow_speed_sas`) à 12 m/s (les 5 modules reliés, `flow_speed_max`), proportionnelle au nombre de modules
 	reliés : **toutes les écoutilles ouvertes avant la porte extérieure, l'expulsion est la plus rapide** ; elle
 	faiblit à mesure que l'air s'échappe. **Le joueur garde ses commandes** (déplacement, regard) et peut fermer une
 	écoutille au clic pendant l'expulsion : fermée entre lui et la sortie, son volume ne communique plus avec
@@ -1083,9 +1083,9 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	combinaison enfilée, son propulseur dorsal (SAFER) l'amortit en 3 s (`safer_s`) et le joueur peut revenir.
 	Cupola : recoin du module Commande, le courant y vise d'abord l'ouverture vers le module (point de passage de la
 	boîte secondaire). Tests depuis n'importe quel module : boutons « Ouverture totale » / « Fermeture totale » du
-    panneau de debug (F4 ; toutes les écoutilles ouvrables, porte extérieure du sas comprise,
-    `Station.set_all_hatches_open`). Simulation en vidéo depuis la cupola, avec ou sans combinaison :
-    `tools/bench/expulsion_probe.tscn` (Movie Maker : `--write-movie <fichier.avi> --fixed-fps 30 --quit-after 720`,
+	panneau de debug (F4 ; toutes les écoutilles ouvrables, porte extérieure du sas comprise,
+	`Station.set_all_hatches_open`). Simulation en vidéo depuis la cupola, avec ou sans combinaison :
+	`tools/bench/expulsion_probe.tscn` (Movie Maker : `--write-movie <fichier.avi> --fixed-fps 30 --quit-after 720`,
 	argument `-- --suit` pour la combinaison ; hors enregistrement, temps d'image écrit en console chaque
 	demi-seconde : 8,3 ms (120 im/s) tout le long, pointes à 15–18 ms à la sortie ; le compteur des vidéos mesure
 	la vitesse d'enregistrement, pas celle du jeu). Coût de l'animation des écoutilles :
@@ -1109,10 +1109,10 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	`set_suit_worn(worn)`, `airlock_part_for(node)` ; signal `suit_changed(worn)`. Sans elle, ouvrir la porte
 	extérieure est mortel (voir « Mort dans le sas »).
   - **Vaisseau cargo** : `set_cargo_docked(docked)` joue `Separation_Cargo` (recul de 10 m en 30 s) ou, à l'envers,
-    le réamarrage ; `is_cargo_docked()`, `is_cargo_moving()`, signal `cargo_changed(docked)`. Bouton « Cargo » du
-    panneau de debug (F4).
+	le réamarrage ; `is_cargo_docked()`, `is_cargo_moving()`, signal `cargo_changed(docked)`. Bouton « Cargo » du
+	panneau de debug (F4).
   - Écoutilles : `open_hatch(id)`, `close_hatch(id)`, `set_hatch_open(id, open)`, `toggle_hatch(id)`,
-    `set_all_hatches_open(open)`, `is_hatch_open(id)`, `is_hatch_opening(id)` (état visé), `hatch_ids()`,
+	`set_all_hatches_open(open)`, `is_hatch_open(id)`, `is_hatch_opening(id)` (état visé), `hatch_ids()`,
 	`hatch_id_for(node)` (écoutille d'une porte ou de son corps de collision) ; signal `hatch_changed(id, open)`.
 	Comme pour les trappes, une demande inverse en cours de mouvement repart de la position actuelle. Écoutille à
 	volant (extras `volant`, `volant_tours`) : à l'ouverture, le volant tourne d'abord (déverrouillage, `volant_tours`
@@ -1120,13 +1120,13 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   - **Écoutilles à la souris** (`scripts/hatch_interaction.gd`, nœud `HatchInteraction` de `orbit_view.tscn`) :
 	rayon de la caméra contre les collisions, à 2,5 m au plus (`reach_m`) ; survol d'une écoutille ouvrable : bulle
 	« Ouvrir l'écoutille » / « Fermer l'écoutille » (`HATCH_OPEN`, `HATCH_CLOSE`) ; clic gauche : ouverture ou
-    fermeture animée (rotation de la charnière, durée de `Fermeture_Ecoutilles`). Inactif au poste de pilotage.
-    Même interaction pour la combinaison (`SUIT_PUT_ON`), son support (`SUIT_STOW`) et la valve
-    (`AIRLOCK_DEPRESSURIZE`, `AIRLOCK_REPRESSURIZE`, selon son état visé).
+	fermeture animée (rotation de la charnière, durée de `Fermeture_Ecoutilles`). Inactif au poste de pilotage.
+	Même interaction pour la combinaison (`SUIT_PUT_ON`), son support (`SUIT_STOW`) et la valve
+	(`AIRLOCK_DEPRESSURIZE`, `AIRLOCK_REPRESSURIZE`, selon son état visé).
   - **Rideaux** (WC et douche de l'Habitation ; objets Blender d'extras `type` « rideau », `id` `Rideau_WC`,
-    `Rideau_Douche`) : **fermés au démarrage** (`start_curtains_closed`) ; même interaction à la souris (bulle « Ouvrir le rideau » /
-    « Fermer le rideau », clés `CURTAIN_OPEN`, `CURTAIN_CLOSE`), mouvement de 0,9 s (`curtain_duration_s`) qui fond
-    la forme de base (ouvert, regroupé) dans la clé de forme `Ferme` (déployé), un clic pendant le mouvement
+	`Rideau_Douche`) : **fermés au démarrage** (`start_curtains_closed`) ; même interaction à la souris (bulle « Ouvrir le rideau » /
+	« Fermer le rideau », clés `CURTAIN_OPEN`, `CURTAIN_CLOSE`), mouvement de 0,9 s (`curtain_duration_s`) qui fond
+	la forme de base (ouvert, regroupé) dans la clé de forme `Ferme` (déployé), un clic pendant le mouvement
 	l'inverse. API : `toggle_curtain(id)`, `set_curtain_closed(id, closed)`, `is_curtain_closing(id)`,
 	`curtain_ids()` ; signal `curtain_changed(id, closed)`. Pas de collision (on traverse un rideau) : une zone de
 	clic `Area3D` (calque de collision 20, `CURTAIN_LAYER`), boîte du tissu calculée depuis les sommets de la base et
@@ -1135,20 +1135,20 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	(`Station._fit_door_collision`). Avec, le corps ne suivait que ses propres déplacements, pas ceux de la charnière
 	parente : il restait figé dans la pose de l'import (porte fermée traversable, porte ouverte qui bloquait encore).
   - Trappes des silos : `open_silo_door(silo, tube)`, `close_silo_door(…)`, `set_all_silo_doors_open(open, silo)`
-    (silo 0 : les deux) ; signal `silo_door_changed(silo, tube, open)`. Une demande inverse en cours de mouvement
-    repart de la position actuelle (état visé `target`) ; le lancement reprend la trappe où elle est (déjà ouverte par
-    le choix du tube : pas de saut).
+	(silo 0 : les deux) ; signal `silo_door_changed(silo, tube, open)`. Une demande inverse en cours de mouvement
+	repart de la position actuelle (état visé `target`) ; le lancement reprend la trappe où elle est (déjà ouverte par
+	le choix du tube : pas de saut).
   - Gyrophare : `set_silo_beacon(silo, tube, on)` (groupe « Gyrophare des silos ») : lampe émissive de 7 cm et
-    `OmniLight3D` rouge (énergie 4, portée 6 m, ombres, pas sur les surfaces intérieures) juste sous la coque, à
+	`OmniLight3D` rouge (énergie 4, portée 6 m, ombres, pas sur les surfaces intérieures) juste sous la coque, à
 	0,75 m de la trappe vers l'extérieur de la rangée ; éclat de 0,35 du cycle de 0,9 s, montée et descente douces.
   - **Missiles** (`launch_missile(silo, tube)`, `can_launch`, `available_tubes()`) : un seul missile est modélisé
 	(tube 1_12) ; pour un autre tube, il est copié et placé à l'identique par rapport au `Point_Lancement` du tube
-    (repère du tube × repère du tube 1_12⁻¹ × missile animé). Le lancement rejoue `Lancement_Missile` : ouverture de
-    la trappe (si elle est fermée, avec les angles de la trappe du tube), descente, allumage de la tuyère à 2,9 s
+	(repère du tube × repère du tube 1_12⁻¹ × missile animé). Le lancement rejoue `Lancement_Missile` : ouverture de
+	la trappe (si elle est fermée, avec les angles de la trappe du tube), descente, allumage de la tuyère à 2,9 s
 	(`Point_Tuyere` : échelle 0 → 1 ; signal `missile_ignited`), jusqu'à ~30 m sous la station (5 s ; la dernière
 	clé à pleine échelle, avant celle où Blender annule l'échelle : le missile ne rétrécit jamais). Signal
-    `missile_released(silo, tube, missile, velocity)` : le récepteur prend en charge le missile (nœud, propulsion
-    allumée) et sa vitesse de sortie pour la suite du vol (voir « Vol du missile » ci-dessous) ; sans récepteur, la
+	`missile_released(silo, tube, missile, velocity)` : le récepteur prend en charge le missile (nœud, propulsion
+	allumée) et sa vitesse de sortie pour la suite du vol (voir « Vol du missile » ci-dessous) ; sans récepteur, la
 	station le masque. Chaque tube ne tire qu'une fois. `tube_ids()` et `tube_position(silo, tube)` (repère de la
 	station : +X avant, +Z droite) servent au panneau des silos ; la station est dans le groupe `Station.GROUP`.
   - **Propulsion du missile** (`scenes/effects/missile_exhaust.tscn`, script `scripts/missile_exhaust.gd`, classe
@@ -1159,17 +1159,17 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	- panache : sans air pour le confiner, le gaz se détend très largement : 900 particules additives
 	  (`shaders/missile_exhaust_particle.gdshader`), 35 à 70 m/s, demi-angle 40°, durée de vie 0,4 s ; elles
 	  naissent petites (~25 cm, moins que la tuyère) juste derrière sa sortie, puis grossissent jusqu'à ~8 m (à 65°
-      et nées à 1 m, elles enveloppaient la coque : le gaz semblait sortir des flancs du missile) ; opacité qui chute vite (densité en 1/r²) : voile translucide, **pas de traînée de fumée** ;
-    - lumière : `OmniLight3D` orange qui vacille (combustion irrégulière), 40 m de portée, avec ombres (quelques
+	  et nées à 1 m, elles enveloppaient la coque : le gaz semblait sortir des flancs du missile) ; opacité qui chute vite (densité en 1/r²) : voile translucide, **pas de traînée de fumée** ;
+	- lumière : `OmniLight3D` orange qui vacille (combustion irrégulière), 40 m de portée, avec ombres (quelques
 	  secondes seulement), qui n'éclaire pas les surfaces intérieures (calque `INTERIOR_LAYER`).
 	- Position : `Station.launch_missile` place `Point_Tuyere` à 3,5 m du centre du missile, 0,5 m derrière l'arrière de
-      son maillage (bout +Y à 3 m, la pointe est en −Y ; `nozzle_offset_m`, réglage visuel) : dans le modèle réexporté, ce repère est au centre du missile, et la propulsion semblait
-      sortir du milieu de la coque.
+	  son maillage (bout +Y à 3 m, la pointe est en −Y ; `nozzle_offset_m`, réglage visuel) : dans le modèle réexporté, ce repère est au centre du missile, et la propulsion semblait
+	  sortir du milieu de la coque.
 	- Allumage : échelle de `Point_Tuyere` (0 → 1 à 2,9 s, cf. `Lancement_Missile`) ; l'effet en hérite et naît à
 	  la taille zéro. Direction du jet : à l'opposé du déplacement du missile (le +Z de `Point_Tuyere_1_12`, annoncé
-      comme direction du jet, est horizontal dans le modèle : le missile descend, sa tuyère est en haut et le jet
-      monte vers la station).
-    - En vol (`enter_flight`) : panache en coordonnées locales (il suit le missile et rétrécit avec lui ; le panache
+	  comme direction du jet, est horizontal dans le modèle : le missile descend, sa tuyère est en haut et le jet
+	  monte vers la station).
+	- En vol (`enter_flight`) : panache en coordonnées locales (il suit le missile et rétrécit avec lui ; le panache
 	  en coordonnées du monde s'éteint de lui-même), direction du jet imposée (`jet_direction`, opposée à la pointe),
 	  lumière atténuée (`light_scale`).
   - **Vol du missile** (`scripts/missile_flight.gd`, classe `MissileFlight`, créée par `nuke/launch_control.gd` à
@@ -1179,7 +1179,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	  l'horizon (√((R + h)² − R²), ~2 290 km à 400 km d'altitude). Plus rapide que la réalité (une frappe depuis
 	  l'orbite, qui doit d'abord casser la vitesse orbitale de 7,7 km/s, prend plusieurs minutes), pour garder la
 	  tension d'une attente de torpille. En 2 min, la station parcourt ~900 km : une cible visée au nadir explose
-      derrière elle ;
+	  derrière elle ;
 	- **phase spatiale** (jusqu'au point d'entrée dans l'atmosphère), en mètres réels, dans le repère de la station :
 	  comme un vrai missile, il **manœuvre pendant la combustion** (`MissileFlight._space_point`). **Le moteur
 	  brûle 9 s** : le missile part dans l'axe de son tube (ligne droite de Blender, vitesse de sortie ~32 m/s,
@@ -1187,16 +1187,16 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	  accélérant (courbe d'Hermite, vitesses continues). Moteur éteint (en 0,5 s, `MissileExhaust.throttle` :
 	  panache, flamme, lumière et halo s'éteignent), il file sur sa lancée en ligne droite à vitesse constante
 	  jusqu'au point d'entrée, où il arrive à l'heure prévue (vitesse de croisière V telle que la distance L =
-      V · (9 s / 2 + durée de la croisière)). La pointe (−Y du missile) suit la direction du déplacement (1,2 rad/s
+	  V · (9 s / 2 + durée de la croisière)). La pointe (−Y du missile) suit la direction du déplacement (1,2 rad/s
 	  au plus). On voit donc le missile partir vers la zone d'impact, puis on le perd de vue bien avant l'impact
 	  (à quelques dizaines de km de la station à l'extinction) ;
 	- **rentrée atmosphérique** (les derniers 20 % du vol, entre 6 et 12 s ; `scripts/reentry_streak.gd`,
 	  `shaders/reentry_streak.gdshader`) : du point d'entrée au point d'explosion (500 m au-dessus de la cible), en
 	  ralentissant, **dans le prolongement du vol** : le point d'entrée est en amont de la cible, du côté de la
-      station. Pente : 0,7 × la hauteur de la station vue depuis la cible (ligne de visée), bornée entre 8° (rentrée
+	  station. Pente : 0,7 × la hauteur de la station vue depuis la cible (ligne de visée), bornée entre 8° (rentrée
 	  rasante depuis l'orbite : cibles lointaines, ~460 km de traînée lumineuse) et 25° (tête de missile balistique :
 	  cibles proches, ~150 km). Plus plate que la ligne de visée, la traînée arrive à l'écran du bas, du côté de
-      la station, et monte vers la cible, dans le sens où le missile est parti (pente égale à la ligne de visée :
+	  la station, et monte vers la cible, dans le sens où le missile est parti (pente égale à la ligne de visée :
 	  traînée vue en bout, réduite à un point ; plus raide : elle semblerait tomber du haut de l'écran). La durée de
 	  la rentrée, elle, est compressée comme tout le vol (6 à 12 s au lieu de 1 à 2 min) : la tête paraît 5 à 10 fois
 	  plus rapide qu'en réalité (~7 km/s). Cible au
@@ -1204,13 +1204,13 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	  l'ISS : tête blanc-bleuté éblouissante (halo additif, rayon 1,5 km, au moins 6 pixels) et traînée de plasma de
 	  3,5 s de trajet, effilée, qui se refroidit du jaune à l'orange puis au rouge
 	  sombre, avec des bouffées d'ablation et un léger vacillement. Éclat selon l'altitude : apparition sous 75 km,
-      plein de 60 à 30 km, extinction vers 10 km (la tête a ralenti). La traînée est mélangée par opacité (et non
-      additive) en couleurs HDR : elle reste orange devant des nuages blancs en plein jour, et déborde en halo.
+	  plein de 60 à 30 km, extinction vers 10 km (la tête a ralenti). La traînée est mélangée par opacité (et non
+	  additive) en couleurs HDR : elle reste orange devant des nuages blancs en plein jour, et déborde en halo.
 	  Rendue à l'échelle exacte de la Terre : la Terre et les nuages la masquent ;
 	- le vol suit l'horloge du jeu (`Orbit.time_scale` : pause, accélération) ; à l'arrivée, signal `arrived` →
 	  explosion (`NukeLauncher.launch_at`), le missile est libéré ;
 	- **rendu à l'échelle préservant la perspective** (la même astuce que la Terre à 1/10 000 : un objet K fois plus
-      proche et K fois plus petit paraît identique). À une distance réelle d de la caméra, le missile est dessiné à
+	  proche et K fois plus petit paraît identique). À une distance réelle d de la caméra, le missile est dessiné à
 	  taille réelle jusqu'au palier F (90 % de la distance de la couche nuageuse dans sa direction, ~35 m sous la
 	  cupola), puis sur ce palier réduit de F/d (toujours devant les nuages et la Terre), enfin à l'échelle exacte de
 	  la Terre quand d/10 000 dépasse F (bas de l'atmosphère : les nuages le masquent comme il se doit) ;
@@ -1219,7 +1219,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	  le moteur ;
 	- lumière du moteur sur la station : pleine jusqu'à 40 m, puis en 1/d².
   - Radiateurs : `set_radiator_deployed(id, deployed)` (`Radiateur_D15`, `D21`, `G15`, `G21`),
-    `set_all_radiators_deployed`, `set_stealth(enabled)` ; signal `radiator_changed`.
+	`set_all_radiators_deployed`, `set_stealth(enabled)` ; signal `radiator_changed`.
   - **Éclairage intérieur** (réglages dans le groupe « Éclairage intérieur » de `Station`) : les 30 lampes
 	ponctuelles du modèle (`Lum_*`, importées à 6 522 d'énergie et 4 096 m de portée) sont recalibrées au démarrage :
 	blanc 4 500 K (luminaires LED de l'ISS en mode jour), énergie 1,2 × le paramètre « Éclairage intérieur »
@@ -1227,13 +1227,13 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	Terre (mode nuit, `night_light_ratio`), portée 5,5 m,
 	atténuation 1,3, reflets 0,4, **sans ombres**.
 	- **Niveau d'alerte** (règle de jeu, `Station.set_alert`, enum `Alert` : `NONE`, `YELLOW`, `ORANGE`, `RED`) :
-      dans les situations critiques, les luminaires blancs de la station passent en **jaune**, **orange** ou
-      **rouge** (`alert_colors`, lumière projetée des lampes `Lum_*` et émission des bandeaux `Int_Lumiere` ; les
-      feux rouges des rails gardent leur couleur), avec un fondu de 0,8 s (`alert_fade_s`) ; en alerte rouge, la
+	  dans les situations critiques, les luminaires blancs de la station passent en **jaune**, **orange** ou
+	  **rouge** (`alert_colors`, lumière projetée des lampes `Lum_*` et émission des bandeaux `Int_Lumiere` ; les
+	  feux rouges des rails gardent leur couleur), avec un fondu de 0,8 s (`alert_fade_s`) ; en alerte rouge, la
 	  puissance pulse lentement (−30 % d'amplitude, période 1,4 s : `red_alert_pulse`, `red_alert_period_s`).
 	  Cinquième niveau, **« plus de lumière »** (`BLACKOUT`) : bandeaux et lampes s'éteignent (même fondu), sauf
-      une lampe sur quatre (`emergency_light_every`) qui reste en LED de secours, très faible (énergie 0,06,
-      `emergency_light_energy`) et froide (`emergency_light_color`), pour deviner les modules ; la lumière ambiante
+	  une lampe sur quatre (`emergency_light_every`) qui reste en LED de secours, très faible (énergie 0,06,
+	  `emergency_light_energy`) et froide (`emergency_light_color`), pour deviner les modules ; la lumière ambiante
 	  de l'`Environment` (qui n'éclaire que la station) et les **écrans** (`Ecran_*`, émission coupée, dalle
 	  presque noire) s'éteignent avec le même fondu, et les bandeaux éteints deviennent gris sombre (leur albédo
 	  blanc paraîtrait allumé sous les LED) ; seuls les voyants du modèle (`Int_Voyant_*`, émissifs) restent
@@ -1242,8 +1242,8 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	sur le calque `INTERIOR_LAYER` (bit 11, `light_cull_mask`). Est intérieur un matériau dont le nom commence par
 	`Int_` ou `Ecran_` ; hublots et vitrages sont des deux côtés ; tout le reste est extérieur. Les 14 coques mixtes
 	(surface `Coque_Silo` dehors, `Int_Coque` dedans, dans un même objet) sont doublées : l'original ne montre que
-    ses surfaces extérieures, une copie `<nom>_Interieur` (même maillage, LOD compris, sans ombre portée) ses
-    surfaces intérieures ; les surfaces cachées ont un matériau qui place leurs sommets hors du champ (aucun pixel
+	ses surfaces extérieures, une copie `<nom>_Interieur` (même maillage, LOD compris, sans ombre portée) ses
+	surfaces intérieures ; les surfaces cachées ont un matériau qui place leurs sommets hors du champ (aucun pixel
 	calculé). L'extérieur n'est éclairé que par le soleil (et le flash des explosions).
   - **Vitrage de la cupola sans reflet** (`Station._matte_glass`) : le reflet de l'environnement (disque solaire du
 	ciel) ignore l'ombre portée de la station ; il faisait briller un point lumineux dans le hublot du nadir alors
@@ -1252,7 +1252,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   - **Chaleur** (règle de jeu, valeurs provisoires en attendant la jauge) : `heat` (0 à 1) monte de
 	`heat_rise_per_s` (0,01/s) radiateurs tous repliés (**mode furtif** : pas de rayonnement infrarouge, la chaleur
 	s'accumule) et descend de `heat_fall_per_s` (0,02/s) radiateurs tous déployés, en proportion des radiateurs
-    déployés ; signal `heat_changed`.
+	déployés ; signal `heat_changed`.
 
 ## Organisation de la scène
 
@@ -1339,17 +1339,17 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   vue de jour, à froid : 86 à 100 ; de nuit : 45 à 135). Désormais l'exposition ne dépend que de ce qui est
   regardé, comme un œil adapté à l'extérieur, indépendamment du cadrage.
   - **Mécanisme** : l'exposition automatique reste activée mais **bridée** — le nœud impose à chaque image
-    `auto_exposure_min_sensitivity` = `max_sensitivity` = `base_sensitivity` / facteur (`auto_exposure_scale`
-    0,22, vitesse 20 : elle suit la consigne en quelques images ; le lissage est fait par le nœud). Pourquoi pas
+	`auto_exposure_min_sensitivity` = `max_sensitivity` = `base_sensitivity` / facteur (`auto_exposure_scale`
+	0,22, vitesse 20 : elle suit la consigne en quelques images ; le lissage est fait par le nœud). Pourquoi pas
 	`exposure_multiplier` ? Dans ce build (Godot 4.7, D3D12, Forward+), **il n'agit pas sur le rendu** : à 0,
 	l'image de jour garde 90 % de sa luminance (seuls ciel et glow y réagissent), alors que la sensibilité
 	bridée expose réellement toute l'image (`tools/bench/exposure_sweep.tscn` : S = 50 brûlé, 200 référence,
 	3 200 sombre). Le multiplicateur est neutralisé à 1. Une première version du nœud s'appuyait sur lui : le jeu
-    tournait en fait à exposition ≈ 1 (HDR brut, « beaucoup plus brillant »), le curseur de luminosité presque
+	tournait en fait à exposition ≈ 1 (HDR brut, « beaucoup plus brillant »), le curseur de luminosité presque
 	sans effet, et le flash d'un 50 Mt inondait l'écran — une après-midi de fausses pistes (glow, éblouissement,
 	lumières), jusqu'au test « exposition 0 → image inchangée ».
   - **jour / nuit** : d'après la hauteur du soleil au point de la Terre visé par le centre de la vue (sinon le point
-    survolé) : sensibilité 200 quand elle dépasse 8° (`day_multiplier` × 1 : nuages texturés, océan profond — le
+	survolé) : sensibilité 200 quand elle dépasse 8° (`day_multiplier` × 1 : nuages texturés, océan profond — le
 	rendu de référence), 70 sous −12° (`night_multiplier` × 2,85, le plafond de l'ancienne exposition automatique :
 	villes et étoiles, montants clairs), interpolation géométrique entre les deux (crépuscule), lissage de 1 s vers
 	le clair et 0,25 s vers le sombre (`adaptation_s`, `darkening_s`, comme l'œil). Vérifié à 1920 × 1080 et en
@@ -1357,12 +1357,12 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	jour (71,3 / 70,8) comme de nuit (38,0 / 37,6 ; `tools/bench/exposure_probe.tscn`) ;
   - **intérieur de la station** : l'écran est partagé entre la Terre et l'intérieur selon la part des rayons
 	d'une grille 3 × 3 qui touchent la Terre (`_earth_view`, la Terre domine dès ~60 %) ; la part « intérieur »
-    garde la sensibilité de jour (`interior_multiplier` × 1 : lumières artificielles constantes) — sans cela, la
+	garde la sensibilité de jour (`interior_multiplier` × 1 : lumières artificielles constantes) — sans cela, la
 	règle jour / nuit saturait l'intérieur la nuit (sonde `tools/bench/exposure_views_probe.tscn` : Terre,
 	plafond de la cupola, intérieur, de jour et de nuit). **Hors de la cupola, dans les modules** (caméra à moins
 	de 25 m de la station, `outside_distance_m`, et pas éjectée), le facteur est `interior_multiplier` seul : ni
 	Terre (les rayons de `_earth_view` traversent la coque : viser le plancher la nuit changeait l'exposition), ni
-    soleil, ni flash ;
+	soleil, ni flash ;
   - **face au soleil** : depuis la cupola seulement (`Station.is_in_cupola`), quand le disque solaire est dans le
 	champ (demi-diagonale, bord progressif sur ±10°), au-dessus du limbe terrestre et sous l'horizontale de la
 	station (les fenêtres donnent vers la Terre ; un soleil derrière la coque est caché — viser le plafond
@@ -1375,7 +1375,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	terme, un 50 Mt éclairait toute la scène au lieu de rester un disque concentré (`tools/bench/flow_probe.tscn`,
 	`flash_look_probe.tscn` : captures à 1, 2, 5, 10 et 20 s).
   - **Lumière ambiante** : celle de l'Environment n'éclaire que la station. La surface terrestre l'ignore
-    (`render_mode ambient_light_disabled` dans `earth_surface.gdshader`) : remontée de × 2,5 la nuit, elle
+	(`render_mode ambient_light_disabled` dans `earth_surface.gdshader`) : remontée de × 2,5 la nuit, elle
 	rendait les continents visibles. La face nocturne n'a que ses émissions (villes, lueur des terres, ciel au
 	crépuscule).
   - **Compensations** : les étoiles (`panorama_energy` = 0,4) et les lumières des villes (`night_intensity` = 0,64)
@@ -1484,7 +1484,7 @@ Couche entre **3 et 10 km** d'altitude, rendue par lancer de rayon (jusqu'à 72 
 	`cloud_advection_blend_h` (1,5 h) pour éviter un saut. Cette règle absorbe aussi le raccord de date de
 	l'imagerie VIIRS.
   - Les nuages se déplacent mais ne naissent ni ne disparaissent : à ±12 h ils sont étirés par le cisaillement du
-    vent.
+	vent.
   - Réglages : `cloud_wind_scale` (1 = vent réel), `cloud_snapshot_local_hour` (13,5).
 - **Évolution des sommets** : `cloud_wind_km_s` fait en plus évoluer lentement le relief des sommets (temps réel).
 Les nuages sont attachés au repère de la Terre (ils tournent avec elle). Réglages principaux dans le matériau
@@ -1569,13 +1569,13 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
    - `tools/build_cloud_tiles.ps1 -viirs <dossier>` (PowerShell + routine C# compilée à la volée, ~3 min). Il calcule
 	 la couche alpha (différence de luminance avec la Blue Marble, filtre des pixels colorés, suppression du reflet
 	 du soleil sur l'océan, repérable car lisse, par l'écart-type local). Là où la journée n'a pas de données (nuit
-     polaire), il prend la carte nuageuse Blue Marble 8K. Il écrit les tuiles JPEG et la texture globale 16K ;
+	 polaire), il prend la carte nuageuse Blue Marble 8K. Il écrit les tuiles JPEG et la texture globale 16K ;
    - `godot --headless --path . --script res://tools/convert_tiles_webp.gd -- <projet>/assets/earth_cloud_tiles`
-     convertit les tuiles en WebP niveaux de gris (~2 fois plus léger que le JPEG).
+	 convertit les tuiles en WebP niveaux de gris (~2 fois plus léger que le JPEG).
 5. Vent (déplacement des nuages) : `tools/build_wind_field.ps1 [-date 20230715]` (PowerShell + routine C#, ~1 min).
    - Il lit l'index `.idx` des analyses GFS 0,25° du jour (00, 06, 12, 18 UTC) sur l'archive publique AWS
-     `https://noaa-gfs-bdp-pds.s3.amazonaws.com/gfs.AAAAMMJJ/HH/atmos/gfs.tHHz.pgrb2.0p25.anl`, et ne télécharge
-     que les composantes UGRD/VGRD à 850, 700 et 500 hPa (~24 Mo).
+	 `https://noaa-gfs-bdp-pds.s3.amazonaws.com/gfs.AAAAMMJJ/HH/atmos/gfs.tHHz.pgrb2.0p25.anl`, et ne télécharge
+	 que les composantes UGRD/VGRD à 850, 700 et 500 hPa (~24 Mo).
    - Il décode le GRIB2 lui-même (gabarit 5.3, « complex packing + spatial differencing »), puis fait la moyenne.
    - Il écrit `assets/textures/cloud_wind.exr` (720 × 360, R = vent vers l'est, G = vers le nord, m/s).
    - Il écrit aussi le **profil vertical** du vent, pour la dérive des champignons atomiques
@@ -1586,18 +1586,18 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
    - Le service OPeNDAP de la NOAA, plus simple, était hors service ; la réanalyse NCEP (2,5°) aurait été trop
 	 grossière pour les cyclones.
    - L'import Godot de ces deux textures doit rester **sans perte** (`detect_3d/compress_to=0` dans le `.import`),
-     sinon la compression GPU fausse les vitesses.
+	 sinon la compression GPU fausse les vitesses.
    - Pour une autre journée de nuages, refaire les étapes 4 et 5 avec la même date.
 6. Masque mers et océans (explosions sur la mer, voir « Explosions sur la mer ») :
    - télécharger la couche « ocean » de Natural Earth 1:10 M en GeoJSON (~10 Mo) :
-     `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_ocean.geojson` ;
+	 `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_ocean.geojson` ;
    - `godot --headless --path . --script res://tools/build_ocean_mask.gd -- <ne_10m_ocean.geojson>` (~1 s). Il écrit
-     `assets/ocean_mask.res` (ressource `OceanMask`, ~2,4 Mo).
+	 `assets/ocean_mask.res` (ressource `OceanMask`, ~2,4 Mo).
 7. Masque des pays (voir « Pays touché ») :
    - télécharger la couche « admin 0 countries » de Natural Earth 1:10 M en GeoJSON (~13 Mo) :
-     `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_0_countries.geojson` ;
+	 `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_0_countries.geojson` ;
    - `godot --headless --path . --script res://tools/build_country_mask.gd -- <ne_10m_admin_0_countries.geojson>`
-     (~1 s). Il écrit `assets/country_mask.res` (ressource `CountryMask`, ~3 Mo).
+	 (~1 s). Il écrit `assets/country_mask.res` (ressource `CountryMask`, ~3 Mo).
 8. Population (voir « Pertes humaines ») :
    - télécharger GHS-POP R2023A, époque 2030, 30 secondes d'arc, WGS84 (~460 Mo, à décompresser : seul le `.tif` sert) :
 	 `https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_POP_GLOBE_R2023A/GHS_POP_E2030_GLOBE_R2023A_4326_30ss/V1-0/` ;
@@ -1609,9 +1609,9 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
 	 avec `FileAccess`. **À prévoir pour un export** : l'inclure dans le paquet, comme les tuiles.
 9. Centrales électriques (voir « Black-out électrique » ; nécessite le masque des pays, étape 7) :
    - télécharger la Global Power Plant Database v1.3 du WRI (~4 Mo, décompresser `global_power_plant_database.csv`) :
-     `https://wri-dataportal-prod.s3.amazonaws.com/manual/global_power_plant_database_v_1_3.zip` ;
+	 `https://wri-dataportal-prod.s3.amazonaws.com/manual/global_power_plant_database_v_1_3.zip` ;
    - `godot --headless --path . --script res://tools/build_power_plants.gd -- <global_power_plant_database.csv>`
-     (~1 s). Il écrit `assets/power_plants.res` (ressource `PowerPlants`, ~0,7 Mo) : 34 936 centrales, 5 693 GW.
+	 (~1 s). Il écrit `assets/power_plants.res` (ressource `PowerPlants`, ~0,7 Mo) : 34 936 centrales, 5 693 GW.
    - La carte des pays pour les shaders (`assets/textures/country_ids.png`, 8192 × 4096, ~0,4 Mo) est écrite par
 	 l'outil des pays (étape 7). Son import doit rester **sans perte et sans mipmaps** (`compress/mode=0`,
 	 `mipmaps/generate=false`, `detect_3d/compress_to=0` dans le `.import`) : les pixels sont des numéros de pays.
@@ -1823,10 +1823,10 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   - **Vent réel** (`nuke/nuke_wind.gd`) : au tir, le vent est lu au point d'impact dans la même carte que
 	l'advection des nuages (`assets/textures/cloud_wind.exr`, vent GFS moyen du jour à 850/700/500 hPa, ~1,5 à
 	5,5 km d'altitude, interpolation bilinéaire) : le trou dans la couche nuageuse dérive comme les nuages. Sans
-    carte, la direction reste tirée au hasard.
+	carte, la direction reste tirée au hasard.
   - **Profil vertical** (`wind_profile`, `NukeWind.sample_profile`) : le vent GFS du même jour à 14 altitudes, de
-    ~1,5 à ~64 km (`assets/textures/wind_profile.exr`), interpolé linéairement en altitude par
-    `NukeParams.wind_at()` (constant sous le premier niveau et au-dessus du dernier ; vide : le vent ci-dessus
+	~1,5 à ~64 km (`assets/textures/wind_profile.exr`), interpolé linéairement en altitude par
+	`NukeParams.wind_at()` (constant sous le premier niveau et au-dessus du dernier ; vide : le vent ci-dessus
 	partout). C'est lui qui fait dériver le champignon. Le tir affiche le vent au niveau du chapeau. Exemple, 15 juillet
 	à 42° N : vent de sud-ouest de 12 m/s en bas, 19 m/s à 17 km (courant-jet), vents d'est stratosphériques
 	au-dessus de ~20 km (43 m/s à 49 km) : un 50 Mt part vers l'ouest quand le trou dans les nuages part vers le
@@ -1913,15 +1913,15 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   - **la boule de feu** (`nuke/shaders/nuke_fireball_flash.gdshader`) : sphère additive dont la luminance est
 	physique, flux / angle solide rapportés au soleil (disque solaire = 40 000), plafonnée à 50 000 (format 16 bits).
 	Elle est rendue avant les nuages (`render_priority` −1) : un banc nuageux la voile. Son rayon affiché est d'au
-    moins 1,5 pixel (`min_fireball_pixels`), avec la luminance recalculée sur ce rayon (même flux total) : sinon,
+	moins 1,5 pixel (`min_fireball_pixels`), avec la luminance recalculée sur ce rayon (même flux total) : sinon,
 	pour 10–100 kt, la sphère plus petite qu'un pixel apparaît et disparaît en défilant sous la station, et le flash
 	décroît par saccades ;
   - **l'éblouissement** (`nuke/shaders/nuke_flare.gdshader`) : billboard additif (halo, cœur, étoile à 4 branches)
-    construit en espace vue et ramené à mi-distance, pour passer devant la Terre et les nuages tout en restant
+	construit en espace vue et ramené à mi-distance, pour passer devant la Terre et les nuages tout en restant
 	masqué par la station. Taille angulaire et intensité suivent le flux reçu par l'observateur (1/d² ×
 	transmittance de l'air, nul si la Terre cache le flash) ; réglages dans le groupe « Éblouissement » du script.
-    Le cœur et les branches sont élargis à au moins un pixel (à énergie constante), pour ne pas scintiller quand le
-    halo est petit.
+	Le cœur et les branches sont élargis à au moins un pixel (à énergie constante), pour ne pas scintiller quand le
+	halo est petit.
 - **Onde de choc** (`nuke/nuke_shock.tscn`, script `nuke/nuke_shock.gd`, enfant `Shock` de l'effet). Le front de
   choc ne brille que tant qu'il forme la surface de la boule de feu (première fraction de seconde, cf. le creux du
   double pic du flash). Une fois détaché, il refroidit et devient transparent : à 0,7 bar de surpression, l'air
@@ -1934,14 +1934,14 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   - **la jupe de poussière** autour du point zéro, pour les explosions basses (hauteur < ~2 rayons de boule de
 	feu). Gris-brun (poussière mêlée de fumée), elle est soulevée par le front dès p = 0,05 et s'étend avec lui
 	jusqu'à 60 % de R_max. Elle retombe ensuite lentement (constante de temps 8 τ). Vue en oblique, le voile
-    atmosphérique réduit beaucoup son contraste ; elle ressort mieux près du nadir. Sur la mer, ce sont des
-    **embruns** (eau pulvérisée) : même jupe, blanche (`spray` du shader).
+	atmosphérique réduit beaucoup son contraste ; elle ressort mieux près du nadir. Sur la mer, ce sont des
+	**embruns** (eau pulvérisée) : même jupe, blanche (`spray` du shader).
 
   Rayon du front **r(t) = R_max · (1 − exp(−t / τ))**, avec une progression p = r / R_max :
   - R_max = `NukeScaling.shock_max_radius_km` = 1,2 × rayon de choc de référence + 4 km (`SHOCK_VISUAL_SCALE`,
-    `SHOCK_VISUAL_MIN_KM`) : 6,4 km à 10 kt, 15 km à 1 Mt, 45 km à 50 Mt. **Choix visuel** : plus grand que le rayon
-    de référence, surtout pour les petites puissances, pour que le trou creusé dans les nuages se voie (voir
-    « Nuages ») ;
+	`SHOCK_VISUAL_MIN_KM`) : 6,4 km à 10 kt, 15 km à 1 Mt, 45 km à 50 Mt. **Choix visuel** : plus grand que le rayon
+	de référence, surtout pour les petites puissances, pour que le trou creusé dans les nuages se voie (voir
+	« Nuages ») ;
   - ce front unique porte l'anneau de condensation, soulève la poussière et **pousse les nuages devant lui** : le
 	trou dans la couche nuageuse a exactement le même rayon à chaque instant ;
   - τ = 1,28 s par km de R_max serait la valeur réaliste : le front atteindrait 90 % de R_max à ~0,34 km/s de
@@ -1950,7 +1950,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	~0,2 km/s de moyenne), pour que l'anneau de condensation survive au flash (voir « Flash ») ;
   - l'anneau s'évapore vers 2,8 s à 10 kt, 13 s à 1 Mt, 48 s à 50 Mt ; le front atteint 98 % de R_max en ~16 s à
 	10 kt, ~74 s à 1 Mt, ~270 s à 50 Mt (temps physique ; au-delà de 20 s, l'horloge accélère progressivement, voir
-    « Horloge »).
+	« Horloge »).
 
   Shader unique et réutilisable (`nuke/shaders/nuke_shock_ring.gdshader`) :
   - un quad horizontal surélevé de 30 m, dont le centre est l'origine du maillage ;
@@ -1967,28 +1967,28 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   (inflammation des matériaux courants, Glasstone & Dolan ch. VII), **s'étendent pendant plusieurs jours** et
   laissent une **trace au sol jusqu'à la fin de la partie**.
   - Rayon initial R0 : 12 km · (W / 1 Mt)^0,41, soit ~1,8 km à 10 kt, 12 km à 1 Mt et ~60 km à 50 Mt
-    (`NukeScaling.fire_base_radius_km`).
+	(`NukeScaling.fire_base_radius_km`).
   - Zone du flash, calée sur Hiroshima (tempête de feu formée ~20 min après l'explosion, au plus fort vers 2–3 h) :
 	25 % de l'intensité finale dès le flash (foyers allumés par le rayonnement thermique), foyers qui se rejoignent
-    entre 2 min et 1 h 30 ; intensité maximale ~0,8 vers 1 h 30.
+	entre 2 min et 1 h 30 ; intensité maximale ~0,8 vers 1 h 30.
   - Propagation : le front gagne les terres alentour, rayon R0 · (1 + 1 · (1 − exp(−t / 1 jour)))
-    (`FIRE_SPREAD`, `FIRE_SPREAD_S`, `NukeScaling.fire_radius_km`) : 63 % du chemin en 1 jour, 95 % en 3 jours,
+	(`FIRE_SPREAD`, `FIRE_SPREAD_S`, `NukeScaling.fire_radius_km`) : 63 % du chemin en 1 jour, 95 % en 3 jours,
 	jusqu'à 2 R0 (24 km à 1 Mt) ; au départ ~0,5 km/h pour 1 Mt, l'allure d'un feu de forêt. Un lieu atteint par le
 	front s'embrase en 1 h, moins fort que la tempête de feu (30 %) : **un anneau de feu s'éloigne du centre**.
   - Chaque lieu brûle avec une constante de temps d'extinction de 6 h (`FIRE_BURN_S`) : le centre est éteint en
-    ~1 jour, les derniers feux du front en 4 à 5 jours.
+	~1 jour, les derniers feux du front en 4 à 5 jours.
   - **Trace au sol** (règle de jeu : pas de cratère, explosion à 500 m ; la partie dure quelques semaines, aucune
-    repousse visible : la trace est **définitive**). Deux causes, toutes deux fonction de la puissance :
-    - **le feu** : chaque lieu brûlé noircit en 2 h (`FIRE_CHAR_S`, charbon `nuke_burn_albedo`), puis **brunit**
-      entre 12 h et 4 jours après son passage (`SCAR_BROWN_START_S`, `SCAR_BROWN_END_S` : cendres envolées,
-      végétation morte) : terre brûlée brun sombre (`nuke_scar_albedo`, réflectance de ~5 à 8 % comme les cicatrices
+	repousse visible : la trace est **définitive**). Deux causes, toutes deux fonction de la puissance :
+	- **le feu** : chaque lieu brûlé noircit en 2 h (`FIRE_CHAR_S`, charbon `nuke_burn_albedo`), puis **brunit**
+	  entre 12 h et 4 jours après son passage (`SCAR_BROWN_START_S`, `SCAR_BROWN_END_S` : cendres envolées,
+	  végétation morte) : terre brûlée brun sombre (`nuke_scar_albedo`, réflectance de ~5 à 8 % comme les cicatrices
 	  de brûlis sur les images satellites, plus sombre qu'un sol aride), sans verdure. Plus marquée dans la zone du
 	  flash, motif irrégulier ;
 	- **le souffle** : dans le rayon de 5 psi (`SCAR_RUBBLE_PSI` : bâtiments rasés, forêts couchées), gravats et
 	  poussière gris-brun (`nuke_rubble_albedo`) dès l'explosion, même sans incendie.
 
 	Mélange jusqu'à 95 % (`nuke_scar_strength`) ; le relief du sol d'origine reste un peu visible
-    (`nuke_scar_relief`) ; dans les villes, la trace tire vers le gris des gravats. Seulement sur les terres. Étendue :
+	(`nuke_scar_relief`) ; dans les villes, la trace tire vers le gris des gravats. Seulement sur les terres. Étendue :
 	~2 km de rayon à 10 kt (à peine une tache depuis l'orbite), ~24 km à 1 Mt, ~120 km à 50 Mt (une région entière
 	meurtrie ; dix 50 Mt couvrent un pays). Vue de biais à plusieurs centaines de km, la brume atmosphérique atténue
 	nettement le contraste (comme sur les photos obliques prises depuis l'ISS) ; vue plongeante, la trace est franche.
@@ -1999,16 +1999,16 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	les incendies durent donc plusieurs jours de la partie.
   - Rendu des flammes, en émission sur le sol :
 	- la part du sol en feu est forte au centre (l'exposition décroît en 1/d²) ;
-    - seulement sur les terres : **une mer ou un océan ne brûle pas**. Masque des terres : la carte des pays
-      (`assets/textures/country_ids.png`, 0 = mer, ~2,4 km par pixel, interpolée pour adoucir la côte,
+	- seulement sur les terres : **une mer ou un océan ne brûle pas**. Masque des terres : la carte des pays
+	  (`assets/textures/country_ids.png`, 0 = mer, ~2,4 km par pixel, interpolée pour adoucir la côte,
 	  `nuke_land_share` dans `nuke/shaders/nuke_ground.gdshaderinc`) ; le masque d'eau déduit de la couleur du sol ne
 	  suffit pas (en espace linéaire, les mers de Blue Marble sont trop sombres pour qu'il les reconnaisse). Une explosion en mer
-      sans aucune terre dans le rayon des incendies (`OceanMask.has_land_within`, `NukeEffect.can_ignite_land`)
+	  sans aucune terre dans le rayon des incendies (`OceanMask.has_land_within`, `NukeEffect.can_ignite_land`)
 	  n'allume rien ; près d'une côte, le flash enflamme les terres à portée ;
 	- plus forte et plus vive dans les villes (combustible, lu dans l'image des lumières nocturnes) ;
 	- modulée par un motif irrégulier dont l'échelle suit la taille de la zone ;
-    - bord très irrégulier, léger scintillement ;
-    - voilée par les nuages comme les lumières des villes.
+	- bord très irrégulier, léger scintillement ;
+	- voilée par les nuages comme les lumières des villes.
   - Depuis l'orbite (~0,5 km par pixel), on ne voit pas les flammes une à une, mais la lueur moyenne des zones en
 	feu. Elle est faible devant un sol au soleil : les incendies se voient surtout de nuit.
   - **Aucun plafond sur le nombre d'explosions** (`NukeGroundFX`, `nuke/shaders/nuke_ground.gdshaderinc`) : chaque
@@ -2033,7 +2033,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	bruit à l'échelle de l'étalement (±0,7 σ en distance et en écart latéral : langues et volutes), propre à chaque
 	explosion. Au vent du foyer, la fumée ne déborde que de la moitié de la taille du foyer.
   - **Accumulation** : la formule du panache décrit le régime établi (la fumée part avec le vent aussi vite qu'elle
-    est émise), atteint quand le vent a balayé le foyer, u · t ≈ √(2π) σ0 (2 à 3 h pour un foyer de 40 km à 10 m/s).
+	est émise), atteint quand le vent a balayé le foyer, u · t ≈ √(2π) σ0 (2 à 3 h pour un foyer de 40 km à 10 m/s).
 	Avant, la fumée s'accumule au-dessus du foyer (colonne Q · t / 2π σ0²) : le panache s'épaissit progressivement au
 	lieu de couvrir d'emblée toute la zone.
   - **Débit** Q = Y · R0² · f(t) / 6 h (`FIRE_BURN_S`), où f est la surface en feu (`NukeScaling.smoke_burning_area`,
@@ -2042,7 +2042,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	de 24 × 24 points des terres de la zone des incendies, population GHS-POP) :
 	- végétation : 2 kg/m² de combustible consumé (`SMOKE_WILDLAND_FUEL_KG_M2` ; herbe 0,3 à 0,5, broussailles 1 à 3,
 	  forêt 2 à 5, van der Werf et al. 2017), facteur d'émission 1,2 % (`SMOKE_WILDLAND_EF`, Andreae 2019) ;
-    - bâti : 0,011 kg/m² par hab./km² (`SMOKE_URBAN_FUEL_KG_M2_PER_HAB_KM2` : 1,1·10⁷ g par habitant, Toon et al. 2007
+	- bâti : 0,011 kg/m² par hab./km² (`SMOKE_URBAN_FUEL_KG_M2_PER_HAB_KM2` : 1,1·10⁷ g par habitant, Toon et al. 2007
 	  § 6.1 ; centres-villes mesurés 120 à 470 kg/m²), facteur d'émission 2 % (`SMOKE_URBAN_EF`, Small 1989).
 
 	Mesures : 50 Mt sur la Sardaigne (~70 hab./km²), Y = 0,042 kg/m² ; 1 Mt sur Paris, Y = 1,17 kg/m² (28 fois plus).
@@ -2050,7 +2050,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	d'extinction 5 m²/g (`SMOKE_MEE_M2_KG` ; Toon et al. citent 4,4 à 7 m²/g). Une 50 Mt sur une île rurale : voile
 	léger à 30 min, épaississement sur 2 à 3 h, panache épais sous le vent ensuite (l'île entière brûle : le rayon
 	d'inflammation, ~60 km, couvre presque toute la Sardaigne) ; sur une grande ville, panache bien plus opaque.
-    Version précédente (corrigée) : tout sol en feu était traité comme une ville (~0,65 kg/m²), soit ~15 fois trop
+	Version précédente (corrigée) : tout sol en feu était traité comme une ville (~0,65 kg/m²), soit ~15 fois trop
 	de fumée en campagne, et le panache atteignait d'emblée son régime établi.
   - **Rendu** : couche plate sous les nuages (fumée de 1 à 6 km ; vue de 400 km, sa parallaxe est négligeable). Elle
 	voile le sol (albédo gris-brun `nuke_smoke_albedo` éclairé par le soleil, noir la nuit), les reflets de la mer et
@@ -2065,31 +2065,31 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   shaders `nuke/shaders/nuke_mushroom_volume.gdshader`, `nuke/shaders/nuke_mushroom.gdshader` et
   `nuke/shaders/nuke_smoke.gdshader`).
   - **Rendu volumétrique** (par défaut, `volumetric`) : lancer de rayon dans un champ de densité, sur une boîte
-    englobante (nœud `Volume`) recalculée à chaque image autour du nuage, de sa dérive et du nuage de base.
-    - Densité : formes analytiques fondues en douceur, érodées par un bruit 3D sur une bande `edge_softness` (bords
-      gazeux) :
-      - chapeau : super-ellipse aplatie (`cap_power` 2,6 : dessus plat, bord arrondi), dessous creusé autour de la
-        tige ;
+	englobante (nœud `Volume`) recalculée à chaque image autour du nuage, de sa dérive et du nuage de base.
+	- Densité : formes analytiques fondues en douceur, érodées par un bruit 3D sur une bande `edge_softness` (bords
+	  gazeux) :
+	  - chapeau : super-ellipse aplatie (`cap_power` 2,6 : dessus plat, bord arrondi), dessous creusé autour de la
+		tige ;
 	  - tige : évasée au pied et sous le chapeau, dissoute avec l'âge ;
 	  - nuage de base.
 	- **Asymétrie** : une déformation basse fréquence du domaine (`warp`) et des lobes autour du chapeau (`lobes`),
 	  tirés d'une graine propre à chaque explosion (latitude, longitude, puissance), rendent la silhouette
 	  irrégulière. S'y ajoute l'inclinaison par le vent.
-    - Éclairage comme les nuages de la couche : marche vers le soleil (5 pas doublés depuis 0,3 km, auto-ombrage,
-      loi de Beer et diffusion multiple approchée), phase double de Henyey-Greenstein, soleil filtré par
+	- Éclairage comme les nuages de la couche : marche vers le soleil (5 pas doublés depuis 0,3 km, auto-ombrage,
+	  loi de Beer et diffusion multiple approchée), phase double de Henyey-Greenstein, soleil filtré par
 	  l'atmosphère, ciel ambiant. La lueur de la boule de feu est émise au cœur du chapeau. Extinction : 1 km⁻¹
 	  (`volume_extinction_per_km`). **Pas de lumière selon la dilution** (`NukeMushroom.LIGHT_STEPS_BY_FADE`) : 5
 	  tant que la densité `fade` ≥ 0,25, 3 au-dessus de 0,08, 2 en dessous — un voile dilué n'a presque plus d'ombre
 	  propre (à 3 % de densité, 2 pas au lieu de 5 : PSNR > 65 dB, pour ~45 % du coût du volume à ce stade).
 	- 64 pas par rayon sur la traversée de la boîte englobante, décalage d'échantillonnage fixe par pixel (pas de
-      bruit temporel) : pas de scintillement. **Saut du vide** (`core_interval` du shader, `skip_empty`) : le script
-      fournit aussi la **boîte cœur** (`core_min`/`core_max`, le nuage sans sa dérive) ; la boîte englobante est
-      cette boîte cœur étendue à toutes les dérives des hauteurs occupées, et le cisaillement du vent (vent différent
+	  bruit temporel) : pas de scintillement. **Saut du vide** (`core_interval` du shader, `skip_empty`) : le script
+	  fournit aussi la **boîte cœur** (`core_min`/`core_max`, le nuage sans sa dérive) ; la boîte englobante est
+	  cette boîte cœur étendue à toutes les dérives des hauteurs occupées, et le cisaillement du vent (vent différent
 	  au-dessus et au-dessous du chapeau) peut la rendre énorme : à 6 h d'un 50 Mt, ~1 400 km de long pour un chapeau
 	  de ~110 km, surtout vide. La dérive étant linéaire par morceaux en hauteur (32 échantillons), le point « sans
 	  dérive » est linéaire en t sur chaque morceau : le shader calcule exactement l'intervalle du rayon qui traverse
-      la boîte cœur (test de boîte 2D par morceau) et ne marche que là, avec le pas de la traversée complète (au
-      moins `min_steps` = 16 pas) ; un rayon qui la manque est rejeté sans aucune lecture de texture. Rendu
+	  la boîte cœur (test de boîte 2D par morceau) et ne marche que là, avec le pas de la traversée complète (au
+	  moins `min_steps` = 16 pas) ; un rayon qui la manque est rejeté sans aucune lecture de texture. Rendu
 	  identique (même champ de densité), mesure à 6 h d'un 50 Mt : volumes 12 → 4 ms en 1080p. Les trous de
 	  fragmentation (`breakup`) sont testés avant le bruit fin : dans un trou, rien d'autre n'est calculé.
 	- **Perspective aérienne** (`aerial_perspective` dans le shader) : la couleur du champignon est atténuée par l'air
@@ -2108,12 +2108,12 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	  bord d'un panache qui s'étiole au-dessus des nuages scintillait : chaque pixel y basculait entre « panache sur
 	  le sol, nuages masqués » (gris) et « nuages » (blanc), selon le décalage d'échantillonnage. À 0,8, les deux
 	  aspects sont proches (mesure : 302 pixels changeant brutalement en 2 s de temps physique à 1 h 30 d'un 10 Mt,
-      contre 2).
-    - Coût mesuré (2026-10-16, après le saut du vide, 10 × 50 Mt figés, 5120 × 1440) : ~1,3 ms à 1 min, ~6,6 ms à
-      6 h (25,7 ms avant ; voir « Performances » ; sonde `tools/bench/mushroom_probe.tscn`).
-    - Les sections « Maillage de révolution », « Shader » et le nuage de base `BaseSurge` ci-dessous décrivent le
-      rendu par maillage, conservé pour comparaison (`volumetric = false`) ; formes, Curves, couleurs, roulement et
-      dérive sont partagés.
+	  contre 2).
+	- Coût mesuré (2026-10-16, après le saut du vide, 10 × 50 Mt figés, 5120 × 1440) : ~1,3 ms à 1 min, ~6,6 ms à
+	  6 h (25,7 ms avant ; voir « Performances » ; sonde `tools/bench/mushroom_probe.tscn`).
+	- Les sections « Maillage de révolution », « Shader » et le nuage de base `BaseSurge` ci-dessous décrivent le
+	  rendu par maillage, conservé pour comparaison (`volumetric = false`) ; formes, Curves, couleurs, roulement et
+	  dérive sont partagés.
   - **Repère normalisé** : le nœud est mis à l'échelle `cloud_top_km`, tout est exprimé en unités où le sommet
 	final vaut 1 (chapeau final de rayon 0,6). Le même champignon fait 8 km de haut à 10 kt, 22,5 km à 1 Mt et
 	65 km à 50 Mt, particules comprises.
@@ -2145,25 +2145,25 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	- **disparition** (évaporation, dépôt, mélange) : × exp(−(t − 10 min) / τ), τ = 1 h pour un chapeau dans la
 	  troposphère, 2 h au-dessus de la tropopause (air sec et stable, pas de précipitations), avec un passage
 	  progressif sur ±2 km. Tropopause : 17 km à l'équateur, 9 km aux pôles, en cos² de la latitude
-      (`NukeScaling.tropopause_km`) ;
-    - **fragmentation** : le nuage dilué se déchire en lambeaux (trous de bruit basse fréquence, seuil 0,55 ×
-      (1 − √densité), `breakup` du shader) ; la déformation verticale du domaine est réduite de R0 / R (couche mince) ;
-    - le champignon est masqué sous 1 % de densité : ~2 h après un 10 kt, ~6 h après un 1 Mt (temps physique ;
+	  (`NukeScaling.tropopause_km`) ;
+	- **fragmentation** : le nuage dilué se déchire en lambeaux (trous de bruit basse fréquence, seuil 0,55 ×
+	  (1 − √densité), `breakup` du shader) ; la déformation verticale du domaine est réduite de R0 / R (couche mince) ;
+	- le champignon est masqué sous 1 % de densité : ~2 h après un 10 kt, ~6 h après un 1 Mt (temps physique ;
 	  ~1 h 30 et ~5 h 30 d'horloge, soit une à plusieurs orbites). Effet visible : à 1 Mt, chapeau net à 30 min, panache
 	  étiré à 1 h, voile ténu à 2 h ;
 	- la boîte englobante suit les hauteurs occupées : une fois la tige dissoute, elle ne descend plus jusqu'au sol
-      et ne couvre que la dérive du chapeau (qui peut être à des centaines de km du point zéro) ;
-    - rendu par maillage : opacité × la même densité.
+	  et ne couvre que la dérive du chapeau (qui peut être à des centaines de km du point zéro) ;
+	- rendu par maillage : opacité × la même densité.
   - **Contact avec le sol adouci** : l'opacité du champignon monte depuis 0 au sol jusqu'à 4 % du sommet final
-    (`ground_fade` du shader), avec une limite rongée par le bruit.
+	(`ground_fade` du shader), avec une limite rongée par le bruit.
   - **Nuage de base** (`BaseSurge`, explosions basses) : dôme de poussière bas, même shader et même couleur que le
-    champignon.
+	champignon.
 	- Il s'étend vers l'extérieur avec l'onde de choc : rayon = 0,8 × front de choc (`surge_shock_ratio`), hauteur
 	  = 8 % de ce rayon (`surge_aspect`).
 	- Translucide (`surge_opacity` 0,6), dense au centre, effiloché au bord.
 	- Il s'estompe en même temps que la tige se dissout (même érosion).
   - **Profil piloté par des Curves** (éditables dans la scène), lues en âge a = t / 600 s physiques
-    (`MUSHROOM_RISE_S`). Le nuage se stabilise en ~10 min quelle que soit la puissance, soit ~1 min 36 s
+	(`MUSHROOM_RISE_S`). Le nuage se stabilise en ~10 min quelle que soit la puissance, soit ~1 min 36 s
 	d'horloge avec l'accélération des phases lentes :
 	- `height_curve` : sommet, calé sur la montée d'un nuage de 1 Mt (Glasstone & Dolan 1977, §2.12, sommet final
 	  14 miles) : 14 % à 18 s, 29 % à 42 s, 43 % à 1 min 06, 71 % à 2 min 30, 86 % à 3 min 48, 96 % à 6 min ;
@@ -2178,10 +2178,10 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	  10 kt, ~1 min à 1 Mt, ~5 min 40 s à 50 Mt ; Glasstone & Dolan §2.18) ;
 	- albédo (`albedo_gradient`) : roux des oxydes d'azote, puis blanc-gris de la condensation.
   - **Shader** :
-    - relief : bruit 3D (3 octaves) et bourgeons « chou-fleur » (bruit en valeur absolue) qui déplacent les
-      sommets ; au pixel, la normale est perturbée par le gradient des bourgeons (`bump`). Ce détail plus fin que le
+	- relief : bruit 3D (3 octaves) et bourgeons « chou-fleur » (bruit en valeur absolue) qui déplacent les
+	  sommets ; au pixel, la normale est perturbée par le gradient des bourgeons (`bump`). Ce détail plus fin que le
 	  maillage s'efface quand il devient plus petit qu'un pixel (sinon il crénèle en grains sombres). Creux et
-      dessous du chapeau assombris ;
+	  dessous du chapeau assombris ;
 	- éclairage par le soleil seul, en diffus enveloppant, filtré par l'atmosphère au point
 	  (`sun_light.gdshaderinc` : rougi au crépuscule, éteint la nuit), plus la lumière du ciel en émission ;
 	- silhouette adoucie par effet fresnel, bords rasants effilochés, érosion de la tige ;
@@ -2189,18 +2189,18 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	  autour de l'anneau tourbillonnaire (rayon 0,55 × chapeau). Le motif monte au centre, s'écarte au sommet,
 	  redescend au bord et rentre par-dessous. Tour en 15 min physiques au début (`roll_period_s` : circulation de
 	  quelques dizaines de m/s autour d'un anneau de plusieurs km ; ~1 min 30 à l'écran avec l'horloge à ×10), puis
-      de plus en plus lent (ω = ω0 / (1 + t / 300 s), intégré : rejouable au scrubber). Le bruit de la tige défile
-      vers le haut à ~35 m/s à 1 Mt, ~100 m/s à 50 Mt (`stem_rise_speed` = 0,0015 × sommet par s) ; bouillonnement
+	  de plus en plus lent (ω = ω0 / (1 + t / 300 s), intégré : rejouable au scrubber). Le bruit de la tige défile
+	  vers le haut à ~35 m/s à 1 Mt, ~100 m/s à 50 Mt (`stem_rise_speed` = 0,0015 × sommet par s) ; bouillonnement
 	  lent (`boil_rate`). Vus depuis l'orbite, ces mouvements doivent rester à peine perceptibles. Ces réglages valent
 	  pour les deux rendus ;
 	- rendu avant les nuages (`render_priority` −1) avec pré-passe de profondeur : les nuages et l'atmosphère ne
-      le recouvrent pas là où il les dépasse, mais un champignon plus bas que la couche nuageuse (10 kt sous un
-      banc épais) reste caché dessous.
+	  le recouvrent pas là où il les dépasse, mais un champignon plus bas que la couche nuageuse (10 kt sous un
+	  banc épais) reste caché dessous.
   - **Particules** (GPUParticles3D créés par le script, bouffées procédurales par bruit, éclairées comme le nuage) :
-    - fumée le long de la tige (rendu par maillage seulement : en volumétrique, elle ferait doublon avec la tige du
-      volume) ;
-    - jupon de condensation : anneaux autour de la tige pendant la montée (a de 0,03 à 0,3) ;
-    - débris et poussière aspirés au pied (explosions basses, a < 0,5).
+	- fumée le long de la tige (rendu par maillage seulement : en volumétrique, elle ferait doublon avec la tige du
+	  volume) ;
+	- jupon de condensation : anneaux autour de la tige pendant la montée (a de 0,03 à 0,3) ;
+	- débris et poussière aspirés au pied (explosions basses, a < 0,5).
 
 	Leur vitesse suit celle du temps physique (`speed_scale` : pause et accélération de l'horloge). Elles ne se
 	rejouent pas au scrubber. Pas de *soft particles* : elles liraient la texture de profondeur, peu fiable sous
@@ -2216,23 +2216,23 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   1. **Zone détruite** : rayon de 2 psi (`BLACKOUT_DESTROYED_PSI` : réseau, postes, bâtiments ; 1,8 km à 10 kt,
 	 8,5 km à 1 Mt, 31 km à 50 Mt), éteinte dès l'explosion et pour de bon, bord irrégulier.
   2. **Panne régionale en cascade** : disque de 120 km · (W / 1 Mt)^(1/3) (`BLACKOUT_REGION_1MT_KM` : ~26 km à
-     10 kt, ~440 km à 50 Mt ; au moins 2 fois la zone détruite). Le front de la panne avance du centre vers le bord
+	 10 kt, ~440 km à 50 Mt ; au moins 2 fois la zone détruite). Le front de la panne avance du centre vers le bord
 	 (R · (1 − exp(−t / 15 s))), par plaques d'une vingtaine de km (quartiers, communes : bruit fixe), et reste
 	 éteint.
   3. **Panne nationale** : au tir, `NukeGridImpact.assess()` (dans le thread de `NukeImpact`) cherche les centrales détruites (rayon de 5 psi,
 	 `BLACKOUT_PLANT_PSI`) dans la Global Power Plant Database (`scripts/power_plants.gd`, classe `PowerPlants`,
 	 `assets/power_plants.res`). Si elles représentent au moins 10 % de la capacité du pays
 	 (`BLACKOUT_NATIONAL_SHARE`), tout le pays s'éteint, à ses frontières (carte `assets/textures/country_ids.png`
-     lue par le shader), par plaques en 5 à 30 s (effondrement de la fréquence), et reste éteint. Repère : la panne
-     de la péninsule ibérique du 28 avril 2025 (Espagne et Portugal éteints en quelques secondes). Le pays retenu est
-     celui du point zéro (en mer : celui qui perd le plus de capacité). Les pays dans le noir sont transmis au shader
-     par une texture indexée par pays (`nuke_ground_countries`), sans limite de nombre.
+	 lue par le shader), par plaques en 5 à 30 s (effondrement de la fréquence), et reste éteint. Repère : la panne
+	 de la péninsule ibérique du 28 avril 2025 (Espagne et Portugal éteints en quelques secondes). Le pays retenu est
+	 celui du point zéro (en mer : celui qui perd le plus de capacité). Les pays dans le noir sont transmis au shader
+	 par une texture indexée par pays (`nuke_ground_countries`), sans limite de nombre.
   - Console :
-    ```
-      réseau électrique : 2 centrale(s) détruite(s), 2923 MW : DOEL 4 (Nuclear, 2910 MW), Loghidden City (Solar, 13 MW)
-        Belgique perd 23,0 % de sa capacité (12693 MW) : black-out national
-    ```
-    Exemples de centrales qui déclenchent seules une panne nationale : Doel (Belgique, 23 %), Paks (Hongrie, 30 %),
+	```
+	  réseau électrique : 2 centrale(s) détruite(s), 2923 MW : DOEL 4 (Nuclear, 2910 MW), Loghidden City (Solar, 13 MW)
+		Belgique perd 23,0 % de sa capacité (12693 MW) : black-out national
+	```
+	Exemples de centrales qui déclenchent seules une panne nationale : Doel (Belgique, 23 %), Paks (Hongrie, 30 %),
 	Kozloduy (Bulgarie, 22 %), Guri (Venezuela, 28 %). La France (111 GW recensés), l'Espagne (78 GW) ou le Japon
 	(215 GW) ne s'éteignent pas pour une seule centrale.
   - Les plaques basculent sur une fenêtre de temps (5 % de la date, au moins 2 s) : pas de clignotement. Le motif
@@ -2266,58 +2266,58 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 
   - **Surpression** : équation de Brode (1986, `NukeScaling.overpressure_psi`, précision ~10 %), selon la puissance,
 	la distance et la hauteur d'explosion ; `NukeScaling.overpressure_range_km` en donne les rayons (recherche
-    dichotomique). Vérifications : 1 Mt au sol, 5 psi à 4,65 km et 1 psi à 14,3 km ; Hiroshima (15 kt à 580 m),
-    5 psi à 1,6 km.
+	dichotomique). Vérifications : 1 Mt au sol, 5 psi à 4,65 km et 1 psi à 14,3 km ; Hiroshima (15 kt à 580 m),
+	5 psi à 1,6 km.
 
-    | Au sol | 12 psi | 5 psi | 2 psi | 1 psi |
-    |---|---|---|---|---|
-    | 10 kt | 0,6 km | 1,0 km | 1,8 km | 3,1 km |
-    | 1 Mt | 2,85 km | 4,65 km | 8,5 km | 14,3 km |
-    | 50 Mt | 10,5 km | 17,1 km | 31,5 km | 52,5 km |
+	| Au sol | 12 psi | 5 psi | 2 psi | 1 psi |
+	|---|---|---|---|---|
+	| 10 kt | 0,6 km | 1,0 km | 1,8 km | 3,1 km |
+	| 1 Mt | 2,85 km | 4,65 km | 8,5 km | 14,3 km |
+	| 50 Mt | 10,5 km | 17,1 km | 31,5 km | 52,5 km |
 
   - **Population** : grille GHS-POP 2030 (`scripts/population_grid.gd`, classe `PopulationGrid`, données
-    `assets/population_2030.bin`), ~0,9 km par cellule. Fichier découpé en tuiles de 5° : seules celles qui touchent
-    la zone sont lues (cache de 24 tuiles). Cellules quantifiées sur 16 bits (habitants = (q / 64)²). Une cellule
+	`assets/population_2030.bin`), ~0,9 km par cellule. Fichier découpé en tuiles de 5° : seules celles qui touchent
+	la zone sont lues (cache de 24 tuiles). Cellules quantifiées sur 16 bits (habitants = (q / 64)²). Une cellule
 	coupée par la limite d'une tranche est découpée en 4 × 4 sous-cellules.
   - **Pays de chaque cellule** : `CountryMask` (mêmes lignes de latitude). Une cellule littorale habitée que le
 	trait de côte au 1:10 M place en mer est rattachée au pays le plus proche (jusqu'à 4 cellules).
   - Coût : 5 à 35 ms par tir (10 kt à 50 Mt).
   - Exemples (au sol sauf mention) : Hiroshima 2030 (15 kt à 580 m), ~42 000 morts ; Paris (1 Mt), ~1,3 million
-    de morts ; New York (50 Mt), ~6 millions ; Sahara ou pleine mer, aucun.
+	de morts ; New York (50 Mt), ~6 millions ; Sahara ou pleine mer, aucun.
   - **Chronologie** (`NukeCasualties.snapshot`, constantes `PHASE_*`), du bilan OTA de chaque pays :
 	1. **flash** (dès l'explosion) : 30 % des morts (brûlures mortelles, rayonnement initial) ;
 	2. **onde de choc** : 50 % des morts et tous les blessés, au passage du front à leur distance (24 anneaux par
 	   pays ; `NukeScaling.shock_arrival_s`, celui du front affiché, puis la vitesse du son au-delà) : quelques
 	   secondes à une minute ;
 	3. **décès différés** : les 20 % restants (grands brûlés, blessés graves, victimes ensevelies), comptés d'abord
-       parmi les blessés, meurent en exp(−t / 6 h).
-    Exemple (Paris, 1 Mt au sol) : 403 000 morts à 0,1 s, 828 000 à 5 s, 1,07 million à 40 s, 1,18 million à 3 h,
-    1,41 million à 10 jours avec les retombées ; projection à 60 jours : 1,49 million.
+	   parmi les blessés, meurent en exp(−t / 6 h).
+	Exemple (Paris, 1 Mt au sol) : 403 000 morts à 0,1 s, 828 000 à 5 s, 1,07 million à 40 s, 1,18 million à 3 h,
+	1,41 million à 10 jours avec les retombées ; projection à 60 jours : 1,49 million.
   - **Retombées radioactives** (`NukeFallout`, seulement pour une explosion basse, `NukeScaling.low_burst`) :
-    - champ de retombées **WSEG-10** (Weapons Systems Evaluation Group, 1959 ; documentation de Hanifen, 1980) :
+	- champ de retombées **WSEG-10** (Weapons Systems Evaluation Group, 1959 ; documentation de Hanifen, 1980) :
 	  nuage stabilisé déporté par le vent, dépôt le long d'une « ligne chaude » sous le vent, répartition
 	  gaussienne en travers, correction au vent arrière. Il donne en chaque point le débit de dose à H+1 (R/h) et
 	  l'heure d'arrivée des retombées ;
 	- vent : le profil réel GFS au point d'impact, moyenné entre le sol et le centre du nuage (13 km à 1 Mt) ;
-      cisaillement entre les deux ;
-    - fraction de fission : 1 sous 50 kt (armes à fission), 0,5 au-delà ;
+	  cisaillement entre les deux ;
+	- fraction de fission : 1 sous 50 kt (armes à fission), 0,5 au-delà ;
 	- transcription d'après le paquet *glasstone* (MIT), avec trois corrections : hauteur du nuage en mégatonnes et
 	  vent en miles par heure (comme chez Hanifen), et l'exposant de la loi de dépôt calculé sans la fraction de
-      fission (déjà comptée dans le débit), sinon le débit près du point zéro était 3 à 5 fois sous les contours
-      idéalisés de Glasstone & Dolan. Vérification (1 Mt de fission, vent de 15 mph) : ~1 500 R/h à 20 miles sous le
-      vent, ~1 000 R/h vers 45 miles, ~440 R/h à 100 miles, du même ordre que ces contours ;
+	  fission (déjà comptée dans le débit), sinon le débit près du point zéro était 3 à 5 fois sous les contours
+	  idéalisés de Glasstone & Dolan. Vérification (1 Mt de fission, vent de 15 mph) : ~1 500 R/h à 20 miles sous le
+	  vent, ~1 000 R/h vers 45 miles, ~440 R/h à 100 miles, du même ordre que ces contours ;
 	- dose : débit en t^−1,2 (loi de Way-Wigner), intégré depuis l'arrivée des retombées, divisé par un facteur de
 	  protection moyen des bâtiments de 3 (pas d'évacuation) ;
-    - effets (irradiation aiguë, sans soins, Glasstone & Dolan ch. XII) : mort selon une loi log-normale de dose
-      médiane 4,5 Gy (écart-type 0,3 en logarithme), mal des rayons au-dessus de ~1,5 Gy (compté avec les blessés) ;
-      les morts surviennent avec un délai (constante de 6 jours), les malades qui en mourront passent des blessés
-      aux morts ;
-    - les personnes déjà tuées par le souffle ne sont pas comptées deux fois ; population par blocs de 3 × 3
-      cellules (~2,8 km : le champ est lisse) ; chronologie précalculée en 48 instants (0,25 h à 60 jours) puis
-      interpolée ;
-    - coût : ~50 ms à 1 Mt, ~4 s à 50 Mt (thread) ; console : vent, longueur de la zone dangereuse, morts et malades
-      à 60 jours par pays ;
-    - exemples (morts à 60 jours) : Kansas City 1 Mt, ~40 000 (en plus de 64 000 pour le souffle) ; Paris 1 Mt
+	- effets (irradiation aiguë, sans soins, Glasstone & Dolan ch. XII) : mort selon une loi log-normale de dose
+	  médiane 4,5 Gy (écart-type 0,3 en logarithme), mal des rayons au-dessus de ~1,5 Gy (compté avec les blessés) ;
+	  les morts surviennent avec un délai (constante de 6 jours), les malades qui en mourront passent des blessés
+	  aux morts ;
+	- les personnes déjà tuées par le souffle ne sont pas comptées deux fois ; population par blocs de 3 × 3
+	  cellules (~2,8 km : le champ est lisse) ; chronologie précalculée en 48 instants (0,25 h à 60 jours) puis
+	  interpolée ;
+	- coût : ~50 ms à 1 Mt, ~4 s à 50 Mt (thread) ; console : vent, longueur de la zone dangereuse, morts et malades
+	  à 60 jours par pays ;
+	- exemples (morts à 60 jours) : Kansas City 1 Mt, ~40 000 (en plus de 64 000 pour le souffle) ; Paris 1 Mt
 	  (vent de 32 m/s vers le nord-est), ~143 000 ; Paris 50 Mt, ~15 millions jusqu'en Allemagne, en Belgique et aux
 	  Pays-Bas.
 	- Ces jours sont des jours de la partie : après la première demi-heure, le temps physique suit l'horloge du jeu
@@ -2330,7 +2330,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   longitude)` ; `NukeParams.get_country()` rend la fiche du pays, vide en mer. La console affiche le pays, et l'État
   souverain pour un territoire dépendant (« Gibraltar, Royaume-Uni »).
   - Données : frontières Natural Earth 1:10 M (couche « admin 0 countries », 258 pays et territoires). Ce sont les
-    frontières **de fait** : la Crimée compte pour la Russie, le Sahara occidental pour le Maroc, Taïwan comme
+	frontières **de fait** : la Crimée compte pour la Russie, le Sahara occidental pour le Maroc, Taïwan comme
 	pays. Natural Earth publie aussi des variantes selon le point de vue d'un pays, dont la France
 	(`ne_10m_admin_0_countries_fra.geojson`, même outil).
   - Fiche de chaque pays : `code`, `iso_a2`, `name_fr`, `name_en`, `sovereign_code`, `sovereign` et `sovereign_fr`
@@ -2338,9 +2338,9 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	millions de dollars (`gdp_md`, `gdp_year`), `income_group`.
   - Stockage comme `OceanMask` : 120 lignes de latitude par degré (~0,9 km) ; pour chaque ligne, les longitudes
 	exactes où elle franchit une frontière ou une côte, et le pays situé à l'est de chacune. Recherche dichotomique.
-    Précision : celle des frontières (quelques centaines de mètres) en longitude, ~0,5 km en latitude. Vérifié :
-    Strasbourg / Kehl, Genève / Annemasse, Lille / Tournai, La Línea / Gibraltar, Monaco, Saint-Marin, Andorre,
-    Hong Kong (Chine), Groenland (Danemark), Fidji et Tchoukotka (antiméridien), mer et Caspienne (aucun pays).
+	Précision : celle des frontières (quelques centaines de mètres) en longitude, ~0,5 km en latitude. Vérifié :
+	Strasbourg / Kehl, Genève / Annemasse, Lille / Tournai, La Línea / Gibraltar, Monaco, Saint-Marin, Andorre,
+	Hong Kong (Chine), Groenland (Danemark), Fidji et Tchoukotka (antiméridien), mer et Caspienne (aucun pays).
 	Limite : un territoire plus petit qu'une ligne peut être manqué (Vatican, enclaves de Baarle-Hertog).
   - `CountryMask.countries_within(latitude, longitude, rayon_km)` : pays présents dans un disque, du plus proche au
 	plus éloigné (Bâle, 30 km : Allemagne, France, Suisse ; détroit de Béring, 60 km : Russie, États-Unis).
@@ -2368,7 +2368,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	  1 − 0,35 · (1 − exp(−(t − 10 min) / 15 min)), `NukeScaling.STEAM_SINK`, `STEAM_SINK_S`) et **disparaît vite**
 	  (densité × exp(−(t − 10 min) / 10 min), `STEAM_FADE_S`, en plus de la dissipation ordinaire). À 1 Mt : boule
 	  dense à 20 min, voile ténu à 35 min, masqué vers 50 min (temps physique, ~5 min d'horloge), contre ~6 h sur
-      terre.
+	  terre.
 - **Nuages** (`nuke/nuke_cloud_fx.gd`, nœud `CloudFX` créé par `NukeLauncher` ; `nuke/shaders/nuke_clouds.gdshaderinc`) :
   l'onde de choc creuse un trou dans la couche nuageuse, qui se referme ensuite.
   - **Branchement** : l'include est appelé par `cloud_density()` (`shaders/cloud_density.gdshaderinc` : une ligne
@@ -2381,9 +2381,9 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	  de choc ») : le front pousse les nuages devant lui, trou et anneau avancent ensemble.
 	- Rayon final : 6,4 km à 10 kt, 15 km à 1 Mt, 45 km à 50 Mt (agrandi par rapport au rayon de choc de
 	  référence : un trou plus étroit que l'épaisseur de la couche, jusqu'à 7 km, ne serait qu'un puits sombre vu de
-      biais).
-    - **Bord flou** : largeur de 18 % du rayon, au moins 0,6 km (`nuke_cloud_edge_soft`, `nuke_cloud_edge_km`),
-      rendue irrégulière par le bruit 3D des nuages (`nuke_cloud_edge_noise`, période 0,3 × rayon **final**). Le
+	  biais).
+	- **Bord flou** : largeur de 18 % du rayon, au moins 0,6 km (`nuke_cloud_edge_soft`, `nuke_cloud_edge_km`),
+	  rendue irrégulière par le bruit 3D des nuages (`nuke_cloud_edge_noise`, période 0,3 × rayon **final**). Le
 	  sommet des nuages y descend en pente douce. Le motif est lu en coordonnées centrées sur l'explosion, à
 	  l'échelle du rayon final : il est fixe. (Il était lu à l'échelle du rayon courant et en coordonnées
 	  planétaires, à ~6 371 km de l'origine : pendant l'expansion, la moindre variation du rayon le décalait de
@@ -2394,9 +2394,9 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	du bord (x : distance au bord ; w = 8 % du rayon, `nuke_cloud_rim_width`). La matière balayée est tassée contre
 	le bord : la carte y est lue jusqu'à 2,5 fois plus serrée. Le niveau de mipmap de la carte est relevé d'autant
 	(log2 du tassement, sortie `squeeze` de `nuke_cloud_warp`), sinon ses détails deviennent plus fins qu'un pixel
-    et scintillent.
+	et scintillent.
   - **Bourrelet** : densité × (1 + 0,6), sommet relevé de 25 % sur le bord (`nuke_cloud_rim_gain`,
-    `nuke_cloud_rim_lift`), même décroissance.
+	`nuke_cloud_rim_lift`), même décroissance.
   - **Retour des nuages** sur `recovery_s` (export de `CloudFX`, **1 200 s de temps physique** de l'explosion,
 	≈ 2 min d'horloge après l'accélération) :
 	- chaque point se referme à partir du passage du front, t = −τ · ln(1 − r / R_max), plafonné à celui de
@@ -2407,14 +2407,14 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	  du bord vers le centre ;
 	- décalage et bourrelet s'estompent sur la même durée.
 
-    Vu en jeu : à 10 kt, trou visible dès 3 s, sol visible au fond à 30 s ; à 1 Mt, ~15 km de rayon à 40 s ; à
-    50 Mt, ~40 km à 2 min ; à moitié refermé vers 10 min, disparu vers 20 min.
+	Vu en jeu : à 10 kt, trou visible dès 3 s, sol visible au fond à 30 s ; à 1 Mt, ~15 km de rayon à 40 s ; à
+	50 Mt, ~40 km à 2 min ; à moitié refermé vers 10 min, disparu vers 20 min.
   - **Dérive** : le centre du trou suit le vent du point d'impact (`NukeParams`, vent réel GFS), le même champ de
 	vent que l'advection des nuages : le trou part avec la masse d'air.
   - **Données** : 16 explosions au plus (les plus récentes), deux `vec4` chacune, en tableaux d'uniforms
-    `nuke_cloud_a` / `nuke_cloud_b` :
-    - a = (centre x, y, z en km dans le repère de la planète, rayon courant du trou) ;
-    - b = (rayon final du front R_max, τ, temps physique écoulé, puissance en kt).
+	`nuke_cloud_a` / `nuke_cloud_b` :
+	- a = (centre x, y, z en km dans le repère de la planète, rayon courant du trou) ;
+	- b = (rayon final du front R_max, τ, temps physique écoulé, puissance en kt).
 
 	C'est la disposition de deux texels RGBA32F par explosion. Pour passer à une texture de données, seuls
 	`nuke_cloud_event()` (shader) et `NukeCloudFX._upload()` changent. Une explosion sort de la liste quand son trou
@@ -2423,8 +2423,8 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 - **Lumière et effets d'écran du flash** (`nuke/nuke_flash_fx.gd`, nœud `FlashFX` créé par `NukeLauncher`), à
   chaque image, pour les flashs actifs :
   - **sol et nuages** : uniforms `nuke_flash_*` (les 4 flashs les plus intenses) de
-    `nuke/shaders/nuke_flash.gdshaderinc`, inclus dans `shaders/earth_surface.gdshader` et
-    `shaders/cloud_volume.gdshader`. Seul code des explosions hors de `nuke/` (avec celui des trous dans les
+	`nuke/shaders/nuke_flash.gdshaderinc`, inclus dans `shaders/earth_surface.gdshader` et
+	`shaders/cloud_volume.gdshader`. Seul code des explosions hors de `nuke/` (avec celui des trous dans les
 	nuages, voir « Nuages ») : une ligne d'inclusion et un appel dans chacun. Les lumières Godot ne conviennent pas ici : le sol a un `light()` propre au soleil, et les nuages
 	sont unshaded.
 	- Le **sol** reçoit flux × (400 km / d)² × cos(incidence) × transmittance de l'air, en émission (de jour
@@ -2434,10 +2434,10 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	  auto-ombrage (marche vers le flash : 4 pas doublés depuis 0,3 km, `nuke_flash_shadow_steps`) et diffusion
 	  isotrope. Appelé à chaque pas de la marche des nuages, c'est le poste le plus cher des 20 premières secondes
 	  d'une salve ; **la marche d'auto-ombrage est faite une seule fois par pas, vers le flash le plus brillant, et
-      partagée par les autres flashs** (`nuke_flash_shadow_shared`) : elle ne couvre que ~4,5 km autour de
+	  partagée par les autres flashs** (`nuke_flash_shadow_shared`) : elle ne couvre que ~4,5 km autour de
 	  l'échantillon, c'est la densité locale qui compte, peu la direction, et les flashs moins brillants pèsent
 	  moins (10 × 50 Mt, 1080p : 8,2 → 5,7 ms, PSNR 53–61 dB ; voir « Performances »). L'intégrale de l'air
-      (`nuke_flash_air_steps`, 8 pas) est bon marché.
+	  (`nuke_flash_air_steps`, 8 pas) est bon marché.
 	- Unité : le « soleil » (le sol reçoit `nuke_flash_ground_gain` = 2, comme la lumière `Sun`). L'éclairement
 	  est plafonné à 2 000 près de la boule de feu.
   - **station** : `DirectionalLight3D` dirigée depuis le flash le plus intense (à 400 km la source est à l'infini
@@ -2449,17 +2449,17 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	  source reste éclatante tant qu'elle brille ;
 	- le bloom (`glow_bloom` + 0,5·e) et le multiplicateur d'exposition de la caméra (× (1 + 2,5·e)) suivent
 	  l'éblouissement e = excès / (excès + 0,2), l'excès étant le flux reçu au-delà d'un niveau d'adaptation qui
-      le rattrape en 1,5 s (temps réel, `adaptation_s`) ;
+	  le rattrape en 1,5 s (temps réel, `adaptation_s`) ;
 	- tout revient aux valeurs d'origine à la fin du flash, et l'exposition automatique réagit ensuite d'elle-même ;
 	- un 50 Mt sature l'écran à la montée du flash ; un 10 kt laisse un éclat net sans saturation ;
 	- **règle : seulement si l'œil voit le flash** (`NukeFlashFX._eye_exposed`) : dans la cupola
 	  (`Station.is_in_cupola`) ou hors de la station (`Station.observer_outside`, mis par l'éjection du sas ; ou à
-      plus de 25 m de la station, `outside_distance_m`). Ailleurs dans les modules, la coque le cache : ni glow, ni
+	  plus de 25 m de la station, `outside_distance_m`). Ailleurs dans les modules, la coque le cache : ni glow, ni
 	  bloom, ni éblouissement, ni adaptation de l'œil (le flux d'écran est compté nul) ; la lumière du flash sur la
-      station garde, elle, le flux reçu.
+	  station garde, elle, le flux reçu.
 - **Horloge** (`nuke/nuke_clock.gd`, autoload `NukeClock`), distincte du temps réel :
   - `time_s` avance au rythme du temps de l'orbite (**Pause, x2… x16 s'appliquent aussi aux explosions**),
-    multiplié par `acceleration` (1 par défaut) ;
+	multiplié par `acceleration` (1 par défaut) ;
   - le temps physique d'une explosion défile en temps réel pendant `realtime_phase_s` (20 s : flash, boule de
 	feu, onde de choc). Sa vitesse monte ensuite **progressivement** (smoothstep) sur `ramp_s` (40 s d'horloge)
 	jusqu'à `slow_phase_acceleration` (×10), pour la montée du champignon et les trous dans les nuages ;
@@ -2482,7 +2482,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   - `launch(yield_kt)` : tire sur le point visé et retourne la `NukeEffect` créée ; sans cible, retourne `null`
 	sans rien faire ;
   - `launch_at(latitude, longitude, yield_kt)` : tire sur des coordonnées ; `fire(params)` : à partir d'une
-    `NukeParams` ;
+	`NukeParams` ;
   - signal `detonated(effect)` ; `get_effects()`, `clear_effects()`. Les explosions restent en place jusqu'à la
 	fin de la partie (persistance du monde) : seul `clear_effects()` (debug, banc de mesure) les retire.
   - Au démarrage, il lie `NukeClock` au nœud `Orbit` (`orbit_path`).
@@ -2501,9 +2501,9 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	**Tirer**, **Effacer** ;
   - case **Marqueurs** (marqueurs de taille des explosions) ;
   - menu **Alerte** (aucune / jaune / orange / rouge / plus de lumière) : niveau d'alerte de la station, couleur des luminaires
-    intérieurs (`Station.set_alert`, voir « Éclairage intérieur ») ;
+	intérieurs (`Station.set_alert`, voir « Éclairage intérieur ») ;
   - scrubber du temps physique (0 à 6 h, pour voir la dissipation du champignon ; non linéaire : t = 6 h · v⁵, les
-    3 premières secondes occupent 17 % de la course, les 10 premières minutes la moitié) : il suit la dernière explosion tirée depuis ce panneau ; le déplacer (ou cocher
+	3 premières secondes occupent 17 % de la course, les 10 premières minutes la moitié) : il suit la dernière explosion tirée depuis ce panneau ; le déplacer (ou cocher
 	**Rejouer**) fige toutes les explosions au temps choisi, décocher rend la main à l'horloge.
 
 ## Sources des textures
@@ -2555,7 +2555,7 @@ Les paragraphes (§) sont ceux des ouvrages ; entre parenthèses, les fichiers d
   - ch. VII : impulsion thermique (§7.85 à §7.88 : t_max, t_min, puissance au second maximum), seuils
 	d'inflammation (~10 cal/cm²), incendies et tempête de feu de Hiroshima ;
   - ch. IX : retombées locales, décroissance du débit de dose en t^−1,2, contours idéalisés de débit de dose
-    (vérification de `NukeFallout`), protection offerte par les bâtiments ;
+	(vérification de `NukeFallout`), protection offerte par les bâtiments ;
   - ch. XII : effets de l'irradiation aiguë sur l'homme (dose létale médiane de l'ordre de 4,5 Gy sans soins).
 - Adamsky, V. et Smirnov, Y. (1994). « Moscow's Biggest Bomb: the 50-Megaton Test of October 1961 ». *Cold War
   International History Project Bulletin*, n° 4, Woodrow Wilson International Center for Scholars. Hauteur du

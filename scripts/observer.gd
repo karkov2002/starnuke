@@ -38,13 +38,13 @@ var _flow_response_s := INF
 
 func _ready() -> void:
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
-	_place_at_start.call_deferred()
+	place_at_start.call_deferred()
 
 
-## Corps au repère de départ (orientation neutre), caméra orientée comme lui. Seulement en partie (scène du jeu
-## courante) : le décor du menu et les bancs de mesure (tools/bench, scène du jeu instanciée sous la leur) gardent la
-## position de la scène, dans la cupola.
-func _place_at_start() -> void:
+## Corps au repère de départ (orientation neutre), caméra orientée comme lui : au démarrage et à chaque réveil
+## (CampaignDirector.sleep). Seulement en partie (scène du jeu courante) : le décor du menu et les bancs de mesure
+## (tools/bench, scène du jeu instanciée sous la leur) gardent la position de la scène, dans la cupola.
+func place_at_start() -> void:
 	if owner == null or owner != get_tree().current_scene:
 		return
 	var station := get_tree().get_first_node_in_group(Station.GROUP) as Node3D

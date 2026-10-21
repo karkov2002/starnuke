@@ -91,13 +91,20 @@ func _process(delta: float) -> void:
 		changed.emit()
 
 
-## Poste un message (campagne, debug) : clés from, subject, body, channel (−1 : tous), replies (liste). Il arrive dès
-## que la liaison et le canal le permettent. Rend son identifiant.
+## Identifiant de message encore inutilisé, à donner à post (clé id) pour reconnaître le message avant son envoi.
+func reserve_id() -> String:
+	var id := "msg_%d" % _next_id
+	_next_id += 1
+	return id
+
+
+## Poste un message (campagne, debug) : clés from, subject, body, channel (−1 : tous), replies (liste), id (sinon
+## attribué, cf. reserve_id). Il arrive dès que la liaison et le canal le permettent (message_received, parfois émis
+## pendant cet appel). Rend son identifiant.
 func post(message: Dictionary) -> String:
 	var copy := message.duplicate(true)
 	if not copy.has("id"):
-		copy.id = "msg_%d" % _next_id
-		_next_id += 1
+		copy.id = reserve_id()
 	copy.merge({"channel": -1, "replies": [], "read": false, "answer": -1, "received_unix": -1.0})
 	_pending.append(copy)
 	_deliver()

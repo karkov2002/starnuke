@@ -49,6 +49,8 @@ const END_SCENE := "res://scenes/ui/campaign_end_screen.tscn"
 @export var radio_path: NodePath = ^"../Radio"
 @export var photos_path: NodePath = ^"../Photos"
 @export var launcher_path: NodePath = ^"../NukeLauncher"
+## Observateur, replacé dans la couchette à chaque réveil (Observer.place_at_start).
+@export var observer_path: NodePath = ^"../Observer"
 
 var _orbit: OrbitSimulation
 var _flight_computer: FlightComputer
@@ -214,15 +216,17 @@ func _next_mission() -> void:
 
 
 ## Heure du briefing : il est envoyé par le sol ; il n'arrive qu'avec la liaison radio (station au sol en vue, canal :
-## RadioComms), et c'est à sa réception que la mission commence.
+## RadioComms), et c'est à sa réception (message_received, parfois émis pendant post même) que la mission commence.
+## L'identifiant du message est réservé avant l'envoi, pour reconnaître cette réception. Sans radio : tout de suite.
 func _send_briefing() -> void:
 	var mission := Campaigns.current.mission(_scheduled_id)
 	_journal.write("briefing_sent", _now(), {"mission": _scheduled_id})
-	_briefing_id = _post(mission, tr("BRIEFING_SUBJECT").format({"title": _text(mission, "title")}),
-			_briefing_body(mission))
-	# Reçu aussitôt (liaison établie : message_received émis pendant post, avant que l'identifiant soit connu).
-	if _radio == null or not _radio.find(_briefing_id).is_empty():
+	if _radio == null:
 		_start_mission()
+		return
+	_briefing_id = _radio.reserve_id()
+	_post(mission, tr("BRIEFING_SUBJECT").format({"title": _text(mission, "title")}), _briefing_body(mission),
+			_briefing_id)
 
 
 func _on_message_received(message: Dictionary) -> void:
@@ -371,9 +375,9 @@ func sleep() -> void:
 	Campaigns.day_index = next
 	Campaigns.save(_capture_world())
 	start_day(next)
-	var observer := get_tree().current_scene.get_node_or_null("Observer")
-	if observer and observer.has_method(&"_place_at_start"):
-		observer.call(&"_place_at_start")
+	var observer := get_node_or_null(observer_path) as Observer
+	if observer:
+		observer.place_at_start()
 	if wake:
 		await wake.play(tr("DAY_TITLE").format({"n": next + 1}), day_heading())
 	_sleeping = false
@@ -457,13 +461,17 @@ func _briefing_body(mission: Dictionary) -> String:
 			"description": _text(mission, "description"), "targets": "\n".join(targets), "duration": duration})
 
 
-## Message radio de la campagne (expéditeur et canal de la mission, sinon defaults) ; rend son identifiant.
-func _post(mission: Dictionary, subject: String, body: String) -> String:
+## Message radio de la campagne (expéditeur et canal de la mission, sinon defaults), d'identifiant id (vide : attribué
+## par la radio) ; rend son identifiant.
+func _post(mission: Dictionary, subject: String, body: String, id := "") -> String:
 	if _radio == null:
 		return ""
 	var defaults := Campaigns.current.defaults()
-	return _radio.post({"from": mission.get("from", defaults.get("from", "COMM_FROM_GROUND")), "subject": subject,
-			"body": body, "channel": int(mission.get("channel", defaults.get("channel", -1)))})
+	var message := {"from": mission.get("from", defaults.get("from", "COMM_FROM_GROUND")), "subject": subject,
+			"body": body, "channel": int(mission.get("channel", defaults.get("channel", -1)))}
+	if not id.is_empty():
+		message.id = id
+	return _radio.post(message)
 
 
 func _text(mission: Dictionary, field: String) -> String:
