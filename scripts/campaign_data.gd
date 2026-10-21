@@ -36,6 +36,8 @@ const FORMAT := 2
 const OBJECTIVE_TYPES: Array[String] = ["photo", "strike"]
 const SCORE_KEYS: Array[String] = ["global_score", "day_score", "mission_score"]
 const MAX_SCORE := 20.0
+## Sommeil (h) avant une journée sans départ ni heure de réveil.
+const NIGHT_HOURS := 8.0
 
 ## Contenu brut (campaign.json) et erreurs trouvées.
 var data := {}

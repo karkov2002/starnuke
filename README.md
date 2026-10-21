@@ -45,19 +45,32 @@ permet de piloter le jeu exporté.
 - **Déroulement d'une journée** (règles de jeu, `CampaignDirector`) :
   - **Briefing** par la radio (écran de communication ; expéditeur et canal de la mission, sinon `defaults`) :
     « Mission : titre / Objectif : … / texte / Cible(s) : Photo ou Frappe et coordonnées / Durée avant échec :
-    6 h 00 min » (toujours avec les minutes : « 5 h 30 min ») (clés `BRIEFING_*`). **Les délais sont en heures et
-    minutes** (règle de jeu : plus précis et plus stressants que des jours). **Le chrono de la mission part quand le
-    briefing est lu.**
+    6 h 00 min (chronomètre lancé dans 10 min) » (toujours avec les minutes : « 5 h 30 min ») (clés `BRIEFING_*`).
+    **Les délais sont en heures et minutes** (règle de jeu : plus précis et plus stressants que des jours). **Le
+    chrono de la mission part 10 min (temps de jeu, `MissionScoring.START_GRACE_S`) après l'arrivée du briefing**,
+    qu'il soit lu ou non : la première mission de la journée arrive **au réveil**, les suivantes dès la fin de la
+    précédente ; les 10 min laissent le temps de se promener un peu (accélérer le temps les écoule d'autant plus
+    vite). Une photo ou un tir pendant ces 10 min compte déjà.
   - **Objectifs** : une **photo** satellite (point sous la station à la prise de vue) ou un **impact** de missile à
     moins de la tolérance d'une cible remplit l'objectif correspondant (le premier encore ouvert de ce type, dont
     l'objectif préalable `after` est rempli) ; plus loin, il ne compte pas.
   - **Note sur 20** (`scripts/mission_scoring.gd`) : précision d'un objectif = 20 jusqu'à tolérance / 4, puis
     décroissance linéaire jusqu'à 0 à la tolérance (non rempli : 0) ; précision de la mission = moyenne pondérée
-    (`weight`) ; **facteur temps** = 1 jusqu'au temps de référence (`par_hours`, sinon **le quart de l'échéance**
-    en attendant son calcul d'après le passage le plus tôt possible, banc d'équilibrage), puis décroissance linéaire
-    jusqu'à `time_floor` (0,6) à l'échéance ; note = précision × facteur temps ; **réussite si note ≥ 10**
+    (`weight`) ; **facteur temps** = 1 jusqu'au temps de référence, puis décroissance linéaire jusqu'à
+    `time_floor` (0,6) à l'échéance ; note = précision × facteur temps ; **réussite si note ≥ 10**
     (`success_score`).
-  - **Fin de mission** : tous les objectifs remplis, ou échéance (`deadline_hours` heures après la lecture du briefing) ;
+  - **Temps de référence** (règle de jeu) : `par_hours` s'il est donné, sinon **calculé à l'arrivée du briefing**
+    d'après l'orbite réelle (`scripts/mission_planner.gd`, `MissionPlanner`) : **passage le plus tôt possible**
+    pour remplir tous les objectifs, compté depuis le départ du chrono, **plus une orbite** (~1 h 32 à 400 km), au
+    plus l'échéance (mission impossible à temps : pas de pénalité de temps). Passage possible : **photo**, le point
+    sous la station passe à la verticale de la cible ; **tir**, la cible est vue à **au moins 20° au-dessus de
+    l'horizon** (`MIN_ELEVATION_DEG`, ~870 km autour du point survolé à 400 km). **Manœuvres comprises** : orbite
+    actuelle ou changement de plan en une poussée, n'importe où sur l'orbite, dans les limites du poste de pilotage
+    (inclinaison ≤ 80°, décalage du nœud ≤ ±20°, altitude inchangée), précession J2 comprise ; objectifs dans
+    l'ordre de `after`, sinon le plus tôt possible d'abord, chacun depuis l'orbite laissée par le précédent.
+    Recherche par pas (point de poussée tous les 5 min, passage tous les 2 min affiné par dichotomie) : quelques
+    millisecondes à moins de 0,1 s.
+  - **Fin de mission** : tous les objectifs remplis, ou échéance (`deadline_hours` heures après le départ du chrono) ;
     résultat retenu (`Campaigns.results` : note, réussite, précision, facteur temps, journée ; **moyenne globale**
     `Campaigns.global_score()`, toutes missions jouées, échecs compris) et message de résultat (message `result` de
     la mission choisi selon la note, sinon « Objectif atteint » / « Objectif non atteint », avec la note, RÉUSSITE
@@ -128,7 +141,11 @@ permet de piloter le jeu exporté.
     (`when`) : `global_score`, `day_score`, `mission_score` ou `score_of` {`id`} avec `min` (inclus) et/ou `max`
     (exclu), notes sur 20 ; une note encore inconnue rend la condition fausse.
   - **Vérification** : `godot --headless --path . -s tools/check_campaign.gd [-- <campagne>]` liste les erreurs de
-    chaque campagne (chemin dans le fichier et explication, en français ; code de sortie 1 s'il y en a). La campagne
+    chaque campagne (chemin dans le fichier et explication, en français ; code de sortie 1 s'il y en a). Pour une
+    campagne valide, il donne aussi, journée par journée, le **passage le plus tôt possible**, le **temps de
+    référence** et l'échéance de chaque mission (missions enchaînées comme si chacune était remplie au plus tôt,
+    conditions `when` ignorées, coucher dès la fin de la journée) et signale par « ⚠ » une mission **impossible
+    dans son délai** (avertissement, pas une erreur). La campagne
     officielle contient pour l'instant deux journées d'essai (photos de Kourou, puis de Toulouse).
 
 - **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : titre

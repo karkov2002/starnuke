@@ -148,12 +148,21 @@ func restart(local_solar_hour: float) -> void:
 ## Recalcule Ω et la phase pour que la station soit, maintenant, à la verticale de (lat, lon), en phase
 ## montante ou descendante. Nécessite |lat| ≤ inclinaison (sinon la latitude est ramenée à ±inclinaison).
 func pass_over(latitude_deg: float, longitude_deg: float, ascending: bool) -> void:
-	var i := deg_to_rad(inclination_deg)
-	var lat := deg_to_rad(latitude_deg)
-	var max_lat := absf(i)
-	if absf(lat) > max_lat:
+	if absf(latitude_deg) > absf(inclination_deg):
 		push_warning("orbit : latitude %.1f° inaccessible avec une inclinaison de %.1f°" % [latitude_deg, inclination_deg])
-		lat = clampf(lat, -max_lat, max_lat)
+	var plane := plane_over(inclination_deg, latitude_deg, longitude_deg, ascending, get_utc_unix_s())
+	_raan = plane.x - get_raan_rate() * sim_time_s
+	_arg_lat_epoch = plane.y - get_mean_motion() * sim_time_s
+	orbit_changed.emit()
+
+
+## Orbite d'inclinaison donnée passant à l'instant UTC unix_s à la verticale de (lat, lon), en phase montante ou
+## descendante : Vector2(Ω, u) à cet instant (radians). |lat| > inclinaison : latitude ramenée à ±inclinaison.
+static func plane_over(inclination_deg: float, latitude_deg: float, longitude_deg: float, ascending: bool,
+		unix_s: float) -> Vector2:
+	var i := deg_to_rad(inclination_deg)
+	var max_lat := absf(i)
+	var lat := clampf(deg_to_rad(latitude_deg), -max_lat, max_lat)
 	var u: float
 	if sin(i) < 1e-6:
 		u = 0.0 # orbite équatoriale : seule la longitude compte
@@ -163,10 +172,7 @@ func pass_over(latitude_deg: float, longitude_deg: float, ascending: bool) -> vo
 			u = PI - u
 	# Longitude (inertielle) du point de l'orbite par rapport au nœud ascendant.
 	var node_offset := atan2(cos(i) * sin(u), cos(u))
-	var theta := get_sidereal_angle(sim_time_s)
-	_raan = wrapf(deg_to_rad(longitude_deg) + theta - node_offset, -PI, PI) - get_raan_rate() * sim_time_s
-	_arg_lat_epoch = u - get_mean_motion() * sim_time_s
-	orbit_changed.emit()
+	return Vector2(wrapf(deg_to_rad(longitude_deg) + _sidereal_angle_at_unix(unix_s) - node_offset, -PI, PI), u)
 
 
 ## Nouvelle orbite (manœuvre) : inclinaison, Ω au temps time_s (rad) et altitude, la station gardant au temps time_s
