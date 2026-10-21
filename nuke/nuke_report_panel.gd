@@ -43,6 +43,8 @@ var _station: Station
 var _screen: MeshInstance3D
 var _viewport: SubViewport
 var _material: ShaderMaterial
+## Dernière luminosité envoyée au shader (renvoyée seulement si elle change).
+var _energy_applied := -1.0
 var _summary: Label
 var _projection: Label
 var _scroll: ScrollContainer
@@ -80,8 +82,15 @@ func _ready() -> void:
 	_apply_material()
 
 
+func _set_energy(value: float) -> void:
+	if is_equal_approx(value, _energy_applied):
+		return
+	_energy_applied = value
+	_material.set_shader_parameter("energy", value)
+
+
 func _process(delta: float) -> void:
-	_material.set_shader_parameter("energy", screen_energy * (1.0 - _station.get_blackout()))
+	_set_energy(screen_energy * (1.0 - _station.get_blackout()))
 	var camera := get_viewport().get_camera_3d()
 	var near := camera != null and camera.global_position.distance_to(_screen.global_position) < RENDER_DISTANCE
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if near else SubViewport.UPDATE_DISABLED

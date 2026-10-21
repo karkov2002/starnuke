@@ -31,6 +31,8 @@ var _screen: MeshInstance3D
 var _viewport: SubViewport
 var _display: CommDisplay
 var _material: ShaderMaterial
+## Dernière luminosité envoyée au shader (renvoyée seulement si elle change).
+var _energy_applied := -1.0
 ## Dalle dans le repère du maillage : coin haut gauche (UV 0, 0), côté vers la droite, côté vers le bas.
 var _top_left := Vector3.ZERO
 var _axis_u := Vector3.ZERO
@@ -93,8 +95,15 @@ func _notification(what: int) -> void:
 		_exit_hint.visible = false
 
 
+func _set_energy(value: float) -> void:
+	if is_equal_approx(value, _energy_applied):
+		return
+	_energy_applied = value
+	_material.set_shader_parameter("energy", value)
+
+
 func _process(_delta: float) -> void:
-	_material.set_shader_parameter("energy", screen_energy * (1.0 - _station.get_blackout()))
+	_set_energy(screen_energy * (1.0 - _station.get_blackout()))
 	var hovering := not _seated and not _moving and not ScreenSeat.any_seated(get_tree()) \
 			and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and _screen_uv(_mouse_position, reach_m) != Vector2(-1, -1)
 	_hover_label.visible = hovering

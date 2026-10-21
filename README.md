@@ -207,7 +207,8 @@ permet de piloter le jeu exporté.
 
 - **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : titre
   provisoire « Star Nuke » lumineux (`scripts/ui/title_glow.gd`, `shaders/title_glow.gdshader` : texte rendu en
-  blanc dans un SubViewport puis teinté, avec un halo flou ; sa couleur suit celle d'un corps noir chauffé, allant
+  blanc dans un SubViewport (une seule fois, `UPDATE_ONCE`, le texte ne changeant qu'avec la langue) puis teinté par
+  le shader, avec un halo flou ; sa couleur suit celle d'un corps noir chauffé, allant
   et venant en 18 s de ~700 K, presque noir, au rouge, à l'orange, au jaune puis au blanc ~6 600 K, approximation
   de Tanner Helland ; la luminosité monte vite avec la température pour que le rouge rougeoie ; le halo garde une
   lueur minimale de braise, `halo_floor` : au plus froid, les lettres sombres restent lisibles) et boutons **Start Game** (page des modes de
@@ -490,6 +491,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	convertie en pixels de l'image), les autres sont ignorés (pas de tir, pas de clic sur le reste de l'interface).
     Indication en bas de la vue : « Clic droit : quitter le poste de pilotage » ;
   - clic droit : retour en 0,6 s à la position et à l'orientation d'avant, l'observateur reprend la main.
+  - Coût : comme les autres écrans, l'image n'est rendue et l'interface mise à jour que si la caméra est à moins
+	de 12 m de la dalle (`RENDER_DISTANCE`).
 - **Interface** (`scripts/ui/pilot_display.gd`, construite en code) : carte à gauche ; à droite, l'orbite actuelle
   (heure UTC, position, altitude, inclinaison et **précession J2** de Ω en °/jour, période et **décalage de la trace
   au sol par tour**, vitesse orbitale) puis la **manœuvre** : curseurs de l'**inclinaison visée** (0 à 80°), de

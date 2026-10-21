@@ -4,7 +4,8 @@ extends TextureRect
 ## transparent, puis affiché avec un halo (shaders/title_glow.gdshader). Sa couleur suit lentement, en allant et
 ## venant, celle d'un corps noir chauffé : noir (froid), rouge sombre, rouge, orange, jaune, jusqu'au blanc
 ## (~6 600 K), puis retour. La luminosité suit la température (un corps noir froid ne rayonne pas de lumière
-## visible) : au plus froid, le titre et son halo s'éteignent presque.
+## visible) : au plus froid, le titre et son halo s'éteignent presque. Le texte étant fixe, le SubViewport n'est rendu
+## qu'une fois (et à chaque changement de taille ou de langue) ; couleur et halo sont des paramètres du shader.
 
 ## Texte (clé de langue) et taille de police.
 @export var text := "GAME_TITLE"
@@ -24,7 +25,6 @@ var _time := 0.0
 func _ready() -> void:
 	_viewport = SubViewport.new()
 	_viewport.transparent_bg = true
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(_viewport)
 	_label = Label.new()
 	_label.text = text
@@ -57,6 +57,7 @@ func _fit() -> void:
 	var text_size := _label.get_combined_minimum_size()
 	_viewport.size = Vector2i(text_size) + Vector2i.ONE * glow_margin * 2
 	custom_minimum_size = Vector2(_viewport.size)
+	_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
 func _update_color() -> void:

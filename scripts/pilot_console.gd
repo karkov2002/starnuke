@@ -9,6 +9,7 @@ extends Node
 ##   L'interface ne réagit qu'en position « poste de pilotage ». La barre de vitesse du temps (Hud) reste cliquable.
 ##   La tablette se range d'elle-même (seated_changed).
 ## - Clic droit : on quitte le poste (retour à la position et à l'orientation d'avant).
+## L'image n'est rendue que si la caméra est à moins de RENDER_DISTANCE de l'écran.
 
 signal seated_changed(seated: bool)
 
@@ -16,6 +17,8 @@ const SCREEN_NODE := "Interactif_Ecran_Principal"
 const SCREEN_MATERIAL := "Ecran_15"
 ## Hauteur de l'image de l'interface (pixels) ; la largeur suit les proportions de la dalle.
 const VIEWPORT_HEIGHT := 1000
+## Au-delà de cette distance (m) entre la caméra et l'écran, l'image n'est plus rendue (comme les autres écrans).
+const RENDER_DISTANCE := 12.0
 
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
 @export var observer_path: NodePath = ^"../Observer"
@@ -106,6 +109,11 @@ func _process(_delta: float) -> void:
 		_hover_label.position = _mouse_position + Vector2(18, 14)
 		_hover_label.reset_size()
 	_exit_hint.visible = _seated and not _moving
+	# Écran hors du module (loin) : l'image n'est plus rendue ni l'interface mise à jour.
+	var camera := get_viewport().get_camera_3d()
+	var near := camera != null and camera.global_position.distance_to(_screen.global_position) < RENDER_DISTANCE
+	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if near else SubViewport.UPDATE_DISABLED
+	_display.set_process(near)
 
 
 func _unhandled_input(event: InputEvent) -> void:
