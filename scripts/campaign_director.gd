@@ -2,31 +2,36 @@ class_name CampaignDirector
 extends Node
 ## Déroulement d'une campagne (nœud CampaignDirector de scenes/orbit_view.tscn), actif seulement en mode campagne
 ## (Campaigns.mode, choisi à l'écran de démarrage) ; en mode libre, il ne fait rien. Règles de jeu :
-## - début de journée : départ appliqué (CampaignData.start_of_day : heure UTC, altitude, inclinaison, point survolé,
-##   sens de passage, OrbitSimulation.place ; la manœuvre en préparation est annulée), puis briefing de la première
-##   mission dont la condition est vraie ;
-## - briefing : message radio (RadioComms.post ; expéditeur et canal de la mission, sinon defaults) au gabarit
-##   BRIEFING_BODY : mission, objectif, texte, cibles (type et coordonnées), durée avant échec. Le chrono de la mission
-##   part MissionScoring.START_GRACE_S (10 min de jeu) après l'arrivée du briefing, lu ou non : au réveil pour la
-##   première mission de la journée, à la fin de la précédente pour les suivantes (le temps de se promener un peu) ;
+## - début de journée : départ appliqué (CampaignData.start_of_day) : avec orbit, heure UTC et position exactes
+##   (altitude, inclinaison, point survolé, sens de passage, OrbitSimulation.place) ; sans orbit, saut dans le temps
+##   jusqu'à cette date, la station continuant son orbite (ignoré si la date est déjà passée). La manœuvre en
+##   préparation est annulée ; les explosions vieillissent d'autant (NukeClock). Puis la première mission dont la
+##   condition est vraie est programmée ;
+## - briefing : il arrive à l'heure de la mission (briefing_utc, sinon briefing_delay_minutes après le réveil ou la fin
+##   de la précédente : CampaignData.briefing_unix) ; avant, aucune mission n'est en cours (promenade libre). À cette
+##   heure, le sol l'envoie : message radio (RadioComms.post ; expéditeur et canal de la mission, sinon defaults) au
+##   gabarit BRIEFING_BODY (mission, objectif, texte, cibles, durée avant échec), qui n'arrive qu'avec la liaison
+##   (station au sol en vue, bon canal). À sa réception : appel prioritaire (PriorityCall : sonnerie, luminaires
+##   orange, bandeau) jusqu'à sa lecture, temps ramené à ×1, et **le chrono de la mission part** ;
 ## - temps de référence (par_hours, sinon calculé à l'arrivée du briefing, MissionPlanner) : passage le plus tôt
-##   possible pour tous les objectifs, manœuvres comprises, compté depuis le départ du chrono, plus une orbite ; au plus
-##   l'échéance (mission impossible à temps : pas de pénalité de temps) ;
+##   possible pour tous les objectifs, manœuvres comprises, plus une orbite ; au plus l'échéance (mission impossible
+##   à temps : pas de pénalité de temps) ;
 ## - objectifs : une photo (PhotoArchive.photo_taken : point sous la station) ou un impact (NukeLauncher.detonated)
 ##   à moins de la tolérance d'une cible de la mission remplit son objectif (le premier objectif encore ouvert de ce
 ##   type, dont l'objectif préalable « after » est rempli), avec la précision obtenue (MissionScoring) ; plus loin, il
 ##   ne compte pas ;
-## - fin de mission : tous les objectifs remplis, ou échéance (deadline_hours après le départ du chrono) : note =
+## - fin de mission : tous les objectifs remplis, ou échéance (deadline_hours après l'arrivée du briefing) : note =
 ##   précision pondérée × facteur temps (MissionScoring), réussite si ≥ success_score ; résultat retenu (Campaigns.results,
 ##   moyenne globale) et message radio de résultat (message « result » de la mission choisi selon la note, sinon
-##   RESULT_DEFAULT_*), puis briefing de la mission suivante de la journée dont la condition est vraie ;
+##   RESULT_DEFAULT_*), puis la mission suivante de la journée dont la condition est vraie est programmée ;
 ## - fin de journée (plus de mission) : note de la journée retenue, message « debrief » de la journée (selon les
 ##   notes) ; à la dernière journée, message de fin de campagne (« ending », selon la moyenne globale) ;
 ## - après la fin de journée, promenade libre : la couchette (Interactif_Couchette) devient cliquable, « Dormir »
 ##   (HatchInteraction, can_sleep) : fondu au noir (WakeUp.fall_asleep), réveil dans la couchette (Observer, point
 ##   de départ) au départ de la journée suivante : le sien s'il est défini, sinon la station a continué son orbite
 ##   jusqu'à l'heure de réveil (wake_up_utc, le lendemain si elle est passée ; sans heure de réveil,
-##   CampaignData.NIGHT_HOURS de sommeil) ; « Jour n » et ouverture des paupières (WakeUp.play ; au lancement, WakeUp joue lui-même le réveil).
+##   CampaignData.NIGHT_HOURS de sommeil) ; « Jour n », date, heure UTC et point survolé (day_heading), puis
+##   ouverture des paupières (WakeUp.play ; au lancement, WakeUp joue lui-même le réveil).
 ##   Après la dernière journée, dormir termine la campagne : sauvegarde effacée, écran de fin de campagne
 ##   (scenes/ui/campaign_end_screen.tscn : message de fin, moyenne globale, notes par journée et par mission), puis
 ##   écran de démarrage. Sauvegarde au coucher (Campaigns.save).
@@ -52,6 +57,7 @@ var _radio: RadioComms
 ## passage le plus tôt possible (s, depuis l'arrivée du briefing ; INF : impossible à temps), précisions des
 ## objectifs (NAN : pas rempli).
 var _mission_id := ""
+var _briefing_id := ""
 var _started_unix := 0.0
 var _par := 0.0
 var _earliest := INF
@@ -61,6 +67,11 @@ var _precisions: Array = []
 var _journal: CampaignJournal
 var _continued := false
 var _session_logged := false
+## Mission programmée (briefing pas encore arrivé, "" : aucune) et heure d'arrivée de son briefing (UTC, s).
+var _scheduled_id := ""
+var _briefing_unix := 0.0
+## Appel prioritaire à l'arrivée d'un briefing.
+var _call: PriorityCall
 ## Prochaine entrée à examiner dans la liste des missions de la journée.
 var _next_entry := 0
 ## Journée terminée (couchette cliquable) ; sommeil en cours (fondu).
@@ -78,6 +89,12 @@ func _ready() -> void:
 		return
 	_journal = CampaignJournal.new(Campaigns.current_id)
 	_continued = not Campaigns.pending_world.is_empty()
+	_call = PriorityCall.new()
+	_call.name = "PriorityCall"
+	add_child(_call)
+	if _radio:
+		_radio.message_read.connect(_on_message_read)
+		_radio.message_received.connect(_on_message_received)
 	if _flight_computer:
 		_flight_computer.burn_finished.connect(func(quality: int, ratio: float) -> void:
 			_journal.write("burn", _now(), {"mission": _mission_id,
@@ -110,12 +127,16 @@ func current_mission() -> String:
 
 
 ## Commence la journée day_index : départ appliqué s'il est défini (sinon, la station reste où elle est), puis
-## première mission.
+## première mission programmée.
 func start_day(day_index: int) -> void:
 	if not is_active() or day_index < 0 or day_index >= Campaigns.current.days().size():
 		return
 	Campaigns.day_index = day_index
-	apply_start(Campaigns.current.start_of_day(day_index))
+	var start := Campaigns.current.start_of_day(day_index)
+	# Première journée sans orbite propre : départ de la campagne, puis saut à sa date.
+	if day_index == 0 and not start.has("orbit"):
+		apply_start(Campaigns.current.data.get("start", {}))
+	apply_start(start)
 	_next_entry = 0
 	_day_over = false
 	if not _session_logged:
@@ -127,28 +148,57 @@ func start_day(day_index: int) -> void:
 	_next_mission()
 
 
-## Place la station selon un départ (format de CampaignData) ; rien si start est vide.
+## Applique un départ (format de CampaignData) ; rien si start est vide. Avec orbit : station placée à l'heure et à la
+## position données ; sans : saut dans le temps jusqu'à la date (orbite poursuivie), ignoré si elle est passée. Les
+## explosions vieillissent du temps sauté.
 func apply_start(start: Dictionary) -> void:
 	if start.is_empty() or _orbit == null:
 		return
-	var orbit: Dictionary = start.orbit
-	var over: Dictionary = orbit.over
-	_orbit.place(CampaignData.parse_utc(str(start.utc)), float(orbit.altitude_km), float(orbit.inclination_deg),
-			float(over.lat), float(over.lon), bool(orbit.get("ascending", true)))
+	var utc := CampaignData.parse_utc(str(start.utc))
+	var jump := utc - _orbit.get_utc_unix_s()
+	if start.has("orbit"):
+		var orbit: Dictionary = start.orbit
+		var over: Dictionary = orbit.over
+		_orbit.place(utc, float(orbit.altitude_km), float(orbit.inclination_deg), float(over.lat), float(over.lon),
+				bool(orbit.get("ascending", true)))
+		if jump > 0.0:
+			NukeClock.time_s += jump
+	elif jump > 0.0:
+		_advance(jump)
 	if _flight_computer:
 		_flight_computer.reset_target()
 
 
+## Le temps passe de seconds secondes d'un coup (nuit, saut dans le temps) : orbite et explosions.
+func _advance(seconds: float) -> void:
+	_orbit.sim_time_s += seconds
+	NukeClock.time_s += seconds
+
+
 func _process(_delta: float) -> void:
-	if _mission_id.is_empty() or _orbit == null:
+	if _orbit == null:
 		return
-	if _orbit.get_utc_unix_s() - _started_unix >= _deadline_s(_mission()):
+	if not _scheduled_id.is_empty() and _briefing_id.is_empty() and _now() >= _briefing_unix:
+		_send_briefing()
+	if not _mission_id.is_empty() and _now() - _started_unix >= _deadline_s(_mission()):
 		_finish_mission()
+
+
+## Ligne du réveil : date, heure UTC et point survolé (« 24 octobre 2035 — 11 h 15 UTC — 40.40° N  3.70° O »).
+func day_heading() -> String:
+	if _orbit == null:
+		return ""
+	var now := _orbit.get_utc_datetime()
+	var point := _orbit.get_subsatellite_point()
+	return tr("WAKE_HEADING").format({"day": now.day, "month": tr("MONTH_%d" % now.month), "year": now.year,
+			"hour": "%02d" % now.hour, "minute": "%02d" % now.minute,
+			"position": GroundTarget.format(point.x, point.y)})
 
 
 # --- Missions -------------------------------------------------------------------------------------------------------
 
-## Mission suivante de la journée dont la condition est vraie, sinon fin de journée.
+## Mission suivante de la journée dont la condition est vraie, programmée à l'heure de son briefing ; sinon fin de
+## journée.
 func _next_mission() -> void:
 	var day := _day()
 	var entries: Array = day.get("missions", [])
@@ -156,29 +206,61 @@ func _next_mission() -> void:
 		var entry: Dictionary = entries[_next_entry]
 		_next_entry += 1
 		if CampaignData.check(entry.get("when", {}), Campaigns.scores(day.id, "")):
-			_start_mission(str(entry.mission))
+			_scheduled_id = str(entry.mission)
+			_briefing_unix = Campaigns.current.briefing_unix(entry, _now())
+			_journal.write("mission_scheduled", _now(), {"mission": _scheduled_id, "briefing_unix": _briefing_unix})
 			return
 	_finish_day()
 
 
-func _start_mission(id: String) -> void:
+## Heure du briefing : il est envoyé par le sol ; il n'arrive qu'avec la liaison radio (station au sol en vue, canal :
+## RadioComms), et c'est à sa réception que la mission commence.
+func _send_briefing() -> void:
+	var mission := Campaigns.current.mission(_scheduled_id)
+	_journal.write("briefing_sent", _now(), {"mission": _scheduled_id})
+	_briefing_id = _post(mission, tr("BRIEFING_SUBJECT").format({"title": _text(mission, "title")}),
+			_briefing_body(mission))
+	# Reçu aussitôt (liaison établie : message_received émis pendant post, avant que l'identifiant soit connu).
+	if _radio == null or not _radio.find(_briefing_id).is_empty():
+		_start_mission()
+
+
+func _on_message_received(message: Dictionary) -> void:
+	if not _scheduled_id.is_empty() and not _briefing_id.is_empty() and message.get("id", "") == _briefing_id:
+		_start_mission()
+
+
+## Réception du briefing : la mission programmée commence (chrono), appel prioritaire, temps ramené à ×1.
+func _start_mission() -> void:
+	var id := _scheduled_id
+	_scheduled_id = ""
 	_mission_id = id
 	var mission := _mission()
-	_started_unix = _now() + MissionScoring.START_GRACE_S
+	_started_unix = _now()
 	_plan(mission)
 	_precisions = []
 	for _objective in mission.objectives:
 		_precisions.append(NAN)
-	_journal.write("mission_start", _now(), {"mission": id, "grace_s": MissionScoring.START_GRACE_S,
-			"deadline_s": _deadline_s(mission), "par_s": _par, "earliest_s": _earliest if _earliest < INF else -1.0,
+	_journal.write("mission_start", _now(), {"mission": id, "deadline_s": _deadline_s(mission), "par_s": _par,
+			"earliest_s": _earliest if _earliest < INF else -1.0,
 			"altitude_km": _orbit.altitude_km if _orbit else 0.0,
-			"inclination_deg": _orbit.inclination_deg if _orbit else 0.0})
-	_post(mission, tr("BRIEFING_SUBJECT").format({"title": _text(mission, "title")}), _briefing_body(mission))
+			"inclination_deg": _orbit.inclination_deg if _orbit else 0.0, "time_scale": _orbit.time_scale})
+	if _orbit:
+		_orbit.time_scale = 1.0
+	_call.ring()
 	mission_started.emit(id)
 
 
+## Briefing lu (écran de communication) : fin de l'appel prioritaire.
+func _on_message_read(message_id: String) -> void:
+	if message_id.is_empty() or message_id != _briefing_id:
+		return
+	_briefing_id = ""
+	_call.stop()
+	_journal.write("briefing_read", _now(), {"mission": _mission_id, "elapsed_s": _now() - _started_unix})
+
+
 ## Photo ou impact en (lat, lon) : remplit le premier objectif ouvert de ce type à portée (son préalable rempli).
-## Pendant le délai avant le chrono aussi.
 func _record(type: String, lat: float, lon: float) -> void:
 	if _mission_id.is_empty():
 		return
@@ -221,6 +303,9 @@ func _finish_mission() -> void:
 	var result := {"score": score, "success": success, "precision": precision, "time_factor": factor, "day": day_id}
 	var id := _mission_id
 	Campaigns.results[id] = result
+	# Briefing jamais lu : l'appel s'arrête avec la mission.
+	_briefing_id = ""
+	_call.stop()
 	_journal.write("mission_end", _now(), {"mission": id, "score": score, "success": success,
 			"precision": precision, "time_factor": factor, "elapsed_s": elapsed, "par_s": _par,
 			"deadline_s": _deadline_s(mission), "complete": not _precisions.any(func(p: float) -> bool: return is_nan(p)),
@@ -288,7 +373,7 @@ func sleep() -> void:
 	if observer and observer.has_method(&"_place_at_start"):
 		observer.call(&"_place_at_start")
 	if wake:
-		await wake.play(tr("DAY_TITLE").format({"n": next + 1}))
+		await wake.play(tr("DAY_TITLE").format({"n": next + 1}), day_heading())
 	_sleeping = false
 
 
@@ -349,15 +434,9 @@ func _advance_to_wake_up(day_index: int) -> void:
 	var now := _orbit.get_utc_unix_s()
 	var sleep_s := CampaignData.NIGHT_HOURS * 3600.0
 	if day.has("wake_up_utc"):
-		var parts := str(day.wake_up_utc).split(":")
-		var wake := floorf(now / 86400.0) * 86400.0 + int(parts[0]) * 3600.0 + int(parts[1]) * 60.0
-		if wake <= now:
-			wake += 86400.0
-		sleep_s = wake - now
-	_orbit.sim_time_s += sleep_s
+		sleep_s = CampaignData.next_clock_unix(str(day.wake_up_utc), now) - now
 	# Les explosions vieillissent aussi pendant la nuit (incendies, fumées).
-	NukeClock.time_s += sleep_s
-
+	_advance(sleep_s)
 
 
 # --- Messages -------------------------------------------------------------------------------------------------------
@@ -373,8 +452,7 @@ func _briefing_body(mission: Dictionary) -> String:
 	var minutes := roundi(_deadline_s(mission) / 60.0)
 	var duration := "%d h %02d min" % [floori(minutes / 60.0), minutes % 60]
 	return tr("BRIEFING_BODY").format({"title": _text(mission, "title"), "objective": _text(mission, "objective"),
-			"description": _text(mission, "description"), "targets": "\n".join(targets), "duration": duration,
-			"grace": roundi(MissionScoring.START_GRACE_S / 60.0)})
+			"description": _text(mission, "description"), "targets": "\n".join(targets), "duration": duration})
 
 
 ## Message radio de la campagne (expéditeur et canal de la mission, sinon defaults) ; rend son identifiant.
@@ -407,18 +485,17 @@ func _deadline_s(mission: Dictionary) -> float:
 	return float(mission.get("deadline_hours", 0.0)) * 3600.0 + float(mission.get("deadline_minutes", 0.0)) * 60.0
 
 
-## Passage le plus tôt possible depuis maintenant (arrivée du briefing, MissionPlanner) et temps de référence (s,
-## depuis le départ du chrono) : par_hours, sinon ce passage plus une orbite ; au plus l'échéance.
+## Passage le plus tôt possible depuis maintenant (arrivée du briefing, départ du chrono, MissionPlanner) et temps de
+## référence (s) : par_hours, sinon ce passage plus une orbite ; au plus l'échéance.
 func _plan(mission: Dictionary) -> void:
 	var deadline := _deadline_s(mission)
 	_earliest = INF
 	_par = deadline
 	if _orbit:
 		var state := MissionPlanner.state_of(_orbit)
-		_earliest = MissionPlanner.earliest(state, mission.objectives, 0.0,
-				MissionScoring.START_GRACE_S + deadline).time
+		_earliest = MissionPlanner.earliest(state, mission.objectives, 0.0, deadline).time
 		if _earliest < INF:
-			_par = minf(maxf(_earliest - MissionScoring.START_GRACE_S, 0.0) + MissionPlanner.period_s(state), deadline)
+			_par = minf(_earliest + MissionPlanner.period_s(state), deadline)
 	var par: Variant = mission.get("par_hours", null)
 	if par != null:
 		_par = float(par) * 3600.0

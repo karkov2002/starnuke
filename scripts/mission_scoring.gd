@@ -6,17 +6,15 @@ extends RefCounted
 ##   station à la prise de vue ; tir : point d'impact) : 20 jusqu'à tolérance / 4 (zone parfaite), puis décroît en
 ##   ligne droite jusqu'à 0 à la tolérance ; un objectif non rempli vaut 0 ;
 ## - précision de la mission : moyenne des précisions des objectifs, pondérée par leur poids (weight) ;
-## - facteur temps : 1 tant que le temps écoulé depuis le départ du chrono ne dépasse pas le temps de référence
+## - facteur temps : 1 tant que le temps écoulé depuis l'arrivée du briefing (départ du chrono) ne dépasse pas le temps de référence
 ##   (par), puis décroît en ligne droite jusqu'à time_floor (0,6 par défaut) à l'échéance (deadline) ;
 ## - note de la mission = précision × facteur temps ; réussite si note ≥ success_score (10 par défaut).
 ## Temps de référence par défaut (par_hours absent ou null) : passage le plus tôt possible plus une orbite
-## (MissionPlanner, CampaignDirector._par_s).
+## (MissionPlanner, CampaignDirector._plan).
 
 const MAX_SCORE := 20.0
 ## Part de la tolérance où la précision est parfaite.
 const PERFECT_SHARE := 0.25
-## Délai (s de jeu) entre l'arrivée du briefing et le départ du chrono : le temps de se promener un peu.
-const START_GRACE_S := 600.0
 
 
 ## Distance au sol (km, grand cercle) entre deux points (latitude, longitude en degrés).

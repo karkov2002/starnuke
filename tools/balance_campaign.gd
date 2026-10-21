@@ -104,8 +104,8 @@ func _report(id: String, campaign: CampaignData, runs: int) -> String:
 		campaign_cells.append("%s%.1f ± %.1f" % ["" if ok else "⚠ ", mean, _sd(means, mean)])
 	lines.append("| **Campagne** | | | | %s |" % " | ".join(campaign_cells))
 	lines.append("")
-	lines.append("Cellules : note moyenne ± écart type (part de réussites). Au plus tôt : depuis l'arrivée du briefing ; "
-			+ "référence et échéance : depuis le départ du chrono (10 min plus tard).")
+	lines.append("Cellules : note moyenne ± écart type (part de réussites). Au plus tôt, référence et échéance : "
+			+ "depuis l'arrivée du briefing (départ du chrono).")
 	lines.append("")
 	lines.append("%d case(s) hors cible (⚠)." % flagged if flagged > 0 else "Toutes les notes sont dans leur cible.")
 	lines.append("")
@@ -122,8 +122,7 @@ func _simulate(mission: Dictionary, row: Dictionary, profile: Dictionary, defaul
 	var objectives: Array = mission.objectives
 	if row.earliest_s == INF:
 		return 0.0
-	var grace := MissionScoring.START_GRACE_S
-	var limit: float = grace + row.deadline_s
+	var limit: float = row.deadline_s
 	var t: float = row.earliest_s + _rng.randf_range(profile.delay_orbits[0], profile.delay_orbits[1]) * row.period_s
 	var precisions := []
 	for objective: Dictionary in objectives:
@@ -138,7 +137,7 @@ func _simulate(mission: Dictionary, row: Dictionary, profile: Dictionary, defaul
 			t += row.period_s
 		precisions.append(precision)
 	var weights: Array = objectives.map(func(o: Dictionary) -> float: return float(o.get("weight", 1.0)))
-	var factor := MissionScoring.time_factor(minf(t, limit) - grace, row.par_s, row.deadline_s,
+	var factor := MissionScoring.time_factor(minf(t, limit), row.par_s, row.deadline_s,
 			float(defaults.get("time_floor", 0.6)))
 	return MissionScoring.mission_precision(precisions, weights) * factor
 

@@ -18,7 +18,7 @@
 			"id": "d1",
 			"wake_up_utc": "06:00",
 			"missions": [
-				{ "mission": "test_kourou" }
+				{ "mission": "test_kourou", "briefing_utc": "06:30" }
 			],
 			"debrief": [
 				{ "subject": "CAMPAIGN_STARNUKE_END_SUBJECT", "body": "CAMPAIGN_STARNUKE_D1_DEBRIEF" }
@@ -26,7 +26,7 @@
 		},
 		{
 			"id": "d2",
-			"wake_up_utc": "06:00",
+			"start": { "utc": "2035-07-18T11:15:00Z" },
 			"missions": [
 				{ "mission": "test_toulouse" }
 			],

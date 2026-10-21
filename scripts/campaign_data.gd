@@ -10,9 +10,10 @@ extends RefCounted
 ##   "format": 2, "name": TEXTE, "description": TEXTE,
 ##   "start": DÉPART,                       départ de la campagne (et de la 1re journée sans départ propre)
 ##   "defaults": {"from": TEXTE, "channel": -1, "success_score": 10,
-##                "tolerance_km": {"photo": 40, "strike": 15}, "time_floor": 0.6},
-##   "days": [ {"id": "d1", "start": DÉPART (facultatif), "wake_up_utc": "06:00" (facultatif),
-##              "missions": [ {"mission": ID, "when": CONDITION (facultatif)} … ],
+##                "tolerance_km": {"photo": 40, "strike": 15}, "time_floor": 0.6, "briefing_delay_minutes": 30},
+##   "days": [ {"id": "d1", "start": DÉPART (facultatif ; orbit facultatif : saut dans le temps),
+##              "wake_up_utc": "06:00" (facultatif, sans start),
+##              "missions": [ {"mission": ID, "when": CONDITION (facultatif), "briefing_utc": "07:30" (facultatif)} … ],
 ##              "debrief": [ MESSAGE … ] (facultatif) } … ],
 ##   "missions": { ID: {"title", "objective", "description": TEXTE, "from": TEXTE (facultatif),
 ##                      "channel": entier (facultatif), "deadline_hours": >= 0, "deadline_minutes": 0–59 (facultatif ; total > 0),
@@ -24,7 +25,11 @@ extends RefCounted
 ##   "ending": [ MESSAGE … ]
 ## }
 ## DÉPART : {"utc": "2035-07-15T06:00:00Z", "orbit": {"altitude_km": 200–800, "inclination_deg": 0–80,
-##           "over": {"lat", "lon"}, "ascending": true}} (|lat| ≤ inclinaison).
+##           "over": {"lat", "lon"}, "ascending": true}} (|lat| ≤ inclinaison). orbit est obligatoire pour le départ
+##           de la campagne ; pour une journée, sans orbit, la station continue son orbite jusqu'à cette date (saut
+##           dans le temps : plusieurs jours peuvent séparer deux journées).
+## Briefing d'une mission : à briefing_utc (heure du jour UTC ; aussitôt si elle est passée quand la mission devient
+##           disponible), sinon briefing_delay_minutes après le réveil ou la fin de la mission précédente.
 ## TEXTE : clé des fichiers de langue, texte, ou dictionnaire par langue {"en": …, "fr": …} (Campaigns.text_of).
 ## MESSAGE : {"when": CONDITION (facultatif), "subject": TEXTE, "body": TEXTE} : le premier dont la condition est
 ##           vraie est retenu (le dernier, sans condition, sert de message par défaut).
@@ -38,6 +43,8 @@ const SCORE_KEYS: Array[String] = ["global_score", "day_score", "mission_score"]
 const MAX_SCORE := 20.0
 ## Sommeil (h) avant une journée sans départ ni heure de réveil.
 const NIGHT_HOURS := 8.0
+## Délai (min) avant un briefing sans heure (defaults.briefing_delay_minutes absent).
+const BRIEFING_DELAY_MINUTES := 30.0
 
 ## Contenu brut (campaign.json) et erreurs trouvées.
 var data := {}
@@ -86,6 +93,22 @@ func missions_of_day(day_index: int, scores: Dictionary) -> PackedStringArray:
 	return ids
 
 
+## Heure d'arrivée (UTC, s) du briefing d'une entrée de journée ({mission, briefing_utc}) devenue disponible à
+## now_unix : briefing_utc ce jour-là (aussitôt si elle est passée), sinon briefing_delay_minutes plus tard.
+func briefing_unix(entry: Dictionary, now_unix: float) -> float:
+	if entry.has("briefing_utc"):
+		var parts := str(entry.briefing_utc).split(":")
+		return maxf(now_unix, floorf(now_unix / 86400.0) * 86400.0 + int(parts[0]) * 3600.0 + int(parts[1]) * 60.0)
+	return now_unix + float(defaults().get("briefing_delay_minutes", BRIEFING_DELAY_MINUTES)) * 60.0
+
+
+## Heure de réveil (UTC, s) « HH:MM » suivant now_unix (le lendemain si elle est passée).
+static func next_clock_unix(clock: String, now_unix: float) -> float:
+	var parts := clock.split(":")
+	var time := floorf(now_unix / 86400.0) * 86400.0 + int(parts[0]) * 3600.0 + int(parts[1]) * 60.0
+	return time + (86400.0 if time <= now_unix else 0.0)
+
+
 ## Premier message de la liste dont la condition est vraie ({} si aucun).
 static func pick_message(messages: Array, scores: Dictionary) -> Dictionary:
 	for message: Dictionary in messages:
@@ -131,7 +154,10 @@ func _validate() -> void:
 	_check_text(data, "name", "campagne")
 	if data.has("description"):
 		_check_text(data, "description", "campagne")
-	_check_start(data.get("start", null), "start")
+	_check_start(data.get("start", null), "start", true)
+	var delay: Variant = defaults().get("briefing_delay_minutes", BRIEFING_DELAY_MINUTES)
+	if not (delay is float or delay is int) or float(delay) < 0.0:
+		_error("defaults.briefing_delay_minutes : nombre de minutes ≥ 0 attendu")
 	var missions: Variant = data.get("missions", null)
 	if not missions is Dictionary or (missions as Dictionary).is_empty():
 		_error("missions : dictionnaire de missions attendu, non vide")
@@ -154,11 +180,15 @@ func _validate() -> void:
 			_error("%s : identifiant (id) manquant ou en double" % where)
 		seen[id] = true
 		if day.has("start"):
-			_check_start(day.start, where + ".start")
+			# Sans start de la campagne, la première journée doit placer la station (orbit).
+			_check_start(day.start, where + ".start", k == 0 and not data.has("start"))
 		elif k == 0 and not data.has("start"):
 			_error("%s : pas de départ (ni start de la campagne, ni start de la journée)" % where)
-		if day.has("wake_up_utc") and not _is_clock(str(day.wake_up_utc)):
-			_error("%s.wake_up_utc : heure « HH:MM » attendue" % where)
+		if day.has("wake_up_utc"):
+			if not _is_clock(str(day.wake_up_utc)):
+				_error("%s.wake_up_utc : heure « HH:MM » attendue" % where)
+			elif day.has("start"):
+				_error("%s : start et wake_up_utc ensemble (l'un ou l'autre)" % where)
 		var entries: Variant = day.get("missions", null)
 		if not entries is Array or (entries as Array).is_empty():
 			_error("%s.missions : liste attendue, non vide" % where)
@@ -167,13 +197,16 @@ func _validate() -> void:
 				var entry: Variant = entries[m]
 				if not entry is Dictionary or not (missions as Dictionary).has(str(entry.get("mission", ""))):
 					_error("%s.missions[%d] : mission inconnue" % [where, m])
-				elif entry.has("when"):
-					_check_condition(entry.when, "%s.missions[%d].when" % [where, m])
+				else:
+					if entry.has("when"):
+						_check_condition(entry.when, "%s.missions[%d].when" % [where, m])
+					if entry.has("briefing_utc") and not _is_clock(str(entry.briefing_utc)):
+						_error("%s.missions[%d].briefing_utc : heure « HH:MM » attendue" % [where, m])
 		_check_messages(day.get("debrief", []), where + ".debrief")
 	_check_messages(data.get("ending", []), "ending")
 
 
-func _check_start(start: Variant, where: String) -> void:
+func _check_start(start: Variant, where: String, orbit_required := false) -> void:
 	if start == null:
 		return
 	if not start is Dictionary:
@@ -181,6 +214,8 @@ func _check_start(start: Variant, where: String) -> void:
 		return
 	if is_nan(parse_utc(str(start.get("utc", "")))):
 		_error("%s.utc : date « AAAA-MM-JJTHH:MM:SSZ » attendue" % where)
+	if not start.has("orbit") and not orbit_required:
+		return
 	var orbit: Variant = start.get("orbit", null)
 	if not orbit is Dictionary:
 		_error("%s.orbit : objet attendu" % where)

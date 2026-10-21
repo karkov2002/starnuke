@@ -43,14 +43,28 @@ permet de piloter le jeu exporté.
   exacte de la station, `OrbitSimulation.place` ; la manœuvre en préparation est annulée). Une campagne avec des
   erreurs est proposée **grisée**, avec leur nombre en infobulle, et ne se lance pas.
 - **Déroulement d'une journée** (règles de jeu, `CampaignDirector`) :
+  - **Heure du briefing** (règle de jeu) : une mission n'arrive pas au réveil. Son briefing est envoyé par le sol à
+    l'heure de la mission — `briefing_utc` (« HH:MM » UTC, dans l'entrée de la journée ; aussitôt si l'heure est
+    déjà passée quand la mission devient disponible), sinon `briefing_delay_minutes` (`defaults`, **30 min** par
+    défaut) après le réveil ou la fin de la mission précédente (`CampaignData.briefing_unix`). Avant, aucune
+    mission n'est en cours : promenade libre. Comme tout message radio, **il n'arrive qu'avec la liaison** (station
+    au sol en vue, bon canal) : au-dessus d'un océan, il attend.
   - **Briefing** par la radio (écran de communication ; expéditeur et canal de la mission, sinon `defaults`) :
     « Mission : titre / Objectif : … / texte / Cible(s) : Photo ou Frappe et coordonnées / Durée avant échec :
-    6 h 00 min (chronomètre lancé dans 10 min) » (toujours avec les minutes : « 5 h 30 min ») (clés `BRIEFING_*`).
-    **Les délais sont en heures et minutes** (règle de jeu : plus précis et plus stressants que des jours). **Le
-    chrono de la mission part 10 min (temps de jeu, `MissionScoring.START_GRACE_S`) après l'arrivée du briefing**,
-    qu'il soit lu ou non : la première mission de la journée arrive **au réveil**, les suivantes dès la fin de la
-    précédente ; les 10 min laissent le temps de se promener un peu (accélérer le temps les écoule d'autant plus
-    vite). Une photo ou un tir pendant ces 10 min compte déjà.
+    6 h 00 min (chronomètre en marche) » (toujours avec les minutes : « 5 h 30 min ») (clés `BRIEFING_*`). **Les
+    délais sont en heures et minutes** (règle de jeu : plus précis et plus stressants que des jours). **À sa
+    réception, le chrono de la mission part** (pas avant), **le temps revient à ×1** et l'**appel prioritaire**
+    retentit.
+  - **Appel prioritaire** (règle de jeu, `scripts/priority_call.gd`, `PriorityCall`, créé par `CampaignDirector`) :
+    sonnerie d'alarme façon station spatiale internationale par l'interphone (audible partout, même en
+    combinaison ; bus SFX), **synthétisée** (`AudioStreamGenerator`, pas de fichier audio) : deux tons alternés
+    (880 et 1 175 Hz, 0,12 s chacun) en salves de 0,72 s séparées de 0,78 s, **jusqu'à la lecture du briefing**,
+    au plus 20 s, puis un bip de rappel (une paire de tons) toutes les 60 s tant qu'il n'est pas lu ;
+    **luminaires de la station à l'orange** pendant la sonnerie (`Station.set_alert`), puis retour au niveau
+    d'avant (pas si une alerte plus grave — rouge, plus de lumière — était en cours, ni si le niveau a changé
+    entre-temps) ; **bandeau clignotant** en haut de l'écran, orange sur fond sombre, « TRANSMISSION PRIORITAIRE —
+    poste COMM, module Commande » (`PRIORITY_CALL_BANNER`), jusqu'à la lecture. Une mission terminée sans que son
+    briefing ait été lu arrête l'appel.
   - **Objectifs** : une **photo** satellite (point sous la station à la prise de vue) ou un **impact** de missile à
     moins de la tolérance d'une cible remplit l'objectif correspondant (le premier encore ouvert de ce type, dont
     l'objectif préalable `after` est rempli) ; plus loin, il ne compte pas.
@@ -61,7 +75,7 @@ permet de piloter le jeu exporté.
     (`success_score`).
   - **Temps de référence** (règle de jeu) : `par_hours` s'il est donné, sinon **calculé à l'arrivée du briefing**
     d'après l'orbite réelle (`scripts/mission_planner.gd`, `MissionPlanner`) : **passage le plus tôt possible**
-    pour remplir tous les objectifs, compté depuis le départ du chrono, **plus une orbite** (~1 h 32 à 400 km), au
+    pour remplir tous les objectifs, compté depuis la réception du briefing, **plus une orbite** (~1 h 32 à 400 km), au
     plus l'échéance (mission impossible à temps : pas de pénalité de temps). Passage possible : **photo**, le point
     sous la station passe à la verticale de la cible ; **tir**, la cible est vue à **au moins 20° au-dessus de
     l'horizon** (`MIN_ELEVATION_DEG`, ~870 km autour du point survolé à 400 km). **Manœuvres comprises** : orbite
@@ -70,31 +84,34 @@ permet de piloter le jeu exporté.
     l'ordre de `after`, sinon le plus tôt possible d'abord, chacun depuis l'orbite laissée par le précédent.
     Recherche par pas (point de poussée tous les 5 min, passage tous les 2 min affiné par dichotomie) : quelques
     millisecondes à moins de 0,1 s.
-  - **Fin de mission** : tous les objectifs remplis, ou échéance (`deadline_hours` heures après le départ du chrono) ;
+  - **Fin de mission** : tous les objectifs remplis, ou échéance (`deadline_hours` heures après la réception du briefing) ;
     résultat retenu (`Campaigns.results` : note, réussite, précision, facteur temps, journée ; **moyenne globale**
     `Campaigns.global_score()`, toutes missions jouées, échecs compris) et message de résultat (message `result` de
     la mission choisi selon la note, sinon « Objectif atteint » / « Objectif non atteint », avec la note, RÉUSSITE
-    ou ÉCHEC, la précision et le facteur temps), puis briefing de la mission suivante de la journée dont la
-    condition est vraie.
+    ou ÉCHEC, la précision et le facteur temps), puis la mission suivante de la journée dont la condition est vraie
+    est programmée (son briefing à son heure).
   - **Fin de journée** (plus de mission) : note de la journée retenue (`Campaigns.day_scores`), message `debrief` ;
     à la dernière journée, message de fin de campagne (`ending`, selon la moyenne globale).
   - **Nuit** : la journée terminée, promenade libre ; **la couchette devient cliquable** (bulle « Dormir »,
     `HatchInteraction`, `CampaignDirector.can_sleep` ; avant, elle ne réagit pas). Dormir : fondu au noir (1,5 s),
-    puis **réveil dans la couchette** au départ de la journée suivante — son `start` s'il est défini (heure et
-    position exactes), sinon **la station a continué son orbite** jusqu'à l'heure de réveil (`wake_up_utc`, le
-    lendemain si elle est passée ; sans heure, 8 h de sommeil) —, briefing de la première mission. Après la dernière
+    puis **réveil dans la couchette** au départ de la journée suivante — son `start` s'il est défini : avec `orbit`,
+    heure et position exactes ; **sans `orbit`, saut dans le temps** jusqu'à sa date et son heure (plusieurs jours
+    peuvent séparer deux journées), la station ayant continué son orbite (ignoré si la date est déjà passée) ; sans
+    `start`, **la station a continué son orbite** jusqu'à l'heure de réveil (`wake_up_utc`, le lendemain si elle
+    est passée ; sans heure, 8 h de sommeil) —, puis la première mission est programmée. Après la dernière
     journée, dormir termine la campagne : la sauvegarde est effacée et l'**écran de fin de campagne** s'affiche
-    (voir ci-dessous). Pendant la nuit, les explosions vieillissent avec l'orbite (horloge `NukeClock` avancée
-    d'autant : incendies, fumées).
+    (voir ci-dessous). Pendant la nuit et les sauts dans le temps, les explosions vieillissent d'autant (horloge
+    `NukeClock` avancée : incendies, fumées).
   - **Journal de partie** (`scripts/campaign_journal.gd`, `CampaignJournal`) : un fichier **JSON Lines** par partie
     lancée (nouvelle campagne ou « Continuer »), `user://logs/<campagne>_<date et heure réelles>.jsonl`
     (`%APPDATA%/Godot/app_userdata/Star Nuke/logs/`), écrit et vidé sur le disque ligne par ligne. Chaque ligne :
     `event`, heure réelle (`real`), heure du jeu (`utc`, `unix`) et les champs de l'événement — `session`
-    (campagne, journée, reprise ou non), `day_start`, `mission_start` (échéance, temps de référence, **passage le
-    plus tôt possible** `earliest_s` depuis l'arrivée du briefing, −1 si impossible, délai de 10 min, altitude et
-    inclinaison), `burn` (qualité de la poussée, dosage, Auto ou Manuel), `shot` (photo ou tir : point, distance à
-    la cible la plus proche de ce type, objectif rempli ou −1, précision, temps depuis le départ du chrono, négatif
-    pendant les 10 min), `mission_end` (note et son détail, temps écoulé, mission complète ou non), `day_end`,
+    (campagne, journée, reprise ou non), `day_start`, `mission_scheduled` (heure prévue du briefing),
+    `briefing_sent` (envoi par le sol), `mission_start` (réception : échéance, temps de référence, **passage le plus
+    tôt possible** `earliest_s`, −1 si impossible, altitude, inclinaison, vitesse du temps avant le retour à ×1),
+    `briefing_read` (délai de lecture), `burn` (qualité de la poussée, dosage, Auto ou Manuel), `shot` (photo ou
+    tir : point, distance à la cible la plus proche de ce type, objectif rempli ou −1, précision, temps depuis le
+    départ du chrono), `mission_end` (note et son détail, temps écoulé, mission complète ou non), `day_end`,
     `sleep`, `campaign_end`. Il sert à régler les profils du banc d'équilibrage d'après de vraies parties.
   - **Fin de campagne** (`scenes/ui/campaign_end_screen.tscn`, `scripts/ui/campaign_end_screen.gd`), sur fond noir
     en fondu : « Campagne terminée », nom de la campagne, **message de fin** (`ending`, le même que celui de la
@@ -114,9 +131,11 @@ permet de piloter le jeu exporté.
     marquées `restored` : elles ne remplissent aucun objectif et la télévision garde leur heure réelle pour
     l'édition spéciale), galerie et cibles rétablies.
   - **Réveil** (règle de jeu, `scripts/wake_up.gd`, nœud `WakeUp`) : **au lancement de toute partie (mode libre
-    compris)** et au début de chaque journée de campagne : noir, titre « Jour n » (campagne seulement), puis
-    **ouverture des paupières**, comme la séquence de mort à l'envers (`shaders/eyelids.gdshader`) : elles
-    s'entrouvrent, clignent une fois puis s'ouvrent tout à fait (~1,7 s, `WakeUp.WAKE_STEPS` ; titre 1,8 s) ; la
+    compris)** et au début de chaque journée de campagne : noir, titre « Jour n » (campagne seulement) et, dessous,
+    **date, heure UTC et point survolé** de la journée (« 18 juillet 2035 — 11 h 15 UTC — 46.84° N  21.85° O »,
+    `CampaignDirector.day_heading`, clés `WAKE_HEADING` et `MONTH_1` à `MONTH_12`), puis **ouverture des
+    paupières**, comme la séquence de mort à l'envers (`shaders/eyelids.gdshader`) : elles s'entrouvrent, clignent
+    une fois puis s'ouvrent tout à fait (~1,7 s, `WakeUp.WAKE_STEPS` ; titre 1,8 s, 3,2 s avec la date) ; la
     vue, d'abord floue et sombre sur les bords, devient nette. Pendant le sommeil et le réveil, les clics sont
     bloqués ; le voile est retiré ensuite (il gardait sinon le clic droit qui tourne la tête). Ni au décor de
     l'écran de démarrage ni aux bancs de mesure (la scène du jeu n'y est pas la scène courante).
@@ -133,14 +152,17 @@ permet de piloter le jeu exporté.
     sinon l'anglais).
   - **`start`** : départ de la campagne — `utc` (« 2035-07-15T06:00:00Z ») et `orbit` (`altitude_km` 200 à 800,
     `inclination_deg` 0 à 80, `over` {`lat`, `lon`} : point survolé à cet instant, `|lat|` ≤ inclinaison,
-    `ascending` : sens de passage). **Chaque journée peut avoir son propre `start`** (heure et position exactes de
-    la station au début de la journée) ; sinon la première prend celui de la campagne et les suivantes reprennent là
-    où la précédente s'est arrêtée.
+    `ascending` : sens de passage). **Chaque journée peut avoir son propre `start`** : avec `orbit`, heure et
+    position exactes de la station au début de la journée ; **`utc` seul : saut dans le temps** jusqu'à cette date
+    (ex. `"start": {"utc": "2035-07-18T11:15:00Z"}` : trois jours plus tard), la station continuant son orbite.
+    Sans `start`, la première journée prend celui de la campagne et les suivantes reprennent là où la précédente
+    s'est arrêtée (`wake_up_utc`, sinon 8 h de sommeil). `start` et `wake_up_utc` s'excluent.
   - **`defaults`** : expéditeur des messages (`from`), canal radio (`channel`), note de réussite (`success_score`,
     10), tolérances par type d'objectif (`tolerance_km` : photo 40 km, tir 15 km), plancher du facteur temps
-    (`time_floor`, 0,6).
+    (`time_floor`, 0,6), délai d'un briefing sans heure (`briefing_delay_minutes`, 30).
   - **`days`** : journées, dans l'ordre — `id`, `start` (facultatif), `wake_up_utc` (« HH:MM »), `missions` (liste
-    de `{mission, when}` : une entrée dont la condition est fausse est sautée, ce qui permet de choisir la mission
+    de `{mission, when, briefing_utc}` : `briefing_utc` « HH:MM » UTC, heure d'arrivée du briefing, facultative ;
+    une entrée dont la condition est fausse est sautée, ce qui permet de choisir la mission
     selon les notes), `debrief` (messages de fin de journée).
   - **`missions`** (dictionnaire par identifiant) : `title`, `objective`, `description`, `deadline_hours` et `deadline_minutes` (facultatif, 0 à 59) (durée avant
     échec, en heures : règle de jeu), `par_hours` (temps de référence, `null` : calculé), `objectives` (`type` « photo » ou « strike »,
@@ -152,9 +174,10 @@ permet de piloter le jeu exporté.
     (exclu), notes sur 20 ; une note encore inconnue rend la condition fausse.
   - **Vérification** : `godot --headless --path . -s tools/check_campaign.gd [-- <campagne>]` liste les erreurs de
     chaque campagne (chemin dans le fichier et explication, en français ; code de sortie 1 s'il y en a). Pour une
-    campagne valide, il donne aussi, journée par journée, le **passage le plus tôt possible**, le **temps de
-    référence** et l'échéance de chaque mission (missions enchaînées comme si chacune était remplie au plus tôt,
-    conditions `when` ignorées, coucher dès la fin de la journée) et signale par « ⚠ » une mission **impossible
+    campagne valide, il donne aussi, journée par journée, l'heure du briefing, le **passage le plus tôt
+    possible**, le **temps de référence** et l'échéance de chaque mission (missions enchaînées comme si chacune
+    était remplie au plus tôt, conditions `when` ignorées, briefing reçu à son heure sans attendre la liaison,
+    coucher dès la fin de la journée) et signale par « ⚠ » une mission **impossible
     dans son délai** (avertissement, pas une erreur).
   - **Banc d'équilibrage** : `godot --headless --path . -s tools/balance_campaign.gd [-- <campagne> [tirages]
     [graine]]` (campagne officielle, 1 000 tirages, graine 1 par défaut ; moins d'une seconde) simule chaque
@@ -167,8 +190,9 @@ permet de piloter le jeu exporté.
     valent 0. Ces profils sont des **estimations à recaler** avec les journaux de vraies parties. Rapport Markdown
     dans `tools/bench/results/balance_<campagne>_<date>.md` (part de réussites, note moyenne ± écart type). Il
     sert à régler les missions (échéance, tolérance, `par_hours`) pour que chaque profil tombe dans sa cible.
-    La campagne
-    officielle contient pour l'instant deux journées d'essai (photos de Kourou, puis de Toulouse).
+    La campagne officielle contient pour l'instant deux journées d'essai : photo de Kourou (briefing à 06 h 30),
+    puis, trois jours plus tard (saut au 18 juillet 2035, 11 h 15 UTC), photo de Toulouse (briefing 30 min après le
+    réveil).
 
 - **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : titre
   provisoire « Star Nuke » lumineux (`scripts/ui/title_glow.gd`, `shaders/title_glow.gdshader` : texte rendu en

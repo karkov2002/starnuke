@@ -41,11 +41,13 @@ func _print_timing(campaign: CampaignData) -> void:
 		if row.day != day:
 			day = row.day
 			print("    %s (réveil %s UTC)" % [day, Time.get_datetime_string_from_unix_time(int(row.wake_unix))])
+		var briefing := Time.get_datetime_string_from_unix_time(int(row.briefing_unix)).substr(11, 5)
 		if row.earliest_s == INF:
-			print("      ⚠ %s : impossible dans le délai (échéance %s)" % [row.mission, _hours(row.deadline_s)])
+			print("      ⚠ %s : briefing %s ; impossible dans le délai (échéance %s)" % [row.mission, briefing,
+					_hours(row.deadline_s)])
 		else:
-			print("      %s : au plus tôt %s après le briefing ; référence %s ; échéance %s" % [row.mission,
-					_hours(row.earliest_s), _hours(row.par_s), _hours(row.deadline_s)])
+			print("      %s : briefing %s ; au plus tôt %s après ; référence %s ; échéance %s" % [row.mission,
+					briefing, _hours(row.earliest_s), _hours(row.par_s), _hours(row.deadline_s)])
 
 
 static func _hours(seconds: float) -> String:

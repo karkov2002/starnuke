@@ -39,12 +39,14 @@ static func state_from_start(start: Dictionary) -> Dictionary:
 	return _state(unix, float(orbit.altitude_km), float(orbit.inclination_deg), plane.x, plane.y, true)
 
 
-## Déroulement au plus tôt d'une campagne valide (tools/check_campaign.gd, tools/balance_campaign.gd) : journée par
-## journée, toutes les missions de la journée (conditions « when » ignorées), chacune remplie au plus tôt depuis
-## l'orbite laissée par la précédente, coucher dès la fin de la journée (réveil : départ de la journée, sinon
-## wake_up_utc, sinon CampaignData.NIGHT_HOURS). Une entrée par mission : {day, mission (identifiant), wake_unix
-## (réveil de sa journée), earliest_s (depuis l'arrivée du briefing, INF : impossible à temps), par_s (depuis le
-## départ du chrono, par_hours compris), deadline_s, period_s}.
+## Déroulement au plus tôt d'une campagne valide (tools/check_campaign.gd, tools/balance_campaign.gd), mêmes règles
+## que CampaignDirector : journée par journée (départ avec orbite : station placée ; sans orbite : saut jusqu'à sa
+## date ; sinon wake_up_utc, sinon CampaignData.NIGHT_HOURS de sommeil, coucher dès la fin de la journée), toutes les
+## missions de la journée (conditions « when » ignorées), briefing reçu à son heure (CampaignData.briefing_unix ;
+## l'attente de la liaison radio est ignorée), chacune
+## remplie au plus tôt depuis l'orbite laissée par la précédente. Une entrée par mission : {day, mission
+## (identifiant), wake_unix (réveil de sa journée), briefing_unix, earliest_s (depuis l'arrivée du briefing, INF :
+## impossible à temps), par_s (par_hours compris), deadline_s, period_s}.
 static func timeline(campaign: CampaignData) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	var state := {}
@@ -53,14 +55,17 @@ static func timeline(campaign: CampaignData) -> Array[Dictionary]:
 	for i in days.size():
 		var day: Dictionary = days[i]
 		var start := campaign.start_of_day(i)
-		if not start.is_empty():
+		if i == 0 and not start.has("orbit"):
+			state = state_from_start(campaign.data.start)
+			t = 0.0
+		if start.has("orbit"):
 			state = state_from_start(start)
 			t = 0.0
+		elif start.has("utc"):
+			t += maxf(CampaignData.parse_utc(str(start.utc)) - (state.unix + t), 0.0)
 		elif day.has("wake_up_utc"):
 			var now: float = state.unix + t
-			var parts := str(day.wake_up_utc).split(":")
-			var wake := floorf(now / 86400.0) * 86400.0 + int(parts[0]) * 3600.0 + int(parts[1]) * 60.0
-			t += wake - now + (86400.0 if wake <= now else 0.0)
+			t += CampaignData.next_clock_unix(str(day.wake_up_utc), now) - now
 		else:
 			t += CampaignData.NIGHT_HOURS * 3600.0
 		var wake_unix: float = state.unix + t
@@ -68,17 +73,18 @@ static func timeline(campaign: CampaignData) -> Array[Dictionary]:
 			var mission := campaign.mission(str(entry.mission))
 			var deadline := float(mission.get("deadline_hours", 0.0)) * 3600.0 \
 					+ float(mission.get("deadline_minutes", 0.0)) * 60.0
-			var grace := MissionScoring.START_GRACE_S
-			var plan := earliest(state, mission.objectives, t, t + grace + deadline)
-			var row := {"day": day.id, "mission": str(entry.mission), "wake_unix": wake_unix, "earliest_s": INF,
-					"par_s": deadline, "deadline_s": deadline, "period_s": period_s(state)}
+			t = campaign.briefing_unix(entry, state.unix + t) - state.unix
+			var plan := earliest(state, mission.objectives, t, t + deadline)
+			var row := {"day": day.id, "mission": str(entry.mission), "wake_unix": wake_unix,
+					"briefing_unix": state.unix + t, "earliest_s": INF, "par_s": deadline, "deadline_s": deadline,
+					"period_s": period_s(state)}
 			if plan.time < INF:
 				row.earliest_s = plan.time - t
-				row.par_s = minf(maxf(row.earliest_s - grace, 0.0) + row.period_s, deadline)
+				row.par_s = minf(row.earliest_s + row.period_s, deadline)
 				t = plan.time
 				state = plan.state
 			else:
-				t += grace + deadline
+				t += deadline
 			var fixed: Variant = mission.get("par_hours", null)
 			if fixed != null:
 				row.par_s = float(fixed) * 3600.0
