@@ -86,6 +86,16 @@ permet de piloter le jeu exporté.
     journée, dormir termine la campagne : la sauvegarde est effacée et l'**écran de fin de campagne** s'affiche
     (voir ci-dessous). Pendant la nuit, les explosions vieillissent avec l'orbite (horloge `NukeClock` avancée
     d'autant : incendies, fumées).
+  - **Journal de partie** (`scripts/campaign_journal.gd`, `CampaignJournal`) : un fichier **JSON Lines** par partie
+    lancée (nouvelle campagne ou « Continuer »), `user://logs/<campagne>_<date et heure réelles>.jsonl`
+    (`%APPDATA%/Godot/app_userdata/Star Nuke/logs/`), écrit et vidé sur le disque ligne par ligne. Chaque ligne :
+    `event`, heure réelle (`real`), heure du jeu (`utc`, `unix`) et les champs de l'événement — `session`
+    (campagne, journée, reprise ou non), `day_start`, `mission_start` (échéance, temps de référence, **passage le
+    plus tôt possible** `earliest_s` depuis l'arrivée du briefing, −1 si impossible, délai de 10 min, altitude et
+    inclinaison), `burn` (qualité de la poussée, dosage, Auto ou Manuel), `shot` (photo ou tir : point, distance à
+    la cible la plus proche de ce type, objectif rempli ou −1, précision, temps depuis le départ du chrono, négatif
+    pendant les 10 min), `mission_end` (note et son détail, temps écoulé, mission complète ou non), `day_end`,
+    `sleep`, `campaign_end`. Il sert à régler les profils du banc d'équilibrage d'après de vraies parties.
   - **Fin de campagne** (`scenes/ui/campaign_end_screen.tscn`, `scripts/ui/campaign_end_screen.gd`), sur fond noir
     en fondu : « Campagne terminée », nom de la campagne, **message de fin** (`ending`, le même que celui de la
     radio : choisi d'après les notes de la dernière journée), **moyenne globale** sur 20 avec RÉUSSITE / ÉCHEC
