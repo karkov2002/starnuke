@@ -247,7 +247,9 @@ func _start_mission() -> void:
 			"inclination_deg": _orbit.inclination_deg if _orbit else 0.0, "time_scale": _orbit.time_scale})
 	if _orbit:
 		_orbit.time_scale = 1.0
-	_call.ring()
+	var sender := mission if mission.has("from") else Campaigns.current.defaults()
+	_call.ring({"from": Campaigns.text_of(sender, "from", "COMM_FROM_GROUND"),
+			"subject": tr("BRIEFING_SUBJECT").format({"title": _text(mission, "title")}), "received_unix": _now()})
 	mission_started.emit(id)
 
 

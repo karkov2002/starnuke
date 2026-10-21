@@ -1,7 +1,7 @@
 class_name TabletDisplay
 extends Control
 ## Interface de l'écran de la tablette (scripts/tablet.gd), dessinée dans son SubViewport, construite en code :
-## - en haut, une barre d'onglets cliquables (Pilotage, Photographie, Tir de missile) et, à droite, le bouton
+## - en haut, une barre d'onglets cliquables (Pilotage, Photographie, Tir de missile, Alertes) et, à droite, le bouton
 ##   « HUD : On / Off » (affichage en surimpression dans la cupola, Hud.overlay_enabled) ; dessous, la date et l'heure
 ##   UTC et l'heure solaire du point survolé ;
 ## - onglet Pilotage : la carte du poste de pilotage en réduit (OrbitalMap : trace au sol, station, point de manœuvre
@@ -11,14 +11,21 @@ extends Control
 ##   quand l'onglet est affiché), le bouton « Photo » (flash ; la tablette prend la photo, PhotoArchive) et la
 ##   galerie des photos prises (◀ ▶, légende : date, point survolé, altitude, emprise au sol) ;
 ## - onglet Tir de missile : la commande de tir (LaunchControl : 48 silos, puissance, gros bouton rouge), agrandie
-##   pour occuper la page (ses boutons ont une taille fixe en pixels).
+##   pour occuper la page (ses boutons ont une taille fixe en pixels) ;
+## - onglet Alertes : la tablette est le récepteur des appels prioritaires (PriorityCall), comme un téléphone. En
+##   haut (~80 %), l'écran de réception : l'appel en cours (expéditeur, objet, heure de réception ; le message se lit
+##   au poste COMM), sinon « Aucune alerte » ; au-dessus des boutons, le bandeau clignotant PRIORITY_CALL_BANNER
+##   pendant l'appel ; en bas, les 5 gros boutons du niveau d'alerte de la station (Station.set_alert : Normal,
+##   Jaune, Orange, Rouge, Tout éteindre = « plus de lumière »), dessinés comme le bouton de tir ou BURN
+##   (BigRedButton), de la couleur de l'alerte ; le niveau en cours est marqué. À l'arrivée d'un appel, la tablette
+##   passe sur cet onglet (call_started).
 ## Taille : celle du SubViewport (proportions de la dalle de la tablette).
 
 signal tab_changed(tab: int)
 ## Bouton Photo pressé : la tablette prend la photo (scripts/tablet.gd).
 signal photo_requested
 
-enum Tab { PILOT, PHOTO, MISSILE }
+enum Tab { PILOT, PHOTO, MISSILE, ALERTS }
 
 const MARGIN := 18.0
 const FONT_SIZE := 22
@@ -32,7 +39,16 @@ const THUMB_PADDING := 30.0
 const BAR_HEIGHT := 44.0
 const CLOCK_HEIGHT := 30.0
 const SPACING := 8.0
-const TAB_KEYS: Array[String] = ["TABLET_TAB_PILOT", "TABLET_TAB_PHOTO", "TABLET_TAB_MISSILE"]
+const TAB_KEYS: Array[String] = ["TABLET_TAB_PILOT", "TABLET_TAB_PHOTO", "TABLET_TAB_MISSILE", "TABLET_TAB_ALERTS"]
+## Boutons du niveau d'alerte, dans l'ordre de Station.Alert : texte et couleur du capuchon (celle de l'éclairage ;
+## noir pour « Tout éteindre »).
+const ALERT_KEYS: Array[String] = ["TABLET_ALERT_NONE", "TABLET_ALERT_YELLOW", "TABLET_ALERT_ORANGE",
+		"TABLET_ALERT_RED", "TABLET_ALERT_BLACKOUT"]
+const ALERT_CAPS: Array[Color] = [Color(0.86, 0.87, 0.88), Color(0.95, 0.78, 0.18), Color(0.95, 0.5, 0.1),
+		Color(0.8, 0.07, 0.04), Color(0.1, 0.1, 0.11)]
+const ALERT_BUTTON_SIZE := Vector2(80.0, 74.0)
+const COLOR_CALL := Color(1.0, 0.62, 0.18)
+const BLINK_S := 0.5
 const COLOR_TAB := Color(0.06, 0.09, 0.08)
 const COLOR_TAB_ACTIVE := Color(0.12, 0.3, 0.2)
 const FLASH_S := 0.35
@@ -64,6 +80,18 @@ var _previous_button: Button
 var _next_button: Button
 ## Photo affichée dans la galerie (−1 : vue en direct).
 var _photo_index := -1
+## Onglet Alertes : appel prioritaire suivi (trouvé à la première image où il existe), écran de réception (appel en
+## cours, ou « Aucune alerte »), bandeau, étiquettes des boutons de niveau, horloge du clignotement.
+var _call: PriorityCall
+var _call_idle: Label
+var _call_box: VBoxContainer
+var _call_from: Label
+var _call_subject: Label
+var _call_time: Label
+var _call_banner: PanelContainer
+var _alert_labels: Array[Label] = []
+var _shown_alert := -1
+var _blink := 0.0
 ## État du HUD affiché sur le bouton (null avant la première image).
 var _hud_shown = null
 
@@ -124,6 +152,7 @@ func _ready() -> void:
 	_pages.append(_build_pilot_page(page_size))
 	_pages.append(_build_photo_page(page_size))
 	_pages.append(_build_missile_page(page_size))
+	_pages.append(_build_alerts_page(page_size))
 	for page in _pages:
 		page.size = page_size
 		stack.add_child(page)
@@ -139,7 +168,8 @@ func show_tab(tab: int) -> void:
 	tab_changed.emit(tab)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_update_alerts(delta)
 	var hud := _hud()
 	var on := hud == null or hud.overlay_enabled
 	if on != _hud_shown:
@@ -299,6 +329,132 @@ func _build_missile_page(page_size: Vector2) -> Control:
 		launch.scale = Vector2.ONE * fit
 		holder.custom_minimum_size = launch.size * fit)
 	return page
+
+
+## Écran de réception (appel prioritaire en cours ou « Aucune alerte »), bandeau au-dessus des boutons, et les 5
+## boutons du niveau d'alerte de la station.
+func _build_alerts_page(page_size: Vector2) -> Control:
+	var page := VBoxContainer.new()
+	page.add_theme_constant_override("separation", 10)
+	var screen := PanelContainer.new()
+	screen.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var screen_style := StyleBoxFlat.new()
+	screen_style.bg_color = Color(0.02, 0.035, 0.03)
+	screen_style.border_color = PilotDisplay.COLOR_FRAME
+	screen_style.set_border_width_all(1)
+	screen_style.set_corner_radius_all(6)
+	screen_style.set_content_margin_all(16)
+	screen.add_theme_stylebox_override("panel", screen_style)
+	page.add_child(screen)
+	var center := CenterContainer.new()
+	screen.add_child(center)
+	_call_idle = _make_alert_label("TABLET_ALERT_IDLE", 26, PilotDisplay.COLOR_DIM)
+	center.add_child(_call_idle)
+	_call_box = VBoxContainer.new()
+	_call_box.add_theme_constant_override("separation", 10)
+	center.add_child(_call_box)
+	_call_box.add_child(_make_alert_label("TABLET_CALL_TITLE", 34, COLOR_CALL))
+	_call_from = _make_alert_label("", 24, PilotDisplay.COLOR_TEXT)
+	_call_subject = _make_alert_label("", 24, PilotDisplay.COLOR_TEXT)
+	_call_time = _make_alert_label("", 22, PilotDisplay.COLOR_DIM)
+	for label in [_call_from, _call_subject, _call_time]:
+		label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		_call_box.add_child(label)
+	# Bandeau de l'appel, au-dessus des boutons : orange sur fond sombre, clignotant.
+	_call_banner = PanelContainer.new()
+	var banner_style := StyleBoxFlat.new()
+	banner_style.bg_color = Color(0.08, 0.04, 0.02)
+	banner_style.border_color = COLOR_CALL
+	banner_style.set_border_width_all(2)
+	banner_style.set_corner_radius_all(4)
+	banner_style.set_content_margin_all(6)
+	_call_banner.add_theme_stylebox_override("panel", banner_style)
+	var banner_text := _make_alert_label("PRIORITY_CALL_BANNER", 17, COLOR_CALL)
+	# Texte coupé plutôt que page élargie (traductions longues).
+	banner_text.clip_text = true
+	banner_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_call_banner.add_child(banner_text)
+	page.add_child(_call_banner)
+	# Boutons du niveau d'alerte (Station.Alert), répartis sur la largeur.
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 4)
+	page.add_child(buttons)
+	for level in ALERT_KEYS.size():
+		var cell := VBoxContainer.new()
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cell.size_flags_stretch_ratio = 1.0
+		cell.add_theme_constant_override("separation", 2)
+		buttons.add_child(cell)
+		var button := BigRedButton.new()
+		button.cap_color = ALERT_CAPS[level]
+		button.custom_minimum_size = ALERT_BUTTON_SIZE
+		button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		button.pressed.connect(func() -> void:
+			var station := _station()
+			if station:
+				station.set_alert(level as Station.Alert))
+		cell.add_child(button)
+		# Texte traduit dès le départ (la clé brute, plus large, élargirait la page pour de bon).
+		var label := _make_alert_label(tr(ALERT_KEYS[level]), 18, PilotDisplay.COLOR_DIM)
+		label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		cell.add_child(label)
+		_alert_labels.append(label)
+	_show_call({})
+	return page
+
+
+func _make_alert_label(key: String, font_size: int, color: Color) -> Label:
+	var label := Label.new()
+	label.text = key
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	return label
+
+
+## Appel prioritaire (suivi dès qu'il existe : il est créé par le directeur de campagne), clignotement du bandeau et
+## niveau d'alerte en cours (étiquette du bouton allumée).
+func _update_alerts(delta: float) -> void:
+	if _call == null and is_inside_tree():
+		_call = get_tree().get_first_node_in_group(PriorityCall.GROUP) as PriorityCall
+		if _call:
+			_call.call_started.connect(func(call_info: Dictionary) -> void:
+				_show_call(call_info)
+				show_tab(Tab.ALERTS))
+			_call.call_stopped.connect(func() -> void: _show_call({}))
+			_show_call(_call.info)
+	if current_tab != Tab.ALERTS:
+		return
+	_blink += delta
+	_call_banner.modulate.a = 1.0 if fmod(_blink, BLINK_S * 2.0) < BLINK_S else 0.3
+	var station := _station()
+	var current := station.get_alert() if station else Station.Alert.NONE
+	if current == _shown_alert:
+		return
+	_shown_alert = current
+	for level in _alert_labels.size():
+		var label := _alert_labels[level]
+		var active := level == current
+		label.add_theme_color_override("font_color", PilotDisplay.COLOR_TEXT if active else PilotDisplay.COLOR_DIM)
+		label.text = ("▲ %s" if active else "%s") % tr(ALERT_KEYS[level])
+
+
+## Écran de réception : l'appel call_info (from, subject, received_unix), ou « Aucune alerte » s'il est vide.
+func _show_call(call_info: Dictionary) -> void:
+	var active := not call_info.is_empty()
+	_call_idle.visible = not active
+	_call_box.visible = active
+	_call_banner.visible = active
+	if not active:
+		return
+	_call_from.text = tr("TABLET_CALL_FROM").format({"from": call_info.get("from", "")})
+	_call_subject.text = tr("TABLET_CALL_SUBJECT").format({"subject": call_info.get("subject", "")})
+	_call_time.text = tr("TABLET_CALL_TIME").format({"time": Time.get_datetime_string_from_unix_time(
+			int(call_info.get("received_unix", 0.0))).substr(11, 5)})
+
+
+func _station() -> Station:
+	return get_tree().get_first_node_in_group(Station.GROUP) as Station if is_inside_tree() else null
 
 
 ## Bouton Photo : retour à la vue en direct, flash, et prise de vue par la tablette (photo_requested).

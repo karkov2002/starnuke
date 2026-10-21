@@ -62,9 +62,10 @@ permet de piloter le jeu exporté.
     au plus 20 s, puis un bip de rappel (une paire de tons) toutes les 60 s tant qu'il n'est pas lu ;
     **luminaires de la station à l'orange** pendant la sonnerie (`Station.set_alert`), puis retour au niveau
     d'avant (pas si une alerte plus grave — rouge, plus de lumière — était en cours, ni si le niveau a changé
-    entre-temps) ; **bandeau clignotant** en haut de l'écran, orange sur fond sombre, « TRANSMISSION PRIORITAIRE —
-    poste COMM, module Commande » (`PRIORITY_CALL_BANNER`), jusqu'à la lecture. Une mission terminée sans que son
-    briefing ait été lu arrête l'appel.
+    entre-temps). **La tablette est le récepteur de l'appel, comme un téléphone** : elle passe sur son onglet
+    **Alertes** (appel en cours, bandeau clignotant « TRANSMISSION PRIORITAIRE — poste COMM, module Commande »,
+    `PRIORITY_CALL_BANNER`, jusqu'à la lecture ; voir « Tablette ») ; plus rien ne s'affiche par-dessus la vue. Le
+    briefing se lit au poste COMM. Une mission terminée sans que son briefing ait été lu arrête l'appel.
   - **Objectifs** : une **photo** satellite (point sous la station à la prise de vue) ou un **impact** de missile à
     moins de la tolérance d'une cible remplit l'objectif correspondant (le premier encore ouvert de ce type, dont
     l'objectif préalable `after` est rempli) ; plus loin, il ne compte pas.
@@ -297,7 +298,7 @@ permet de piloter le jeu exporté.
 | Orienter la vue | Maintenir le **clic droit** et déplacer la souris (lacet et tangage autour des axes de la tête) ; **A / E** (AZERTY, Q / E en QWERTY) : **roulis** gauche / droite autour de l'axe du regard (60°/s, mise en rotation et arrêt progressifs). Orientation libre comme en apesanteur : pas de « haut » imposé, tangage non limité |
 | Se déplacer dans la station | **Z / S** (W / S en QWERTY) ou **flèches haut / bas** : avancer / reculer dans la direction du regard (y compris vers le haut ou le bas, apesanteur) ; **Q / D** (A / D en QWERTY) ou **flèches gauche / droite** : déplacement latéral. 1,5 m/s ; inertie d'apesanteur : démarrage et arrêt en douceur (~1 s), on continue sur sa lancée un instant après avoir relâché la touche ; collisions avec les parois, les vitres et les objets intérieurs (tubes des silos…) |
 | Curseur | Libre le reste du temps (clic gauche sur la tablette, la barre du temps, l'écran du poste de pilotage) |
-| Tablette | **Tab** (action `tablet`, touche physique) : sort ou range la **tablette** tenue en bas de la vue (elle glisse depuis le bas en 0,35 s) ; on clique directement sur son écran. Trois onglets : **Pilotage** (carte, **BURN** bleu), **Photographie** (vue au nadir en direct, bouton Photo : photo satellite enregistrée dans `user://photos/`, galerie), **Tir de missile** (silos, puissance, bouton rouge) ; bouton **HUD : On / Off** (surimpression dans la cupola). Ignorée pendant la saisie d'un texte et au poste de pilotage (elle s'y range). Voir « Tablette » |
+| Tablette | **Tab** (action `tablet`, touche physique) : sort ou range la **tablette** tenue en bas de la vue (elle glisse depuis le bas en 0,35 s) ; on clique directement sur son écran. Quatre onglets : **Pilotage** (carte, **BURN** bleu), **Photographie** (vue au nadir en direct, bouton Photo : photo satellite enregistrée dans `user://photos/`, galerie), **Tir de missile** (silos, puissance, bouton rouge), **Alertes** (appel prioritaire reçu, 5 boutons du niveau d'alerte de la station) ; bouton **HUD : On / Off** (surimpression dans la cupola). Ignorée pendant la saisie d'un texte et au poste de pilotage (elle s'y range). Voir « Tablette » |
 | Vitesse du temps | **Barre toujours visible en haut au centre** : pause (deux barres) puis ×1 à ×16 en icônes de flèches (1 à 5 flèches ; infobulle : le facteur) ; la vitesse en cours est allumée. Le poste de pilotage et le BURN ramènent à ×1 |
 | Altitude, inclinaison de l'orbite | Au **poste de pilotage** : manœuvre au prochain nœud (inclinaison visée **0 à 80°**, altitude visée **400 à 800 km**), exécutée en mode **Auto** ou en maintenant le bouton **BURN** bleu (mode **Manuel**, aussi sur la tablette) ; voir « Poste de pilotage ». Réglage direct (outil de développement) : section « Orbite » du **panneau de debug (F4)**, altitude 200 à 800 km, inclinaison 0 à 80° bornée par la latitude courante (voir ci-dessous) |
 | Date, heure (UTC), redémarrer | Outils de développement, dans le **panneau de debug (F4)** : champ **date** (AAAA-MM-JJ, valider par Entrée), boutons **−1 j / +1 j**, curseur de l'**heure** du jour (la station reste au-dessus du même point ; le soleil, les étoiles et les nuages se placent selon la nouvelle heure ; départ : **15 juillet 2035**) ; **Redémarrer (Europe) De jour / De nuit** : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
@@ -400,7 +401,16 @@ de la vue).
     emprise), « Vue en direct » pour revenir ; le bouton Photo revient aussi à la vue en direct. Photos gardées le
     temps de la partie (elles entreront dans la sauvegarde de campagne) ;
   - **Tir de missile** : la commande de tir (`LaunchControl` : 48 silos, **petits boutons de puissance** — à terme,
-    chaque silo aura sa bombe et sa puissance —, gros bouton rouge), mise à l'échelle pour occuper la page.
+    chaque silo aura sa bombe et sa puissance —, gros bouton rouge), mise à l'échelle pour occuper la page ;
+  - **Alertes** (règle de jeu : la tablette est le récepteur des alertes, comme un téléphone) : écran partagé en
+    deux. En haut (~80 %), l'**écran de réception** : l'appel prioritaire en cours (`PriorityCall` : « APPEL
+    PRIORITAIRE », expéditeur, objet, heure de réception ; le message lui-même se lit au poste COMM), sinon
+    « Aucune alerte », et, juste au-dessus des boutons, le **bandeau clignotant** de l'appel (orange sur fond
+    sombre). En bas, **5 gros boutons** du niveau d'alerte de la station (`Station.set_alert`, comme le menu
+    « Alerte » du panneau de debug) : **Normal** (blanc), **Jaune**, **Orange**, **Rouge** et **Tout éteindre**
+    (« plus de lumière » : lumières de secours seules), dessinés comme le bouton de tir ou BURN (`BigRedButton`),
+    capuchon de la couleur de l'alerte (noir pour Tout éteindre) ; le niveau en cours est marqué « ▲ ». À l'arrivée
+    d'un appel, la tablette passe d'elle-même sur cet onglet (sortie ou rangée : elle s'ouvrira dessus).
 - **HUD (surimpression dans la cupola)** : `Hud.overlay_enabled` (**désactivé au démarrage** ; `set_overlay_enabled`,
   signal `overlay_changed`), basculé par le bouton de la tablette. Il porte les éléments 3D vus à travers les vitres
   de la cupola : pour l'instant l'anneau de l'orbite visée (`GhostTrack`), à venir la zone visée (photo, missiles).
