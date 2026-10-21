@@ -251,13 +251,13 @@ permet de piloter le jeu exporté.
 	  (`GameSettings.can_change_display`, `Engine.is_embedded_in_editor`), avec un avertissement dans l'onglet Vidéo.
 	  Pour les tester : désactiver l'intégration du jeu (menu d'options de l'onglet Jeu) ou lancer le jeu hors de
 	  l'éditeur (`godot --path <projet>`, ou version exportée). Vérifié hors éditeur sur un écran 5120 × 1440 :
-      plein écran 5120 × 1440 ; fenêtré 1280 × 720 centré ; fenêtré natif maximisé.
+	  plein écran 5120 × 1440 ; fenêtré 1280 × 720 centré ; fenêtré natif maximisé.
 	- Plein écran : la fenêtre couvre tout l'écran à sa résolution native (Godot ne change pas le mode vidéo de
 	  l'écran ; plein écran sans bordure, `WINDOW_MODE_FULLSCREEN`). La résolution choisie règle celle du **rendu
 	  3D** (`Viewport.scaling_3d_scale` = hauteur choisie / hauteur de l'écran, au moins 0,25) ; l'interface reste
-      nette à la résolution native. Utile pour gagner des images par seconde sur un très grand écran.
-    - Résolutions proposées : formats courants 16:9 (1280 × 720 à 7680 × 4320), 16:10 (1280 × 800 à
-      3840 × 2400), 21:9 (2560 × 1080, 3440 × 1440, 3840 × 1600, 5120 × 2160) et 32:9 (3840 × 1080, 5120 × 1440,
+	  nette à la résolution native. Utile pour gagner des images par seconde sur un très grand écran.
+	- Résolutions proposées : formats courants 16:9 (1280 × 720 à 7680 × 4320), 16:10 (1280 × 800 à
+	  3840 × 2400), 21:9 (2560 × 1080, 3440 × 1440, 3840 × 1600, 5120 × 2160) et 32:9 (3840 × 1080, 5120 × 1440,
 	  7680 × 2160), jusqu'à la taille de l'écran, plus celle de l'écran (« native »). Le jeu n'a pas de limite
 	  propre (Godot rend jusqu'à 16384 px de côté) ; la limite pratique est le GPU (le jeu est limité par le GPU :
 	  5120 × 1440 = 7,4 Mpx, 3,6 fois 1920 × 1080).
@@ -265,11 +265,11 @@ permet de piloter le jeu exporté.
 	  3D garde son champ de vision vertical et s'élargit (`Camera3D.keep_aspect` = hauteur) ; l'interface garde sa
 	  taille et s'étend sur toute la largeur (panneau en bas au centre, bilan en haut à droite).
   - **Audio** : **volume de la musique** et **volume des effets sonores** (0 à 100 %, `GameSettings.music_volume`,
-    100 % par défaut, et `sfx_volume`, 80 % par défaut ; réglables ensuite par le joueur), volumes des bus « Music » et « SFX » (`default_bus_layout.tres`, muet à
-    0 %) ; à côté de chaque curseur, un bouton bascule à **icône de haut-parleur** (barré en rouge quand le son est
-    coupé, infobulle « Muet » ; `music_muted`, `sfx_muted`, sauvés) coupe totalement
-    le bus et désactive (grise) le curseur, le volume réglé étant gardé pour la remise en route ; **playlist** : menu
-    déroulant des playlists disponibles (`GameSettings.playlist`, « starnuke » par défaut).
+	100 % par défaut, et `sfx_volume`, 80 % par défaut ; réglables ensuite par le joueur), volumes des bus « Music » et « SFX » (`default_bus_layout.tres`, muet à
+	0 %) ; à côté de chaque curseur, un bouton bascule à **icône de haut-parleur** (barré en rouge quand le son est
+	coupé, infobulle « Muet » ; `music_muted`, `sfx_muted`, sauvés) coupe totalement
+	le bus et désactive (grise) le curseur, le volume réglé étant gardé pour la remise en route ; **playlist** : menu
+	déroulant des playlists disponibles (`GameSettings.playlist`, « starnuke » par défaut).
 	Une playlist est un sous-dossier de `playlist/` (son nom est celui du dossier) ; l'autoload `Music`
 	(`scripts/music_player.gd`) joue tous ses morceaux (.mp3, .ogg, .wav, ordre alphabétique) puis recommence, dès le
 	début de la partie (scène `orbit_view.tscn`, pause comprise) ; il s'arrête à l'écran de démarrage. Changer de
@@ -278,7 +278,7 @@ permet de piloter le jeu exporté.
 	jeu exporté, c'est `playlist/` **à côté de l'exécutable** (copié par `tools/package_game.ps1`), où le joueur
 	ajoute ses propres playlists (un dossier, ses fichiers MP3 / OGG / WAV tels quels, `AudioStreamMP3.load_from_file`
 	et équivalents) ; dans l'éditeur, `playlist/` du projet. La liste est relue à chaque ouverture des paramètres
-    (pas besoin de relancer le jeu) ; un fichier illisible est sauté.
+	(pas besoin de relancer le jeu) ; un fichier illisible est sauté.
   - **Game** : **langue** (English, Français, Español, Deutsch, Italiano ; anglais par défaut), appliquée en direct.
 - **Sauvegarde** (autoload `GameSettings`, `scripts/game_settings.gd`) : `user://settings.cfg` (sous Windows
   `%APPDATA%/Godot/app_userdata/Star Nuke/settings.cfg`), réappliqué au lancement suivant. Sections `[video]`
@@ -395,9 +395,9 @@ de la vue).
   et heure solaire du point survolé. Une seule page affichée à la fois, dans la hauteur restante (tout tient dans la
   dalle) :
   - **Pilotage** : carte réduite (la même `OrbitalMap` que le poste de pilotage : trace au sol, station, point de
-    manœuvre, trace fantôme), **de 80° N à 80° S** comme au poste (rapport 1,29), aussi grande que la page le permet, et, dans une colonne à droite (210 px), la commande de
-    poussée (`BurnControl` en colonne, compacte : compte à rebours 44 px, BURN bleu 100 × 94, textes 18 px,
-    **jauge verticale** à droite sur toute la hauteur du bloc, remplie du bas vers le haut, pour un dosage précis) ;
+	manœuvre, trace fantôme), **de 80° N à 80° S** comme au poste (rapport 1,29), aussi grande que la page le permet, et, dans une colonne à droite (210 px), la commande de
+	poussée (`BurnControl` en colonne, compacte : compte à rebours 44 px, BURN bleu 100 × 94, textes 18 px,
+	**jauge verticale** à droite sur toute la hauteur du bloc, remplie du bas vers le haut, pour un dosage précis) ;
   - **Photographie** : **vue au nadir en temps réel** (caméra de la tablette, `SubViewport` de 600 × 470 qui partage
 	le monde de la scène, 15 m sous la station, champ de 22°, haut de l'image dans le sens du vol ; rendue seulement
 	quand la tablette est sortie sur cet onglet) et bouton **« Photo »**. La caméra a une copie de l'environnement en
@@ -406,7 +406,7 @@ de la vue).
 	**Photos satellites** (`Tablet._take_photo`, archive `scripts/photo_archive.gd`, nœud `Photos`, groupe
 	`photo_archive`) : flash, puis la vue au nadir est rendue une fois en **1 600 × 1 253** avec le rendu final du
 	jeu (environnement d'origine : ACES, halo) et enregistrée en **PNG dans `user://photos/`** (nom : date et heure
-    du jeu, latitude, longitude ; le joueur garde ses photos) ; deux images plus tard, une seconde capture au rendu de
+	du jeu, latitude, longitude ; le joueur garde ses photos) ; deux images plus tard, une seconde capture au rendu de
 	la vue en direct sert à la galerie (sans quoi elle serait délavée sur l'écran). Chaque photo garde le **point
 	survolé** à la prise de vue (point sous la station : c'est lui qui comptera pour la précision d'une photo de
 	mission, signal `PhotoArchive.photo_taken`), l'heure UTC du jeu, l'altitude et l'**emprise au sol**
@@ -418,11 +418,11 @@ de la vue).
 	chaque silo aura sa bombe et sa puissance —, gros bouton rouge), mise à l'échelle pour occuper la page ;
   - **Alertes** (règle de jeu : la tablette est le récepteur des alertes, comme un téléphone) : écran partagé en
 	deux. En haut (~80 %), l'**écran de réception** : l'appel prioritaire en cours (`PriorityCall` : « APPEL
-    PRIORITAIRE », expéditeur, objet, heure de réception ; le message lui-même se lit au poste COMM), sinon
+	PRIORITAIRE », expéditeur, objet, heure de réception ; le message lui-même se lit au poste COMM), sinon
 	« Aucune alerte », et, juste au-dessus des boutons, le **bandeau clignotant** de l'appel (orange sur fond
 	sombre). En bas, **5 gros boutons** du niveau d'alerte de la station (`Station.set_alert`, comme le menu
-    « Alerte » du panneau de debug) : **Normal** (blanc), **Jaune**, **Orange**, **Rouge** et **Tout éteindre**
-    (« plus de lumière » : lumières de secours seules), dessinés comme le bouton de tir ou BURN (`BigRedButton`),
+	« Alerte » du panneau de debug) : **Normal** (blanc), **Jaune**, **Orange**, **Rouge** et **Tout éteindre**
+	(« plus de lumière » : lumières de secours seules), dessinés comme le bouton de tir ou BURN (`BigRedButton`),
 	capuchon de la couleur de l'alerte (noir pour Tout éteindre) ; le niveau en cours est marqué « ▲ ». À l'arrivée
 	d'un appel, la tablette passe d'elle-même sur cet onglet (sortie ou rangée : elle s'ouvrira dessus).
 - **HUD (surimpression dans la cupola)** : `Hud.overlay_enabled` (**désactivé au démarrage** ; `set_overlay_enabled`,
@@ -487,11 +487,11 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	2,5 m : bulle « Contrôle orbital » au curseur ;
   - clic gauche sur la dalle : position « poste de pilotage », **temps ramené à ×1** (les manœuvres se jouent en
 	temps réel). L'œil glisse en 0,6 s face au centre de la dalle, à
-    la distance où elle occupe 90 % de la vue (en hauteur ou en largeur selon les proportions de la fenêtre) ;
+	la distance où elle occupe 90 % de la vue (en hauteur ou en largeur selon les proportions de la fenêtre) ;
 	l'observateur (`Observer`, corps et tête) est suspendu : ni déplacement, ni rotation, ni roulis. Toute la souris
 	est alors prise par le poste : les mouvements et clics sur la dalle sont transmis à l'interface (position
 	convertie en pixels de l'image), les autres sont ignorés (pas de tir, pas de clic sur le reste de l'interface).
-    Indication en bas de la vue : « Clic droit : quitter le poste de pilotage » ;
+	Indication en bas de la vue : « Clic droit : quitter le poste de pilotage » ;
   - clic droit : retour en 0,6 s à la position et à l'orientation d'avant, l'observateur reprend la main.
   - Coût : comme les autres écrans, l'image n'est rendue et l'interface mise à jour que si la caméra est à moins
 	de 12 m de la dalle (`RENDER_DISTANCE`).
