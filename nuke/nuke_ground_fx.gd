@@ -21,8 +21,8 @@ extends Node
 ##   centaines de km), reconstruite quand un panache s'allonge nettement ou disparaît ;
 ## - nuke_smoke_rate (RF, NukeScaling.SMOKE_TABLE_SIZE) : surface en feu f(t), commune à toutes les puissances ;
 ## - nuke_ground_countries (RF, indice CountryMask + 1) : temps physique écoulé depuis la panne nationale (s), 0 sinon.
-## Seuls les temps changent à chaque image (ligne 0 renvoyée) ; la liste et l'index sont reconstruits quand la liste
-## des explosions change (tir, effacement).
+## Seuls les temps changent à chaque image (la texture des événements est renvoyée entière) ; la liste et l'index sont
+## reconstruits quand la liste des explosions change (NukeLauncher.effects_changed : tir, effacement).
 
 const INDEX_WIDTH := 4096
 const CELLS_X := 360
@@ -38,8 +38,9 @@ const SMOKE_CELL_MIN_TAU := 0.005
 
 var _launcher: NukeLauncher
 var _materials: Array[ShaderMaterial] = []
-## Explosions transmises, dans l'ordre des colonnes de nuke_ground_events.
+## Explosions transmises, dans l'ordre des colonnes de nuke_ground_events ; _dirty : liste à reconstruire.
 var _effects: Array[NukeEffect] = []
+var _dirty := true
 ## Contenu de nuke_ground_events (RGBAF, _capacity × ROWS), et temps physiques envoyés (pour ne renvoyer que s'ils
 ## changent).
 var _data := PackedFloat32Array()
@@ -63,6 +64,7 @@ var _country_times := PackedFloat32Array()
 
 func setup(launcher: NukeLauncher, earth: Node3D) -> void:
 	_launcher = launcher
+	_launcher.effects_changed.connect(func() -> void: _dirty = true)
 	_materials = NukeFXMaterials.find(earth, &"nuke_ground_count")
 	var table := NukeScaling.smoke_table()
 	for value in table:
@@ -101,9 +103,9 @@ func setup(launcher: NukeLauncher, earth: Node3D) -> void:
 func _process(_delta: float) -> void:
 	if _launcher == null:
 		return
-	var effects := _launcher.get_effects()
-	if effects != _effects:
-		_rebuild(effects)
+	if _dirty:
+		_dirty = false
+		_rebuild(_launcher.get_effects())
 	var changed := false
 	var smoke_changed := false
 	for i in _effects.size():
@@ -134,7 +136,7 @@ func _process(_delta: float) -> void:
 
 ## Renvoie tout aux matériaux à la prochaine image (après qu'un autre a modifié leurs paramètres, cf. banc de mesure).
 func refresh() -> void:
-	_effects.clear()
+	_dirty = true
 	_country_times = PackedFloat32Array()
 
 

@@ -33,6 +33,9 @@ extends Node3D
 var flux_ref := 0.0
 ## Rayon courant de la boule de feu (km).
 var radius_km := 0.0
+## Flux reçu par la caméra à cette image (soleils, received_flux), calculé une fois ici pour le halo et lu par
+## NukeFlashFX (traité après : la Terre précède le lanceur dans la scène).
+var received_at_camera := 0.0
 
 var _effect: NukeEffect
 
@@ -87,6 +90,7 @@ func _update() -> void:
 	var u := _effect.get_time_s() / NukeScaling.flash_duration_s(w)
 	if u >= 1.0:
 		flux_ref = 0.0
+		received_at_camera = 0.0
 		_fireball.visible = false
 		_flare.visible = false
 		return
@@ -108,6 +112,7 @@ func _update() -> void:
 	_fireball.set_instance_shader_parameter("radiance", NukeScaling.fireball_radiance_hdr(flux_ref, drawn_km))
 
 	var received := received_flux(camera.global_position) if camera else 0.0
+	received_at_camera = received
 	_flare.visible = received > 1e-4
 	if _flare.visible:
 		_flare.position = get_light_position()

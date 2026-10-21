@@ -2483,8 +2483,9 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	sans rien faire ;
   - `launch_at(latitude, longitude, yield_kt)` : tire sur des coordonnées ; `fire(params)` : à partir d'une
 	`NukeParams` ;
-  - signal `detonated(effect)` ; `get_effects()`, `clear_effects()`. Les explosions restent en place jusqu'à la
-	fin de la partie (persistance du monde) : seul `clear_effects()` (debug, banc de mesure) les retire.
+  - signaux `detonated(effect)` et `effects_changed` ; `get_effects()` (liste tenue à jour, à ne pas modifier),
+	`clear_effects()`. Les explosions restent en place jusqu'à la fin de la partie (persistance du monde) : seul
+	`clear_effects()` (debug, banc de mesure) les retire.
   - Au démarrage, il lie `NukeClock` au nœud `Orbit` (`orbit_path`).
 - **Interface** : commande `Launch` de la tablette (`nuke/launch_control.gd`, tir depuis la cupola seulement, chaîne de tir : tube choisi →
   `Station.launch_missile` → `missile_released` → vol `MissileFlight` (durée selon la distance, chronomètres

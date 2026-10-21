@@ -39,6 +39,8 @@ var _adapted := 0.0 # flux auquel l'œil s'est adapté (soleils)
 var _materials: Array[ShaderMaterial] = []
 var _light: DirectionalLight3D
 var _was_active := false
+## Station (scripts/station.gd), pour savoir si l'œil voit le flash ; résolue une fois.
+var _station: Station
 ## Nœud Exposure (scripts/exposure_control.gd, groupe exposure_control), s'il existe.
 var _exposure: Node
 
@@ -58,6 +60,8 @@ func setup(launcher: NukeLauncher, world_environment: WorldEnvironment, earth: N
 	if station:
 		for node in station.find_children("*", "GeometryInstance3D", true, false):
 			(node as GeometryInstance3D).layers |= STATION_LIGHT_LAYER
+	# station est le nœud Station de la scène ; le script Station est sur son enfant StationSpatiale (groupe).
+	_station = get_tree().get_first_node_in_group(Station.GROUP) as Station
 	_light = DirectionalLight3D.new()
 	_light.name = "FlashLight"
 	_light.light_cull_mask = STATION_LIGHT_LAYER
@@ -109,7 +113,8 @@ func _process(delta: float) -> void:
 	var direction := Vector3.DOWN
 	if camera:
 		for flash in flashes:
-			var f := flash.received_flux(camera.global_position)
+			# Calculé par NukeFlash à cette image (halo), pas une seconde fois.
+			var f := flash.received_at_camera
 			received += f
 			if f > brightest:
 				brightest = f
@@ -144,8 +149,7 @@ func _process(delta: float) -> void:
 ## L'œil voit-il les flashs ? Dans la cupola (Station.is_in_cupola) ou hors de la station (Station.observer_outside :
 ## éjection ; ou loin d'elle) ; sans station : oui.
 func _eye_exposed(eye: Vector3) -> bool:
-	var station := get_tree().get_first_node_in_group(Station.GROUP) as Station
-	if station == null:
+	if _station == null:
 		return true
-	return station.observer_outside or station.is_in_cupola(eye) \
-			or eye.distance_to(station.global_position) > outside_distance_m
+	return _station.observer_outside or _station.is_in_cupola(eye) \
+			or eye.distance_to(_station.global_position) > outside_distance_m

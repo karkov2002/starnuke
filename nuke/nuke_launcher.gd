@@ -11,6 +11,8 @@ extends Node
 
 ## Émis à chaque tir réussi.
 signal detonated(effect: NukeEffect)
+## Liste des explosions changée (tir, effacement) : les effets globaux reconstruisent leurs tableaux.
+signal effects_changed
 
 const GROUP := &"nuke_launcher"
 const YIELDS_KT: Array[float] = [10.0, 100.0, 500.0, 1000.0, 10000.0, 50000.0]
@@ -23,6 +25,8 @@ const EFFECT_SCENE := preload("res://nuke/nuke_effect.tscn")
 @export var station_path: NodePath = ^"../Station"
 
 var _earth: Node3D
+## Explosions de la partie (enfants de Earth), dans l'ordre des tirs ; une explosion en sort quand elle quitte l'arbre.
+var _effects: Array[NukeEffect] = []
 ## Tâche de préchargement des cartes de vent, attendue à la sortie (rien ne doit tourner pendant la destruction).
 var _preload_task := -1
 
@@ -159,19 +163,21 @@ func fire(params: NukeParams) -> NukeEffect:
 	var effect := EFFECT_SCENE.instantiate() as NukeEffect
 	effect.params = params
 	_earth.add_child(effect)
+	_effects.append(effect)
+	effect.tree_exited.connect(func() -> void:
+		_effects.erase(effect)
+		effects_changed.emit())
+	effects_changed.emit()
 	detonated.emit(effect)
 	return effect
 
 
 ## Explosions de la partie (enfants de Earth), qui restent en place jusqu'à la fin : leurs effets au sol persistent.
+## Liste tenue à jour (effects_changed), à lire sans la modifier.
 func get_effects() -> Array[NukeEffect]:
-	var effects: Array[NukeEffect] = []
-	for child in _earth.get_children():
-		if child is NukeEffect:
-			effects.append(child)
-	return effects
+	return _effects
 
 
 func clear_effects() -> void:
-	for effect in get_effects():
+	for effect in _effects.duplicate():
 		effect.queue_free()
