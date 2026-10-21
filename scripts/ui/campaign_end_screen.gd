@@ -126,7 +126,8 @@ func _add_score_cells(grid: GridContainer, score: Variant, success_score: float,
 	var value := _add_label(grid, tr("CAMPAIGN_END_SCORE").format({"score": "%.1f" % float(score)}), font_size,
 			color, false)
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_add_label(grid, tr("RESULT_SUCCESS" if passed else "RESULT_FAILURE"), font_size, color, false)
+	var verdict := _add_label(grid, tr("RESULT_SUCCESS" if passed else "RESULT_FAILURE"), font_size, color, false)
+	verdict.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 
 
 ## Étiquette centrée ; translate : traduction automatique (texte = clé), sinon texte déjà traduit.
