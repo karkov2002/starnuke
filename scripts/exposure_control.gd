@@ -63,8 +63,9 @@ var flash_received := 0.0
 
 var _earth: Node3D
 var _sun: DirectionalLight3D
-## Station (scripts/station.gd), pour savoir si l'observateur est dans la cupola.
-var _station: Node
+## Station (scripts/station.gd), pour savoir si l'observateur est dans la cupola ; null sans station (décor du menu
+## sans elle, bancs).
+var _station: Station
 var _attributes: CameraAttributes
 var _log_factor := 0.0
 
@@ -74,7 +75,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_earth = get_node_or_null(earth_path) as Node3D
 	_sun = get_node_or_null(sun_path) as DirectionalLight3D
-	_station = get_node_or_null(station_path)
+	_station = get_node_or_null(station_path) as Station
 	var world_environment := get_node_or_null(world_environment_path) as WorldEnvironment
 	if world_environment:
 		_attributes = world_environment.camera_attributes
@@ -186,7 +187,7 @@ func _earth_view() -> Dictionary:
 ## jamais en vue.
 func _in_cupola() -> bool:
 	var camera := get_viewport().get_camera_3d()
-	return _station != null and camera != null and _station.call(&"is_in_cupola", camera.global_position)
+	return _station != null and camera != null and _station.is_in_cupola(camera.global_position)
 
 
 ## La caméra est-elle hors de la station ? Éjection (Station.observer_outside), caméra à plus de outside_distance_m
@@ -195,5 +196,4 @@ func _outside() -> bool:
 	var camera := get_viewport().get_camera_3d()
 	if _station == null or camera == null:
 		return true
-	return bool(_station.get(&"observer_outside")) \
-			or camera.global_position.distance_to((_station as Node3D).global_position) > outside_distance_m
+	return _station.observer_outside or camera.global_position.distance_to(_station.global_position) > outside_distance_m

@@ -41,8 +41,8 @@ var _light: DirectionalLight3D
 var _was_active := false
 ## Station (scripts/station.gd), pour savoir si l'œil voit le flash ; résolue une fois.
 var _station: Station
-## Nœud Exposure (scripts/exposure_control.gd, groupe exposure_control), s'il existe.
-var _exposure: Node
+## Nœud Exposure (scripts/exposure_control.gd, groupe ExposureControl.GROUP), s'il existe.
+var _exposure: ExposureControl
 
 
 func setup(launcher: NukeLauncher, world_environment: WorldEnvironment, earth: Node3D, station: Node3D) -> void:
@@ -55,7 +55,7 @@ func setup(launcher: NukeLauncher, world_environment: WorldEnvironment, earth: N
 		_base_bloom = _environment.glow_bloom
 	if _camera_attributes:
 		_base_exposure = _camera_attributes.exposure_multiplier
-	_exposure = get_tree().get_first_node_in_group(&"exposure_control")
+	_exposure = get_tree().get_first_node_in_group(ExposureControl.GROUP) as ExposureControl
 	_materials = NukeFXMaterials.find(earth, &"nuke_flash_count")
 	if station:
 		for node in station.find_children("*", "GeometryInstance3D", true, false):
@@ -77,7 +77,7 @@ func _process(delta: float) -> void:
 		return
 	# Le nœud Exposure est prêt après le lanceur (ordre de la scène) : recherche différée.
 	if _exposure == null:
-		_exposure = get_tree().get_first_node_in_group(&"exposure_control")
+		_exposure = get_tree().get_first_node_in_group(ExposureControl.GROUP) as ExposureControl
 	var flashes: Array[NukeFlash] = []
 	for effect in _launcher.get_effects():
 		var flash := effect.get_flash()
@@ -86,7 +86,7 @@ func _process(delta: float) -> void:
 	if flashes.is_empty() and not _was_active:
 		_adapted = 0.0
 		if _exposure:
-			_exposure.set(&"flash_received", 0.0)
+			_exposure.flash_received = 0.0
 		return
 	_was_active = not flashes.is_empty()
 	flashes.sort_custom(func(a: NukeFlash, b: NukeFlash) -> bool: return a.flux_ref > b.flux_ref)
@@ -140,8 +140,8 @@ func _process(delta: float) -> void:
 		_environment.glow_bloom = _base_bloom + bloom_gain * dazzle
 	# Exposition : via le contrôle d'exposition s'il existe (il la recalcule à chaque image), sinon directement.
 	if _exposure:
-		_exposure.set(&"dazzle", 1.0 + exposure_gain * dazzle)
-		_exposure.set(&"flash_received", received)
+		_exposure.dazzle = 1.0 + exposure_gain * dazzle
+		_exposure.flash_received = received
 	elif _camera_attributes:
 		_camera_attributes.exposure_multiplier = _base_exposure * (1.0 + exposure_gain * dazzle)
 

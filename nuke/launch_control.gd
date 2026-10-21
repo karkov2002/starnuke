@@ -98,7 +98,7 @@ func _process(_delta: float) -> void:
 ## Chronomètres en bas à droite de l'écran, dans l'interface à l'écran (Hud ; à défaut, la couche d'interface du
 ## panneau ou la scène).
 func _add_timers() -> void:
-	var layer: Node = get_tree().get_first_node_in_group(&"hud")
+	var layer: Node = get_tree().get_first_node_in_group(Hud.GROUP)
 	if layer == null:
 		layer = get_parent()
 		while layer and not layer is CanvasLayer:
