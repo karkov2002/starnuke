@@ -614,7 +614,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   (modèle simplifié précalculé : modules, silos, poutre, panneaux), télémétrie (courbes, barregraphes, radar à
   balayage), détermination d'orbite (Terre, orbite, colonnes hexadécimales) et, sur les bandeaux 13 et 14, spectre
   radio et oscilloscope. Affectation : table `ASSIGNMENT`. Coût réduit : images redessinées à 15 Hz (`refresh_hz`)
-  et seulement quand la caméra est dans un module qui a des écrans animés (`MODULES_X` : Commande, Arrimage) ; écrans éteints avec « plus de lumière »
+  et seulement quand la caméra est dans un module qui a des écrans animés (`StationLayout.SCREEN_MODULES` : Commande,
+  Arrimage ; volumes de `StationLayout.ZONES` élargis de 1,5 m) ; écrans éteints avec « plus de lumière »
   (`Station.get_blackout`). Mesure : 120 im/s inchangés dans le module. Les textes affichés sont du pseudo-code et
   des valeurs techniques, sans langue : ils ne passent pas par les fichiers de langue.
 - **Communication radio** (`scripts/comm_console.gd`, nœud `CommConsole` ; interface `scripts/ui/comm_display.gd` ;
@@ -1033,9 +1034,11 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
     `airlock_changed(pressurized)` (fin de cycle) et `hatch_moving(id, open)` (une écoutille commence à bouger).
   - **Air de la station** (règles de jeu, `scripts/station_atmosphere.gd`, classe `StationAtmosphere`, nœud
     `StationAir` de `orbit_view.tscn`) : une pression (0–1) par volume : modules Commande, Habitation, Arrimage,
-	Missile 1 et 2, jonctions avant et arrière, sas (table `ZONES` : boîtes en coordonnées Blender, volume d'air,
+	Missile 1 et 2, jonctions avant et arrière, sas (table `StationLayout.ZONES`, `scripts/station/station_layout.gd` :
+	géométrie de la station en coordonnées Blender, une seule source pour l'air, les témoins de pression et les
+	écrans d'ambiance, avec la seule conversion Blender → station `StationLayout.to_godot` (x, z, −y) ; boîtes, volume d'air,
 	modules comptés). Les écoutilles intérieures isolent les modules ; **deux volumes communiquent quand
-	l'écoutille qui les relie est ouverte** (table `HATCHES` ; état visé : une écoutille qui commence à s'ouvrir
+	l'écoutille qui les relie est ouverte** (table `StationLayout.HATCHES` ; état visé : une écoutille qui commence à s'ouvrir
 	communique déjà, une écoutille qui commence à se fermer isole déjà). Les ensembles qui communiquent et le
 	chemin du courant vers la sortie sont recalculés au mouvement d'une écoutille (signaux `Station.hatch_moving`
 	et `hatch_changed`), pas à chaque image.
@@ -1067,7 +1070,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	  démarrage (`Temoin_Pression_<module>`, enfant de la station) : pression du module en bar, voyant et chiffres
 	  verts au-dessus de 0,9, orange au-dessous, rouges clignotants sous 0,3 (perte de connaissance sans
 	  combinaison) ; plaque « CABIN PRESSURE » (marquage du matériel, hors fichiers de langue). Emplacements relevés
-	  par lancer de rayons dans le modèle (table `GAUGES`) : panneau de paroi à 30° au-dessus de l'horizontale, sous
+	  par lancer de rayons dans le modèle (table `StationLayout.GAUGES`) : panneau de paroi à 30° au-dessus de l'horizontale, sous
 	  les tuyaux et les luminaires ; dans les modules de missiles, cloison de l'écoutille, côté opposé au battant.
 	  Le sas a le manomètre de sa valve.
   - **Jets d'air** (`scripts/air_vent_fx.gd`, nœud `AirVentFx`, placé de lui-même à la porte extérieure, +Y vers

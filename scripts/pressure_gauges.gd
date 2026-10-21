@@ -5,18 +5,9 @@ extends Node
 ## « CABIN PRESSURE »), enfant de la station (Temoin_Pression_<module>). Pression : StationAtmosphere. Voyant et chiffres : vert au-dessus de
 ## warn_pressure, orange au-dessous, rouge clignotant sous danger_pressure (on y perd connaissance sans combinaison :
 ## AirlockHazard.death_pressure). Valeurs et marquages du matériel, sans langue (hors fichiers de langue). Le sas a
-## déjà le manomètre de sa valve.
+## déjà le manomètre de sa valve. Emplacements : StationLayout.GAUGES (coordonnées Blender).
 
-## Module → position et normale de la paroi (coordonnées Blender ; repère de la station : x, z, −y), relevées par
-## lancer de rayons dans le modèle : panneau de paroi à 30° au-dessus de l'horizontale (sous les tuyaux et les
-## luminaires), libre d'équipements, ou cloison de l'écoutille (modules de missiles, côté opposé au battant).
-const GAUGES := {
-	"Commande": [Vector3(7.9, 1.167, 0.674), Vector3(0.0, -0.882, -0.471)],
-	"Habitation": [Vector3(-3.7, -1.167, 0.674), Vector3(0.0, 0.882, -0.471)],
-	"Arrimage": [Vector3(-7.9, 1.167, 0.674), Vector3(0.0, -0.882, -0.471)],
-	"Missile_1": [Vector3(1.15, 2.49, 0.0), Vector3(0.0, 1.0, 0.0)],
-	"Missile_2": [Vector3(-1.15, -2.49, 0.0), Vector3(0.0, -1.0, 0.0)],
-}
+const GAUGES := StationLayout.GAUGES
 const GREEN := Color(0.3, 1.0, 0.45)
 const AMBER := Color(1.0, 0.68, 0.1)
 const RED := Color(1.0, 0.16, 0.1)
@@ -70,7 +61,7 @@ func _process(delta: float) -> void:
 ## Afficheur posé sur la paroi (position et normale en coordonnées Blender), face vers l'intérieur, haut vers le
 ## plafond du modèle (+Z Blender) projeté sur la paroi.
 func _build(station: Node3D, zone: String, blender_position: Vector3, blender_normal: Vector3) -> Dictionary:
-	var normal := Vector3(blender_normal.x, blender_normal.z, -blender_normal.y).normalized()
+	var normal := StationLayout.to_godot(blender_normal).normalized()
 	var up := (Vector3.UP - normal * Vector3.UP.dot(normal)).normalized()
 	if up.length() < 0.1:
 		up = Vector3.RIGHT
@@ -78,7 +69,7 @@ func _build(station: Node3D, zone: String, blender_position: Vector3, blender_no
 	root.name = "Temoin_Pression_" + zone
 	station.add_child(root)
 	root.transform = Transform3D(Basis(up.cross(normal), up, normal).scaled_local(Vector3.ONE * gauge_scale),
-			Vector3(blender_position.x, blender_position.z, -blender_position.y) + normal * 0.002)
+			StationLayout.to_godot(blender_position) + normal * 0.002)
 	var housing := _material(Color(0.16, 0.17, 0.18), 0.6, 0.45)
 	_box(root, Vector3(0.17, 0.11, 0.03), Vector3(0, 0, 0.015), housing)
 	_box(root, Vector3(0.136, 0.064, 0.004), Vector3(0, 0.012, 0.031), _material(Color(0.05, 0.05, 0.055), 0.3, 0.5))

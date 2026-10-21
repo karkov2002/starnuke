@@ -11,7 +11,8 @@ extends Node
 ## - ORBIT : la Terre et l'orbite vues de dessus, la station qui tourne, colonnes de valeurs hexadécimales ;
 ## - STRIP : bandeau large (écrans 13 et 14) : spectre et oscilloscope.
 ## Coût réduit : chaque image n'est redessinée qu'à refresh_hz (15 Hz), et seulement quand la caméra est dans un
-## module qui a des écrans animés (MODULES_X ; sinon les SubViewports ne sont plus rendus). Écrans éteints avec « plus de lumière »
+## module qui a des écrans animés (StationLayout.SCREEN_MODULES, boîtes élargies de MODULE_MARGIN_M ; sinon les
+## SubViewports ne sont plus rendus). Écrans éteints avec « plus de lumière »
 ## (Station.get_blackout). Les textes affichés sont du pseudo-code et des valeurs (pas de langue) : hors fichiers de
 ## langue.
 
@@ -36,9 +37,9 @@ const ASSIGNMENT := {
 }
 const SIZE_16_10 := Vector2i(512, 320)
 const SIZE_STRIP := Vector2i(1024, 304)
-## Modules qui ont des écrans animés (Commande, Arrimage) : étendue sur l'axe des modules (X du modèle de la station).
-const MODULES_X: Array[Vector2] = [Vector2(5.5, 16.3), Vector2(-16.3, -6.8)]
-const MODULE_RADIUS := 2.4
+## Marge (m) autour des volumes des modules à écrans (StationLayout.ZONES) : les écrans s'animent déjà depuis la
+## jonction voisine, avant d'entrer dans le module.
+const MODULE_MARGIN_M := 1.5
 
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
 @export var refresh_hz := 15.0
@@ -110,11 +111,9 @@ func _tick() -> void:
 
 
 func _in_module(world_position: Vector3) -> bool:
-	var local := _station.global_transform.affine_inverse() * world_position
-	if Vector2(local.y, local.z).length() >= MODULE_RADIUS + 2.5:
-		return false
-	for span in MODULES_X:
-		if local.x > span.x and local.x < span.y:
+	var blender := StationLayout.to_blender(_station.global_transform.affine_inverse() * world_position)
+	for zone in StationLayout.SCREEN_MODULES:
+		if StationLayout.is_in_zone(blender, zone, MODULE_MARGIN_M):
 			return true
 	return false
 
