@@ -40,6 +40,8 @@ signal suit_changed(worn: bool)
 signal airlock_changed(pressurized: bool)
 ## Fin de la séparation (false) ou du réamarrage (true) du vaisseau cargo.
 signal cargo_changed(docked: bool)
+## Niveau d'alerte changé (set_alert) : sirènes (AlertSirens), tablette.
+signal alert_changed(level: int)
 
 ## Groupe de la station (pour la retrouver depuis l'interface).
 const GROUP := &"station"
@@ -1231,7 +1233,10 @@ func _setup_interior_lighting() -> void:
 
 ## Niveau d'alerte de la station (couleur des luminaires), voir alert_colors.
 func set_alert(level: Alert) -> void:
+	if level == _alert:
+		return
 	_alert = level
+	alert_changed.emit(level)
 
 
 func get_alert() -> Alert:

@@ -36,6 +36,7 @@
 [ext_resource type="Script" uid="uid://dr7vu7jojb2xj" path="res://scripts/photo_archive.gd" id="34_crbbg"]
 [ext_resource type="Script" uid="uid://c5ppfc2stod21" path="res://scripts/campaign_director.gd" id="35_vnf77"]
 [ext_resource type="Script" uid="uid://dg8apa0r08bm5" path="res://scripts/wake_up.gd" id="36_4hs2m"]
+[ext_resource type="Script" uid="uid://wd5pqymx5yg7" path="res://scripts/alert_sirens.gd" id="37_2urrc"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -205,3 +206,6 @@ script = ExtResource("35_vnf77")
 
 [node name="WakeUp" type="CanvasLayer" parent="." unique_id=649541164]
 script = ExtResource("36_4hs2m")
+
+[node name="AlertSirens" type="Node" parent="." unique_id=323897164]
+script = ExtResource("37_2urrc")

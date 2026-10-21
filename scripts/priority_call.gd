@@ -1,55 +1,48 @@
 class_name PriorityCall
 extends Node
 ## Appel prioritaire (règle de jeu) : à l'arrivée d'un briefing de campagne (CampaignDirector), la station sonne
-## comme une alarme de la station spatiale internationale, par l'interphone (audible partout, même en combinaison ;
-## bus SFX) :
-## - sonnerie : deux tons alternés (TONES_HZ, TONE_S chacun) en salves de BURST_S, séparées de PAUSE_S de silence,
-##   jusqu'à la lecture du briefing, au plus RING_S ; ensuite un bip de rappel (une paire de tons) toutes les
-##   REMINDER_S secondes tant qu'il n'est pas lu ;
-## - luminaires de la station à l'orange pendant la sonnerie (Station.set_alert), puis retour au niveau d'avant, sauf
-##   si une alerte plus grave était déjà en cours (rouge, plus de lumière) ou si le niveau a changé entre-temps ;
+## par l'interphone (audible partout, même en combinaison ; bus SFX), d'une sonnerie distincte des sirènes d'alerte
+## (AlertSirens) :
+## - sonnerie : assets/audio/alarms/briefing_call.ogg (deux tons alternés en salves, tools/build_alarm_sounds.ps1) en
+##   boucle jusqu'à la lecture du briefing, au plus RING_S ; ensuite un cycle de rappel toutes les REMINDER_S
+##   secondes tant qu'il n'est pas lu ;
+## - **alerte jaune** jusqu'à la lecture (Station.set_alert : luminaires jaunes ; pendant l'appel, la sirène jaune se
+##   tait au profit de la sonnerie), si la station était au niveau normal ; à la lecture, retour au normal, sauf si
+##   le niveau a changé entre-temps. Une alerte déjà en cours (jaune, orange, rouge, plus de lumière) est gardée ;
 ## - la tablette est le récepteur de l'appel, comme un téléphone : son onglet Alertes (scripts/ui/tablet_display.gd)
 ##   l'affiche (expéditeur, objet, heure de réception, bandeau clignotant PRIORITY_CALL_BANNER) jusqu'à la lecture ;
 ##   elle s'ouvre sur cet onglet (call_started, call_stopped ; info : from, subject, received_unix).
-## Son synthétisé (AudioStreamGenerator), sans fichier audio. stop() à la lecture du briefing.
+## stop() à la lecture du briefing.
 
 signal call_started(info: Dictionary)
 signal call_stopped
 
 const GROUP := &"priority_call"
-const TONES_HZ: Array[float] = [880.0, 1175.0]
-const TONE_S := 0.12
-const BURST_S := 0.72
-const PAUSE_S := 0.78
+const SOUND := preload("res://assets/audio/alarms/briefing_call.ogg")
 const RING_S := 20.0
 const REMINDER_S := 60.0
+## Durée d'un cycle de la sonnerie (s) : un cycle par rappel.
+const CYCLE_S := 1.5
 const VOLUME_DB := -8.0
-const MIX_RATE := 44100.0
-## Montée et descente de chaque ton (s) : pas de clic.
-const EDGE_S := 0.006
 
 ## Appel en cours (vide : aucun) : from et subject (textes déjà traduits), received_unix (heure du jeu).
 var info := {}
 
 var _player: AudioStreamPlayer
-var _playback: AudioStreamGeneratorPlayback
 var _station: Station
-## Appel en cours, temps écoulé depuis son début (s, temps réel), position dans le son (échantillons).
+## Appel en cours, temps écoulé depuis son début (s, temps réel).
 var _active := false
 var _elapsed := 0.0
-var _sample := 0
 var _alert_set := false
-var _alert_before := Station.Alert.NONE
 
 
 func _ready() -> void:
 	add_to_group(GROUP)
 	_station = get_tree().get_first_node_in_group(Station.GROUP) as Station
+	var sound: AudioStreamOggVorbis = SOUND
+	sound.loop = true
 	_player = AudioStreamPlayer.new()
-	var stream := AudioStreamGenerator.new()
-	stream.mix_rate = MIX_RATE
-	stream.buffer_length = 0.2
-	_player.stream = stream
+	_player.stream = sound
 	_player.bus = &"SFX"
 	_player.volume_db = VOLUME_DB
 	add_child(_player)
@@ -60,26 +53,25 @@ func _ready() -> void:
 func ring(call_info := {}) -> void:
 	_active = true
 	_elapsed = 0.0
-	_sample = 0
 	info = call_info
 	_player.play()
-	_playback = _player.get_stream_playback()
-	if _station and _station.get_alert() in [Station.Alert.NONE, Station.Alert.YELLOW]:
-		_alert_before = _station.get_alert()
-		_station.set_alert(Station.Alert.ORANGE)
+	if _station and _station.get_alert() == Station.Alert.NONE:
+		_station.set_alert(Station.Alert.YELLOW)
 		_alert_set = true
 	set_process(true)
 	call_started.emit(info)
 
 
-## Fin de l'appel (briefing lu).
+## Fin de l'appel (briefing lu) : silence, retour au niveau normal si l'alerte jaune de l'appel est toujours là.
 func stop() -> void:
 	if not _active:
 		return
 	_active = false
 	info = {}
 	_player.stop()
-	_restore_alert()
+	if _alert_set and _station and _station.get_alert() == Station.Alert.YELLOW:
+		_station.set_alert(Station.Alert.NONE)
+	_alert_set = false
 	set_process(false)
 	call_stopped.emit()
 
@@ -88,43 +80,12 @@ func is_ringing() -> bool:
 	return _active
 
 
+## Sonnerie continue pendant RING_S, puis un cycle toutes les REMINDER_S.
 func _process(delta: float) -> void:
 	_elapsed += delta
-	if _elapsed >= RING_S:
-		_restore_alert()
-	if _playback == null:
-		return
-	var frames := _playback.get_frames_available()
-	for _i in frames:
-		var v := _amplitude(_sample / MIX_RATE)
-		_playback.push_frame(Vector2(v, v))
-		_sample += 1
-
-
-## Signal à l'instant t (s depuis le début de l'appel) : salves pendant RING_S, puis une paire de tons toutes les
-## REMINDER_S.
-func _amplitude(t: float) -> float:
-	var local: float
-	var length: float
-	if t < RING_S:
-		local = fmod(t, BURST_S + PAUSE_S)
-		length = BURST_S
-	else:
-		local = fmod(t - RING_S, REMINDER_S)
-		length = TONE_S * 2.0
-	if local >= length:
-		return 0.0
-	var tone := int(local / TONE_S)
-	var in_tone := local - tone * TONE_S
-	var edge := clampf(minf(in_tone, TONE_S - in_tone) / EDGE_S, 0.0, 1.0)
-	var phase := TAU * TONES_HZ[tone % 2] * t
-	# Ton d'alarme électronique : fondamentale et un peu de troisième harmonique.
-	return edge * (0.8 * sin(phase) + 0.2 * sin(3.0 * phase)) * 0.6
-
-
-func _restore_alert() -> void:
-	if not _alert_set:
-		return
-	_alert_set = false
-	if _station and _station.get_alert() == Station.Alert.ORANGE:
-		_station.set_alert(_alert_before)
+	var since := _elapsed - RING_S
+	var wanted := since < 0.0 or fmod(since, REMINDER_S) < CYCLE_S
+	if wanted and not _player.playing:
+		_player.play()
+	elif not wanted and _player.playing:
+		_player.stop()
