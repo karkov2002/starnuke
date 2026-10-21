@@ -21,8 +21,8 @@ const BUNK := "Interactif_Couchette"
 var _station: Station
 var _observer: CollisionObject3D
 var _camera: Camera3D
-var _hover_layer: CanvasLayer
-var _hover_label: Label
+## Bulle de survol (HoverBubble : masquée en pause, même style que les écrans).
+var _bubble: HoverBubble
 var _mouse_position := Vector2.ZERO
 
 
@@ -30,20 +30,8 @@ func _ready() -> void:
 	_station = get_node(station_path) as Station
 	_observer = get_node(observer_path) as CollisionObject3D
 	_camera = _observer.get_node("Camera") as Camera3D
-	_hover_layer = CanvasLayer.new()
-	_hover_layer.layer = 5
-	add_child(_hover_layer)
-	_hover_label = Label.new()
-	_hover_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hover_label.add_theme_stylebox_override("normal", _bubble_style())
-	_hover_label.visible = false
-	_hover_layer.add_child(_hover_label)
-
-
-# En pause (menu Échap), _process s'arrête : la bulle ne doit pas rester figée par-dessus le menu.
-func _notification(what: int) -> void:
-	if (what == NOTIFICATION_PAUSED or what == NOTIFICATION_DISABLED) and _hover_label:
-		_hover_label.visible = false
+	_bubble = HoverBubble.new("HATCH_OPEN")
+	add_child(_bubble)
 
 
 func _input(event: InputEvent) -> void:
@@ -53,23 +41,25 @@ func _input(event: InputEvent) -> void:
 
 func _process(_delta: float) -> void:
 	var target := _target_under(_mouse_position) if _active() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE else {}
-	_hover_label.visible = not target.is_empty()
 	if not target.is_empty():
-		match target.kind:
-			"rideau":
-				_hover_label.text = "CURTAIN_OPEN" if _station.is_curtain_closing(target.id) else "CURTAIN_CLOSE"
-			"combinaison":
-				_hover_label.text = "SUIT_PUT_ON"
-			"porte":
-				_hover_label.text = "SUIT_STOW"
-			"valve":
-				_hover_label.text = "AIRLOCK_DEPRESSURIZE" if _station.is_airlock_filling() else "AIRLOCK_REPRESSURIZE"
-			"couchette":
-				_hover_label.text = "BUNK_SLEEP"
-			_:
-				_hover_label.text = "HATCH_CLOSE" if _station.is_hatch_opening(target.id) else "HATCH_OPEN"
-		_hover_label.position = _mouse_position + Vector2(18, 14)
-		_hover_label.reset_size()
+		_bubble.set_hover_text(_hover_key(target))
+	_bubble.set_hover(not target.is_empty(), _mouse_position)
+
+
+## Clé de langue de la bulle d'un objet visé.
+func _hover_key(target: Dictionary) -> String:
+	match target.kind:
+		"rideau":
+			return "CURTAIN_OPEN" if _station.is_curtain_closing(target.id) else "CURTAIN_CLOSE"
+		"combinaison":
+			return "SUIT_PUT_ON"
+		"porte":
+			return "SUIT_STOW"
+		"valve":
+			return "AIRLOCK_DEPRESSURIZE" if _station.is_airlock_filling() else "AIRLOCK_REPRESSURIZE"
+		"couchette":
+			return "BUNK_SLEEP"
+	return "HATCH_CLOSE" if _station.is_hatch_opening(target.id) else "HATCH_OPEN"
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -133,13 +123,3 @@ static func _is_under(node: Node, ancestor_name: String) -> bool:
 			return true
 		node = node.get_parent()
 	return false
-
-
-func _bubble_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.07, 0.1, 0.8)
-	style.border_color = Color(0.55, 0.7, 0.9, 0.5)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(6)
-	style.set_content_margin_all(8)
-	return style

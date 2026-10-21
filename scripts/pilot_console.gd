@@ -10,11 +10,13 @@ extends Node
 ##   La tablette se range d'elle-même (seated_changed).
 ## - Clic droit : on quitte le poste (retour à la position et à l'orientation d'avant).
 ## L'image n'est rendue que si la caméra est à moins de RENDER_DISTANCE de l'écran.
+## Dalle, viewport, souris et bulles : StationScreen, ScreenInputForwarder, HoverBubble (scripts/screens/).
 
 signal seated_changed(seated: bool)
 
 const SCREEN_NODE := "Interactif_Ecran_Principal"
 const SCREEN_MATERIAL := "Ecran_15"
+const SCREEN_SHADER := preload("res://shaders/pilot_screen.gdshader")
 ## Hauteur de l'image de l'interface (pixels) ; la largeur suit les proportions de la dalle.
 const VIEWPORT_HEIGHT := 1000
 ## Au-delà de cette distance (m) entre la caméra et l'écran, l'image n'est plus rendue (comme les autres écrans).
@@ -37,27 +39,19 @@ var _observer: Node3D
 var _orbit: OrbitSimulation
 var _flight_computer: FlightComputer
 var _camera: Camera3D
-var _screen: MeshInstance3D
+var _screen: StationScreen
 var _viewport: SubViewport
 var _display: PilotDisplay
-## Dalle dans le repère du maillage : coin haut gauche, côté vers la droite, côté vers le bas.
-var _top_left := Vector3.ZERO
-var _axis_u := Vector3.ZERO
-var _axis_v := Vector3.ZERO
+var _input_forwarder: ScreenInputForwarder
+var _bubble: HoverBubble
+var _hud: Hud
 var _seated := false
 var _moving := false
 ## Dernière position du curseur reçue (repère de la vue du jeu).
 var _mouse_position := Vector2.ZERO
-## Dernier point de l'écran (0–1) transmis à l'interface.
-var _last_uv := Vector2(0.5, 0.5)
-## Souris sur l'écran (entrée envoyée au SubViewport, cf. ScreenSeat.set_mouse_inside).
-var _mouse_inside := false
 var _return_position := Vector3.ZERO
 var _return_rotation := Quaternion.IDENTITY
 var _tween: Tween
-var _hover_layer: CanvasLayer
-var _hover_label: Label
-var _exit_hint: Label
 
 
 func _ready() -> void:
@@ -65,20 +59,22 @@ func _ready() -> void:
 	_observer = get_node(observer_path)
 	_camera = _observer.get_node("Camera") as Camera3D
 	var station := get_node(station_path)
-	_screen = station.find_child(SCREEN_NODE, true, false) as MeshInstance3D
-	if _screen == null or not _measure_screen():
+	var mesh := station.find_child(SCREEN_NODE, true, false) as MeshInstance3D
+	if mesh and mesh.mesh:
+		_screen = StationScreen.new()
+		_screen.mesh_instance = mesh
+		# Dalle : faces du matériau Ecran_15 tournées vers l'observateur (normale −X du maillage ; ses UV ne servent pas).
+		if not _screen.measure_by_normal(SCREEN_MATERIAL, Vector3.LEFT):
+			_screen = null
+	if _screen == null:
 		push_error("PilotConsole : écran %s (matériau %s) introuvable" % [SCREEN_NODE, SCREEN_MATERIAL])
 		set_process(false)
 		set_process_input(false)
 		set_process_unhandled_input(false)
 		return
-	_viewport = SubViewport.new()
-	_viewport.name = "Screen"
-	_viewport.size = Vector2i(roundi(VIEWPORT_HEIGHT * _axis_u.length() / _axis_v.length()), VIEWPORT_HEIGHT)
-	_viewport.disable_3d = true
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	_viewport.gui_embed_subwindows = true
+	_viewport = _screen.make_viewport(VIEWPORT_HEIGHT, true)
 	add_child(_viewport)
+	_input_forwarder = ScreenInputForwarder.new(_viewport)
 	_display = PilotDisplay.new()
 	_display.size = Vector2(_viewport.size)
 	_orbit = get_node(orbit_path) as OrbitSimulation
@@ -86,32 +82,25 @@ func _ready() -> void:
 	_flight_computer = get_node(flight_computer_path) as FlightComputer
 	_display.flight_computer = _flight_computer
 	_viewport.add_child(_display)
-	_apply_screen_material()
-	_build_hints()
+	_screen.apply_shader(SCREEN_SHADER, _viewport.get_texture(), {"top_left": _screen.top_left,
+			"axis_u": _screen.axis_u, "axis_v": _screen.axis_v, "energy": _screen.base_emission() * screen_energy})
+	_bubble = HoverBubble.new("PILOT_HOVER", "PILOT_EXIT_HINT")
+	add_child(_bubble)
+	_hud = get_tree().get_first_node_in_group(Hud.GROUP) as Hud
 
 
 func is_seated() -> bool:
 	return _seated
 
 
-# En pause (menu Échap), _process s'arrête : les indications ne doivent pas rester figées par-dessus le menu.
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_PAUSED and _hover_label:
-		_hover_label.visible = false
-		_exit_hint.visible = false
-
-
 func _process(_delta: float) -> void:
 	var hovering := not _seated and not _moving and not ScreenSeat.any_seated(get_tree()) and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE \
-			and _screen_uv(_mouse_position, reach_m) != Vector2(-1, -1)
-	_hover_label.visible = hovering
-	if hovering:
-		_hover_label.position = _mouse_position + Vector2(18, 14)
-		_hover_label.reset_size()
-	_exit_hint.visible = _seated and not _moving
+			and _screen.uv_at(_camera, _mouse_position, reach_m) != StationScreen.NONE
+	_bubble.set_hover(hovering, _mouse_position)
+	_bubble.set_exit_visible(_seated and not _moving)
 	# Écran hors du module (loin) : l'image n'est plus rendue ni l'interface mise à jour.
 	var camera := get_viewport().get_camera_3d()
-	var near := camera != null and camera.global_position.distance_to(_screen.global_position) < RENDER_DISTANCE
+	var near := camera != null and camera.global_position.distance_to(_screen.global_position()) < RENDER_DISTANCE
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if near else SubViewport.UPDATE_DISABLED
 	_display.set_process(near)
 
@@ -120,7 +109,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var click := event as InputEventMouseButton
 	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT or _seated or _moving:
 		return
-	if _screen_uv(click.position, reach_m) != Vector2(-1, -1):
+	if _screen.uv_at(_camera, click.position, reach_m) != StationScreen.NONE:
 		get_viewport().set_input_as_handled()
 		_sit()
 
@@ -135,8 +124,7 @@ func _input(event: InputEvent) -> void:
 	if not _seated and not _moving:
 		return
 	# La barre de vitesse du temps reste utilisable au poste.
-	var hud := get_tree().get_first_node_in_group(Hud.GROUP) as Hud
-	if hud and hud.is_over_controls(mouse.position):
+	if _hud and _hud.is_over_controls(mouse.position):
 		return
 	get_viewport().set_input_as_handled()
 	if _moving:
@@ -145,69 +133,25 @@ func _input(event: InputEvent) -> void:
 	if button and button.pressed and button.button_index == MOUSE_BUTTON_RIGHT:
 		_stand_up()
 		return
-	var uv := _screen_uv(mouse.position, INF)
-	if uv == Vector2(-1, -1):
-		_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, false, _mouse_inside)
-		# Relâchement hors de l'écran : transmis quand même (au dernier point), sinon un bouton maintenu (BURN) ou un
-		# curseur resterait tenu.
-		if button == null or button.pressed:
-			return
-		uv = _last_uv
-	_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, true, _mouse_inside)
-	_last_uv = uv
-	var forwarded := mouse.duplicate() as InputEventMouse
-	forwarded.position = uv * Vector2(_viewport.size)
-	forwarded.global_position = forwarded.position
-	_viewport.push_input(forwarded)
-
-
-## Position (0–1) du point de l'écran sous le curseur, (-1, -1) hors de l'écran ou au-delà de max_distance.
-func _screen_uv(mouse_position: Vector2, max_distance: float) -> Vector2:
-	var origin := _camera.project_ray_origin(mouse_position)
-	var direction := _camera.project_ray_normal(mouse_position)
-	var to_world := _screen.global_transform
-	var top_left := to_world * _top_left
-	var u := to_world.basis * _axis_u
-	var v := to_world.basis * _axis_v
-	var normal := u.cross(v).normalized()
-	var facing := direction.dot(normal)
-	if absf(facing) < 1e-4:
-		return Vector2(-1, -1)
-	var distance := (top_left - origin).dot(normal) / facing
-	if distance <= 0.0 or distance > max_distance:
-		return Vector2(-1, -1)
-	var offset := origin + direction * distance - top_left
-	var uv := Vector2(offset.dot(u) / u.length_squared(), offset.dot(v) / v.length_squared())
-	if uv.x < 0.0 or uv.x > 1.0 or uv.y < 0.0 or uv.y > 1.0:
-		return Vector2(-1, -1)
-	return uv
+	_input_forwarder.forward(mouse, _screen.uv_at(_camera, mouse.position))
 
 
 func _sit() -> void:
 	_return_position = _observer.global_position
 	_return_rotation = _camera.quaternion
 	# Œil face au centre de la dalle, à la distance où elle remplit screen_fill de la vue (hauteur et largeur).
-	var to_world := _screen.global_transform
-	var u := to_world.basis * _axis_u
-	var v := to_world.basis * _axis_v
-	var center := to_world * (_top_left + (_axis_u + _axis_v) * 0.5)
-	var toward_viewer := v.cross(u).normalized()
-	var half_tan := tan(deg_to_rad(_camera.fov) * 0.5)
-	var aspect := get_viewport().get_visible_rect().size.aspect()
-	var distance := maxf(v.length() / (2.0 * half_tan * screen_fill), u.length() / (2.0 * half_tan * aspect * screen_fill))
-	var eye := center + toward_viewer * distance
-	var look := Basis.looking_at(-toward_viewer, -v.normalized())
-	var local_rotation := (_observer.global_basis.inverse() * look).get_rotation_quaternion()
+	var pose := _screen.seat_pose(_camera, get_viewport().get_visible_rect().size.aspect(), screen_fill)
+	var local_rotation := (_observer.global_basis.inverse() * (pose.look as Basis)).get_rotation_quaternion()
 	_set_observer_active(false)
 	# Au poste, le temps repasse à ×1 (les manœuvres se jouent en temps réel).
 	_orbit.time_scale = 1.0
 	_seated = true
-	_move_to(eye, local_rotation, func() -> void: _moving = false)
+	_move_to(pose.eye, local_rotation, func() -> void: _moving = false)
 	seated_changed.emit(true)
 
 
 func _stand_up() -> void:
-	_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, false, _mouse_inside)
+	_input_forwarder.leave()
 	# Quitter le poste relâche BURN.
 	_flight_computer.end_burn()
 	_seated = false
@@ -232,79 +176,3 @@ func _set_observer_active(active: bool) -> void:
 	_observer.process_mode = Node.PROCESS_MODE_INHERIT if active else Node.PROCESS_MODE_DISABLED
 	if active:
 		(_observer as CharacterBody3D).velocity = Vector3.ZERO
-
-
-## Rectangle de la dalle (faces du matériau Ecran_15 tournées vers l'observateur, normale −X du maillage), repère
-## du maillage. La droite de l'image est à droite d'un observateur qui regarde la dalle, tête vers +Y.
-func _measure_screen() -> bool:
-	var mesh := _screen.mesh
-	for s in mesh.get_surface_count():
-		var material := mesh.surface_get_material(s)
-		if material == null or material.resource_name != SCREEN_MATERIAL:
-			continue
-		var arrays := mesh.surface_get_arrays(s)
-		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
-		var lo := Vector3.INF
-		var hi := -Vector3.INF
-		for k in vertices.size():
-			if normals[k].x < -0.99:
-				lo = lo.min(vertices[k])
-				hi = hi.max(vertices[k])
-		if lo == Vector3.INF:
-			return false
-		_top_left = Vector3(lo.x, hi.y, lo.z)
-		_axis_u = Vector3(0.0, 0.0, hi.z - lo.z)
-		_axis_v = Vector3(0.0, lo.y - hi.y, 0.0)
-		return true
-	return false
-
-
-func _apply_screen_material() -> void:
-	var original: BaseMaterial3D = null
-	var surface := -1
-	for s in _screen.mesh.get_surface_count():
-		var candidate := _screen.mesh.surface_get_material(s)
-		if candidate and candidate.resource_name == SCREEN_MATERIAL:
-			original = candidate as BaseMaterial3D
-			surface = s
-	var material := ShaderMaterial.new()
-	material.shader = load("res://shaders/pilot_screen.gdshader")
-	material.set_shader_parameter("screen_texture", _viewport.get_texture())
-	material.set_shader_parameter("top_left", _top_left)
-	material.set_shader_parameter("axis_u", _axis_u)
-	material.set_shader_parameter("axis_v", _axis_v)
-	var base_energy := original.emission_energy_multiplier if original and original.emission_enabled else 1.0
-	material.set_shader_parameter("energy", base_energy * screen_energy)
-	_screen.set_surface_override_material(surface, material)
-
-
-func _build_hints() -> void:
-	_hover_layer = CanvasLayer.new()
-	_hover_layer.layer = 5
-	add_child(_hover_layer)
-	_hover_label = Label.new()
-	_hover_label.text = "PILOT_HOVER"
-	_hover_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hover_label.add_theme_stylebox_override("normal", _bubble_style())
-	_hover_label.visible = false
-	_hover_layer.add_child(_hover_label)
-	_exit_hint = Label.new()
-	_exit_hint.text = "PILOT_EXIT_HINT"
-	_exit_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_exit_hint.add_theme_stylebox_override("normal", _bubble_style())
-	_exit_hint.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 16)
-	_exit_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_exit_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_exit_hint.visible = false
-	_hover_layer.add_child(_exit_hint)
-
-
-func _bubble_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.07, 0.1, 0.8)
-	style.border_color = Color(0.55, 0.7, 0.9, 0.5)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(6)
-	style.set_content_margin_all(8)
-	return style

@@ -47,7 +47,8 @@ const MODULE_RADIUS := 2.4
 var _station: Station
 var _viewports := {}
 var _canvases := {}
-var _materials: Array[ShaderMaterial] = []
+## Dalles habillées (StationScreen : matériau d'affichage, luminosité).
+var _screens: Array[StationScreen] = []
 var _time := 0.0
 var _since := 0.0
 var _active := false
@@ -71,24 +72,14 @@ func _ready() -> void:
 		viewport.add_child(canvas)
 		_viewports[program] = viewport
 		_canvases[program] = canvas
-	var applied := 0
 	for screen_name: String in ASSIGNMENT:
-		var screen := _station.find_child(screen_name, true, false) as MeshInstance3D
-		if screen == null or screen.mesh == null:
+		var screen := StationScreen.find(_station, screen_name)
+		if screen == null:
 			continue
-		var surface_name := String((screen.get_meta("extras", {}) as Dictionary).get("materiau_ecran", ""))
-		for s in screen.mesh.get_surface_count():
-			var material := screen.mesh.surface_get_material(s)
-			if material and material.resource_name == surface_name:
-				var shader := ShaderMaterial.new()
-				shader.shader = preload("res://shaders/tech_screen.gdshader")
-				shader.set_shader_parameter("screen_texture", (_viewports[ASSIGNMENT[screen_name]] as SubViewport)
-						.get_texture())
-				shader.set_shader_parameter("energy", screen_energy)
-				screen.set_surface_override_material(s, shader)
-				_materials.append(shader)
-				applied += 1
-	if applied == 0:
+		screen.apply_shader(StationScreen.TECH_SHADER, (_viewports[ASSIGNMENT[screen_name]] as SubViewport).get_texture(),
+				{"energy": screen_energy})
+		_screens.append(screen)
+	if _screens.is_empty():
 		push_error("TechScreens : aucun écran du module Commande trouvé")
 	_tick()
 
@@ -109,8 +100,8 @@ func _process(delta: float) -> void:
 
 func _tick() -> void:
 	var energy := screen_energy * (1.0 - _station.get_blackout())
-	for material in _materials:
-		material.set_shader_parameter("energy", energy)
+	for screen in _screens:
+		screen.set_energy(energy)
 	for program: int in _canvases:
 		var canvas: TechCanvas = _canvases[program]
 		canvas.time = _time

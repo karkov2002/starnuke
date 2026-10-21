@@ -12,7 +12,8 @@ extends Node3D
 ##   départ) ; rangée par le chemin inverse. Sortie, elle respire légèrement (balancement lent de quelques
 ##   millimètres) et suit la tête avec un temps de retard (elle traîne un peu quand on tourne la vue, puis rattrape).
 ## - Sortie, les clics et mouvements de la souris sur son écran sont transmis à l'interface (rayon de la caméra par le
-##   curseur, intersecté avec la dalle) ; ailleurs, la souris garde son rôle (clic droit : tourner la tête).
+##   curseur, intersecté avec la dalle : StationScreen, ScreenInputForwarder) ; ailleurs, la souris garde son rôle
+##   (clic droit : tourner la tête).
 ## Position : écran occupant view_fill de la hauteur de la vue (selon le champ de la caméra), son bord droit à
 ## right_margin du bord droit de la vue, son bord bas à bottom_margin du bas, tourné vers l'œil. Éclairée par les
 ## lampes intérieures (calque Station.INTERIOR_LAYER) comme le reste de l'habitacle.
@@ -69,8 +70,10 @@ const LAG_MAX_RAD := 0.06
 
 var _camera: Camera3D
 var _model: Node3D
-var _screen: MeshInstance3D
+## Dalle de l'écran (StationScreen : point sous le curseur, matériau d'affichage) et transfert de la souris.
+var _screen: StationScreen
 var _viewport: SubViewport
+var _input_forwarder: ScreenInputForwarder
 var _display: TabletDisplay
 ## Vue au nadir : rendue seulement quand la tablette est sortie sur l'onglet Photographie.
 var _nadir_viewport: SubViewport
@@ -78,10 +81,6 @@ var _nadir_camera: Camera3D
 var _taking_photo := false
 var _earth: Node3D
 var _console: PilotConsole
-## Dalle dans le repère du maillage de l'écran : coin haut gauche, côté vers la droite, côté vers le bas.
-var _top_left := Vector3.ZERO
-var _axis_u := Vector3.ZERO
-var _axis_v := Vector3.ZERO
 ## Dimensions de la coque (m), pour le cadrage.
 var _height := 0.19
 var _width := 0.28
@@ -93,11 +92,6 @@ var _time := 0.0
 var _out := 0.0
 var _wanted := false
 var _tween: Tween
-## Bouton gauche tenu après un clic sur l'écran : le relâchement lui est transmis même hors de l'écran.
-var _pressing := false
-var _last_uv := Vector2(0.5, 0.5)
-## Souris sur l'écran (entrée envoyée au SubViewport, cf. ScreenSeat.set_mouse_inside).
-var _mouse_inside := false
 
 
 func _ready() -> void:
@@ -118,17 +112,13 @@ func _ready() -> void:
 	if body:
 		_height = body.get_aabb().size.y
 		_width = body.get_aabb().size.x
-	_screen = _model.find_child(SCREEN_NODE, true, false) as MeshInstance3D
-	if _screen == null or not _measure_screen():
+	_screen = StationScreen.of_mesh(_model.find_child(SCREEN_NODE, true, false) as MeshInstance3D)
+	if _screen == null:
 		push_error("Tablet : écran %s introuvable dans %s" % [SCREEN_NODE, MODEL.resource_path])
 		return
-	_viewport = SubViewport.new()
-	_viewport.name = "Screen"
-	_viewport.size = Vector2i(roundi(VIEWPORT_HEIGHT * _axis_u.length() / _axis_v.length()), VIEWPORT_HEIGHT)
-	_viewport.disable_3d = true
-	_viewport.gui_embed_subwindows = true
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_viewport = _screen.make_viewport(VIEWPORT_HEIGHT, true)
 	add_child(_viewport)
+	_input_forwarder = ScreenInputForwarder.new(_viewport)
 	_build_nadir_camera()
 	var display := TabletDisplay.new()
 	_display = display
@@ -142,14 +132,8 @@ func _ready() -> void:
 	_connect_archive.call_deferred()
 	# Même shader que l'écran du poste de pilotage : émission brute (un StandardMaterial3D émet en nits avec les
 	# unités de lumière physiques du projet, 1 000 par défaut : écran tout blanc).
-	var material := ShaderMaterial.new()
-	material.shader = load("res://shaders/pilot_screen.gdshader")
-	material.set_shader_parameter("screen_texture", _viewport.get_texture())
-	material.set_shader_parameter("top_left", _top_left)
-	material.set_shader_parameter("axis_u", _axis_u)
-	material.set_shader_parameter("axis_v", _axis_v)
-	material.set_shader_parameter("energy", screen_energy)
-	_screen.material_override = material
+	_screen.apply_shader(PilotConsole.SCREEN_SHADER, _viewport.get_texture(), {"top_left": _screen.top_left,
+			"axis_u": _screen.axis_u, "axis_v": _screen.axis_v, "energy": screen_energy})
 	visible = false
 	_update_pose()
 
@@ -198,29 +182,16 @@ func _input(event: InputEvent) -> void:
 	var button := event as InputEventMouseButton
 	if button and button.button_index == MOUSE_BUTTON_RIGHT:
 		return
-	var uv := _screen_uv(mouse.position)
-	if uv == Vector2(-1, -1):
-		_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, false, _mouse_inside)
-		if not (_pressing and button and not button.pressed):
-			return
-		uv = _last_uv
-	if button and button.button_index == MOUSE_BUTTON_LEFT:
-		_pressing = button.pressed
-	_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, true, _mouse_inside)
-	_last_uv = uv
-	get_viewport().set_input_as_handled()
-	var forwarded := mouse.duplicate() as InputEventMouse
-	forwarded.position = uv * Vector2(_viewport.size)
-	forwarded.global_position = forwarded.position
-	_viewport.push_input(forwarded)
+	if _input_forwarder.forward(mouse, _screen.uv_at(_camera, mouse.position)):
+		get_viewport().set_input_as_handled()
 
 
 func _set_wanted(out: bool) -> void:
 	if out == _wanted:
 		return
 	_wanted = out
-	if not out:
-		_mouse_inside = ScreenSeat.set_mouse_inside(_viewport, false, _mouse_inside)
+	if not out and _input_forwarder:
+		_input_forwarder.leave()
 	if _tween:
 		_tween.kill()
 	visible = true
@@ -280,45 +251,6 @@ func _update_pose() -> void:
 static func _bezier(a: Vector3, b: Vector3, c: Vector3, d: Vector3, t: float) -> Vector3:
 	var u := 1.0 - t
 	return a * u * u * u + b * 3.0 * u * u * t + c * 3.0 * u * t * t + d * t * t * t
-
-
-## Point de l'écran (0–1) sous le curseur, (-1, -1) hors de l'écran.
-func _screen_uv(mouse_position: Vector2) -> Vector2:
-	var origin := _camera.project_ray_origin(mouse_position)
-	var direction := _camera.project_ray_normal(mouse_position)
-	var to_world := _screen.global_transform
-	var top_left := to_world * _top_left
-	var u := to_world.basis * _axis_u
-	var v := to_world.basis * _axis_v
-	var normal := u.cross(v).normalized()
-	var facing := direction.dot(normal)
-	if absf(facing) < 1e-4:
-		return Vector2(-1, -1)
-	var distance := (top_left - origin).dot(normal) / facing
-	if distance <= 0.0:
-		return Vector2(-1, -1)
-	var offset := origin + direction * distance - top_left
-	var uv := Vector2(offset.dot(u) / u.length_squared(), offset.dot(v) / v.length_squared())
-	if uv.x < 0.0 or uv.x > 1.0 or uv.y < 0.0 or uv.y > 1.0:
-		return Vector2(-1, -1)
-	return uv
-
-
-## Rectangle de la dalle d'après ses UV : coin (0, 0) en haut à gauche, (1, 0) en haut à droite, (0, 1) en bas à
-## gauche.
-func _measure_screen() -> bool:
-	var arrays := _screen.mesh.surface_get_arrays(0)
-	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
-	var corners := {}
-	for k in vertices.size():
-		corners[Vector2i(roundi(uvs[k].x), roundi(uvs[k].y))] = vertices[k]
-	if not (corners.has(Vector2i(0, 0)) and corners.has(Vector2i(1, 0)) and corners.has(Vector2i(0, 1))):
-		return false
-	_top_left = corners[Vector2i(0, 0)]
-	_axis_u = corners[Vector2i(1, 0)] - _top_left
-	_axis_v = corners[Vector2i(0, 1)] - _top_left
-	return true
 
 
 ## Caméra de l'onglet Photographie (SubViewport qui partage le monde de la scène : Terre, nuages, atmosphère), sous la

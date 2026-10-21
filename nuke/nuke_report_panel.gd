@@ -40,11 +40,9 @@ const SCROLL_PAUSE_S := 3.0
 
 var _launcher: NukeLauncher
 var _station: Station
-var _screen: MeshInstance3D
+## Dalle de l'écran mural (StationScreen : matériau d'affichage, luminosité).
+var _screen: StationScreen
 var _viewport: SubViewport
-var _material: ShaderMaterial
-## Dernière luminosité envoyée au shader (renvoyée seulement si elle change).
-var _energy_applied := -1.0
 var _summary: Label
 var _projection: Label
 var _scroll: ScrollContainer
@@ -67,11 +65,12 @@ func _ready() -> void:
 	_station = get_node_or_null(station_path) as Station
 	if _launcher:
 		_launcher.detonated.connect(func(_effect: NukeEffect) -> void: _refresh_left = 0.0)
-	_screen = _station.find_child(SCREEN_NODE, true, false) as MeshInstance3D if _station else null
+	_screen = StationScreen.find(_station, SCREEN_NODE) if _station else null
 	if _screen == null:
-		push_error("NukeReportPanel : écran %s introuvable" % SCREEN_NODE)
+		push_error("NukeReportPanel : écran %s (ou sa dalle) introuvable" % SCREEN_NODE)
 		set_process(false)
 		return
+	# Image de taille fixe (mise en page en pixels), étirée sur la dalle.
 	_viewport = SubViewport.new()
 	_viewport.name = "Screen"
 	_viewport.size = VIEWPORT_SIZE
@@ -79,20 +78,13 @@ func _ready() -> void:
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(_viewport)
 	_build()
-	_apply_material()
-
-
-func _set_energy(value: float) -> void:
-	if is_equal_approx(value, _energy_applied):
-		return
-	_energy_applied = value
-	_material.set_shader_parameter("energy", value)
+	_screen.apply_shader(StationScreen.TECH_SHADER, _viewport.get_texture(), {"scan_depth": 0.06})
 
 
 func _process(delta: float) -> void:
-	_set_energy(screen_energy * (1.0 - _station.get_blackout()))
+	_screen.set_energy(screen_energy * (1.0 - _station.get_blackout()))
 	var camera := get_viewport().get_camera_3d()
-	var near := camera != null and camera.global_position.distance_to(_screen.global_position) < RENDER_DISTANCE
+	var near := camera != null and camera.global_position.distance_to(_screen.global_position()) < RENDER_DISTANCE
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if near else SubViewport.UPDATE_DISABLED
 	if not near:
 		return
@@ -149,19 +141,6 @@ func _build() -> void:
 	body.add_child(note)
 
 
-func _apply_material() -> void:
-	var surface_name := String((_screen.get_meta("extras", {}) as Dictionary).get("materiau_ecran", ""))
-	for s in _screen.mesh.get_surface_count():
-		var material := _screen.mesh.surface_get_material(s)
-		if material and material.resource_name == surface_name:
-			_material = ShaderMaterial.new()
-			_material.shader = preload("res://shaders/tech_screen.gdshader")
-			_material.set_shader_parameter("screen_texture", _viewport.get_texture())
-			_material.set_shader_parameter("scan_depth", 0.06)
-			_screen.set_surface_override_material(s, _material)
-			return
-	push_error("NukeReportPanel : dalle de l'écran %s introuvable" % SCREEN_NODE)
-	set_process(false)
 
 
 func _show(tally: Dictionary, none: bool) -> void:

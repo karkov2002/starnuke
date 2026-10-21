@@ -583,10 +583,16 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	l'horizon, sans coordonnées (elles masqueraient la vue : elles sont sur les cartes) ; flèche au bord de l'écran,
     dans sa couleur, quand la cible choisie est hors champ. Le tir de missile reste visé au
     réticule (centre de la vue).
-  - **Survol des écrans en SubViewport** (poste, télévision, tablette) : un tel viewport, affiché comme texture,
-	ne reçoit jamais de lui-même l'entrée de la souris ; sans elle, Godot ne lui transmet que les clics et les
-	glisser, pas le simple survol. `ScreenSeat.set_mouse_inside` lui envoie l'entrée et la sortie de la souris
-	(`NOTIFICATION_VP_MOUSE_ENTER` / `EXIT`) quand le pointeur arrive sur l'écran ou le quitte.
+  - **Écrans en SubViewport** (poste, radio, télévision, bilan, écrans d'ambiance, tablette) : composants partagés
+	de `scripts/screens/`. `StationScreen` : la dalle (surface du matériau `extras.materiau_ecran`, mesurée par ses
+	UV ; par la normale −X pour l'écran du poste), le SubViewport à ses proportions, le matériau d'affichage, le
+	point de l'écran sous le curseur (`uv_at`), le cadrage « assis » (`seat_pose`), la luminosité envoyée au shader
+	seulement si elle change. `ScreenInputForwarder` : transfert de la souris vers le viewport ; un tel viewport,
+	affiché comme texture, ne reçoit jamais de lui-même l'entrée de la souris ; sans elle, Godot ne lui transmet
+	que les clics et les glisser, pas le simple survol : il lui envoie l'entrée et la sortie de la souris
+	(`NOTIFICATION_VP_MOUSE_ENTER` / `EXIT`) quand le pointeur arrive sur l'écran ou le quitte, et transmet le
+	relâchement du bouton gauche tenu même hors de la dalle (BURN, curseurs). `HoverBubble` : bulles de survol et
+	de sortie (écrans, écoutilles, sas), masquées en pause.
   - **Navigation, comme une carte en ligne** (même carte au poste et sur la tablette, chacune sa vue) : **molette** =
 	zoom centré sur le curseur ; **glisser** (bouton gauche) = déplacer la carte dans le sens de la souris ; boutons
 	en bas à gauche **« − » / « + »** = zoom centré sur le centre de la carte ; en bas à droite **« Orbites à
