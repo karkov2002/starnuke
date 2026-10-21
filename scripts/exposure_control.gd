@@ -23,7 +23,6 @@ extends Node
 
 const GROUP := &"exposure_control"
 
-@export var orbit_path: NodePath = ^"../Orbit"
 @export var earth_path: NodePath = ^"../Earth"
 @export var sun_path: NodePath = ^"../Sun"
 @export var world_environment_path: NodePath = ^"../WorldEnvironment"
@@ -62,7 +61,6 @@ var flash_received := 0.0
 ## Baisse de l'exposition par soleil de flux de flash reçu : facteur 1 / (1 + flash_adapt_gain × flux).
 @export var flash_adapt_gain := 8.0
 
-var _orbit: OrbitSimulation
 var _earth: Node3D
 var _sun: DirectionalLight3D
 ## Station (scripts/station.gd), pour savoir si l'observateur est dans la cupola.
@@ -74,7 +72,6 @@ var _log_factor := 0.0
 func _ready() -> void:
 	add_to_group(GROUP)
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_orbit = get_node_or_null(orbit_path) as OrbitSimulation
 	_earth = get_node_or_null(earth_path) as Node3D
 	_sun = get_node_or_null(sun_path) as DirectionalLight3D
 	_station = get_node_or_null(station_path)

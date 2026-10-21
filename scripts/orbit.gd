@@ -262,10 +262,6 @@ func get_orbital_speed_km_s() -> float:
 	return get_semi_major_axis_km() * get_mean_motion()
 
 
-func get_raan_deg(time_s := sim_time_s) -> float:
-	return rad_to_deg(get_raan(time_s))
-
-
 ## Ω (rad) au temps time_s, précession comprise.
 func get_raan(time_s: float) -> float:
 	return _raan + get_raan_rate() * time_s
@@ -314,22 +310,6 @@ static func mean_motion_at(altitude: float) -> float:
 	return sqrt(MU_KM3_S2 / (a * a * a))
 
 
-## Temps simulé (s) du prochain passage à l'équateur (nœud ascendant ou descendant) strictement après after_s.
-## Orbite équatoriale (inclinaison < 0,01°) : la station est toujours sur l'équateur, after_s est renvoyé.
-func get_next_node_time_s(after_s := sim_time_s) -> float:
-	if inclination_deg < 0.01:
-		return after_s
-	var n := get_mean_motion()
-	var u := get_argument_of_latitude(after_s)
-	var u_next := (floorf(u / PI) + 1.0) * PI
-	return after_s + (u_next - u) / n
-
-
-## Le nœud du temps time_s (passage à l'équateur) est-il ascendant (vers le nord) ?
-func is_ascending_node_at(time_s: float) -> bool:
-	return posmod(roundi(get_argument_of_latitude(time_s) / PI), 2) == 0
-
-
 ## Rotation ECI -> scène à la dernière image (rotation de la Terre comprise) : pour placer des objets fixes dans le
 ## repère inertiel (orbites) autour de la Terre.
 func get_eci_to_world() -> Basis:
@@ -360,16 +340,6 @@ func get_position_ecef(time_s: float) -> Vector3:
 ## Point survolé (latitude, longitude) en degrés.
 func get_subsatellite_point(time_s := sim_time_s) -> Vector2:
 	return ecef_to_lat_lon(get_position_ecef(time_s))
-
-
-## Trace au sol sur une durée donnée (points lat/lon en degrés).
-func predict_ground_track(duration_s: float, step_s := 30.0) -> PackedVector2Array:
-	var track := PackedVector2Array()
-	var t := sim_time_s
-	while t <= sim_time_s + duration_s:
-		track.append(get_subsatellite_point(t))
-		t += step_s
-	return track
 
 
 ## Fraction du soleil visible depuis la station (0 = éclipse par la Terre, 1 = plein soleil). Ombre

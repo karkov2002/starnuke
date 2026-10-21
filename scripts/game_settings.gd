@@ -13,11 +13,10 @@ extends Node
 ## Les écrans ultra-larges sont gérés par l'étirement « expand » du projet : la vue 3D garde son champ vertical et
 ## s'élargit, l'interface s'étend sur toute la largeur.
 ##
-## Luminosité (brightness, 0,5 à 1,5) : facteur du multiplicateur d'exposition des attributs de caméra partagés
-## (materials/camera_attributes.tres, CameraAttributesPractical.exposure_multiplier), appliqué à toutes les vues 3D
-## (menu et jeu). L'exposition elle-même est calculée par le nœud Exposure de orbit_view.tscn (ExposureControl :
-## jour / nuit au point regardé, soleil dans le champ, éblouissement du flash), qui multiplie par ce réglage ;
-## _apply_brightness ne sert qu'en l'absence de ce nœud.
+## Luminosité (brightness, 0,25 à 1,5) : seulement sauvée ici ; le nœud Exposure de orbit_view.tscn (ExposureControl :
+## jour / nuit au point regardé, soleil dans le champ, éblouissement du flash) la lit à chaque image et impose la
+## sensibilité de l'exposition (menu et jeu, qui instancient la scène du jeu). CameraAttributes.exposure_multiplier
+## n'agit pas sur le rendu dans ce build : rien n'est écrit dans les attributs de caméra.
 ##
 ## Langue : TranslationServer, fichiers de langue locale/strings.csv (textes du jeu) et locale/countries.csv (noms
 ## de pays) ; anglais par défaut.
@@ -41,7 +40,6 @@ const RESOLUTIONS: Array[Vector2i] = [
 ]
 ## Échelle minimale du rendu 3D en plein écran.
 const MIN_3D_SCALE := 0.25
-const CAMERA_ATTRIBUTES := "res://materials/camera_attributes.tres"
 const BRIGHTNESS_RANGE := Vector2(0.25, 1.5)
 const INTERIOR_LIGHT_RANGE := Vector2(0.1, 1.5)
 ## Puissance par défaut des lampes de la station (40 % : validé à l'œil le 2026-10-17 ; 100 % = réglage du modèle).
@@ -54,7 +52,7 @@ var window_mode := WindowMode.FULLSCREEN
 ## Résolution choisie ; Vector2i.ZERO : celle de l'écran.
 var resolution := Vector2i.ZERO
 var locale := DEFAULT_LOCALE
-## Multiplicateur de luminosité (1 = exposition automatique seule).
+## Multiplicateur de luminosité (1 = exposition calculée seule), lu par ExposureControl.
 var brightness := 1.0
 ## Puissance de l'éclairage intérieur de la station (1 = réglage du modèle, 0,4 par défaut).
 var interior_light := DEFAULT_INTERIOR_LIGHT
@@ -72,7 +70,6 @@ func _ready() -> void:
 	_load()
 	TranslationServer.set_locale(locale)
 	apply_display()
-	_apply_brightness()
 	_apply_audio()
 
 
@@ -119,7 +116,6 @@ func _apply_audio() -> void:
 
 func set_brightness(value: float) -> void:
 	brightness = clampf(value, BRIGHTNESS_RANGE.x, BRIGHTNESS_RANGE.y)
-	_apply_brightness()
 	_save()
 
 
@@ -128,12 +124,6 @@ func set_interior_light(value: float) -> void:
 	interior_light = clampf(value, INTERIOR_LIGHT_RANGE.x, INTERIOR_LIGHT_RANGE.y)
 	_save()
 	changed.emit()
-
-
-## Rien à écrire : le nœud Exposure (ExposureControl) lit brightness à chaque image et impose la sensibilité de
-## l'exposition. (CameraAttributes.exposure_multiplier n'agit pas sur le rendu dans ce build, voir ExposureControl.)
-func _apply_brightness() -> void:
-	pass
 
 
 func set_window_mode(mode: WindowMode) -> void:

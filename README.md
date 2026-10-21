@@ -232,9 +232,9 @@ permet de piloter le jeu exporté.
 	du **clavier du joueur** (`DisplayServer.keyboard_get_keycode_from_physical` : Z / S en AZERTY, W / S en QWERTY) ;
 	flèches en symboles, Échap et Tab traduits (`CONTROLS_HELP`, `KEY_NAMES` de `settings_menu.gd`).
   - **Video** : mode d'affichage (**fenêtré** / **plein écran**), **résolution** et **luminosité** (25 à 150 %,
-	`GameSettings.brightness`, sauvée dans `user://settings.cfg` : facteur du multiplicateur d'exposition des
-	attributs de caméra partagés `materials/camera_attributes.tres`, appliqué au menu et au jeu par le nœud
-	`Exposure`, voir « Exposition » dans « Organisation de la scène ») et **éclairage intérieur** (10 à 150 %, **40 % par défaut**,
+	`GameSettings.brightness`, sauvée dans `user://settings.cfg` : facteur lu à chaque image par le nœud
+	`Exposure`, qui impose la sensibilité de l'exposition au menu comme au jeu, voir « Exposition » dans
+	« Organisation de la scène ») et **éclairage intérieur** (10 à 150 %, **40 % par défaut**,
 	`GameSettings.interior_light`, sauvé de même : comme un potentiomètre sur les luminaires de la station,
 	`Station` multiplie par ce facteur l'énergie de chaque lampe `Lum_*` **et** l'émission propre des luminaires
 	(matériaux `Int_Lumiere*`, donc aussi leur halo de glow) ; c'est la valeur de jour : dans l'ombre de la Terre, les
@@ -1429,7 +1429,6 @@ inclinaison au poste de pilotage et au panneau de debug) :
 |---|---|
 | `altitude_km` (200–800) | Change l'altitude ; le point survolé et le sens de passage sont conservés. |
 | `inclination_deg` (0–80°) | Change l'inclinaison au point courant (comme une manœuvre de changement de plan) ; bornée à ≥ \|latitude courante\|. |
-| `get_next_node_time_s()`, `is_ascending_node_at(t)` | Temps simulé du prochain passage à l'équateur (u multiple de π ; orbite équatoriale : maintenant), nœud ascendant ou descendant. |
 | `circular_position_eci(rayon, i, Ω, u)`, `mean_motion_at(altitude)` | Position sur une orbite circulaire quelconque, vitesse angulaire (orbite fantôme du poste de pilotage). |
 | `get_eci_to_world()`, `ecef_to_world` | Rotations ECI → scène et ECEF → scène de la dernière image (objets fixes dans l'espace inertiel autour de la Terre). |
 | `set_orbit_plane(i, Ω, altitude, t)` | Manœuvre : nouvelle inclinaison, Ω (au temps t) et altitude ; la station garde au temps t sa position projetée sur le nouveau plan (continue sur la droite d'intersection des deux plans). |
@@ -1440,8 +1439,7 @@ inclinaison au poste de pilotage et au panneau de debug) :
 | `set_utc_unix_s(s)`, `get_utc_unix_s()`, `get_utc_datetime()` | Date et heure UTC (secondes Unix) ; le changement garde la station au-dessus du même point. |
 | `get_local_solar_hour(lon)`, `get_sun_direction_eci()` | Heure solaire vraie à une longitude, direction du soleil. |
 | `get_subsatellite_point(t)` | Point survolé (lat, lon) à l'instant t. |
-| `predict_ground_track(durée, pas)` | Trace au sol prévue (pour une carte ou le calcul de manœuvres). |
-| `get_period_s()`, `get_orbital_speed_km_s()`, `get_raan_deg()`, `is_ascending()` | Grandeurs orbitales. |
+| `get_period_s()`, `get_orbital_speed_km_s()`, `is_ascending()` | Grandeurs orbitales. |
 | `time_scale`, `sim_time_s` | Accélération / temps simulé. |
 
 **Inclinaison maximale (80°) et pôles** : la trace au sol monte jusqu'à la latitude égale à l'inclinaison (80° :

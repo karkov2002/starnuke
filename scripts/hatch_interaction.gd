@@ -8,20 +8,19 @@ extends Node
 ##   CampaignDirector.sleep) ;
 ## - clic gauche : mouvement animé (Station.toggle_hatch, Station.toggle_curtain ; un clic pendant le mouvement
 ##   l'inverse), Station.set_suit_worn, Station.toggle_airlock_pressure.
-## Inactif au poste de pilotage. Les clics pris avant (tablette, interface) ne lui parviennent pas.
+## Inactif quand un écran est occupé (ScreenSeat : poste de pilotage, radio, télévision). Les clics pris avant
+## (tablette, interface) ne lui parviennent pas.
 
 const BUNK := "Interactif_Couchette"
 
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
 @export var observer_path: NodePath = ^"../Observer"
-@export var console_path: NodePath = ^"../PilotConsole"
 ## Distance maximale (m) entre l'œil et la porte.
 @export var reach_m := 2.5
 
 var _station: Station
 var _observer: CollisionObject3D
 var _camera: Camera3D
-var _console: PilotConsole
 var _hover_layer: CanvasLayer
 var _hover_label: Label
 var _mouse_position := Vector2.ZERO
@@ -31,7 +30,6 @@ func _ready() -> void:
 	_station = get_node(station_path) as Station
 	_observer = get_node(observer_path) as CollisionObject3D
 	_camera = _observer.get_node("Camera") as Camera3D
-	_console = get_node_or_null(console_path) as PilotConsole
 	_hover_layer = CanvasLayer.new()
 	_hover_layer.layer = 5
 	add_child(_hover_layer)
