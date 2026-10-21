@@ -194,7 +194,9 @@ permet de piloter le jeu exporté.
 	[graine]]` (campagne officielle, 1 000 tirages, graine 1 par défaut ; moins d'une seconde) simule chaque
 	mission en **Monte-Carlo** pour **trois profils de joueur** et compare la note moyenne à leur cible :
 	**expert ≥ 17, moyen 12 à 15, débutant 8 à 11** (« ⚠ » hors cible, par mission et pour la campagne). Modèle :
-	déroulement au plus tôt (`MissionPlanner.timeline`, comme `check_campaign.gd`), retard tiré au hasard après le
+	déroulement au plus tôt (`MissionPlanner.timeline`, comme `check_campaign.gd` ; les règles de temps, échéance,
+	temps de référence, saut dans le temps et nuit, sont celles du jeu, partagées dans `CampaignData` :
+	`deadline_s`, `par_s`, `time_jump_s`, `night_s`), retard tiré au hasard après le
 	passage le plus tôt possible (expert 0 à 0,3 orbite, moyen 0,3 à 1,2, débutant 1 à 2,5), passage manqué
 	(5 %, 20 %, 35 %), écart au sol demi-normal (écart type photo 5, 12, 20 km ; tir 3, 6, 10 km) ; chaque
 	passage manqué ou raté (écart ≥ tolérance) coûte une orbite ; au-delà de l'échéance, les objectifs restants

@@ -40,8 +40,9 @@ static func state_from_start(start: Dictionary) -> Dictionary:
 
 
 ## Déroulement au plus tôt d'une campagne valide (tools/check_campaign.gd, tools/balance_campaign.gd), mêmes règles
-## que CampaignDirector : journée par journée (départ avec orbite : station placée ; sans orbite : saut jusqu'à sa
-## date ; sinon wake_up_utc, sinon CampaignData.NIGHT_HOURS de sommeil, coucher dès la fin de la journée), toutes les
+## que CampaignDirector (partagées dans CampaignData : deadline_s, par_s, time_jump_s, night_s) : journée par journée
+## (départ avec orbite : station placée ; sans orbite : saut jusqu'à sa date ; sinon wake_up_utc, sinon
+## CampaignData.NIGHT_HOURS de sommeil, coucher dès la fin de la journée), toutes les
 ## missions de la journée (conditions « when » ignorées), briefing reçu à son heure (CampaignData.briefing_unix ;
 ## l'attente de la liaison radio est ignorée), chacune
 ## remplie au plus tôt depuis l'orbite laissée par la précédente. Une entrée par mission : {day, mission
@@ -62,32 +63,25 @@ static func timeline(campaign: CampaignData) -> Array[Dictionary]:
 			state = state_from_start(start)
 			t = 0.0
 		elif start.has("utc"):
-			t += maxf(CampaignData.parse_utc(str(start.utc)) - (state.unix + t), 0.0)
-		elif day.has("wake_up_utc"):
-			var now: float = state.unix + t
-			t += CampaignData.next_clock_unix(str(day.wake_up_utc), now) - now
+			t += CampaignData.time_jump_s(start, state.unix + t)
 		else:
-			t += CampaignData.NIGHT_HOURS * 3600.0
+			t += campaign.night_s(i, state.unix + t)
 		var wake_unix: float = state.unix + t
 		for entry: Dictionary in day.get("missions", []):
 			var mission := campaign.mission(str(entry.mission))
-			var deadline := float(mission.get("deadline_hours", 0.0)) * 3600.0 \
-					+ float(mission.get("deadline_minutes", 0.0)) * 60.0
+			var deadline := CampaignData.deadline_s(mission)
 			t = campaign.briefing_unix(entry, state.unix + t) - state.unix
 			var plan := earliest(state, mission.objectives, t, t + deadline)
 			var row := {"day": day.id, "mission": str(entry.mission), "wake_unix": wake_unix,
-					"briefing_unix": state.unix + t, "earliest_s": INF, "par_s": deadline, "deadline_s": deadline,
+					"briefing_unix": state.unix + t, "earliest_s": INF, "deadline_s": deadline,
 					"period_s": period_s(state)}
 			if plan.time < INF:
 				row.earliest_s = plan.time - t
-				row.par_s = minf(row.earliest_s + row.period_s, deadline)
 				t = plan.time
 				state = plan.state
 			else:
 				t += deadline
-			var fixed: Variant = mission.get("par_hours", null)
-			if fixed != null:
-				row.par_s = float(fixed) * 3600.0
+			row.par_s = CampaignData.par_s(mission, row.earliest_s, row.period_s)
 			rows.append(row)
 	return rows
 

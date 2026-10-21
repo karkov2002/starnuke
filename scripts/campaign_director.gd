@@ -157,7 +157,7 @@ func apply_start(start: Dictionary) -> void:
 	if start.is_empty() or _orbit == null:
 		return
 	var utc := CampaignData.parse_utc(str(start.utc))
-	var jump := utc - _orbit.get_utc_unix_s()
+	var jump := CampaignData.time_jump_s(start, _orbit.get_utc_unix_s())
 	if start.has("orbit"):
 		var orbit: Dictionary = start.orbit
 		var over: Dictionary = orbit.over
@@ -182,7 +182,7 @@ func _process(_delta: float) -> void:
 		return
 	if not _scheduled_id.is_empty() and _briefing_id.is_empty() and _now() >= _briefing_unix:
 		_send_briefing()
-	if not _mission_id.is_empty() and _now() - _started_unix >= _deadline_s(_mission()):
+	if not _mission_id.is_empty() and _now() - _started_unix >= CampaignData.deadline_s(_mission()):
 		_finish_mission()
 
 
@@ -245,7 +245,7 @@ func _start_mission() -> void:
 	_precisions = []
 	for _objective in mission.objectives:
 		_precisions.append(NAN)
-	_journal.write("mission_start", _now(), {"mission": id, "deadline_s": _deadline_s(mission), "par_s": _par,
+	_journal.write("mission_start", _now(), {"mission": id, "deadline_s": CampaignData.deadline_s(mission), "par_s": _par,
 			"earliest_s": _earliest if _earliest < INF else -1.0,
 			"altitude_km": _orbit.altitude_km if _orbit else 0.0,
 			"inclination_deg": _orbit.inclination_deg if _orbit else 0.0, "time_scale": _orbit.time_scale})
@@ -301,7 +301,7 @@ func _finish_mission() -> void:
 	var weights: Array = mission.objectives.map(func(o: Dictionary) -> float: return float(o.get("weight", 1.0)))
 	var precision := MissionScoring.mission_precision(_precisions, weights)
 	var elapsed := _orbit.get_utc_unix_s() - _started_unix
-	var factor := MissionScoring.time_factor(elapsed, _par, _deadline_s(mission),
+	var factor := MissionScoring.time_factor(elapsed, _par, CampaignData.deadline_s(mission),
 			float(defaults.get("time_floor", 0.6)))
 	var score := precision * factor
 	var success := score >= float(defaults.get("success_score", 10.0))
@@ -314,7 +314,7 @@ func _finish_mission() -> void:
 	_call.stop()
 	_journal.write("mission_end", _now(), {"mission": id, "score": score, "success": success,
 			"precision": precision, "time_factor": factor, "elapsed_s": elapsed, "par_s": _par,
-			"deadline_s": _deadline_s(mission), "complete": not _precisions.any(func(p: float) -> bool: return is_nan(p)),
+			"deadline_s": CampaignData.deadline_s(mission), "complete": not _precisions.any(func(p: float) -> bool: return is_nan(p)),
 			"precisions": _precisions.map(func(p: float) -> float: return -1.0 if is_nan(p) else p)})
 	_mission_id = ""
 	var message := CampaignData.pick_message(mission.get("result", []), Campaigns.scores(day_id, id))
@@ -432,17 +432,14 @@ func _restore_world(world: Dictionary) -> void:
 
 
 ## Nuit : sans départ propre, la station continue son orbite jusqu'au réveil (wake_up_utc de la journée suivante, le
-## lendemain si l'heure est passée ; sinon CampaignData.NIGHT_HOURS).
+## lendemain si l'heure est passée ; sinon CampaignData.NIGHT_HOURS : CampaignData.night_s).
 func _advance_to_wake_up(day_index: int) -> void:
-	var day: Dictionary = Campaigns.current.days()[day_index]
-	if day.has("start") or _orbit == null:
+	if _orbit == null:
 		return
-	var now := _orbit.get_utc_unix_s()
-	var sleep_s := CampaignData.NIGHT_HOURS * 3600.0
-	if day.has("wake_up_utc"):
-		sleep_s = CampaignData.next_clock_unix(str(day.wake_up_utc), now) - now
+	var sleep_s := Campaigns.current.night_s(day_index, _orbit.get_utc_unix_s())
 	# Les explosions vieillissent aussi pendant la nuit (incendies, fumées).
-	_advance(sleep_s)
+	if sleep_s > 0.0:
+		_advance(sleep_s)
 
 
 # --- Messages -------------------------------------------------------------------------------------------------------
@@ -455,7 +452,7 @@ func _briefing_body(mission: Dictionary) -> String:
 		targets.append("  %s : %s" % [kind, GeoMath.format_lat_lon(float(objective.target.lat),
 				float(objective.target.lon))])
 	# Durée avant échec, toujours avec les minutes : « 6 h 00 min », « 5 h 30 min ».
-	var minutes := roundi(_deadline_s(mission) / 60.0)
+	var minutes := roundi(CampaignData.deadline_s(mission) / 60.0)
 	var duration := "%d h %02d min" % [floori(minutes / 60.0), minutes % 60]
 	return tr("BRIEFING_BODY").format({"title": _text(mission, "title"), "objective": _text(mission, "objective"),
 			"description": _text(mission, "description"), "targets": "\n".join(targets), "duration": duration})
@@ -490,25 +487,16 @@ func _tolerance_km(objective: Dictionary) -> float:
 	return MissionScoring.tolerance_km(objective, Campaigns.current.defaults())
 
 
-## Échéance (s) : deadline_hours et deadline_minutes (facultatif) additionnés.
-func _deadline_s(mission: Dictionary) -> float:
-	return float(mission.get("deadline_hours", 0.0)) * 3600.0 + float(mission.get("deadline_minutes", 0.0)) * 60.0
-
-
 ## Passage le plus tôt possible depuis maintenant (arrivée du briefing, départ du chrono, MissionPlanner) et temps de
-## référence (s) : par_hours, sinon ce passage plus une orbite ; au plus l'échéance.
+## référence (s, CampaignData.par_s : par_hours, sinon ce passage plus une orbite ; au plus l'échéance).
 func _plan(mission: Dictionary) -> void:
-	var deadline := _deadline_s(mission)
 	_earliest = INF
-	_par = deadline
+	var period := 0.0
 	if _orbit:
 		var state := MissionPlanner.state_of(_orbit)
-		_earliest = MissionPlanner.earliest(state, mission.objectives, 0.0, deadline).time
-		if _earliest < INF:
-			_par = minf(_earliest + MissionPlanner.period_s(state), deadline)
-	var par: Variant = mission.get("par_hours", null)
-	if par != null:
-		_par = float(par) * 3600.0
+		_earliest = MissionPlanner.earliest(state, mission.objectives, 0.0, CampaignData.deadline_s(mission)).time
+		period = MissionPlanner.period_s(state)
+	_par = CampaignData.par_s(mission, _earliest, period)
 
 
 ## Heure du jeu (UTC, s).

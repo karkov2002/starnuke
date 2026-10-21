@@ -45,6 +45,8 @@ const MAX_SCORE := 20.0
 const NIGHT_HOURS := 8.0
 ## Délai (min) avant un briefing sans heure (defaults.briefing_delay_minutes absent).
 const BRIEFING_DELAY_MINUTES := 30.0
+## Forme d'une date « AAAA-MM-JJTHH:MM[:SS] » (parse_utc), compilée une fois.
+static var _utc_pattern := RegEx.create_from_string("^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}(:\\d{2})?)?$")
 
 ## Contenu brut (campaign.json) et erreurs trouvées.
 var data := {}
@@ -97,16 +99,63 @@ func missions_of_day(day_index: int, scores: Dictionary) -> PackedStringArray:
 ## now_unix : briefing_utc ce jour-là (aussitôt si elle est passée), sinon briefing_delay_minutes plus tard.
 func briefing_unix(entry: Dictionary, now_unix: float) -> float:
 	if entry.has("briefing_utc"):
-		var parts := str(entry.briefing_utc).split(":")
-		return maxf(now_unix, floorf(now_unix / 86400.0) * 86400.0 + int(parts[0]) * 3600.0 + int(parts[1]) * 60.0)
+		return maxf(now_unix, floorf(now_unix / 86400.0) * 86400.0 + clock_s(str(entry.briefing_utc)))
 	return now_unix + float(defaults().get("briefing_delay_minutes", BRIEFING_DELAY_MINUTES)) * 60.0
 
 
 ## Heure de réveil (UTC, s) « HH:MM » suivant now_unix (le lendemain si elle est passée).
 static func next_clock_unix(clock: String, now_unix: float) -> float:
-	var parts := clock.split(":")
-	var time := floorf(now_unix / 86400.0) * 86400.0 + int(parts[0]) * 3600.0 + int(parts[1]) * 60.0
+	var time := floorf(now_unix / 86400.0) * 86400.0 + clock_s(clock)
 	return time + (86400.0 if time <= now_unix else 0.0)
+
+
+## Secondes depuis minuit d'une heure « HH:MM » ; NAN si illisible (_is_clock).
+static func clock_s(text: String) -> float:
+	var parts := text.split(":")
+	if parts.size() != 2 or not parts[0].is_valid_int() or not parts[1].is_valid_int():
+		return NAN
+	var hours := int(parts[0])
+	var minutes := int(parts[1])
+	if hours < 0 or hours >= 24 or minutes < 0 or minutes >= 60:
+		return NAN
+	return hours * 3600.0 + minutes * 60.0
+
+
+# --- Règles de temps d'une mission (CampaignDirector en partie, MissionPlanner.timeline pour les outils : une seule
+# source, pour que le jeu et le banc d'équilibrage ne divergent pas) ---------------------------------------------------
+
+## Échéance (s) d'une mission : deadline_hours et deadline_minutes (facultatif) additionnés.
+static func deadline_s(mission: Dictionary) -> float:
+	return float(mission.get("deadline_hours", 0.0)) * 3600.0 + float(mission.get("deadline_minutes", 0.0)) * 60.0
+
+
+## Temps de référence (s, depuis l'arrivée du briefing) : par_hours s'il est donné ; sinon le passage le plus tôt
+## possible (earliest_s, INF : impossible à temps) plus une orbite (period_s), au plus l'échéance.
+static func par_s(mission: Dictionary, earliest_s: float, period_s: float) -> float:
+	var fixed: Variant = mission.get("par_hours", null)
+	if fixed != null:
+		return float(fixed) * 3600.0
+	var deadline := deadline_s(mission)
+	return minf(earliest_s + period_s, deadline) if earliest_s < INF else deadline
+
+
+## Saut dans le temps (s, ≥ 0) demandé par un départ sans orbite (utc seul) à partir de now_unix : jusqu'à sa date,
+## rien si elle est passée.
+static func time_jump_s(start: Dictionary, now_unix: float) -> float:
+	if not start.has("utc"):
+		return 0.0
+	return maxf(parse_utc(str(start.utc)) - now_unix, 0.0)
+
+
+## Nuit avant la journée day_index (s de sommeil à partir de now_unix) quand elle n'a pas de départ (start_of_day) :
+## jusqu'à wake_up_utc (le lendemain si l'heure est passée), sinon NIGHT_HOURS ; 0 avec un départ.
+func night_s(day_index: int, now_unix: float) -> float:
+	var day: Dictionary = days()[day_index]
+	if not start_of_day(day_index).is_empty():
+		return 0.0
+	if day.has("wake_up_utc"):
+		return next_clock_unix(str(day.wake_up_utc), now_unix) - now_unix
+	return NIGHT_HOURS * 3600.0
 
 
 ## Premier message de la liste dont la condition est vraie ({} si aucun).
@@ -136,8 +185,7 @@ static func check(when: Dictionary, scores: Dictionary) -> bool:
 static func parse_utc(text: String) -> float:
 	var clean := text.strip_edges().trim_suffix("Z")
 	# Forme vérifiée d'abord : Time signale lui-même (erreur moteur) une date qu'il ne sait pas lire.
-	var pattern := RegEx.create_from_string("^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}(:\\d{2})?)?$")
-	if pattern.search(clean) == null:
+	if _utc_pattern.search(clean) == null:
 		return NAN
 	var unix := Time.get_unix_time_from_datetime_string(clean)
 	# Une date illisible donne 0 (1970) : refusée, le jeu se passe bien après.
@@ -327,9 +375,7 @@ func _check_text(owner: Dictionary, field: String, where: String) -> void:
 
 
 static func _is_clock(text: String) -> bool:
-	var parts := text.split(":")
-	return parts.size() == 2 and parts[0].is_valid_int() and parts[1].is_valid_int() \
-			and int(parts[0]) >= 0 and int(parts[0]) < 24 and int(parts[1]) >= 0 and int(parts[1]) < 60
+	return not is_nan(clock_s(text))
 
 
 func _error(message: String) -> void:
