@@ -182,9 +182,10 @@ func center_global() -> Vector3:
 	return mesh_instance.global_transform * (top_left + (axis_u + axis_v) * 0.5)
 
 
-## Position du maillage (coordonnées globales) : distance de la caméra à l'écran.
-func global_position() -> Vector3:
-	return mesh_instance.global_position
+## Distance (m) d'un point global au centre de la dalle (pas au pivot du maillage, qui peut être à l'origine du
+## modèle : les pivots ne sont jamais appliqués à l'export).
+func distance_to(point: Vector3) -> float:
+	return center_global().distance_to(point)
 
 
 ## Cadrage « assis » : œil face au centre de la dalle, à la distance où elle occupe fill de la vue de camera (en

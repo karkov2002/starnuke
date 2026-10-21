@@ -85,7 +85,7 @@ func _process(_delta: float) -> void:
 	_bubble.set_exit_visible(_seated and not _moving)
 	# Écran hors du module (loin) : l'image n'est plus rendue.
 	var camera := get_viewport().get_camera_3d()
-	var near := camera != null and camera.global_position.distance_to(_screen.global_position()) < RENDER_DISTANCE
+	var near := camera != null and _screen.distance_to(camera.global_position) < RENDER_DISTANCE
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if near else SubViewport.UPDATE_DISABLED
 	_display.set_process(near)
 

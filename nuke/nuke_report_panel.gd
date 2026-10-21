@@ -84,7 +84,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_screen.set_energy(screen_energy * (1.0 - _station.get_blackout()))
 	var camera := get_viewport().get_camera_3d()
-	var near := camera != null and camera.global_position.distance_to(_screen.global_position()) < RENDER_DISTANCE
+	var near := camera != null and _screen.distance_to(camera.global_position) < RENDER_DISTANCE
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if near else SubViewport.UPDATE_DISABLED
 	if not near:
 		return
