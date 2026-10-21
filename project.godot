@@ -87,7 +87,7 @@ tablet={
 
 [internationalization]
 
-locale/translations=["res://locale/strings.en.translation", "res://locale/strings.fr.translation", "res://locale/strings.es.translation", "res://locale/strings.de.translation", "res://locale/strings.it.translation", "res://locale/countries.en.translation", "res://locale/countries.fr.translation", "res://locale/countries.es.translation", "res://locale/countries.de.translation", "res://locale/countries.it.translation"]
+locale/translations=["res://locale/strings.en.translation", "res://locale/strings.fr.translation", "res://locale/strings.es.translation", "res://locale/strings.de.translation", "res://locale/strings.it.translation", "res://locale/countries.en.translation", "res://locale/countries.fr.translation", "res://locale/countries.es.translation", "res://locale/countries.de.translation", "res://locale/countries.it.translation", "res://locale/credits.en.translation", "res://locale/credits.fr.translation", "res://locale/credits.es.translation", "res://locale/credits.de.translation", "res://locale/credits.it.translation"]
 
 [physics]
 

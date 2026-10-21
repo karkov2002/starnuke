@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://crawrcvxijhf1"
+
+[deps]
+
+files=["res://locale/credits.en.translation", "res://locale/credits.fr.translation", "res://locale/credits.es.translation", "res://locale/credits.de.translation", "res://locale/credits.it.translation"]
+
+source_file="res://locale/credits.csv"
+dest_files=["res://locale/credits.en.translation", "res://locale/credits.fr.translation", "res://locale/credits.es.translation", "res://locale/credits.de.translation", "res://locale/credits.it.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

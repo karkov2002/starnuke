@@ -27,7 +27,7 @@ carte réduite, BURN, silos et tir), modèle `assets/tablet/tablet.glb` produit 
 `assets/makehuman/`, `.gdignore` ; mettre au point dans Blender et faire valider avant d'exporter). Interface à l'écran : `Hud` (`scripts/ui/hud.gd` : barre de
 vitesse du temps toujours visible, réticule dans la cupola). Date, heure et redémarrage : panneau de debug F4. README, « Tablette ».
 Règle : **tous les textes du jeu sont dans les fichiers de langue** `locale/strings.csv` (interface) et `locale/countries.csv`
-(noms de pays, `tools/build_country_names.gd`), 5 langues (en, fr, es, de, it ; anglais par défaut). Jamais de texte
+(noms de pays, `tools/build_country_names.gd`) et `locale/credits.csv` (écran Crédits : références et licences), 5 langues (en, fr, es, de, it ; anglais par défaut). Jamais de texte
 affiché en dur : une clé (traduction automatique des contrôles) ou `tr("CLE").format({...})` ; toute nouvelle clé reçoit
 ses 5 traductions. Seuls la console et le panneau de debug (outils de développement) restent en français.
 Arborescence : `scenes/` (dont `scenes/ui/`), `scripts/`, `shaders/`, `materials/` (matériaux et Environment en `.tres`), `assets/textures/`,

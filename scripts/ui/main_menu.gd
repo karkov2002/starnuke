@@ -1,7 +1,7 @@
 extends Control
 ## Écran de démarrage (scène principale scenes/ui/main_menu.tscn) : titre provisoire et boutons à droite, en pages :
 ## - accueil : « Commencer la partie » (page des modes), « Paramètres » (écran scenes/ui/settings_menu.tscn
-##   par-dessus), « Quitter » ;
+##   par-dessus), « Crédits » (scenes/ui/credits_menu.tscn par-dessus : onglets Références et Crédits), « Quitter » ;
 ## - modes de jeu : « Démarrer une nouvelle campagne » (page des campagnes), « Continuer la campagne en cours »
 ##   (cliquable seulement si une campagne est en cours, Campaigns.has_saved : reprend la sauvegarde du dernier coucher), « Mode libre »
 ##   (le jeu tel quel), « Retour » ;
@@ -21,6 +21,7 @@ extends Control
 
 const GAME_SCENE := "res://scenes/orbit_view.tscn"
 const SETTINGS_SCENE := preload("res://scenes/ui/settings_menu.tscn")
+const CREDITS_SCENE := preload("res://scenes/ui/credits_menu.tscn")
 const BUTTON_SIZE := Vector2(380.0, 60.0)
 ## Choix de la campagne : couleur de la campagne officielle, lignes visibles avant défilement.
 const OFFICIAL_COLOR := Color(0.45, 0.72, 1.0)
@@ -93,6 +94,7 @@ func _ready() -> void:
 	_main_page = _add_page(column)
 	_start_button = _add_button(_main_page, "MENU_START", func() -> void: _show_page(_mode_page))
 	_add_button(_main_page, "MENU_SETTINGS", _on_settings)
+	_add_button(_main_page, "MENU_CREDITS", _on_credits)
 	_add_button(_main_page, "MENU_QUIT", func() -> void: get_tree().quit())
 	_mode_page = _add_page(column)
 	_add_button(_mode_page, "MENU_NEW_CAMPAIGN", _open_campaigns)
@@ -349,6 +351,17 @@ func _on_start() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	get_tree().change_scene_to_packed(_game_scene)
+
+
+## Crédits (scenes/ui/credits_menu.tscn) par-dessus le décor, comme les paramètres.
+func _on_credits() -> void:
+	var credits := CREDITS_SCENE.instantiate()
+	_menu.visible = false
+	credits.closed.connect(func() -> void:
+		credits.queue_free()
+		_menu.visible = true
+		_show_page(_main_page))
+	add_child(credits)
 
 
 func _on_settings() -> void:
