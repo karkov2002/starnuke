@@ -85,7 +85,9 @@ func _update_screen(delta: float, near_now: bool) -> void:
 	if _refresh_left > 0.0:
 		return
 	_refresh_left = REFRESH_S
-	var effects: Array[NukeEffect] = _launcher.get_effects() if _launcher else []
+	var effects: Array[NukeEffect] = []
+	if _launcher:
+		effects = _launcher.get_effects()
 	_show(NukeTally.compute(effects), effects.is_empty())
 
 

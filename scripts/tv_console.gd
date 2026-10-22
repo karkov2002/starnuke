@@ -91,5 +91,8 @@ func _utc_unix() -> float:
 ## État des chaînes recalculé d'après les explosions présentes et l'heure du jeu.
 func _update_channels() -> void:
 	_check = 0.0
-	var effects: Array[NukeEffect] = _launcher.get_effects() if _launcher else []
+	# Sans lanceur (décor du menu de démarrage) : aucune explosion ; le tableau doit rester typé.
+	var effects: Array[NukeEffect] = []
+	if _launcher:
+		effects = _launcher.get_effects()
 	_channels.update(effects, _utc_unix())
