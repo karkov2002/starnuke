@@ -112,16 +112,6 @@ func hinge_range(anim: Animation, hinge: Node3D) -> HingeRange:
 	return range
 
 
-## Angles de début (entry.start) et de fin (entry.end) et durée (entry.duration) d'une entrée à dictionnaire (écoutilles,
-## en attendant StationHatches) ; sans piste, l'entrée n'est pas ouvrable.
-func fill_hinge(entry: Dictionary, anim: Animation, hinge: Node3D) -> void:
-	var range := hinge_range(anim, hinge)
-	if not range.animated:
-		entry.ouvrable = false
-	entry.start = range.start
-	entry.end = range.end
-	entry.duration = range.duration
-
 
 ## Nombre de charnières animées par l'animation (pistes de rotation).
 func animated_count(anim_name: StringName) -> int:

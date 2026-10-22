@@ -13,7 +13,7 @@ func _ready() -> void:
 	var station := view.get_node("Station/StationSpatiale") as Station
 	await get_tree().create_timer(3.0).timeout
 	for id in HATCHES:
-		var hinge: Node3D = station._hatches[id].hinge
+		var hinge: Node3D = station.hatch_hinge(id)
 		var counts := {}
 		for node in hinge.find_children("*", "", true, false):
 			counts[node.get_class()] = counts.get(node.get_class(), 0) + 1
@@ -24,7 +24,7 @@ func _ready() -> void:
 	print("ouverture, collisions actives : ", await _measure(2.0))
 	await get_tree().create_timer(1.5).timeout
 	for id in HATCHES:
-		for body: CollisionObject3D in (station._hatches[id].hinge as Node).find_children("*", "CollisionObject3D", true, false):
+		for body: CollisionObject3D in (station.hatch_hinge(id) as Node).find_children("*", "CollisionObject3D", true, false):
 			body.process_mode = Node.PROCESS_MODE_DISABLED
 	for id in HATCHES:
 		station.set_hatch_open(id, false)

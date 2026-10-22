@@ -155,10 +155,8 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 ## Chaleur accumulée (0 à 1).
 var heat := 0.0
 
-## id -> {node, hinge, open, closed : Quaternion, duration, track, is_open, ouvrable, tween}
-var _hatches := {}
-## id -> {node, blend, weight, target, tween, area, shape, open_box, closed_box}
-var _curtains := {}
+## Écoutilles, trappes verrouillées et rideaux : StationHatches.
+var _hatches: StationHatches
 ## Trappes des silos, gyrophares et lancement des missiles : StationSilos.
 var _silos: StationSilos
 ## id -> {tracks : Array[int], is_deployed, tween}
@@ -193,9 +191,8 @@ func _ready() -> void:
 	if _anim == null:
 		push_error("Station : pas d'AnimationPlayer dans le modèle")
 		return
-	_collect_interactives()
+	_hatches = StationHatches.new(self, _anim)
 	_silos = StationSilos.new(self, _anim)
-	_collect_curtains()
 	_collect_radiators()
 	_split_interior_layers()
 	var world_environment := get_node_or_null(world_environment_path) as WorldEnvironment
@@ -234,37 +231,23 @@ func _process(delta: float) -> void:
 		heat_changed.emit(heat)
 
 
-# --- Écoutilles ---------------------------------------------------------------------------------------------------
+# --- Écoutilles et rideaux (StationHatches) --------------------------------------------------------------------------
 
 func hatch_ids() -> Array[String]:
-	var ids: Array[String] = []
-	ids.assign(_hatches.keys())
-	return ids
+	return _hatches.hatch_ids() if _hatches else []
 
 
 func is_hatch_open(id: String) -> bool:
-	return _hatches.has(id) and _hatches[id].is_open
+	return _hatches != null and _hatches.is_hatch_open(id)
 
 
 func is_hatch_openable(id: String) -> bool:
-	return _hatches.has(id) and _hatches[id].ouvrable
+	return _hatches != null and _hatches.is_hatch_openable(id)
 
 
 ## Ouvre ou ferme une écoutille (Tween, durée de l'animation Blender). Faux si elle est verrouillée ou inconnue.
 func set_hatch_open(id: String, open: bool) -> bool:
-	if not is_hatch_openable(id):
-		return false
-	var hatch: Dictionary = _hatches[id]
-	# État visé (et non l'état atteint) : une demande inverse en cours de mouvement repart de la position actuelle.
-	if hatch.get("target", hatch.is_open) == open:
-		return true
-	hatch.target = open
-	hatch_moving.emit(id, open)
-	# Fermeture_Ecoutilles : début = ouverte, fin = fermée.
-	_tween_hatch(hatch, open, func() -> void:
-		hatch.is_open = open
-		hatch_changed.emit(id, open))
-	return true
+	return _hatches != null and _hatches.set_hatch_open(id, open)
 
 
 func open_hatch(id: String) -> bool:
@@ -277,144 +260,51 @@ func close_hatch(id: String) -> bool:
 
 ## État visé d'une écoutille (celui vers lequel elle bouge, ou son état au repos).
 func is_hatch_opening(id: String) -> bool:
-	return _hatches.has(id) and _hatches[id].get("target", _hatches[id].is_open)
+	return _hatches != null and _hatches.is_hatch_opening(id)
 
 
 ## Ouvre l'écoutille fermée (ou qui se ferme), ferme l'écoutille ouverte (ou qui s'ouvre).
 func toggle_hatch(id: String) -> bool:
-	return set_hatch_open(id, not is_hatch_opening(id))
+	return _hatches != null and _hatches.toggle_hatch(id)
 
 
 ## Identifiant de l'écoutille ouvrable à laquelle appartient node (la porte, ou un de ses descendants comme son corps
 ## de collision), "" sinon.
 func hatch_id_for(node: Node) -> String:
-	while node and node != self:
-		for id: String in _hatches:
-			if _hatches[id].node == node:
-				return id if _hatches[id].ouvrable else ""
-		node = node.get_parent()
-	return ""
+	return _hatches.hatch_id_for(node) if _hatches else ""
 
 
-# --- Rideaux --------------------------------------------------------------------------------------------------------
-# Objets Blender d'extras type « rideau » (Habitation_Rideau_WC, Habitation_Rideau_Douche) : forme de base = ouvert
-# (regroupé), clé de forme extras.forme_fermee (« Ferme ») = fermé. Fermés au démarrage (start_curtains_closed). Sans collision (on passe à
-# travers un rideau) ; une zone de clic (Area3D sur CURTAIN_LAYER) couvre le tissu et suit son mouvement.
+## Charnière de l'écoutille (sondes), ou null.
+func hatch_hinge(id: String) -> Node3D:
+	return _hatches.hatch_hinge(id) if _hatches else null
+
+
+## Toutes les écoutilles ouvrables, chacune par son Tween.
+func set_all_hatches_open(open: bool) -> void:
+	if _hatches:
+		_hatches.set_all_hatches_open(open)
+
 
 func curtain_ids() -> Array[String]:
-	var ids: Array[String] = []
-	ids.assign(_curtains.keys())
-	return ids
+	return _hatches.curtain_ids() if _hatches else []
 
 
 ## État visé d'un rideau (celui vers lequel il bouge, ou son état au repos).
 func is_curtain_closing(id: String) -> bool:
-	return _curtains.has(id) and _curtains[id].target
+	return _hatches != null and _hatches.is_curtain_closing(id)
 
 
 func set_curtain_closed(id: String, closed: bool) -> bool:
-	if not _curtains.has(id):
-		return false
-	var curtain: Dictionary = _curtains[id]
-	if curtain.target == closed:
-		return true
-	curtain.target = closed
-	if curtain.tween:
-		curtain.tween.kill()
-	var from: float = curtain.weight
-	var to := 1.0 if closed else 0.0
-	curtain.tween = create_tween()
-	curtain.tween.tween_method(func(w: float) -> void: _set_curtain_weight(curtain, w), from, to,
-			curtain_duration_s * absf(to - from)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	curtain.tween.tween_callback(func() -> void:
-		curtain.tween = null
-		curtain_changed.emit(id, closed))
-	return true
+	return _hatches != null and _hatches.set_curtain_closed(id, closed)
 
 
 func toggle_curtain(id: String) -> bool:
-	return set_curtain_closed(id, not is_curtain_closing(id))
+	return _hatches != null and _hatches.toggle_curtain(id)
 
 
 ## Identifiant du rideau auquel appartient node (sa zone de clic), "" sinon.
 func curtain_id_for(node: Node) -> String:
-	for id: String in _curtains:
-		if _curtains[id].area == node:
-			return id
-	return ""
-
-
-func _set_curtain_weight(curtain: Dictionary, w: float) -> void:
-	curtain.weight = w
-	(curtain.node as MeshInstance3D).set_blend_shape_value(curtain.blend, w)
-	var box: AABB = (curtain.open_box as AABB)
-	var closed_box: AABB = curtain.closed_box
-	var shape := (curtain.shape as CollisionShape3D)
-	var center := box.get_center().lerp(closed_box.get_center(), w)
-	(shape.shape as BoxShape3D).size = box.size.lerp(closed_box.size, w)
-	shape.position = center
-
-
-func _collect_curtains() -> void:
-	for node: MeshInstance3D in find_children("*", "MeshInstance3D", true, false):
-		var extras: Dictionary = node.get_meta("extras", {})
-		if String(extras.get("type", "")) != "rideau" or node.mesh == null:
-			continue
-		var blend := node.find_blend_shape_by_name(StringName(String(extras.get("forme_fermee", "Ferme"))))
-		if blend < 0:
-			push_error("Station : rideau %s sans clé de forme fermée" % node.name)
-			continue
-		var boxes := _curtain_boxes(node.mesh, blend)
-		var area := Area3D.new()
-		area.name = "Zone_Clic"
-		area.collision_layer = CURTAIN_LAYER
-		area.collision_mask = 0
-		area.monitoring = false
-		var shape := CollisionShape3D.new()
-		shape.shape = BoxShape3D.new()
-		area.add_child(shape)
-		node.add_child(area)
-		var entry := {"node": node, "blend": blend, "weight": 0.0, "target": start_curtains_closed, "tween": null, "area": area,
-				"shape": shape, "open_box": boxes[0], "closed_box": boxes[1]}
-		_set_curtain_weight(entry, 1.0 if start_curtains_closed else 0.0)
-		_curtains[String(extras.get("id", node.name))] = entry
-
-
-## Boîtes (repère du maillage) du tissu ouvert et fermé : sommets de la surface du rideau (matériau « Rideau »), de la
-## forme de base et de la clé de forme ; épaissies à CURTAIN_PICK_DEPTH pour le clic.
-func _curtain_boxes(mesh: Mesh, blend: int) -> Array[AABB]:
-	var open_box := mesh.get_aabb()
-	var closed_box := open_box
-	var array_mesh := mesh as ArrayMesh
-	if array_mesh:
-		for s in array_mesh.get_surface_count():
-			var material := array_mesh.surface_get_material(s)
-			if material == null or not material.resource_name.contains("Rideau"):
-				continue
-			var base: PackedVector3Array = array_mesh.surface_get_arrays(s)[Mesh.ARRAY_VERTEX]
-			var shapes := array_mesh.surface_get_blend_shape_arrays(s)
-			if base.is_empty() or shapes.size() <= blend:
-				break
-			# Positions absolues de la forme fermée (l'import glTF ajoute les décalages à la base).
-			var target: PackedVector3Array = shapes[blend][Mesh.ARRAY_VERTEX]
-			open_box = _points_aabb(base)
-			closed_box = _points_aabb(target) if target.size() == base.size() else open_box
-			break
-	var result: Array[AABB] = []
-	for box: AABB in [open_box, closed_box]:
-		# Épaisseur du tissu (plus petite dimension) portée à CURTAIN_PICK_DEPTH, pour viser facilement.
-		var axis := box.get_shortest_axis_index()
-		var grow := Vector3.ZERO
-		grow[axis] = maxf(0.0, CURTAIN_PICK_DEPTH - box.size[axis]) / 2.0
-		result.append(AABB(box.position - grow, box.size + 2.0 * grow))
-	return result
-
-
-static func _points_aabb(points: PackedVector3Array) -> AABB:
-	var box := AABB(points[0], Vector3.ZERO)
-	for p in points:
-		box = box.expand(p)
-	return box
+	return _hatches.curtain_id_for(node) if _hatches else ""
 
 
 # --- Sas de sortie --------------------------------------------------------------------------------------------------
@@ -683,15 +573,6 @@ func set_cargo_docked(docked: bool) -> bool:
 	return true
 
 
-## Toutes les écoutilles ouvrables, chacune par son Tween (mêmes angles et durée que l'animation). L'animation de
-## groupe (AnimationPlayer) n'est plus utilisée : depuis que les écoutilles sont fermées au démarrage (charnières
-## placées à la main), elle ne déplaçait plus les charnières.
-func set_all_hatches_open(open: bool) -> void:
-	for id: String in _hatches:
-		if _hatches[id].ouvrable:
-			set_hatch_open(id, open)
-
-
 # --- Trappes des silos et missiles (StationSilos) -------------------------------------------------------------------
 
 func is_silo_door_open(silo: int, tube: int) -> bool:
@@ -844,35 +725,6 @@ func _add_interior_collisions() -> void:
 		body.add_child(collision)
 		mesh_instance.add_child(body)
 
-func _collect_interactives() -> void:
-	var hatch_anim := _anim.animation(ANIM_HATCHES)
-	for node in find_children("Interactif_*", "", true, false):
-		# Les corps de collision des portes portent le même nom que leur porte.
-		if node is CollisionObject3D:
-			continue
-		var extras: Dictionary = node.get_meta("extras", {})
-		var hinge := get_node_or_null(NodePath(String(extras.get("charniere", "")))) as Node3D \
-				if extras.has("charniere") else null
-		var ouvrable: bool = extras.get("ouvrable", hinge != null) and hinge != null
-		match String(extras.get("type", "")):
-			"ecoutille", "trappe":
-				# Au repos : écoutilles ouvertes ; trappes verrouillées (sas, nadir) fermées.
-				var entry := {"node": node, "hinge": hinge, "ouvrable": ouvrable,
-						"is_open": String(extras.get("type")) == "ecoutille", "tween": null}
-				if hinge and hatch_anim:
-					_anim.fill_hinge(entry, hatch_anim, hinge)
-					# Début de Fermeture_Ecoutilles = ouverte.
-					entry.open = entry.start
-					entry.closed = entry.end
-					var id := String(extras.get("id", node.name))
-					if start_hatches_closed and entry.ouvrable and entry.is_open and not id in start_open_hatches:
-						hinge.quaternion = entry.closed
-						entry.is_open = false
-				_collect_hatch_wheel(entry, node, extras)
-				fit_door_collision(node)
-				_hatches[String(extras.get("id", node.name))] = entry
-
-
 ## Corps de collision d'une porte (AnimatableBody3D tiré du nœud Blender « -convcolonly », enfant de la porte) : avec
 ## sync_to_physics, il ne suit que ses propres déplacements, pas ceux de la charnière parente, et restait figé dans la
 ## pose de l'import (porte fermée traversable, porte ouverte qui bloque encore le passage et le clic). Sans
@@ -961,53 +813,3 @@ static func _has_prefix(text: String, prefixes: Array[String]) -> bool:
 			return true
 	return false
 
-
-# --- Outils ---------------------------------------------------------------------------------------------------------
-
-## Volant de verrouillage de l'écoutille (pivot extras.volant, enfant de la porte ; axe Z Blender = Y local dans
-## Godot) : déverrouillé (volant_tours tours) quand elle est ouverte, verrouillé (0) fermée.
-func _collect_hatch_wheel(entry: Dictionary, door: Node, extras: Dictionary) -> void:
-	var wheel_name := String(extras.get("volant", ""))
-	var wheel := door.find_child(wheel_name, true, false) as Node3D if wheel_name != "" else null
-	if wheel == null:
-		return
-	entry.wheel = wheel
-	entry.wheel_rest = wheel.quaternion
-	entry.wheel_unlocked = float(extras.get("volant_tours", 1.0)) * TAU
-	_set_wheel_angle(entry, entry.wheel_unlocked if entry.is_open else 0.0)
-
-
-func _set_wheel_angle(entry: Dictionary, angle: float) -> void:
-	entry.wheel_angle = angle
-	(entry.wheel as Node3D).quaternion = (entry.wheel_rest as Quaternion) * Quaternion(Vector3.UP, angle)
-
-
-## Écoutille vers open : sans volant, la charnière seule ; avec volant, déverrouillage puis ouverture, ou fermeture
-## puis verrouillage (le volant repart de son angle courant).
-func _tween_hatch(entry: Dictionary, open: bool, done: Callable) -> void:
-	var target: Quaternion = entry.open if open else entry.closed
-	if not entry.has("wheel"):
-		if entry.tween:
-			entry.tween.kill()
-		entry.tween = _anim.tween_hinge(entry.hinge, target, entry.duration, func() -> void:
-			entry.tween = null
-			done.call())
-		return
-	if entry.tween:
-		entry.tween.kill()
-	var hinge: Node3D = entry.hinge
-	var start := hinge.quaternion
-	var wheel_from: float = entry.wheel_angle
-	var wheel_to: float = entry.wheel_unlocked if open else 0.0
-	var wheel_s := hatch_wheel_s * absf(wheel_to - wheel_from) / maxf(entry.wheel_unlocked, 1e-3)
-	var turn := func(angle: float) -> void: _set_wheel_angle(entry, angle)
-	var swing := func(w: float) -> void: hinge.quaternion = start.slerp(target, w)
-	entry.tween = create_tween()
-	if open and wheel_s > 0.0:
-		entry.tween.tween_method(turn, wheel_from, wheel_to, wheel_s).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	entry.tween.tween_method(swing, 0.0, 1.0, entry.duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	if not open and wheel_s > 0.0:
-		entry.tween.tween_method(turn, wheel_from, wheel_to, wheel_s).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	entry.tween.tween_callback(func() -> void:
-		entry.tween = null
-		done.call())
