@@ -10,7 +10,7 @@ extends EditorScenePostImport
 ##   sinon, jouer Lancement_Missile remettrait aussi en place les trappes, radiateurs et panneaux.
 ## - collisions des objets « Interactif_* » qui n'en ont pas (tubes des silos, consoles, caisses, portables, écrans…) :
 ##   forme convexe simplifiée (StaticBody3D « Collision » enfant), calculée ici une fois pour toutes ; au démarrage
-##   du jeu (Station._add_interior_collisions), ce calcul figeait l'écran ~3,5 s.
+##   du jeu (StationModelSetup.add_interior_collisions), ce calcul figeait l'écran ~3,5 s.
 ## Les autres réglages sont dans le .import : boucle des animations Rotation_Panneaux et Balayage_Antennes, LOD,
 ## collisions par suffixes, échelle 1.
 

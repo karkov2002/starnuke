@@ -1010,7 +1010,12 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   animées, faux pour l'écoutille cargo, verrouillée).
 - **Scène héritée** `scenes/station_spatiale.tscn` : base de tout le jeu (script, réglages des lumières, etc.).
   Aperçu seul : `scenes/debug/station_preview.tscn` (soleil, fond noir, caméra extérieure).
-- **Pilotage** (`scripts/station.gd`, classe `Station`, racine de la scène héritée). Rien n'est codé en dur : objets
+- **Pilotage** (`scripts/station.gd`, classe `Station`, racine de la scène héritée : façade qui porte les signaux, les
+  réglages exportés et l'API, construite sur les composants de `scripts/station/` : `StationHatches` (écoutilles,
+  trappes verrouillées, volants, rideaux), `StationSilos` (trappes des silos, gyrophares, lancement des missiles),
+  `StationAirlock` (combinaison, valve, voyants), `StationThermal` (radiateurs, chaleur), `StationLighting`
+  (lampes, luminaires, écrans, alerte, black-out), `StationSolarPanels` (suivi du soleil), `StationModelSetup`
+  (calques intérieurs, vitrage mat, collisions) et la boîte à outils `StationAnim`). Rien n'est codé en dur : objets
   trouvés par leurs extras (`type` : `ecoutille`, `trappe_silo`, `trappe` ; `id`, `charniere`, `silo`, `tube`,
   `ouvrable`), angles et durées lus dans les animations Blender. Boîte à outils d'animation `StationAnim`
   (`scripts/station/station_anim.gd`) : un objet seul est piloté par un Tween qui rejoue ses pistes (`play_tracks`,

@@ -60,7 +60,7 @@ func _init(station: Station, anim: StationAnim) -> void:
 			door.closed = range.start
 			door.open = range.end
 			door.duration = range.duration
-		Station.fit_door_collision(node)
+		StationModelSetup.fit_door_collision(node)
 		_doors[key] = door
 	var model := _missile_template()
 	if model:

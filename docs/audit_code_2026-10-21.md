@@ -311,7 +311,11 @@ km/degré unique vaut 111,195.
    dictionnaires ; `Station` → 1 014 lignes, façade de relais) ; `StationHatches` fait le 22/10 (écoutilles et
    trappes verrouillées `Hatch`, volants, rideaux `Curtain` ; `Station` → 815 lignes) ; `StationAirlock` fait le
    22/10 (combinaison, valve typée `Valve`, courbe de l'aiguille, voyants ; `Station` → 635 lignes) ;
-   `StationThermal` fait le 22/10 (radiateurs `Radiator`, chaleur ; `Station` → 590 lignes). Non-régression :
+   `StationThermal` fait le 22/10 (radiateurs `Radiator`, chaleur ; `Station` → 590 lignes) ; `StationModelSetup`
+   fait le 22/10 (calques intérieurs, vitrage mat, collisions, corps des portes ; `Station` → 493 lignes). **Étape 4
+   terminée le 22/10/2026** : `Station` est une façade (signaux, réglages exportés, relais d'API, cargo, zones) sur
+   sept composants RefCounted de `scripts/station/` construits dans `_ready` ; aucun dictionnaire d'entrées ne
+   subsiste (`Hatch`, `Curtain`, `SiloDoor`, `Radiator`, `Valve`, `HingeRange`). Non-régression :
    section Station de
    `tools/bench/console_probe.tscn` (écoutille, trappe, radiateurs et chaleur, cargo, combinaison, valve du sas,
    alerte et black-out, lancement d'un missile jusqu'au relais), écrite avant la découpe.

@@ -153,7 +153,7 @@ func _collect_hatches() -> void:
 				hatch.is_open = false
 		hatch.target = hatch.is_open
 		_collect_wheel(hatch, node, extras)
-		Station.fit_door_collision(node)
+		StationModelSetup.fit_door_collision(node)
 		_hatches[id] = hatch
 
 
