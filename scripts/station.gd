@@ -169,7 +169,8 @@ var _radiators := {}
 var _anim: StationAnim
 ## Copie intacte du missile modèle (prise au démarrage) : celui du tube 1_12 disparaît après son lancement.
 var _missile_pristine: Node3D
-var _panel_pivots: Array[Node3D] = []
+## Panneaux solaires (suivi du soleil) : StationSolarPanels.
+var _solar: StationSolarPanels
 ## Vector2i(silo, tube) -> gyrophare (Node3D : Lampe, Lumiere)
 var _beacons := {}
 var _orbit: OrbitSimulation
@@ -178,8 +179,6 @@ var _lighting: StationLighting
 
 enum Alert { NONE, YELLOW, ORANGE, RED, BLACKOUT }
 var _beacon_time := 0.0
-## Angle courant des panneaux (radians autour de Z) ; NAN avant la première image (placement direct).
-var _panel_angle := NAN
 ## Sas de sortie : combinaison et son support (extras type « combinaison », « porte_combinaison »).
 var _suit: Node3D
 var _suit_rack: Node3D
@@ -212,7 +211,7 @@ func _ready() -> void:
 	var model := _missile_template()
 	if model:
 		_missile_pristine = model.duplicate() as Node3D
-	_panel_pivots.assign(find_children("Pivot_Panneau_*", "Node3D", false, false))
+	_solar = StationSolarPanels.new(self, get_node_or_null(sun_path) as Node3D, get_node_or_null(earth_path) as Node3D)
 	if animate_antennas:
 		_anim.play(ANIM_ANTENNAS)
 
@@ -226,8 +225,8 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	if _lighting:
 		_lighting.update(delta)
-	if track_sun_panels:
-		_track_sun(delta)
+	if track_sun_panels and _solar:
+		_solar.update(delta)
 	if not _beacons.is_empty():
 		_blink_beacons(delta)
 	if not _valve.is_empty():
@@ -986,46 +985,6 @@ func _blink_beacons(delta: float) -> void:
 		var lamp := beacon.get_node("Lampe") as MeshInstance3D
 		((lamp.mesh as SphereMesh).material as StandardMaterial3D).emission_energy_multiplier = 8.0 * level
 		(beacon.get_node("Lumiere") as OmniLight3D).light_energy = beacon_energy * level
-
-
-# --- Panneaux solaires ----------------------------------------------------------------------------------------------
-
-## Oriente les panneaux vers le soleil autour de leur axe (Z du modèle). La face des cellules n(θ) = (−sin θ, cos θ)
-## dans le plan XY de la station suit la projection du soleil, mais reste au-dessus de l'horizon local (n · zénith ≥
-## sin(marge)) : si le soleil est sous l'horizon, elle s'arrête à la limite. Même angle pour les 4 panneaux (même
-## axe, même soleil).
-func _track_sun(delta: float) -> void:
-	var sun := get_node_or_null(sun_path) as Node3D
-	if sun == null or _panel_pivots.is_empty():
-		return
-	var inverse := global_basis.inverse()
-	var sun_dir := inverse * sun.global_basis.z
-	var earth := get_node_or_null(earth_path) as Node3D
-	var zenith := inverse * (global_position - earth.global_position) if earth else Vector3.UP
-	var target := Vector2(sun_dir.x, sun_dir.y)
-	var up := Vector2(zenith.x, zenith.y)
-	if up.length() < 1e-4:
-		return
-	up = up.normalized()
-	if target.length() < 1e-4:
-		target = up
-	target = target.normalized()
-	# Angle limite autour du zénith projeté : la face peut s'écarter de 90° − marge du zénith au plus.
-	var max_tilt := deg_to_rad(90.0 - panel_horizon_margin_deg)
-	var offset := clampf(up.angle_to(target), -max_tilt, max_tilt)
-	var wanted := _normal_angle(up.rotated(offset))
-	if is_nan(_panel_angle):
-		_panel_angle = wanted
-	else:
-		var step := deg_to_rad(panel_max_speed_deg) * delta
-		_panel_angle += clampf(angle_difference(_panel_angle, wanted), -step, step)
-	for pivot in _panel_pivots:
-		pivot.quaternion = Quaternion(Vector3.BACK, _panel_angle)
-
-
-## Angle θ autour de +Z tel que la normale (−sin θ, cos θ) vaut n.
-static func _normal_angle(n: Vector2) -> float:
-	return atan2(-n.x, n.y)
 
 
 # --- Construction ---------------------------------------------------------------------------------------------------

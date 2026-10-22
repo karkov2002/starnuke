@@ -1018,7 +1018,8 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   fermées au démarrage : une par une) par l'animation complète (`play_group`). Chaque animation a son propre
   AnimationPlayer (créé au démarrage, bibliothèque partagée) : les antennes tournent en boucle pendant les autres
   mouvements. Non-régression de toute l'API : section Station de `tools/bench/console_probe.tscn`.
-  - **Panneaux solaires : suivi du soleil, station furtive** (`Station._track_sun`, `track_sun_panels`). L'animation
+  - **Panneaux solaires : suivi du soleil, station furtive** (`StationSolarPanels`,
+	`scripts/station/station_solar_panels.gd`, réglages sur `Station` : `track_sun_panels`…). L'animation
 	Blender `Rotation_Panneaux` (rotation continue, trop rapide) n'est plus jouée : à chaque image, les 4 pivots
 	`Pivot_Panneau_*` (axe Z du modèle, face des cellules du côté +Y au repos) tournent pour présenter les cellules
 	au soleil (projection de la direction du soleil, lumière `Sun`, sur leur plan de rotation) : ils suivent donc le

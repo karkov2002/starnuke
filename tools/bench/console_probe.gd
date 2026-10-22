@@ -247,6 +247,8 @@ func _check_station(view: Node) -> void:
 	_check(await _until(func() -> bool: return station.get_airlock_pressure() < 0.9, 15.0), "pression du sas en baisse (%.2f)" % station.get_airlock_pressure())
 	_check(station.set_airlock_pressurized(true) and station.get_airlock_valve_mode() == 1, "remplissage ouvert")
 	_check(await _until(func() -> bool: return not station.is_airlock_cycling(), 30.0) and station.get_airlock_pressure() >= 0.99, "sas plein, valve refermée d'elle-même")
+	var pivots := station.find_children("Pivot_Panneau_*", "Node3D", false, false)
+	_check(pivots.size() == 4 and pivots.all(func(p: Node3D) -> bool: return p.quaternion.is_equal_approx(pivots[0].quaternion)) and absf(pivots[0].quaternion.get_angle()) > 1e-3, "4 panneaux solaires orientés d'un même angle (%.1f°)" % rad_to_deg(pivots[0].quaternion.get_angle()))
 	station.set_alert(Station.Alert.RED)
 	_check(station.get_alert() == Station.Alert.RED, "alerte rouge")
 	station.set_alert(Station.Alert.BLACKOUT)

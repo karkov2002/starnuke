@@ -304,7 +304,9 @@ km/degré unique vaut 111,195.
    `StationAirlock`, `StationHatches`, `StationThermal`, `StationSolarPanels`, `StationModelSetup`), entrées
    typées. — **en cours** : `StationAnim` fait le 22/10/2026 (`scripts/station/station_anim.gd` : bibliothèque,
    lecteurs, `play_group`, `play_tracks`, `tween_hinge`, `fill_hinge`, `apply_track`, `track_for`,
-   `handoff_time` ; `Station` 1 442 → 1 337 lignes). Non-régression : section Station de
+   `handoff_time` ; `Station` 1 442 → 1 337 lignes) ; `StationLighting` fait le 22/10 (lampes, luminaires, écrans,
+   alerte, black-out ; `Station` → 1 234 lignes) ; `StationSolarPanels` fait le 22/10 (suivi du soleil, soleil et
+   Terre résolus une fois ; `Station` → 1 194 lignes). Non-régression : section Station de
    `tools/bench/console_probe.tscn` (écoutille, trappe, radiateurs et chaleur, cargo, combinaison, valve du sas,
    alerte et black-out, lancement d'un missile jusqu'au relais), écrite avant la découpe.
 5. `CampaignDirector` : `WorldSnapshot`, `CampaignMessages`, `MissionRun`, journal par signaux ; `Campaigns`
