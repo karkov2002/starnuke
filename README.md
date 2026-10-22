@@ -651,32 +651,35 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   - API pour la campagne : `RadioComms.post({from, subject, body, channel, replies})` (textes : clé des fichiers de
     langue, texte, ou dictionnaire par langue comme `campaign.json`), signaux `message_received`, `replied`. Panneau
 	de debug : bouton « Radio » (message d'essai du contrôle sol, deux réponses).
-- **Télévision** (`scripts/tv_console.gd`, nœud `TvConsole` ; interface `scripts/ui/tv_display.gd`) : l'écran
+- **Télévision** (`scripts/tv_console.gd`, nœud `TvConsole` ; interface `scripts/ui/tv_display.gd` ; chaînes et
+  règles de jeu `scripts/tv_channels.gd`, classe `TvChannels`, tenue par la console et lue par l'interface) : l'écran
   `Interactif_Ecran_03` du module Commande (retiré des écrans d'ambiance) diffuse les chaînes d'information du monde.
   - **Vue TV** : survol à portée (2,5 m) → bulle « Télévision » ; clic gauche → la vue se cadre face à l'écran, comme
 	au poste de pilotage (déplacements suspendus, tablette rangée, écoutilles non cliquables : groupe commun
 	`ScreenSeatConsole`, `scripts/screens/screen_seat_console.gd`) ; **clic droit** pour quitter, la télévision reste sur la chaîne choisie
 	(France par défaut).
   - **Chaînes** : bouton « Chaînes » en haut à gauche de l'écran → **guide des chaînes** plein écran, comme sur une
-    vraie télévision : mosaïque défilante (molette) de vignettes (`scripts/ui/channel_tile.gd`) avec logo, drapeau du
-    pays en haut à droite (`assets/tv/flags/<CODE>.png`, 80 px, drapeaux du projet flag-icons, licence MIT, via
-    flagcdn.com, `tools/build_tv_flags.ps1`), numéro de
+	vraie télévision : mosaïque défilante (molette) de vignettes (`scripts/ui/channel_tile.gd`) avec logo, drapeau du
+	pays en haut à droite (`assets/tv/flags/<CODE>.png`, 80 px, drapeaux du projet flag-icons, licence MIT, via
+	flagcdn.com, `tools/build_tv_flags.ps1`), numéro de
 	chaîne, nom de la chaîne et pays ; chaîne en cours encadrée, pays hors d'antenne grisés ; bouton « Fermer ».
 	Logos générés à partir du nom de la chaîne (toujours les mêmes) : couleur de marque, un des quatre styles (bloc,
 	souligné, pastille ronde, bandes obliques) et monogramme (initiales des mots, nombres gardés : « RV24 »).
 	Chaînes numérotées dans l'ordre alphabétique des pays (nom traduit,
 	`locale/countries.csv`), chacun avec sa chaîne d'information au nom **inventé** mais vraisemblable (159 pays
 	souverains d'au moins un million d'habitants — les plus petits n'ont pas de chaîne —, `assets/tv/channels.csv` : code ISO, nom de la chaîne, coordonnées de la capitale ; les noms de
-    chaînes sont des noms propres, hors fichiers de langue). La chaîne diffuse une **vidéo en boucle** du plateau
-    (deux présentateurs), avec le nom de la chaîne en haut à droite et un bandeau « En direct » + pays en bas.
+	chaînes sont des noms propres, hors fichiers de langue). La chaîne diffuse une **vidéo en boucle** du plateau
+	(deux présentateurs), avec le nom de la chaîne en haut à droite et un bandeau « En direct » + pays en bas.
   - **Deux éditions** : **normale** (têtes qui bougent calmement) et **spéciale « Alerte info »** (présentateurs
-    agités qui se tournent vers le mur vidéo, où passe un champignon atomique, bandes rouges qui pulsent ; bandeau
-    rouge clignotant `TV_BREAKING` à la place de « En direct »).
-  - **Règles de jeu** : un pays dont la **capitale est touchée** (dans le rayon de 5 psi d'une explosion,
-	`TvConsole.OFF_AIR_PSI`) ne diffuse plus, définitivement (le monde persiste) : sa chaîne passe sur la mire
-	**« Pas de signal »** et la liste la signale « hors d'antenne ». Après chaque explosion, **toutes les chaînes
-	encore à l'antenne passent en édition spéciale** pendant 24 h de jeu (`ALERT_HOURS`, horloge UTC d'`Orbit`)
-	après la dernière, puis reviennent à l'édition normale. État recalculé à chaque tir et toutes les 2 s.
+	agités qui se tournent vers le mur vidéo, où passe un champignon atomique, bandes rouges qui pulsent ; bandeau
+	rouge clignotant `TV_BREAKING` à la place de « En direct »).
+  - **Règles de jeu** (`TvChannels`) : un pays dont la **capitale est touchée** (dans le rayon de 5 psi d'une
+	explosion, `TvChannels.OFF_AIR_PSI`) ne diffuse plus, définitivement (le monde persiste) : sa chaîne passe sur
+	la mire **« Pas de signal »** et la liste la signale « hors d'antenne ». Après chaque explosion, **toutes les
+	chaînes encore à l'antenne passent en édition spéciale** pendant 24 h de jeu (`ALERT_HOURS`, horloge UTC
+	d'`Orbit`) après la dernière, puis reviennent à l'édition normale. État recalculé (`TvChannels.update`, par la
+	console, d'après les explosions et l'heure du jeu) à chaque tir et toutes les 2 s (`CHECK_S`) ; l'interface se
+	rafraîchit sur son signal `changed`.
   - **Vidéos** (`tools/build_tv_videos.ps1`) : les **maîtres modifiables** sont dans `assets/tv/source/`
 	(`.gdignore`) : `normal.mp4` et `alert.mp4` (H.264, 960 × 600, 25 im/s, boucles de 12 s, sans texte : tout le
 	texte est incrusté par le jeu), `explosion.mp4` (images du mur vidéo, 1000 × 400) et `tv_studio.blend` (scènes

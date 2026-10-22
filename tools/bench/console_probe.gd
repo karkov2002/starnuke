@@ -94,7 +94,33 @@ func _ready() -> void:
 		var console := view.get_node(name) as ScreenConsole
 		var viewport: SubViewport = console.get("_viewport")
 		_check(console.is_near() and viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS, name + " : de retour, rendu repris")
+	await _check_tv(view)
 	print("=== %d échec(s)" % _failures)
 	view.queue_free()
 	await get_tree().process_frame
 	get_tree().quit(1 if _failures > 0 else 0)
+
+
+## Télévision : modèle des chaînes (TvChannels) et ses deux règles de jeu, hors interface.
+func _check_tv(view: Node) -> void:
+	print("- TvChannels")
+	var tv := view.get_node("TvConsole") as TvConsole
+	var launcher := view.get_node("NukeLauncher") as NukeLauncher
+	var orbit := view.get_node("Orbit") as OrbitSimulation
+	var channels: TvChannels = tv.get("_channels")
+	var display: TvDisplay = tv.get("_display")
+	_check(channels != null and channels.has("FRA") and channels.codes().size() > 100, "chaînes chargées (%d)" % channels.codes().size())
+	_check(display.channels == channels and display.channel == "FRA", "interface sur la chaîne par défaut")
+	_check(channels.name_of("FRA") != "" and channels.lang_of("FRA") == "fr", "nom et langue de la chaîne")
+	_check(not channels.is_off_air("FRA") and not channels.is_alert(), "à l'antenne, édition normale")
+	_check(not tv.news_preview("FRA").is_empty(), "bandeau composé")
+	orbit.time_scale = 0.0
+	var changed := [false]
+	channels.changed.connect(func() -> void: changed[0] = true)
+	launcher.launch_at(48.86, 2.35, 1000.0)
+	await get_tree().process_frame
+	_check(changed[0] and channels.is_off_air("FRA") and channels.is_alert(), "Paris touchée : hors d'antenne, alerte")
+	_check(not channels.is_off_air("DEU"), "Berlin à l'antenne")
+	_check(display.is_off_air(), "mire sur la chaîne française")
+	launcher.clear_effects()
+	orbit.time_scale = 1.0

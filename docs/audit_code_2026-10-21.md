@@ -291,7 +291,10 @@ km/degré unique vaut 111,195.
    `tools/bench/console_probe.tscn` (64 contrôles en headless) et en jeu par le MCP (captures des trois écrans).
    Écart avec l'avant : pendant la transition de retour, la radio aussi garde la souris (comme le poste et la
    télévision) ; l'interface n'est suspendue ou reprise qu'au changement de portée, plus à chaque image.
-2. `TvChannels` extrait de `TvConsole`, injecté dans `TvDisplay`.
+2. `TvChannels` extrait de `TvConsole`, injecté dans `TvDisplay`. — **fait le 22/10/2026** : `TvChannels`
+   (RefCounted, `scripts/tv_channels.gd`) tient le CSV, les deux règles de jeu et le texte des bandeaux, sans
+   nœud : la console lui passe les explosions et l'heure UTC (`update`), l'interface se rafraîchit sur son signal
+   `changed` et ne connaît plus la console. `TvConsole` : 174 → 95 lignes.
 3. `Tablet` : `NadirCamera`, `AlertsPage`, `PhotoPage`.
 4. `Station` : `StationAnim`, puis un composant par commit (`StationLighting`, `StationSilos`,
    `StationAirlock`, `StationHatches`, `StationThermal`, `StationSolarPanels`, `StationModelSetup`), entrées

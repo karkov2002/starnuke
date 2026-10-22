@@ -2,11 +2,11 @@ class_name TvDisplay
 extends Control
 ## Interface de l'écran de télévision du module Commande (scripts/tv_console.gd), dessinée dans son SubViewport :
 ## - la chaîne en cours : vidéo du plateau en boucle (deux présentateurs), édition normale ou, après une explosion
-##   (TvConsole.is_alert), édition spéciale (présentateurs agités, explosion sur le mur vidéo) avec le bandeau rouge
+##   (TvChannels.is_alert), édition spéciale (présentateurs agités, explosion sur le mur vidéo) avec le bandeau rouge
 ##   « Alerte info » ; bandeau défilant (TvNews) dans les deux éditions, rouge en alerte, bleu nuit sinon ; vidéos assets/tv/video/<CODE>/<normal|alert>.ogv si le pays a les siennes, sinon
 ##   assets/tv/video/<normal|alert>.ogv (tools/build_tv_videos.ps1). Nom de la chaîne en haut à droite (logo),
 ##   bandeau « En direct » et pays en bas ; ou la mire « Pas de signal » (barres de couleur) si la capitale du pays a
-##   été touchée (TvConsole.is_off_air) ;
+##   été touchée (TvChannels.is_off_air) ;
 ## - en haut à gauche, le bouton « Chaînes », qui ouvre la liste des pays (ordre alphabétique du nom traduit, avec
 ##   le nom de leur chaîne d'information, inventé ; pays hors d'antenne signalés) : un clic choisit la chaîne.
 ## L'interface ne réagit qu'en position « vue TV » (TvConsole transmet alors la souris).
@@ -22,7 +22,8 @@ const COLOR_OFF := Color(0.6, 0.6, 0.62)
 const TICKER_ALERT := Color(0.45, 0.03, 0.03, 0.92)
 const TICKER_NORMAL := Color(0.03, 0.09, 0.22, 0.92)
 
-var console: TvConsole
+## Chaînes et règles de jeu (hors d'antenne, édition spéciale), tenues par TvConsole.
+var channels: TvChannels
 ## Pays de la chaîne affichée ("" : aucune).
 var channel := ""
 
@@ -130,14 +131,14 @@ func _process(delta: float) -> void:
 
 
 func is_off_air() -> bool:
-	return channel != "" and console != null and console.is_off_air(channel)
+	return channel != "" and channels != null and channels.is_off_air(channel)
 
 
 ## Affiche la chaîne du pays code ("" : aucune, mire).
 func show_channel(code: String) -> void:
 	channel = code
 	var off := code == "" or is_off_air()
-	_alert = not off and console != null and console.is_alert()
+	_alert = not off and channels != null and channels.is_alert()
 	_studio.visible = not off
 	_logo_panel.visible = code != ""
 	_lower_third.visible = not off
@@ -153,8 +154,8 @@ func show_channel(code: String) -> void:
 		_ticker.set_meta("edition", edition)
 		_ticker_rng.seed = hash(code) ^ int(_time * 1000.0)
 		_next_ticker_text()
-	if code != "" and console:
-		_logo.text = console.channel_name(code)
+	if code != "" and channels:
+		_logo.text = channels.name_of(code)
 		_country_label.text = tr("COUNTRY_" + code)
 	_play(_video_for(code, "alert" if _alert else "normal") if not off else "")
 	_refresh_menu()
@@ -214,13 +215,13 @@ func _build_ticker() -> void:
 
 ## Nouveau texte (langue de la chaîne), placé à l'entrée du bandeau.
 func _next_ticker_text() -> void:
-	if console == null or channel == "":
+	if channels == null or channel == "":
 		return
-	var lang := console.channel_lang(channel)
+	var lang := channels.lang_of(channel)
 	_ticker_rtl = TvNews.is_rtl(lang)
 	_ticker_label.language = lang.replace("zh_TW", "zh_Hant")
 	_ticker_label.text_direction = Control.TEXT_DIRECTION_RTL if _ticker_rtl else Control.TEXT_DIRECTION_AUTO
-	_ticker_label.text = console.news_text(channel, _ticker_rng)
+	_ticker_label.text = channels.news_text(channel, _ticker_rng)
 	_ticker_label.reset_size()
 	_ticker_label.size.y = _ticker.size.y
 	_ticker_label.position.x = -_ticker_label.size.x if _ticker_rtl else size.x
@@ -298,7 +299,7 @@ func _toggle_menu() -> void:
 
 
 func _fill_menu() -> void:
-	var codes := console.channel_codes()
+	var codes := channels.codes()
 	codes.sort_custom(func(a: String, b: String) -> bool:
 		return tr("COUNTRY_" + a).naturalnocasecmp_to(tr("COUNTRY_" + b)) < 0)
 	var tile_width := (size.x - size.y * 0.08 - 4.0 * size.y * 0.02 - 14.0) / 5.0
@@ -306,7 +307,7 @@ func _fill_menu() -> void:
 		var code := codes[i]
 		var tile := ChannelTile.new()
 		tile.custom_minimum_size = Vector2(tile_width, tile_width * 0.82)
-		tile.setup(code, i + 1, console.channel_name(code), tr("COUNTRY_" + code))
+		tile.setup(code, i + 1, channels.name_of(code), tr("COUNTRY_" + code))
 		tile.pressed.connect(func() -> void:
 			_menu.visible = false
 			channel_selected.emit(code))
@@ -315,10 +316,10 @@ func _fill_menu() -> void:
 
 ## États des vignettes (chaîne en cours, hors d'antenne).
 func _refresh_menu() -> void:
-	if console == null or _list == null:
+	if channels == null or _list == null:
 		return
 	for tile: ChannelTile in _list.get_children():
-		tile.set_state(tile.code == channel, console.is_off_air(tile.code))
+		tile.set_state(tile.code == channel, channels.is_off_air(tile.code))
 
 
 func _draw_no_signal() -> void:
