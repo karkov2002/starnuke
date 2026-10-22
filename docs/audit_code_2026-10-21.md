@@ -306,7 +306,9 @@ km/degré unique vaut 111,195.
    lecteurs, `play_group`, `play_tracks`, `tween_hinge`, `fill_hinge`, `apply_track`, `track_for`,
    `handoff_time` ; `Station` 1 442 → 1 337 lignes) ; `StationLighting` fait le 22/10 (lampes, luminaires, écrans,
    alerte, black-out ; `Station` → 1 234 lignes) ; `StationSolarPanels` fait le 22/10 (suivi du soleil, soleil et
-   Terre résolus une fois ; `Station` → 1 194 lignes). Non-régression : section Station de
+   Terre résolus une fois ; `Station` → 1 194 lignes) ; `StationSilos` fait le 22/10 (trappes en entrées typées
+   `SiloDoor`, gyrophares, lancement ; `StationAnim.tween_hinge` rend le Tween et `hinge_range` remplace les
+   dictionnaires ; `Station` → 1 014 lignes, façade de relais). Non-régression : section Station de
    `tools/bench/console_probe.tscn` (écoutille, trappe, radiateurs et chaleur, cargo, combinaison, valve du sas,
    alerte et black-out, lancement d'un missile jusqu'au relais), écrite avant la découpe.
 5. `CampaignDirector` : `WorldSnapshot`, `CampaignMessages`, `MissionRun`, journal par signaux ; `Campaigns`

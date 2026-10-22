@@ -76,35 +76,51 @@ func track_target(anim: Animation, track: int) -> Node3D:
 	return root.get_node_or_null(anim.track_get_path(track)) as Node3D
 
 
-## Charnière d'une entrée (entry.hinge, entry.duration, entry.tween) tournée de son angle courant vers target (durée de
-## l'animation), puis done.
-func tween_hinge(entry: Dictionary, target: Quaternion, done: Callable) -> void:
-	if entry.tween:
-		entry.tween.kill()
-	var hinge: Node3D = entry.hinge
+## Charnière tournée de son angle courant vers target en duration secondes (sinusoïdale), puis done ; le Tween est
+## rendu (à tuer si une demande inverse arrive avant la fin).
+func tween_hinge(hinge: Node3D, target: Quaternion, duration: float, done: Callable) -> Tween:
 	var start := hinge.quaternion
-	entry.tween = root.create_tween()
-	entry.tween.tween_method(func(w: float) -> void: hinge.quaternion = start.slerp(target, w), 0.0, 1.0,
-			entry.duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	entry.tween.tween_callback(func() -> void:
-		entry.tween = null
-		done.call())
+	var tween := root.create_tween()
+	tween.tween_method(func(w: float) -> void: hinge.quaternion = start.slerp(target, w), 0.0, 1.0,
+			duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_callback(done)
+	return tween
 
 
-## Angles de début (entry.start) et de fin (entry.end) et durée (entry.duration) de la piste de rotation de la
-## charnière dans l'animation ; sans piste, l'entrée n'est pas ouvrable (angles figés).
-func fill_hinge(entry: Dictionary, anim: Animation, hinge: Node3D) -> void:
+## Angles de début et de fin et durée de la piste de rotation d'une charnière dans une animation.
+class HingeRange:
+	## Faux si l'animation n'a pas de piste pour cette charnière (angles figés à sa pose actuelle).
+	var animated := false
+	var start := Quaternion.IDENTITY
+	var end := Quaternion.IDENTITY
+	var duration := 0.0
+
+
+## Angles et durée de la piste de rotation de la charnière dans l'animation (sa pose actuelle, durée nulle, sans piste).
+func hinge_range(anim: Animation, hinge: Node3D) -> HingeRange:
+	var range := HingeRange.new()
 	var track := track_for(anim, hinge.name)
 	if track < 0:
-		entry.ouvrable = false
-		entry.start = hinge.quaternion
-		entry.end = hinge.quaternion
-		entry.duration = 0.0
-		return
+		range.start = hinge.quaternion
+		range.end = hinge.quaternion
+		return range
 	var keys := anim.track_get_key_count(track)
-	entry.start = anim.track_get_key_value(track, 0)
-	entry.end = anim.track_get_key_value(track, keys - 1)
-	entry.duration = maxf(anim.track_get_key_time(track, keys - 1) - anim.track_get_key_time(track, 0), 0.1)
+	range.animated = true
+	range.start = anim.track_get_key_value(track, 0)
+	range.end = anim.track_get_key_value(track, keys - 1)
+	range.duration = maxf(anim.track_get_key_time(track, keys - 1) - anim.track_get_key_time(track, 0), 0.1)
+	return range
+
+
+## Angles de début (entry.start) et de fin (entry.end) et durée (entry.duration) d'une entrée à dictionnaire (écoutilles,
+## en attendant StationHatches) ; sans piste, l'entrée n'est pas ouvrable.
+func fill_hinge(entry: Dictionary, anim: Animation, hinge: Node3D) -> void:
+	var range := hinge_range(anim, hinge)
+	if not range.animated:
+		entry.ouvrable = false
+	entry.start = range.start
+	entry.end = range.end
+	entry.duration = range.duration
 
 
 ## Nombre de charnières animées par l'animation (pistes de rotation).

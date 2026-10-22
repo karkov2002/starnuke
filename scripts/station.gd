@@ -12,10 +12,8 @@ extends Node3D
 ## États au repos (modèle) : écoutilles ouvertes, trappes des silos fermées, radiateurs déployés. Au démarrage du jeu,
 ## les écoutilles ouvrables sont fermées (start_hatches_closed) ; le joueur les ouvre d'un clic (scripts/hatch_interaction.gd).
 ##
-## Missiles : un seul est modélisé (Missile_Balistique_1_12, tube 1_12). Pour un autre tube, il est copié et placé à
-## l'identique par rapport au Point_Lancement du tube ; le lancement rejoue l'animation Lancement_Missile : ouverture
-## de la trappe, descente, allumage de la tuyère (Point_Tuyere : échelle 0 = éteint, 1 = allumé), jusqu'à ~30 m sous
-## la station ; missile_released passe alors le missile au vol vers la cible (scripts/missile_flight.gd).
+## Trappes des silos, gyrophare du tube choisi et lancement des missiles (copie du missile modèle, animation
+## Lancement_Missile jusqu'au relais missile_released vers scripts/missile_flight.gd) : StationSilos.
 ##
 ## Chaleur (préparation d'une jauge) : heat (0 à 1) monte quand les radiateurs sont repliés (mode furtif : pas de
 ## rayonnement infrarouge) et redescend quand ils sont déployés, en proportion des radiateurs déployés.
@@ -161,24 +159,19 @@ var heat := 0.0
 var _hatches := {}
 ## id -> {node, blend, weight, target, tween, area, shape, open_box, closed_box}
 var _curtains := {}
-## Vector2i(silo, tube) -> {node, hinge, closed, open, track, duration, is_open, ouvrable, tween, launch_point, fired}
-var _silo_doors := {}
+## Trappes des silos, gyrophares et lancement des missiles : StationSilos.
+var _silos: StationSilos
 ## id -> {tracks : Array[int], is_deployed, tween}
 var _radiators := {}
 ## Animations du modèle (bibliothèque, lecteurs, pistes rejouées) : StationAnim.
 var _anim: StationAnim
-## Copie intacte du missile modèle (prise au démarrage) : celui du tube 1_12 disparaît après son lancement.
-var _missile_pristine: Node3D
 ## Panneaux solaires (suivi du soleil) : StationSolarPanels.
 var _solar: StationSolarPanels
-## Vector2i(silo, tube) -> gyrophare (Node3D : Lampe, Lumiere)
-var _beacons := {}
 var _orbit: OrbitSimulation
 ## Éclairage intérieur, alerte et black-out : StationLighting.
 var _lighting: StationLighting
 
 enum Alert { NONE, YELLOW, ORANGE, RED, BLACKOUT }
-var _beacon_time := 0.0
 ## Sas de sortie : combinaison et son support (extras type « combinaison », « porte_combinaison »).
 var _suit: Node3D
 var _suit_rack: Node3D
@@ -201,6 +194,7 @@ func _ready() -> void:
 		push_error("Station : pas d'AnimationPlayer dans le modèle")
 		return
 	_collect_interactives()
+	_silos = StationSilos.new(self, _anim)
 	_collect_curtains()
 	_collect_radiators()
 	_split_interior_layers()
@@ -208,18 +202,14 @@ func _ready() -> void:
 	_lighting = StationLighting.new(self, _orbit, world_environment.environment if world_environment else null)
 	_collect_airlock()
 	_add_interior_collisions()
-	var model := _missile_template()
-	if model:
-		_missile_pristine = model.duplicate() as Node3D
 	_solar = StationSolarPanels.new(self, get_node_or_null(sun_path) as Node3D, get_node_or_null(earth_path) as Node3D)
 	if animate_antennas:
 		_anim.play(ANIM_ANTENNAS)
 
 
 func _exit_tree() -> void:
-	if _missile_pristine:
-		_missile_pristine.free()
-		_missile_pristine = null
+	if _silos:
+		_silos.dispose()
 
 
 func _process(delta: float) -> void:
@@ -227,8 +217,8 @@ func _process(delta: float) -> void:
 		_lighting.update(delta)
 	if track_sun_panels and _solar:
 		_solar.update(delta)
-	if not _beacons.is_empty():
-		_blink_beacons(delta)
+	if _silos:
+		_silos.update(delta)
 	if not _valve.is_empty():
 		_update_airlock_indicators(delta)
 	if _radiators.is_empty():
@@ -702,26 +692,14 @@ func set_all_hatches_open(open: bool) -> void:
 			set_hatch_open(id, open)
 
 
-# --- Trappes des silos ----------------------------------------------------------------------------------------------
+# --- Trappes des silos et missiles (StationSilos) -------------------------------------------------------------------
 
 func is_silo_door_open(silo: int, tube: int) -> bool:
-	var key := Vector2i(silo, tube)
-	return _silo_doors.has(key) and _silo_doors[key].is_open
+	return _silos != null and _silos.is_door_open(silo, tube)
 
 
 func set_silo_door_open(silo: int, tube: int, open: bool) -> bool:
-	var key := Vector2i(silo, tube)
-	if not _silo_doors.has(key) or not _silo_doors[key].ouvrable:
-		return false
-	var door: Dictionary = _silo_doors[key]
-	# État visé (et non l'état atteint) : une demande inverse en cours de mouvement repart de la position actuelle.
-	if door.get("target", door.is_open) == open:
-		return true
-	door.target = open
-	_anim.tween_hinge(door, door.open if open else door.closed, func() -> void:
-		door.is_open = open
-		silo_door_changed.emit(silo, tube, open))
-	return true
+	return _silos != null and _silos.set_door_open(silo, tube, open)
 
 
 func open_silo_door(silo: int, tube: int) -> bool:
@@ -734,181 +712,45 @@ func close_silo_door(silo: int, tube: int) -> bool:
 
 ## Toutes les trappes d'un silo (silo = 0 : les deux) : vague de l'animation si les 48 sont dans le même état.
 func set_all_silo_doors_open(open: bool, silo := 0) -> void:
-	var keys := _silo_doors.keys().filter(func(k: Vector2i) -> bool:
-		return (silo == 0 or k.x == silo) and _silo_doors[k].ouvrable)
-	var group := silo == 0 and keys.all(func(k: Vector2i) -> bool:
-		return _silo_doors[k].is_open != open and _silo_doors[k].tween == null)
-	if group and keys.size() == _anim.animated_count(ANIM_SILO_DOORS):
-		_anim.play_group(ANIM_SILO_DOORS, not open, func() -> void:
-			for k: Vector2i in keys:
-				_silo_doors[k].is_open = open
-				_silo_doors[k].target = open
-				silo_door_changed.emit(k.x, k.y, open))
-	else:
-		for k: Vector2i in keys:
-			set_silo_door_open(k.x, k.y, open)
+	if _silos:
+		_silos.set_all_doors_open(open, silo)
 
 
-# --- Missiles -------------------------------------------------------------------------------------------------------
-
-## Gyrophare rouge à côté de la trappe du tube (tube choisi pour le tir) : petite lampe émissive et lumière rouge
-## clignotante (beacon_period_s), qui éclaire la trappe et le dessous de la coque pour qu'on voie la trappe s'ouvrir.
+## Gyrophare rouge à côté de la trappe du tube (tube choisi pour le tir).
 func set_silo_beacon(silo: int, tube: int, on: bool) -> void:
-	var key := Vector2i(silo, tube)
-	if not on:
-		if _beacons.has(key):
-			(_beacons[key] as Node3D).queue_free()
-			_beacons.erase(key)
-		return
-	if _beacons.has(key) or not _silo_doors.has(key) or _silo_doors[key].launch_point == null:
-		return
-	var point := to_local((_silo_doors[key].launch_point as Node3D).global_position)
-	var beacon := Node3D.new()
-	beacon.name = "Gyrophare_%d_%02d" % [silo, tube]
-	# Juste sous la coque, décalé vers l'extérieur de la rangée de tubes (avant/arrière), entre deux trappes.
-	var side := signf(point.x) if absf(point.x) > 0.1 else 1.0
-	beacon.position = point + Vector3(beacon_offset.x * side, beacon_offset.y, beacon_offset.z)
-	var lamp := MeshInstance3D.new()
-	lamp.name = "Lampe"
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.07
-	sphere.height = 0.14
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.25, 0.0, 0.0)
-	material.emission_enabled = true
-	material.emission = Color(1.0, 0.05, 0.02)
-	material.emission_energy_multiplier = 0.0
-	sphere.material = material
-	lamp.mesh = sphere
-	lamp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	beacon.add_child(lamp)
-	var light := OmniLight3D.new()
-	light.name = "Lumiere"
-	light.light_color = Color(1.0, 0.08, 0.04)
-	light.omni_range = beacon_range
-	light.omni_attenuation = 1.2
-	light.shadow_enabled = true
-	light.light_cull_mask = 0xFFFFF & ~INTERIOR_LAYER
-	light.position = Vector3(0.0, -0.1, 0.0)
-	beacon.add_child(light)
-	add_child(beacon)
-	_beacons[key] = beacon
+	if _silos:
+		_silos.set_beacon(silo, tube, on)
 
 
 ## Tous les tubes de lancement, triés (silo, puis tube).
 func tube_ids() -> Array[Vector2i]:
-	var tubes: Array[Vector2i] = []
-	tubes.assign(_silo_doors.keys())
-	tubes.sort()
-	return tubes
+	return _silos.tube_ids() if _silos else []
 
 
 ## Position du tube (repère Point_Lancement) dans le repère de la station : +X vers l'avant, +Z vers la droite.
 func tube_position(silo: int, tube: int) -> Vector3:
-	var key := Vector2i(silo, tube)
-	if not _silo_doors.has(key) or _silo_doors[key].launch_point == null:
-		return Vector3.ZERO
-	return global_transform.affine_inverse() * (_silo_doors[key].launch_point as Node3D).global_position
+	return _silos.tube_position(silo, tube) if _silos else Vector3.ZERO
 
 
 ## Durée de l'animation de lancement jusqu'au relais vers le vol (s) : missile_released arrive autant après
 ## launch_missile.
 func launch_handoff_s() -> float:
-	if _anim == null or not _anim.has(ANIM_LAUNCH):
-		return 0.0
-	var anim := _anim.animation(ANIM_LAUNCH)
-	return StationAnim.handoff_time(anim, StationAnim.track_for(anim, MODEL_MISSILE, Animation.TYPE_SCALE_3D))
+	return _silos.launch_handoff_s() if _silos else 0.0
 
 
 ## Tubes d'où un missile peut partir (trappe ouvrable, pas encore tiré).
 func available_tubes() -> Array[Vector2i]:
-	var tubes: Array[Vector2i] = []
-	for key: Vector2i in _silo_doors:
-		if can_launch(key.x, key.y):
-			tubes.append(key)
-	tubes.sort()
-	return tubes
+	return _silos.available_tubes() if _silos else []
 
 
 func can_launch(silo: int, tube: int) -> bool:
-	var key := Vector2i(silo, tube)
-	return _silo_doors.has(key) and _silo_doors[key].ouvrable and not _silo_doors[key].fired \
-			and _silo_doors[key].launch_point != null and _missile_pristine != null
+	return _silos != null and _silos.can_launch(silo, tube)
 
 
 ## Lance le missile du tube : la trappe s'ouvre (si besoin), le missile descend, s'allume, puis quitte la scène
 ## (missile_released). Faux si le tube ne peut pas tirer.
 func launch_missile(silo: int, tube: int) -> bool:
-	if not can_launch(silo, tube):
-		return false
-	var key := Vector2i(silo, tube)
-	var door: Dictionary = _silo_doors[key]
-	door.fired = true
-	var template := _missile_template()
-	var missile := template
-	if key != Vector2i(MODEL_SILO, MODEL_TUBE):
-		missile = _missile_pristine.duplicate() as Node3D
-		missile.name = "Missile_Balistique_%d_%02d" % [silo, tube]
-		missile.get_child(0).name = "Point_Tuyere_%d_%02d" % [silo, tube]
-		add_child(missile)
-	var nozzle := missile.get_child(0) as Node3D
-	# Repère de la tuyère à l'arrière du missile (bout +Y du maillage, la pointe est en −Y) : dans le modèle
-	# réexporté, Point_Tuyere est au centre du missile, et la propulsion semblait sortir du milieu de la coque.
-	var hull := (missile as MeshInstance3D).mesh.get_aabb() if missile is MeshInstance3D else AABB()
-	if hull.size.y > 0.0:
-		nozzle.position = Vector3(0.0, hull.end.y + nozzle_offset_m, 0.0)
-	var model_point := get_node_or_null("Point_Lancement_%d_%02d" % [MODEL_SILO, MODEL_TUBE]) as Node3D
-	# Missile du tube = repère du tube × (repère du tube modèle)⁻¹ × missile modèle animé.
-	var tube_frame: Transform3D = (door.launch_point as Node3D).transform * model_point.transform.affine_inverse()
-	var anim := _anim.animation(ANIM_LAUNCH)
-	var position_track := StationAnim.track_for(anim, MODEL_MISSILE, Animation.TYPE_POSITION_3D)
-	var scale_track := StationAnim.track_for(anim, MODEL_MISSILE, Animation.TYPE_SCALE_3D)
-	var nozzle_track := StationAnim.track_for(anim, MODEL_MISSILE + "/Point_Tuyere_%d_%02d" % [MODEL_SILO, MODEL_TUBE],
-			Animation.TYPE_SCALE_3D)
-	var model_hinge_track := StationAnim.track_for(anim, "Charniere_Trappe_Silo_%d_%02d" % [MODEL_SILO, MODEL_TUBE])
-	var model_hinge_end: Quaternion = anim.track_get_key_value(model_hinge_track,
-			anim.track_get_key_count(model_hinge_track) - 1) if model_hinge_track >= 0 else Quaternion.IDENTITY
-	var release_time := StationAnim.handoff_time(anim, scale_track)
-	var state := {"ignited": false}
-	var was_open: bool = door.is_open
-	# Trappe déjà ouverte ou en mouvement (choix du tube sur le panneau) : l'animation la reprend où elle est.
-	if door.tween:
-		door.tween.kill()
-		door.tween = null
-	door.target = true
-	var hinge_start: Quaternion = (door.hinge as Node3D).quaternion
-	var step := func(t: float) -> void:
-		# Trappe du tube : même ouverture que la trappe modèle dans l'animation, transposée sur ses angles.
-		if model_hinge_track >= 0:
-			var q := anim.rotation_track_interpolate(model_hinge_track, t)
-			var weight := q.angle_to(Quaternion.IDENTITY) / maxf(model_hinge_end.angle_to(Quaternion.IDENTITY), 1e-4)
-			door.hinge.quaternion = hinge_start.slerp(door.open, clampf(weight, 0.0, 1.0))
-		var scale_value := anim.scale_track_interpolate(scale_track, t) if scale_track >= 0 else Vector3.ONE
-		var model := Transform3D(Basis.IDENTITY.scaled(scale_value), anim.position_track_interpolate(position_track, t))
-		missile.transform = tube_frame * model
-		if nozzle_track >= 0:
-			nozzle.scale = anim.scale_track_interpolate(nozzle_track, t)
-			if not state.ignited and nozzle.scale.x > 0.01:
-				state.ignited = true
-				missile_ignited.emit(silo, tube)
-	var tween := create_tween()
-	tween.tween_method(step, 0.0, release_time, release_time)
-	tween.tween_callback(func() -> void:
-		door.is_open = true
-		if not was_open:
-			silo_door_changed.emit(silo, tube, true)
-		# Vitesse de sortie (monde) : dérivée de la piste de position de l'animation, transposée sur le tube.
-		var dt := minf(0.05, release_time)
-		var model_velocity := (anim.position_track_interpolate(position_track, release_time)
-				- anim.position_track_interpolate(position_track, release_time - dt)) / maxf(dt, 1e-3)
-		var velocity := global_basis * (tube_frame.basis * model_velocity)
-		if missile_released.get_connections().is_empty():
-			missile.visible = false
-			if missile != template:
-				missile.queue_free()
-		else:
-			missile_released.emit(silo, tube, missile, velocity))
-	return true
+	return _silos != null and _silos.launch_missile(silo, tube)
 
 
 # --- Radiateurs -----------------------------------------------------------------------------------------------------
@@ -976,17 +818,6 @@ func is_in_cupola(world_position: Vector3) -> bool:
 	return point != null and point.global_position.distance_to(world_position) < cupola_zone_radius
 
 
-## Éclat bref puis extinction (gyrophare à éclats), montée et descente rapides pour éviter un clignotement sec.
-func _blink_beacons(delta: float) -> void:
-	_beacon_time = fmod(_beacon_time + delta, beacon_period_s)
-	var phase := _beacon_time / beacon_period_s
-	var level := smoothstep(0.0, 0.05, phase) * (1.0 - smoothstep(beacon_duty - 0.05, beacon_duty, phase))
-	for beacon: Node3D in _beacons.values():
-		var lamp := beacon.get_node("Lampe") as MeshInstance3D
-		((lamp.mesh as SphereMesh).material as StandardMaterial3D).emission_energy_multiplier = 8.0 * level
-		(beacon.get_node("Lumiere") as OmniLight3D).light_energy = beacon_energy * level
-
-
 # --- Construction ---------------------------------------------------------------------------------------------------
 
 ## Collisions des objets intérieurs : le modèle n'en génère que pour les parois (« -col ») et les portes
@@ -1015,7 +846,6 @@ func _add_interior_collisions() -> void:
 
 func _collect_interactives() -> void:
 	var hatch_anim := _anim.animation(ANIM_HATCHES)
-	var door_anim := _anim.animation(ANIM_SILO_DOORS)
 	for node in find_children("Interactif_*", "", true, false):
 		# Les corps de collision des portes portent le même nom que leur porte.
 		if node is CollisionObject3D:
@@ -1039,26 +869,15 @@ func _collect_interactives() -> void:
 						hinge.quaternion = entry.closed
 						entry.is_open = false
 				_collect_hatch_wheel(entry, node, extras)
-				_fit_door_collision(node)
+				fit_door_collision(node)
 				_hatches[String(extras.get("id", node.name))] = entry
-			"trappe_silo":
-				var key := Vector2i(int(extras.get("silo", 0)), int(extras.get("tube", 0)))
-				var entry := {"node": node, "hinge": hinge, "ouvrable": ouvrable, "is_open": false, "tween": null,
-						"fired": false,
-						"launch_point": get_node_or_null("Point_Lancement_%d_%02d" % [key.x, key.y])}
-				if hinge and door_anim:
-					_anim.fill_hinge(entry, door_anim, hinge)
-					entry.closed = entry.start
-					entry.open = entry.end
-				_fit_door_collision(node)
-				_silo_doors[key] = entry
 
 
 ## Corps de collision d'une porte (AnimatableBody3D tiré du nœud Blender « -convcolonly », enfant de la porte) : avec
 ## sync_to_physics, il ne suit que ses propres déplacements, pas ceux de la charnière parente, et restait figé dans la
 ## pose de l'import (porte fermée traversable, porte ouverte qui bloque encore le passage et le clic). Sans
 ## sync_to_physics, il suit la porte à chaque image (et pousse toujours l'observateur).
-func _fit_door_collision(door: Node) -> void:
+static func fit_door_collision(door: Node) -> void:
 	for body in door.get_children():
 		if body is AnimatableBody3D:
 			(body as AnimatableBody3D).sync_to_physics = false
@@ -1168,7 +987,11 @@ func _set_wheel_angle(entry: Dictionary, angle: float) -> void:
 func _tween_hatch(entry: Dictionary, open: bool, done: Callable) -> void:
 	var target: Quaternion = entry.open if open else entry.closed
 	if not entry.has("wheel"):
-		_anim.tween_hinge(entry, target, done)
+		if entry.tween:
+			entry.tween.kill()
+		entry.tween = _anim.tween_hinge(entry.hinge, target, entry.duration, func() -> void:
+			entry.tween = null
+			done.call())
 		return
 	if entry.tween:
 		entry.tween.kill()
@@ -1188,7 +1011,3 @@ func _tween_hatch(entry: Dictionary, open: bool, done: Callable) -> void:
 	entry.tween.tween_callback(func() -> void:
 		entry.tween = null
 		done.call())
-
-
-func _missile_template() -> Node3D:
-	return get_node_or_null(MODEL_MISSILE) as Node3D
