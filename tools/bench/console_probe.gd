@@ -96,6 +96,7 @@ func _ready() -> void:
 		_check(console.is_near() and viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS, name + " : de retour, rendu repris")
 	await _check_tv(view)
 	await _check_tablet(view)
+	await _check_station(view)
 	print("=== %d échec(s)" % _failures)
 	view.queue_free()
 	await get_tree().process_frame
@@ -196,3 +197,68 @@ func _check_menu() -> void:
 			_check(console != null and console.is_processing() and console.get("_viewport") != null, name + " construit dans le décor")
 	menu.queue_free()
 	await get_tree().process_frame
+
+
+## Attend que pred soit vraie (une image à la fois), au plus timeout_s ; rend son dernier état.
+func _until(pred: Callable, timeout_s: float) -> bool:
+	var deadline := Time.get_ticks_msec() + int(timeout_s * 1000.0)
+	while Time.get_ticks_msec() < deadline:
+		if pred.call():
+			return true
+		await get_tree().process_frame
+	return pred.call()
+
+
+## Station : API des écoutilles, trappes, radiateurs et chaleur, cargo, combinaison, valve du sas, alerte et
+## lancement d'un missile (lot 2, étape 4 : la découpe en composants ne doit rien y changer).
+func _check_station(view: Node) -> void:
+	print("- Station")
+	var station := view.get_node("Station/StationSpatiale") as Station
+	var orbit := view.get_node("Orbit") as OrbitSimulation
+	orbit.time_scale = 1.0
+	_check(station.hatch_ids().size() >= 8 and station.tube_ids().size() == 48,
+			"écoutilles (%d) et tubes (%d)" % [station.hatch_ids().size(), station.tube_ids().size()])
+	var hatch := "Ecoutille_Habitation_AR"
+	_check(station.is_hatch_openable(hatch) and not station.is_hatch_open(hatch), "écoutille fermée au départ")
+	var changes := []
+	station.hatch_changed.connect(func(id: String, open: bool) -> void: changes.append([id, open]))
+	_check(station.open_hatch(hatch) and station.is_hatch_opening(hatch), "ouverture demandée")
+	_check(await _until(func() -> bool: return station.is_hatch_open(hatch), 6.0) and changes == [[hatch, true]], "écoutille ouverte, signal reçu")
+	station.toggle_hatch(hatch)
+	_check(await _until(func() -> bool: return not station.is_hatch_open(hatch), 6.0), "écoutille refermée")
+	_check(not station.is_silo_door_open(1, 1) and station.open_silo_door(1, 1), "trappe 1_01 : ouverture")
+	_check(await _until(func() -> bool: return station.is_silo_door_open(1, 1), 6.0), "trappe 1_01 ouverte")
+	station.close_silo_door(1, 1)
+	_check(await _until(func() -> bool: return not station.is_silo_door_open(1, 1), 6.0), "trappe 1_01 refermée")
+	_check(station.radiator_ids().size() == 4 and station.is_radiator_deployed("Radiateur_D15"), "4 radiateurs déployés")
+	station.set_stealth(true)
+	_check(await _until(func() -> bool: return station.radiator_ids().all(func(id: String) -> bool: return not station.is_radiator_deployed(id)), 20.0), "mode furtif : radiateurs repliés")
+	var heat_before: float = station.heat
+	await _wait(1.0)
+	_check(station.heat > heat_before, "chaleur en hausse (%.3f)" % station.heat)
+	station.set_stealth(false)
+	_check(await _until(func() -> bool: return station.is_radiator_deployed("Radiateur_G21"), 20.0), "radiateurs redéployés")
+	_check(station.is_cargo_docked() and station.set_cargo_docked(false) and station.is_cargo_moving(), "cargo : séparation lancée")
+	_check(not station.set_cargo_docked(true), "cargo : refus pendant le mouvement")
+	_check(not station.is_suit_worn() and station.set_suit_worn(true) and station.is_suit_worn(), "combinaison enfilée")
+	station.set_suit_worn(false)
+	_check(station.get_airlock_pressure() >= 0.99 and not station.is_airlock_cycling(), "sas plein, valve fermée")
+	_check(station.set_airlock_pressurized(false) and station.get_airlock_valve_mode() == -1, "vidange ouverte")
+	_check(await _until(func() -> bool: return station.get_airlock_pressure() < 0.9, 15.0), "pression du sas en baisse (%.2f)" % station.get_airlock_pressure())
+	_check(station.set_airlock_pressurized(true) and station.get_airlock_valve_mode() == 1, "remplissage ouvert")
+	_check(await _until(func() -> bool: return not station.is_airlock_cycling(), 30.0) and station.get_airlock_pressure() >= 0.99, "sas plein, valve refermée d'elle-même")
+	station.set_alert(Station.Alert.RED)
+	_check(station.get_alert() == Station.Alert.RED, "alerte rouge")
+	station.set_alert(Station.Alert.BLACKOUT)
+	_check(await _until(func() -> bool: return station.get_blackout() > 0.9, 5.0), "plus de lumière : black-out fondu")
+	station.set_alert(Station.Alert.NONE)
+	_check(await _until(func() -> bool: return station.get_blackout() < 0.1, 5.0), "lumière revenue")
+	var released := []
+	station.missile_released.connect(func(silo: int, tube: int, missile: Node3D, velocity: Vector3) -> void:
+		released.append([silo, tube, missile.name, velocity.length()]))
+	var ignited := [false]
+	station.missile_ignited.connect(func(_silo: int, _tube: int) -> void: ignited[0] = true)
+	_check(station.available_tubes().size() == 48 and station.can_launch(2, 5), "48 tubes disponibles")
+	_check(station.launch_handoff_s() > 1.0 and station.launch_missile(2, 5), "lancement 2_05 (%.1f s)" % station.launch_handoff_s())
+	_check(await _until(func() -> bool: return not released.is_empty(), station.launch_handoff_s() + 3.0), "missile relâché : %s" % str(released))
+	_check(ignited[0] and station.is_silo_door_open(2, 5) and not station.can_launch(2, 5) and station.available_tubes().size() == 47, "tuyère allumée, trappe ouverte, tube vidé")

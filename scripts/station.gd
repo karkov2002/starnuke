@@ -7,10 +7,8 @@ extends Node3D
 ## Tout est lu dans le modèle, rien n'est codé en dur (le .glb est réexporté depuis Blender avec les mêmes noms) :
 ## - objets « Interactif_* » : métadonnée « extras » (propriétés Blender) : type (ecoutille, trappe_silo, trappe), id,
 ##   charniere, silo, tube, ouvrable ;
-## - angles et durées : ceux des animations Blender. Pour piloter un objet seul, ses pistes sont rejouées par un Tween
-##   (_play_tracks) ; pour un groupe dans le même état (toutes les écoutilles…), l'animation complète est jouée par un
-##   AnimationPlayer. Chaque animation a son propre AnimationPlayer (créé ici, bibliothèque partagée) : elles peuvent
-##   tourner en même temps (panneaux et antennes en boucle, trappes, radiateurs).
+## - angles et durées : ceux des animations Blender, rejouées par StationAnim (scripts/station/station_anim.gd : un
+##   AnimationPlayer par animation pour les groupes, pistes rejouées par Tween pour un objet seul).
 ## États au repos (modèle) : écoutilles ouvertes, trappes des silos fermées, radiateurs déployés. Au démarrage du jeu,
 ## les écoutilles ouvrables sont fermées (start_hatches_closed) ; le joueur les ouvre d'un clic (scripts/hatch_interaction.gd).
 ##
@@ -167,8 +165,8 @@ var _curtains := {}
 var _silo_doors := {}
 ## id -> {tracks : Array[int], is_deployed, tween}
 var _radiators := {}
-var _players := {}
-var _library: AnimationLibrary
+## Animations du modèle (bibliothèque, lecteurs, pistes rejouées) : StationAnim.
+var _anim: StationAnim
 ## Copie intacte du missile modèle (prise au démarrage) : celui du tube 1_12 disparaît après son lancement.
 var _missile_pristine: Node3D
 var _panel_pivots: Array[Node3D] = []
@@ -220,18 +218,10 @@ func _ready() -> void:
 		# Ressource partagée d'une partie à l'autre : l'ambiance d'origine est gardée en métadonnée.
 		if not _environment.has_meta(&"base_ambient_energy"):
 			_environment.set_meta(&"base_ambient_energy", _environment.ambient_light_energy)
-	var imported := find_children("*", "AnimationPlayer", true, false)
-	if imported.is_empty():
+	_anim = StationAnim.from_model(self)
+	if _anim == null:
 		push_error("Station : pas d'AnimationPlayer dans le modèle")
 		return
-	_library = (imported[0] as AnimationPlayer).get_animation_library(&"")
-	for anim_name in _library.get_animation_list():
-		var player := AnimationPlayer.new()
-		player.name = "Player_" + anim_name
-		add_child(player)
-		player.root_node = player.get_path_to(self)
-		player.add_animation_library(&"", _library)
-		_players[anim_name] = player
 	_collect_interactives()
 	_collect_curtains()
 	_collect_radiators()
@@ -242,8 +232,8 @@ func _ready() -> void:
 	if model:
 		_missile_pristine = model.duplicate() as Node3D
 	_panel_pivots.assign(find_children("Pivot_Panneau_*", "Node3D", false, false))
-	if animate_antennas and _players.has(ANIM_ANTENNAS):
-		_players[ANIM_ANTENNAS].play(ANIM_ANTENNAS)
+	if animate_antennas:
+		_anim.play(ANIM_ANTENNAS)
 
 
 func _exit_tree() -> void:
@@ -557,7 +547,7 @@ func set_airlock_gauge(pressure: float) -> void:
 	var needle: int = _valve.needle
 	var node: Node3D = _valve.targets[_valve.tracks.find(needle)]
 	if node:
-		_apply_track(_valve.anim, needle, node, _time_for(pressure, false))
+		StationAnim.apply_track(_valve.anim, needle, node, _time_for(pressure, false))
 	var mode: int = _valve.mode
 	if (mode < 0 and pressure <= 0.002) or (mode > 0 and pressure >= 0.998):
 		_valve.mode = 0
@@ -579,7 +569,7 @@ func _move_lever(open: float) -> void:
 		_valve.lever = u
 		for i in _valve.tracks.size():
 			if _valve.tracks[i] != _valve.needle and _valve.targets[i]:
-				_apply_track(_valve.anim, _valve.tracks[i], _valve.targets[i], u * t0), _valve.lever, open, duration)
+				StationAnim.apply_track(_valve.anim, _valve.tracks[i], _valve.targets[i], u * t0), _valve.lever, open, duration)
 
 
 ## Pression au temps time de l'animation : 1 − rotation cumulée de l'aiguille / rotation totale. L'aiguille est la
@@ -628,10 +618,10 @@ func _collect_airlock() -> void:
 
 func _setup_valve(node: MeshInstance3D, extras: Dictionary) -> void:
 	var anim_name := StringName(String(extras.get("animation", "")))
-	if not _library.has_animation(anim_name):
+	if not _anim.has(anim_name):
 		push_error("Station : animation %s de la valve absente" % anim_name)
 		return
-	var anim := _library.get_animation(anim_name)
+	var anim := _anim.animation(anim_name)
 	var tracks: Array[int] = []
 	var targets: Array[Node3D] = []
 	var needle := -1
@@ -665,7 +655,7 @@ func _setup_valve(node: MeshInstance3D, extras: Dictionary) -> void:
 			"red": _indicator_material(node, String(extras.get("voyant_vide", "")))}
 	for i in tracks.size():
 		if targets[i]:
-			_apply_track(anim, tracks[i], targets[i], 0.0)
+			StationAnim.apply_track(anim, tracks[i], targets[i], 0.0)
 
 
 ## Copie émissive (posée en surcharge) du matériau de voyant material_name du maillage, ou null.
@@ -710,12 +700,12 @@ func is_cargo_moving() -> bool:
 
 ## Sépare (docked faux) ou réamarre le cargo. Faux s'il est déjà en mouvement ou sans animation.
 func set_cargo_docked(docked: bool) -> bool:
-	if not _players.has(ANIM_CARGO) or _cargo_busy:
+	if not _anim.has(ANIM_CARGO) or _cargo_busy:
 		return false
 	if docked == _cargo_docked:
 		return true
 	_cargo_busy = true
-	_play_group(ANIM_CARGO, docked, func() -> void:
+	_anim.play_group(ANIM_CARGO, docked, func() -> void:
 		_cargo_busy = false
 		_cargo_docked = docked
 		cargo_changed.emit(docked))
@@ -747,7 +737,7 @@ func set_silo_door_open(silo: int, tube: int, open: bool) -> bool:
 	if door.get("target", door.is_open) == open:
 		return true
 	door.target = open
-	_tween_hinge(door, door.open if open else door.closed, func() -> void:
+	_anim.tween_hinge(door, door.open if open else door.closed, func() -> void:
 		door.is_open = open
 		silo_door_changed.emit(silo, tube, open))
 	return true
@@ -767,8 +757,8 @@ func set_all_silo_doors_open(open: bool, silo := 0) -> void:
 		return (silo == 0 or k.x == silo) and _silo_doors[k].ouvrable)
 	var group := silo == 0 and keys.all(func(k: Vector2i) -> bool:
 		return _silo_doors[k].is_open != open and _silo_doors[k].tween == null)
-	if group and keys.size() == _animated_count(ANIM_SILO_DOORS):
-		_play_group(ANIM_SILO_DOORS, not open, func() -> void:
+	if group and keys.size() == _anim.animated_count(ANIM_SILO_DOORS):
+		_anim.play_group(ANIM_SILO_DOORS, not open, func() -> void:
 			for k: Vector2i in keys:
 				_silo_doors[k].is_open = open
 				_silo_doors[k].target = open
@@ -843,10 +833,10 @@ func tube_position(silo: int, tube: int) -> Vector3:
 ## Durée de l'animation de lancement jusqu'au relais vers le vol (s) : missile_released arrive autant après
 ## launch_missile.
 func launch_handoff_s() -> float:
-	if _library == null or not _library.has_animation(ANIM_LAUNCH):
+	if _anim == null or not _anim.has(ANIM_LAUNCH):
 		return 0.0
-	var anim := _library.get_animation(ANIM_LAUNCH)
-	return _handoff_time(anim, _track_for(anim, MODEL_MISSILE, Animation.TYPE_SCALE_3D))
+	var anim := _anim.animation(ANIM_LAUNCH)
+	return StationAnim.handoff_time(anim, StationAnim.track_for(anim, MODEL_MISSILE, Animation.TYPE_SCALE_3D))
 
 
 ## Tubes d'où un missile peut partir (trappe ouvrable, pas encore tiré).
@@ -889,15 +879,15 @@ func launch_missile(silo: int, tube: int) -> bool:
 	var model_point := get_node_or_null("Point_Lancement_%d_%02d" % [MODEL_SILO, MODEL_TUBE]) as Node3D
 	# Missile du tube = repère du tube × (repère du tube modèle)⁻¹ × missile modèle animé.
 	var tube_frame: Transform3D = (door.launch_point as Node3D).transform * model_point.transform.affine_inverse()
-	var anim := _library.get_animation(ANIM_LAUNCH)
-	var position_track := _track_for(anim, MODEL_MISSILE, Animation.TYPE_POSITION_3D)
-	var scale_track := _track_for(anim, MODEL_MISSILE, Animation.TYPE_SCALE_3D)
-	var nozzle_track := _track_for(anim, MODEL_MISSILE + "/Point_Tuyere_%d_%02d" % [MODEL_SILO, MODEL_TUBE],
+	var anim := _anim.animation(ANIM_LAUNCH)
+	var position_track := StationAnim.track_for(anim, MODEL_MISSILE, Animation.TYPE_POSITION_3D)
+	var scale_track := StationAnim.track_for(anim, MODEL_MISSILE, Animation.TYPE_SCALE_3D)
+	var nozzle_track := StationAnim.track_for(anim, MODEL_MISSILE + "/Point_Tuyere_%d_%02d" % [MODEL_SILO, MODEL_TUBE],
 			Animation.TYPE_SCALE_3D)
-	var model_hinge_track := _track_for(anim, "Charniere_Trappe_Silo_%d_%02d" % [MODEL_SILO, MODEL_TUBE])
+	var model_hinge_track := StationAnim.track_for(anim, "Charniere_Trappe_Silo_%d_%02d" % [MODEL_SILO, MODEL_TUBE])
 	var model_hinge_end: Quaternion = anim.track_get_key_value(model_hinge_track,
 			anim.track_get_key_count(model_hinge_track) - 1) if model_hinge_track >= 0 else Quaternion.IDENTITY
-	var release_time := _handoff_time(anim, scale_track)
+	var release_time := StationAnim.handoff_time(anim, scale_track)
 	var state := {"ignited": false}
 	var was_open: bool = door.is_open
 	# Trappe déjà ouverte ou en mouvement (choix du tube sur le panneau) : l'animation la reprend où elle est.
@@ -961,11 +951,11 @@ func set_radiator_deployed(id: String, deployed: bool) -> bool:
 		return true
 	if radiator.tween:
 		radiator.tween.kill()
-	var anim := _library.get_animation(ANIM_RADIATORS)
+	var anim := _anim.animation(ANIM_RADIATORS)
 	# Retraction_Radiateurs : début = déployé, fin = replié.
 	var from := 0.0 if deployed == false else anim.length
 	var to := anim.length if deployed == false else 0.0
-	radiator.tween = _play_tracks(anim, radiator.tracks, from, to, anim.length)
+	radiator.tween = _anim.play_tracks(anim, radiator.tracks, from, to, anim.length)
 	radiator.tween.tween_callback(func() -> void:
 		radiator.tween = null
 		radiator.is_deployed = deployed
@@ -978,7 +968,7 @@ func set_all_radiators_deployed(deployed: bool) -> void:
 	var group := _radiators.keys().all(func(id: String) -> bool:
 		return _radiators[id].is_deployed != deployed and _radiators[id].tween == null)
 	if group:
-		_play_group(ANIM_RADIATORS, deployed, func() -> void:
+		_anim.play_group(ANIM_RADIATORS, deployed, func() -> void:
 			for id: String in _radiators:
 				_radiators[id].is_deployed = deployed
 				radiator_changed.emit(id, deployed))
@@ -1083,8 +1073,8 @@ func _add_interior_collisions() -> void:
 		mesh_instance.add_child(body)
 
 func _collect_interactives() -> void:
-	var hatch_anim := _library.get_animation(ANIM_HATCHES) if _library.has_animation(ANIM_HATCHES) else null
-	var door_anim := _library.get_animation(ANIM_SILO_DOORS) if _library.has_animation(ANIM_SILO_DOORS) else null
+	var hatch_anim := _anim.animation(ANIM_HATCHES)
+	var door_anim := _anim.animation(ANIM_SILO_DOORS)
 	for node in find_children("Interactif_*", "", true, false):
 		# Les corps de collision des portes portent le même nom que leur porte.
 		if node is CollisionObject3D:
@@ -1099,7 +1089,7 @@ func _collect_interactives() -> void:
 				var entry := {"node": node, "hinge": hinge, "ouvrable": ouvrable,
 						"is_open": String(extras.get("type")) == "ecoutille", "tween": null}
 				if hinge and hatch_anim:
-					_fill_hinge(entry, hatch_anim, hinge)
+					_anim.fill_hinge(entry, hatch_anim, hinge)
 					# Début de Fermeture_Ecoutilles = ouverte.
 					entry.open = entry.start
 					entry.closed = entry.end
@@ -1116,7 +1106,7 @@ func _collect_interactives() -> void:
 						"fired": false,
 						"launch_point": get_node_or_null("Point_Lancement_%d_%02d" % [key.x, key.y])}
 				if hinge and door_anim:
-					_fill_hinge(entry, door_anim, hinge)
+					_anim.fill_hinge(entry, door_anim, hinge)
 					entry.closed = entry.start
 					entry.open = entry.end
 				_fit_door_collision(node)
@@ -1133,25 +1123,10 @@ func _fit_door_collision(door: Node) -> void:
 			(body as AnimatableBody3D).sync_to_physics = false
 
 
-## Angles de début et de fin et durée de la piste de rotation de la charnière dans l'animation.
-func _fill_hinge(entry: Dictionary, anim: Animation, hinge: Node3D) -> void:
-	var track := _track_for(anim, hinge.name)
-	if track < 0:
-		entry.ouvrable = false
-		entry.start = hinge.quaternion
-		entry.end = hinge.quaternion
-		entry.duration = 0.0
-		return
-	var keys := anim.track_get_key_count(track)
-	entry.start = anim.track_get_key_value(track, 0)
-	entry.end = anim.track_get_key_value(track, keys - 1)
-	entry.duration = maxf(anim.track_get_key_time(track, keys - 1) - anim.track_get_key_time(track, 0), 0.1)
-
-
 func _collect_radiators() -> void:
-	if not _library.has_animation(ANIM_RADIATORS):
+	if not _anim.has(ANIM_RADIATORS):
 		return
-	var anim := _library.get_animation(ANIM_RADIATORS)
+	var anim := _anim.animation(ANIM_RADIATORS)
 	for id in RADIATOR_IDS:
 		var tracks: Array[int] = []
 		for t in anim.get_track_count():
@@ -1336,7 +1311,7 @@ func _set_wheel_angle(entry: Dictionary, angle: float) -> void:
 func _tween_hatch(entry: Dictionary, open: bool, done: Callable) -> void:
 	var target: Quaternion = entry.open if open else entry.closed
 	if not entry.has("wheel"):
-		_tween_hinge(entry, target, done)
+		_anim.tween_hinge(entry, target, done)
 		return
 	if entry.tween:
 		entry.tween.kill()
@@ -1356,85 +1331,6 @@ func _tween_hatch(entry: Dictionary, open: bool, done: Callable) -> void:
 	entry.tween.tween_callback(func() -> void:
 		entry.tween = null
 		done.call())
-
-
-## Charnière tournée de son angle courant vers target (durée de l'animation), puis done.
-func _tween_hinge(entry: Dictionary, target: Quaternion, done: Callable) -> void:
-	if entry.tween:
-		entry.tween.kill()
-	var hinge: Node3D = entry.hinge
-	var start := hinge.quaternion
-	entry.tween = create_tween()
-	entry.tween.tween_method(func(w: float) -> void: hinge.quaternion = start.slerp(target, w), 0.0, 1.0,
-			entry.duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	entry.tween.tween_callback(func() -> void:
-		entry.tween = null
-		done.call())
-
-
-## Rejoue les pistes tracks de anim de from_s à to_s (à l'envers si to_s < from_s) en duration secondes.
-func _play_tracks(anim: Animation, tracks: Array[int], from_s: float, to_s: float, duration: float) -> Tween:
-	var targets: Array[Node3D] = []
-	for t in tracks:
-		targets.append(get_node_or_null(anim.track_get_path(t)) as Node3D)
-	var tween := create_tween()
-	tween.tween_method(func(time: float) -> void:
-		for i in tracks.size():
-			if targets[i]:
-				_apply_track(anim, tracks[i], targets[i], time), from_s, to_s, duration)
-	return tween
-
-
-func _apply_track(anim: Animation, track: int, node: Node3D, time: float) -> void:
-	match anim.track_get_type(track):
-		Animation.TYPE_ROTATION_3D:
-			node.quaternion = anim.rotation_track_interpolate(track, time)
-		Animation.TYPE_POSITION_3D:
-			node.position = anim.position_track_interpolate(track, time)
-		Animation.TYPE_SCALE_3D:
-			node.scale = anim.scale_track_interpolate(track, time)
-
-
-## Animation complète (à l'envers si backwards), puis done.
-func _play_group(anim_name: StringName, backwards: bool, done: Callable) -> void:
-	var player: AnimationPlayer = _players[anim_name]
-	if backwards:
-		player.play_backwards(anim_name)
-	else:
-		player.play(anim_name)
-	player.animation_finished.connect(func(_name: StringName) -> void: done.call(), CONNECT_ONE_SHOT)
-
-
-## Nombre de charnières animées par l'animation (pistes de rotation).
-func _animated_count(anim_name: StringName) -> int:
-	if not _library.has_animation(anim_name):
-		return 0
-	var anim := _library.get_animation(anim_name)
-	var count := 0
-	for t in anim.get_track_count():
-		count += 1 if anim.track_get_type(t) == Animation.TYPE_ROTATION_3D else 0
-	return count
-
-
-## Piste de l'animation pour le nœud node_path (et du type donné, -1 : n'importe lequel), ou -1.
-func _track_for(anim: Animation, node_path: String, type := -1) -> int:
-	for t in anim.get_track_count():
-		if String(anim.track_get_path(t)) == node_path and (type < 0 or anim.track_get_type(t) == type):
-			return t
-	return -1
-
-
-## Instant du relais vers le vol (MissileFlight) dans Lancement_Missile : la dernière clé à pleine échelle avant que
-## le missile ne s'annule (fin de la ligne droite Blender, ~30 m sous la station), pour ne jamais le voir rétrécir.
-func _handoff_time(anim: Animation, scale_track: int) -> float:
-	if scale_track < 0:
-		return anim.length
-	for k in anim.track_get_key_count(scale_track):
-		if (anim.track_get_key_value(scale_track, k) as Vector3).x < 1e-3:
-			if k > 0 and (anim.track_get_key_value(scale_track, k - 1) as Vector3).x > 0.999:
-				return anim.track_get_key_time(scale_track, k - 1)
-			return anim.track_get_key_time(scale_track, k)
-	return anim.length
 
 
 func _missile_template() -> Node3D:

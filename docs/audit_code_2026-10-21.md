@@ -302,7 +302,11 @@ km/degré unique vaut 111,195.
    rendu : `frame_post_draw` ne vient pas en headless), photo vérifiée en jeu par le MCP.
 4. `Station` : `StationAnim`, puis un composant par commit (`StationLighting`, `StationSilos`,
    `StationAirlock`, `StationHatches`, `StationThermal`, `StationSolarPanels`, `StationModelSetup`), entrées
-   typées.
+   typées. — **en cours** : `StationAnim` fait le 22/10/2026 (`scripts/station/station_anim.gd` : bibliothèque,
+   lecteurs, `play_group`, `play_tracks`, `tween_hinge`, `fill_hinge`, `apply_track`, `track_for`,
+   `handoff_time` ; `Station` 1 442 → 1 337 lignes). Non-régression : section Station de
+   `tools/bench/console_probe.tscn` (écoutille, trappe, radiateurs et chaleur, cargo, combinaison, valve du sas,
+   alerte et black-out, lancement d'un missile jusqu'au relais), écrite avant la découpe.
 5. `CampaignDirector` : `WorldSnapshot`, `CampaignMessages`, `MissionRun`, journal par signaux ; `Campaigns`
    scindé en catalogue et session. Non-régression : une campagne jouée de bout en bout + `balance_campaign`.
 6. `nuke/` : `NukePopulationScan`, `NukeMushroomShape`/`Volume`/`Mesh`, `NukeCellIndex` + `NukeSmokePlumes`
