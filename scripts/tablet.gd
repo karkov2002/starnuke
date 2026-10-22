@@ -14,6 +14,8 @@ extends Node3D
 ## - Sortie, les clics et mouvements de la souris sur son écran sont transmis à l'interface (rayon de la caméra par le
 ##   curseur, intersecté avec la dalle : StationScreen, ScreenInputForwarder) ; ailleurs, la souris garde son rôle
 ##   (clic droit : tourner la tête).
+## - Vue au nadir et photos satellites : NadirCamera (scripts/nadir_camera.gd), créée ici ; la tablette ne fait que
+##   l'activer sur l'onglet Photographie et relayer le bouton Photo vers l'archive (PhotoArchive).
 ## Position : écran occupant view_fill de la hauteur de la vue (selon le champ de la caméra), son bord droit à
 ## right_margin du bord droit de la vue, son bord bas à bottom_margin du bas, tourné vers l'œil. Éclairée par les
 ## lampes intérieures (calque Station.INTERIOR_LAYER) comme le reste de l'habitacle.
@@ -23,10 +25,6 @@ const SCREEN_NODE := "Ecran_Tablette"
 const BODY_NODE := "Tablette_Coque"
 ## Hauteur de l'image de l'interface (pixels) : proche de la taille affichée, pour garder un texte lisible.
 const VIEWPORT_HEIGHT := 560
-## Taille de l'image de la vue au nadir (pixels, proche de sa taille sur la tablette).
-const NADIR_SIZE := Vector2i(600, 470)
-## Taille des photos satellites (pixels, mêmes proportions que la vue au nadir).
-const PHOTO_SIZE := Vector2i(1600, 1253)
 ## Échelle de la tablette (et de sa distance à l'œil) : voir _update_pose.
 const NEAR_SCALE := 0.4
 ## Part de la rotation vers l'œil à l'arrivée (1 : face à l'œil, 0 : parallèle au plan de la vue).
@@ -76,10 +74,7 @@ var _viewport: SubViewport
 var _input_forwarder: ScreenInputForwarder
 var _display: TabletDisplay
 ## Vue au nadir : rendue seulement quand la tablette est sortie sur l'onglet Photographie.
-var _nadir_viewport: SubViewport
-var _nadir_camera: Camera3D
-var _taking_photo := false
-var _earth: Node3D
+var _nadir: NadirCamera
 var _console: PilotConsole
 ## Dimensions de la coque (m), pour le cadrage.
 var _height := 0.19
@@ -119,12 +114,14 @@ func _ready() -> void:
 	_viewport = _screen.make_viewport(VIEWPORT_HEIGHT, true)
 	add_child(_viewport)
 	_input_forwarder = ScreenInputForwarder.new(_viewport)
-	_build_nadir_camera()
+	_nadir = NadirCamera.new(_camera, get_node_or_null(earth_path) as Node3D,
+			get_node_or_null(world_environment_path) as WorldEnvironment, nadir_fov_deg, nadir_offset_m)
+	add_child(_nadir)
 	var display := TabletDisplay.new()
 	_display = display
 	display.name = "Display"
 	display.size = Vector2(_viewport.size)
-	display.nadir_texture = _nadir_viewport.get_texture()
+	display.nadir_texture = _nadir.get_texture()
 	display.orbit = get_node(orbit_path) as OrbitSimulation
 	display.flight_computer = get_node(flight_computer_path) as FlightComputer
 	display.photo_requested.connect(_take_photo)
@@ -152,7 +149,8 @@ func _process(delta: float) -> void:
 	# Rangée, l'interface n'est pas redessinée.
 	if _viewport:
 		_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if visible else SubViewport.UPDATE_DISABLED
-	_update_nadir()
+	if _nadir:
+		_nadir.active = visible and _display.current_tab == TabletDisplay.Tab.PHOTO
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -253,88 +251,22 @@ static func _bezier(a: Vector3, b: Vector3, c: Vector3, d: Vector3, t: float) ->
 	return a * u * u * u + b * 3.0 * u * u * t + c * 3.0 * u * t * t + d * t * t * t
 
 
-## Caméra de l'onglet Photographie (SubViewport qui partage le monde de la scène : Terre, nuages, atmosphère), sous la
-## station, visée vers le centre de la Terre ; même réglage d'exposition que la vue (attributs de la caméra).
-func _build_nadir_camera() -> void:
-	_earth = get_node_or_null(earth_path) as Node3D
-	_nadir_viewport = SubViewport.new()
-	_nadir_viewport.name = "Nadir"
-	_nadir_viewport.size = NADIR_SIZE
-	_nadir_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	add_child(_nadir_viewport)
-	_nadir_camera = Camera3D.new()
-	_nadir_camera.fov = nadir_fov_deg
-	_nadir_camera.near = 0.5
-	_nadir_camera.far = 3000.0
-	if _camera:
-		_nadir_camera.attributes = _camera.attributes
-		_nadir_camera.cull_mask = _camera.cull_mask
-	# L'image est affichée par l'écran de la tablette, puis vue par la caméra principale, qui applique déjà le
-	# mappage tonal (ACES) et le halo : avec ceux de l'environnement, ils l'étaient deux fois (image délavée).
-	# Copie de l'environnement en mappage linéaire, sans halo.
-	var world_environment := get_node_or_null(world_environment_path) as WorldEnvironment
-	if world_environment and world_environment.environment:
-		var environment := world_environment.environment.duplicate() as Environment
-		environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-		environment.glow_enabled = false
-		_nadir_camera.environment = environment
-	_nadir_camera.current = true
-	_nadir_viewport.add_child(_nadir_camera)
-
-
 ## Galerie de la tablette : photos de PhotoArchive.
 func _connect_archive() -> void:
 	_display.archive = get_tree().get_first_node_in_group(PhotoArchive.GROUP) as PhotoArchive
 
 
-## Photo satellite (bouton Photo) : la vue au nadir est rendue une fois en PHOTO_SIZE avec le rendu final du jeu
-## (environnement d'origine : mappage tonal et halo, que la vue en direct n'a pas, cf. _build_nadir_camera), puis
-## remise en l'état ; la photo garde le point survolé, l'heure, l'altitude et son emprise au sol (PhotoArchive).
+## Photo satellite (bouton Photo) : capture de la vue au nadir (NadirCamera.capture_photo), enregistrée avec le point
+## survolé, l'heure, l'altitude et son emprise au sol au moment du déclenchement (PhotoArchive).
 func _take_photo() -> void:
 	var archive := get_tree().get_first_node_in_group(PhotoArchive.GROUP) as PhotoArchive
 	var orbit := get_node_or_null(orbit_path) as OrbitSimulation
-	if archive == null or orbit == null or _nadir_viewport == null or _taking_photo:
+	if archive == null or orbit == null or _nadir == null:
 		return
-	_taking_photo = true
 	var point := orbit.get_subsatellite_point()
 	var utc := orbit.get_utc_unix_s()
 	var altitude := orbit.altitude_km
-	var live_environment := _nadir_camera.environment
-	var world_environment := get_node_or_null(world_environment_path) as WorldEnvironment
-	if world_environment:
-		_nadir_camera.environment = world_environment.environment
-	_nadir_viewport.size = PHOTO_SIZE
-	_nadir_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	# Deux images : la première au nouveau format, la seconde lue une fois le rendu terminé.
-	await RenderingServer.frame_post_draw
-	await RenderingServer.frame_post_draw
-	var image := _nadir_viewport.get_texture().get_image()
-	# Image de la galerie : rendu de la vue en direct (l'écran de la tablette, filmé par la caméra, applique déjà le
-	# mappage tonal : avec le rendu final, elle serait délavée), deux images plus tard (~250 m de vol).
-	_nadir_camera.environment = live_environment
-	_nadir_viewport.size = NADIR_SIZE
-	await RenderingServer.frame_post_draw
-	await RenderingServer.frame_post_draw
-	var screen_image := _nadir_viewport.get_texture().get_image()
-	_taking_photo = false
-	# Emprise : hauteur de l'image au sol = 2 h tan(champ / 2) (champ vertical), largeur selon les proportions.
-	var height_km := 2.0 * altitude * tan(deg_to_rad(nadir_fov_deg) * 0.5)
-	archive.add(image, screen_image, point.x, point.y, utc, altitude,
-			Vector2(height_km * float(PHOTO_SIZE.x) / PHOTO_SIZE.y, height_km))
-
-
-func _update_nadir() -> void:
-	if _nadir_viewport == null:
+	var shot: Dictionary = await _nadir.capture_photo()
+	if shot.is_empty():
 		return
-	var active := visible and _display != null and _display.current_tab == TabletDisplay.Tab.PHOTO
-	_nadir_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if active else SubViewport.UPDATE_DISABLED
-	if not active or _earth == null:
-		return
-	var station := get_tree().get_first_node_in_group(Station.GROUP) as Node3D
-	var origin := station.global_position if station else Vector3.ZERO
-	var down := (_earth.global_position - origin).normalized()
-	# Haut de l'image : sens du vol (−Z de la station), rendu perpendiculaire à la visée.
-	var ahead := -station.global_basis.z if station else Vector3.FORWARD
-	ahead = (ahead - down * ahead.dot(down)).normalized()
-	var position_now := origin + down * nadir_offset_m
-	_nadir_camera.global_transform = Transform3D(Basis.looking_at(down, ahead), position_now)
+	archive.add(shot.image, shot.screen_image, point.x, point.y, utc, altitude, _nadir.footprint_km(altitude))

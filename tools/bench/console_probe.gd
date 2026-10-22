@@ -95,9 +95,12 @@ func _ready() -> void:
 		var viewport: SubViewport = console.get("_viewport")
 		_check(console.is_near() and viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS, name + " : de retour, rendu repris")
 	await _check_tv(view)
+	await _check_tablet(view)
 	print("=== %d échec(s)" % _failures)
 	view.queue_free()
 	await get_tree().process_frame
+	await _check_menu()
+	print("=== %d échec(s) au total" % _failures)
 	get_tree().quit(1 if _failures > 0 else 0)
 
 
@@ -124,3 +127,72 @@ func _check_tv(view: Node) -> void:
 	_check(display.is_off_air(), "mire sur la chaîne française")
 	launcher.clear_effects()
 	orbit.time_scale = 1.0
+
+
+## Tablette : NadirCamera, PhotoPage et AlertsPage (lot 2, étape 3).
+func _check_tablet(view: Node) -> void:
+	print("- Tablette")
+	var tablet := view.get_node("Observer/Camera/Tablet") as Tablet
+	var display: TabletDisplay = tablet.get("_display")
+	var nadir: NadirCamera = tablet.get("_nadir")
+	var station := view.get_node("Station/StationSpatiale") as Station
+	_check(display != null and nadir != null and nadir.get_parent() == tablet, "interface et caméra nadir créées")
+	_check(not nadir.active and nadir.render_target_update_mode == SubViewport.UPDATE_DISABLED, "nadir inactive, tablette rangée")
+	_check(display.get("_photo_page") is PhotoPage and display.get("_pages")[3] is AlertsPage, "pages Photographie et Alertes")
+	_check((display.get("_photo_page") as PhotoPage).nadir_texture == nadir.get_texture(), "vue au nadir affichée par la page")
+	tablet.call("_set_wanted", true)
+	await _wait(0.8)
+	_check(tablet.visible and tablet.is_out() and is_equal_approx(tablet.get("_out"), 1.0), "tablette sortie")
+	display.show_tab(TabletDisplay.Tab.PHOTO)
+	# Deux images : la tablette active la vue au nadir dans son _process, après le signal process_frame.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check(nadir.active and nadir.render_target_update_mode == SubViewport.UPDATE_ALWAYS, "nadir rendue sur l'onglet Photographie")
+	await get_tree().process_frame
+	var camera: Camera3D = nadir.get_child(0)
+	var toward_earth: Vector3 = ((view.get_node("Earth") as Node3D).global_position - station.global_position).normalized()
+	_check(camera.global_basis.z.dot(-toward_earth) > 0.999, "caméra nadir visée vers la Terre")
+	_check(nadir.footprint_km(400.0).y > 150.0 and nadir.footprint_km(400.0).y < 160.0, "emprise à 400 km : %.0f km" % nadir.footprint_km(400.0).y)
+	# Photo : RenderingServer.frame_post_draw ne vient jamais sans fenêtre (headless) : vérifié seulement avec rendu.
+	if DisplayServer.get_name() != "headless":
+		var archive := view.get_node("Photos") as PhotoArchive
+		var before := archive.photos.size()
+		(display.get("_photo_page") as PhotoPage).call("_take_photo")
+		await _wait(1.0)
+		_check(archive.photos.size() == before + 1, "photo prise par le bouton (%d)" % archive.photos.size())
+		_check(nadir.size == NadirCamera.LIVE_SIZE and nadir.active, "vue au nadir revenue en direct")
+	else:
+		print("  (photo : non testée en headless)")
+	display.show_tab(TabletDisplay.Tab.ALERTS)
+	station.set_alert(Station.Alert.RED)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var labels: Array = display.get("_pages")[3].get("_alert_labels")
+	_check(labels[Station.Alert.RED].text.begins_with("▲") and not labels[0].text.begins_with("▲"), "niveau d'alerte marqué sur la page")
+	_check(not nadir.active, "nadir coupée hors de l'onglet Photographie")
+	station.set_alert(Station.Alert.NONE)
+	tablet.call("_set_wanted", false)
+	await _wait(0.6)
+	_check(not tablet.visible, "tablette rangée")
+
+
+## Menu de démarrage : son décor est la vue orbitale sans lanceur ni poste ; les écrans qui restent (radio,
+## télévision, bilan retiré) doivent s'y construire sans erreur (régression du 22/10 : tableau d'explosions non typé).
+func _check_menu() -> void:
+	print("- Menu de démarrage")
+	var menu: Node = load("res://scenes/ui/main_menu.tscn").instantiate()
+	add_child(menu)
+	await _wait(4.0)
+	var backdrop: Node = null
+	for child in menu.get_children():
+		if child.name == "OrbitView" or child.has_node("Orbit"):
+			backdrop = child
+			break
+	_check(backdrop != null, "décor construit")
+	if backdrop:
+		_check(backdrop.get_node_or_null("NukeLauncher") == null, "sans lanceur")
+		for name in ["TvConsole", "CommConsole"]:
+			var console := backdrop.get_node_or_null(name) as ScreenConsole
+			_check(console != null and console.is_processing() and console.get("_viewport") != null, name + " construit dans le décor")
+	menu.queue_free()
+	await get_tree().process_frame

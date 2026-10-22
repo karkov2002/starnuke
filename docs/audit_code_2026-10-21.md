@@ -295,7 +295,11 @@ km/degré unique vaut 111,195.
    (RefCounted, `scripts/tv_channels.gd`) tient le CSV, les deux règles de jeu et le texte des bandeaux, sans
    nœud : la console lui passe les explosions et l'heure UTC (`update`), l'interface se rafraîchit sur son signal
    `changed` et ne connaît plus la console. `TvConsole` : 174 → 95 lignes.
-3. `Tablet` : `NadirCamera`, `AlertsPage`, `PhotoPage`.
+3. `Tablet` : `NadirCamera`, `AlertsPage`, `PhotoPage`. — **fait le 22/10/2026** : `NadirCamera` (SubViewport,
+   `scripts/nadir_camera.gd` : caméra, suivi de la station, `capture_photo`, emprise), `PhotoPage` et `AlertsPage`
+   (`scripts/ui/`) ; `Tablet` 340 → 272 lignes, `TabletDisplay` 473 → 220. Sonde : section Tablette (sortie,
+   nadir active sur l'onglet, visée, emprise, niveau d'alerte marqué ; la photo elle-même n'est vérifiable qu'avec
+   rendu : `frame_post_draw` ne vient pas en headless), photo vérifiée en jeu par le MCP.
 4. `Station` : `StationAnim`, puis un composant par commit (`StationLighting`, `StationSilos`,
    `StationAirlock`, `StationHatches`, `StationThermal`, `StationSolarPanels`, `StationModelSetup`), entrées
    typées.

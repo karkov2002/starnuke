@@ -390,20 +390,22 @@ de la vue).
   Les clics et mouvements de la souris sur l'écran (rayon de la caméra intersecté avec la dalle, repérée par ses UV)
   sont transmis à l'interface ; un relâchement hors de l'écran aussi (bouton maintenu) ; le clic droit reste à la
   caméra (tourner la tête).
-- **Interface** (`scripts/ui/tablet_display.gd`) : en haut, **trois onglets cliquables** — **Pilotage**,
-  **Photographie**, **Tir de missile** — et, à droite, le bouton **« HUD : On / Off »** ; dessous, date et heure UTC
-  et heure solaire du point survolé. Une seule page affichée à la fois, dans la hauteur restante (tout tient dans la
-  dalle) :
+- **Interface** (`scripts/ui/tablet_display.gd` : ossature, onglets, horloge, pages Pilotage et Tir de missile ;
+  pages Photographie et Alertes dans leurs propres contrôles, `scripts/ui/photo_page.gd` et
+  `scripts/ui/alerts_page.gd`) : en haut, **quatre onglets cliquables** — **Pilotage**, **Photographie**, **Tir de
+  missile**, **Alertes** — et, à droite, le bouton **« HUD : On / Off »** ; dessous, date et heure UTC et heure
+  solaire du point survolé. Une seule page affichée à la fois, dans la hauteur restante (tout tient dans la dalle) :
   - **Pilotage** : carte réduite (la même `OrbitalMap` que le poste de pilotage : trace au sol, station, point de
 	manœuvre, trace fantôme), **de 80° N à 80° S** comme au poste (rapport 1,29), aussi grande que la page le permet, et, dans une colonne à droite (210 px), la commande de
 	poussée (`BurnControl` en colonne, compacte : compte à rebours 44 px, BURN bleu 100 × 94, textes 18 px,
 	**jauge verticale** à droite sur toute la hauteur du bloc, remplie du bas vers le haut, pour un dosage précis) ;
-  - **Photographie** : **vue au nadir en temps réel** (caméra de la tablette, `SubViewport` de 600 × 470 qui partage
-	le monde de la scène, 15 m sous la station, champ de 22°, haut de l'image dans le sens du vol ; rendue seulement
-	quand la tablette est sortie sur cet onglet) et bouton **« Photo »**. La caméra a une copie de l'environnement en
-	mappage tonal linéaire et sans halo : l'image est ensuite vue par la caméra principale, qui les applique déjà
-	(ACES deux fois : image délavée).
-	**Photos satellites** (`Tablet._take_photo`, archive `scripts/photo_archive.gd`, nœud `Photos`, groupe
+  - **Photographie** (`PhotoPage`) : **vue au nadir en temps réel** (`NadirCamera`, `scripts/nadir_camera.gd` :
+	`SubViewport` de 600 × 470 créé par la tablette, qui partage le monde de la scène, caméra 15 m sous la station,
+	champ de 22°, haut de l'image dans le sens du vol ; rendue seulement quand la tablette est sortie sur cet onglet,
+	`active`) et bouton **« Photo »**. La caméra a une copie de l'environnement en mappage tonal linéaire et sans
+	halo : l'image est ensuite vue par la caméra principale, qui les applique déjà (ACES deux fois : image délavée).
+	**Photos satellites** (`NadirCamera.capture_photo`, relayée par `Tablet._take_photo` vers l'archive
+	`scripts/photo_archive.gd`, nœud `Photos`, groupe
 	`photo_archive`) : flash, puis la vue au nadir est rendue une fois en **1 600 × 1 253** avec le rendu final du
 	jeu (environnement d'origine : ACES, halo) et enregistrée en **PNG dans `user://photos/`** (nom : date et heure
 	du jeu, latitude, longitude ; le joueur garde ses photos) ; deux images plus tard, une seconde capture au rendu de
@@ -416,8 +418,8 @@ de la vue).
 	temps de la partie (elles entreront dans la sauvegarde de campagne) ;
   - **Tir de missile** : la commande de tir (`LaunchControl` : 48 silos, **petits boutons de puissance** — à terme,
 	chaque silo aura sa bombe et sa puissance —, gros bouton rouge), mise à l'échelle pour occuper la page ;
-  - **Alertes** (règle de jeu : la tablette est le récepteur des alertes, comme un téléphone) : écran partagé en
-	deux. En haut (~80 %), l'**écran de réception** : l'appel prioritaire en cours (`PriorityCall` : « APPEL
+  - **Alertes** (`AlertsPage` ; règle de jeu : la tablette est le récepteur des alertes, comme un téléphone) :
+	écran partagé en deux. En haut (~80 %), l'**écran de réception** : l'appel prioritaire en cours (`PriorityCall` : « APPEL
 	PRIORITAIRE », expéditeur, objet, heure de réception ; le message lui-même se lit au poste COMM), sinon
 	« Aucune alerte », et, juste au-dessus des boutons, le **bandeau clignotant** de l'appel (orange sur fond
 	sombre). En bas, **5 gros boutons** du niveau d'alerte de la station (`Station.set_alert`, comme le menu
@@ -518,7 +520,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	−3/2·n·J2·(R/a)²·cos i, −5,0°/jour à 400 km et 51,6° (vers l'ouest pour une orbite prograde, nulle à 90°).
 - **Règles de la manœuvre** (`scripts/flight_computer.gd`, nœud `FlightComputer`) :
   - tant que la cible diffère de l'orbite réelle (plus de 0,05°, 0,5 km ou 0,05° de décalage du nœud), une
-    manœuvre est prévue et son orbite, la **trace fantôme**, est affichée ;
+	manœuvre est prévue et son orbite, la **trace fantôme**, est affichée ;
   - **point de manœuvre** : un changement de plan se fait là où l'orbite actuelle coupe le plan visé (droite
 	d'intersection des deux plans ; deux points par tour, à une demi-période d'écart). Simple changement
 	d'inclinaison : au **nœud** (passage à l'équateur, la ligne des nœuds reste en place) ; simple décalage du nœud :
@@ -526,15 +528,15 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	prochain nœud. La station garde sa position au point de manœuvre (la manœuvre est continue) ; l'orbite
 	fantôme passe par ce point. L'orbite reste **circulaire** ;
   - Δv affiché : changement de plan 2·v·sin(θ/2) (θ : angle entre les deux plans, inclinaison et décalage du nœud
-    compris) plus transfert de Hohmann entre les deux altitudes (somme des deux impulsions) ; ~4,2 km/s pour passer
-    de 51,6° à 20°, ~1 050 m/s pour décaler le nœud de 10° : les changements de plan sont coûteux ;
+	compris) plus transfert de Hohmann entre les deux altitudes (somme des deux impulsions) ; ~4,2 km/s pour passer
+	de 51,6° à 20°, ~1 050 m/s pour décaler le nœud de 10° : les changements de plan sont coûteux ;
   - **fenêtre** : la poussée n'est possible que de 5 s réelles avant à 5 s réelles après le passage du point de
 	manœuvre (5 s × la vitesse du temps en temps de jeu, au plus 60 s) ; le compte à rebours passe au vert, puis
 	reste à 00:00 tant que la fenêtre du point passé est ouverte ;
   - **mode Auto** : au passage du point de manœuvre, l'orbite prend exactement la cible (message « Pilote
-    automatique : manœuvre au point de manœuvre » en attendant) ;
+	automatique : manœuvre au point de manœuvre » en attendant) ;
   - **mode Manuel** (par défaut) : maintenir le bouton **BURN** (temps ramené à ×1). Durée requise : 1,5 s +
-    2,5 s × √(Δv en km/s), au plus 8 s (~2,3 s pour 100 m/s, ~6,6 s pour 4,2 km/s), affichée dans la fenêtre
+	2,5 s × √(Δv en km/s), au plus 8 s (~2,3 s pour 100 m/s, ~6,6 s pour 4,2 km/s), affichée dans la fenêtre
 	(« Fenêtre ouverte : maintenir BURN 3.9 s »). La poussée s'applique **progressivement** pendant l'appui : l'orbite
 	passe de l'orbite de départ vers la cible au rythme de la jauge (au-delà de 100 %, elle dépasse la cible) ; à
 	150 %, la poussée s'arrête d'elle-même. Relâché entre **95 et 105 %** : **poussée parfaite**, l'orbite prend
@@ -566,23 +568,23 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   - **Cibles au sol** (règle de jeu ; `scripts/ground_target.gd`, nœud `GroundTarget`, affichées par la carte du
 	poste et celle de la tablette) : **jusqu'à 5 cibles, chacune de sa couleur** (jaune doré, rouge, magenta, violet,
 	orange : distinctes du jaune pâle de la station, du vert des traces et du cyan de l'orbite visée), dont une
-    **cible choisie**. **Elles ne se placent que sur la carte du poste de pilotage** (`OrbitalMap.targets_editable`),
-    **à la main** (pas de saisie de coordonnées) : menu des cibles en haut à gauche de la carte — « Cibles », **un
+	**cible choisie**. **Elles ne se placent que sur la carte du poste de pilotage** (`OrbitalMap.targets_editable`),
+	**à la main** (pas de saisie de coordonnées) : menu des cibles en haut à gauche de la carte — « Cibles », **un
 	bouton par cible portant son icône** (cercle, point, croix) dans sa couleur, pâle tant qu'elle n'est pas posée,
-    le bouton de la cible choisie en surbrillance, et **« Effacer »** (la cible choisie) ; un **clic** sur la carte
-    (sans la glisser : moins de 5 px de déplacement) place la cible choisie au point cliqué, un clic sur une cible la
+	le bouton de la cible choisie en surbrillance, et **« Effacer »** (la cible choisie) ; un **clic** sur la carte
+	(sans la glisser : moins de 5 px de déplacement) place la cible choisie au point cliqué, un clic sur une cible la
 	choisit. La carte de la tablette les affiche seulement (un clic n'y fait rien). Sur les cartes : la même icône
 	dans la couleur de la cible, coordonnées à côté (« 48.86° N  2.35° E ») ; la cible choisie en trait épais, les
 	autres plus fines et un peu transparentes. Au **survol**, la latitude et la longitude du point sous le pointeur le
 	suivent. Dans la **cupola en mode « HUD : On »**, chaque cible apparaît dans sa couleur **posée à l'horizontale
-    sur la Terre**, dont elle épouse la courbure
-    (`scripts/ui/target_marker.gd`, calque du `Hud`) : trois anneaux (40, 80 et 120 km) et une croix tracés sur la
-    sphère, le long du sol, dans un maillage enfant de `Earth` (il tourne avec la planète ; la cible choisie pleine,
+	sur la Terre**, dont elle épouse la courbure
+	(`scripts/ui/target_marker.gd`, calque du `Hud`) : trois anneaux (40, 80 et 120 km) et une croix tracés sur la
+	sphère, le long du sol, dans un maillage enfant de `Earth` (il tourne avec la planète ; la cible choisie pleine,
 	les autres pâles), sans éclairage, dessiné après les nuages et l'atmosphère (qui n'écrivent pas de profondeur :
-    elle reste par-dessus) mais avec test de profondeur (la structure de la coupole la cache), masqué sous
+	elle reste par-dessus) mais avec test de profondeur (la structure de la coupole la cache), masqué sous
 	l'horizon, sans coordonnées (elles masqueraient la vue : elles sont sur les cartes) ; flèche au bord de l'écran,
-    dans sa couleur, quand la cible choisie est hors champ. Le tir de missile reste visé au
-    réticule (centre de la vue).
+	dans sa couleur, quand la cible choisie est hors champ. Le tir de missile reste visé au
+	réticule (centre de la vue).
   - **Écrans en SubViewport** (poste, radio, télévision, bilan, écrans d'ambiance, tablette) : composants partagés
 	de `scripts/screens/`. `StationScreen` : la dalle (surface du matériau `extras.materiau_ecran`, mesurée par ses
 	UV ; par la normale −X pour l'écran du poste), le SubViewport à ses proportions, le matériau d'affichage, le
@@ -635,8 +637,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   - **Vue radio** : comme la télévision (survol à 2,5 m → bulle « Communications radio » ; clic → la vue se cadre
 	face à l'écran ; clic droit ou F10 → on quitte ; `ScreenSeatConsole`). En vue radio, souris **et clavier** vont à
 	l'écran : F1 aide, F2 choix du canal, F10 quitter, flèches (message ou canal précédent / suivant), chiffres
-    (envoyer la réponse correspondante), Entrée (valider le canal), Échap (fermer une fenêtre) ; tout se fait aussi à
-    la souris.
+	(envoyer la réponse correspondante), Entrée (valider le canal), Échap (fermer une fenêtre) ; tout se fait aussi à
+	la souris.
   - Écran : ligne d'état (canal, fréquence, bande ; liaison en barre de signal avec la station au sol, ou « PAS DE
 	LIAISON » clignotant) ; à gauche les messages reçus (heure, expéditeur ; non lus en jaune, lus quand on s'installe
 	devant l'écran ou qu'on les choisit), à droite le message choisi (expéditeur, objet, réception et fréquence, texte)
@@ -644,12 +646,12 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   - **Règles de jeu** (`RadioComms`) : **liaison** seulement avec une station au sol en vue (16 stations du réseau de
 	suivi, de Houston à Canberra ; élévation de la station d'au moins 5° au-dessus de leur horizon) : qualité de
 	15 % au ras de l'horizon à 100 % dès 25° d'élévation, nulle hors de vue (coupures sur les océans). **Canaux** :
-    6 (143,625 et 145,800 MHz VHF, 437,800 MHz UHF, 2 265 et 2 287,5 MHz bande S, 8 400 MHz bande X) ; un message
+	6 (143,625 et 145,800 MHz VHF, 437,800 MHz UHF, 2 265 et 2 287,5 MHz bande S, 8 400 MHz bande X) ; un message
 	posté sur un canal n'arrive que la radio réglée dessus (canal −1 : tous), et **attend au sol** que la liaison et le
 	bon canal le permettent. **Réponses** : un message peut en proposer ; en envoyer une demande la liaison (sinon
 	« Échec de l'émission ») ; une seule réponse par message (signal `replied`).
   - API pour la campagne : `RadioComms.post({from, subject, body, channel, replies})` (textes : clé des fichiers de
-    langue, texte, ou dictionnaire par langue comme `campaign.json`), signaux `message_received`, `replied`. Panneau
+	langue, texte, ou dictionnaire par langue comme `campaign.json`), signaux `message_received`, `replied`. Panneau
 	de debug : bouton « Radio » (message d'essai du contrôle sol, deux réponses).
 - **Télévision** (`scripts/tv_console.gd`, nœud `TvConsole` ; interface `scripts/ui/tv_display.gd` ; chaînes et
   règles de jeu `scripts/tv_channels.gd`, classe `TvChannels`, tenue par la console et lue par l'interface) : l'écran
@@ -688,12 +690,12 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	`alert.ogv`, convertis depuis les maîtres. Une chaîne peut avoir **ses propres vidéos** :
 	`assets/tv/source/<CODE>/normal.mp4` et `alert.mp4` (code ISO du pays) → `assets/tv/video/<CODE>/…ogv` ; sinon
 	elle diffuse les vidéos communes. Après retouche d'un maître dans un logiciel vidéo : `build_tv_videos.ps1
-    -ConvertOnly` ; après remplacement de `explosion.mp4` : `-Studio` (nouveau rendu du plateau) ; sans option :
+	-ConvertOnly` ; après remplacement de `explosion.mp4` : `-Studio` (nouveau rendu du plateau) ; sans option :
 	tout est régénéré (rendus Blender compris). Puis rescan dans l'éditeur.
   - **Bandeau défilant** (`scripts/tv_news.gd`, classe `TvNews`), dans les deux éditions (rouge en édition spéciale,
 	bleu nuit en temps normal) : en bas de l'écran, dans la
-    **langue de la chaîne** (colonne `lang` de `channels.csv` : langue majoritaire du pays, à défaut celle de ses
-    journaux télévisés — anglais, français, portugais… pour les pays sans langue majoritaire ou dont la langue
+	**langue de la chaîne** (colonne `lang` de `channels.csv` : langue majoritaire du pays, à défaut celle de ses
+	journaux télévisés — anglais, français, portugais… pour les pays sans langue majoritaire ou dont la langue
 	majoritaire n'est pas traduite ; 65 langues, défilement vers la droite pour l'arabe, l'hébreu, le persan et
 	l'ourdou ; les écritures non latines s'affichent par les polices du système). Contenu, recomposé à chaque passage
 	et aussitôt après chaque tir :
@@ -701,28 +703,28 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	   du pays (variation tirée chaque jour de jeu), **météo de la capitale** d'après les **vrais nuages** vus de la
 	   station (`scripts/cloud_weather.gd`, classe `CloudWeather` : carte réduite de l'instantané VIIRS
 	   `assets/cloud_cover.res`, 0,25°, générée par `tools/build_cloud_cover.gd`, lue au point d'où vient l'air en
-       remontant le vent GFS comme le shader des nuages : soleil ou nuit claire, éclaircies dès 30 % de couverture,
-       ciel couvert dès 65 %) et température plausible (latitude, saison, heure solaire, nuages), puis un **résultat
-       sportif** inventé (football ou basket, deux équipes nationales et un score tirés chaque jour de jeu) ;
+	   remontant le vent GFS comme le shader des nuages : soleil ou nuit claire, éclaircies dès 30 % de couverture,
+	   ciel couvert dès 65 %) et température plausible (latitude, saison, heure solaire, nuages), puis un **résultat
+	   sportif** inventé (football ou basket, deux équipes nationales et un score tirés chaque jour de jeu) ;
 	1. préfixe « Alerte info : » en édition spéciale (« En bref : » ensuite, une fois revenu à l'édition normale) ;
 	2. nombre d'explosions et puissance cumulée (kt sous 1 Mt, Mt à une décimale au-delà), pays touchés (point zéro
-       sur leur territoire, `NukeTally`) ; « détectée(s) en mer » si aucun pays ;
+	   sur leur territoire, `NukeTally`) ; « détectée(s) en mer » si aucun pays ;
 	3. morts selon « nos experts » (bilan `NukeTally` à l'instant présent, arrondi à trois chiffres significatifs) ;
 	4. capitales détruites (chaînes hors d'antenne) : sans nouvelles des autorités de ces pays ;
-    5. déclaration du gouvernement du pays qui diffuse : **touché et puissance nucléaire** (États-Unis, Russie,
-       France, Royaume-Uni, Inde, Pakistan, Chine, Israël, Corée du Nord : `nuclear_powers` de `news_rules.json`) → alerte
+	5. déclaration du gouvernement du pays qui diffuse : **touché et puissance nucléaire** (États-Unis, Russie,
+	   France, Royaume-Uni, Inde, Pakistan, Chine, Israël, Corée du Nord : `nuclear_powers` de `news_rules.json`) → alerte
 	   maximale, riposte à l'étude, consignes à la population ; **touché sans arme nucléaire** → alerte maximale et
 	   consignes ; **non touché** → alerte maximale, protection du pays, pensées pour les pays touchés.
 	**Règles d'affichage** (`assets/tv/news_rules.json`, vision d'ensemble des cas) : le bandeau est un préfixe puis
 	des sections dans l'ordre (bourse, météo, sport, explosions, bilan, capitales, gouvernement) ; dans chaque section, la **première règle
-    dont la condition est vraie** donne la **clé** de la phrase (aucune : la section est omise). Une condition porte
-    sur des faits nommés (`explosions`, `yield_kt`, `countries_hit`, `deaths`, `capitals_destroyed`,
-    `broadcaster_hit`, `broadcaster_nuclear`, `alert`, `cloud_cover`, `night`, `temperature`, `stock_change`, `roll`
-    — tirage au hasard à chaque passage, pour alterner les rubriques), avec des tests « 1 », « >0 », « >=2 », « <5 », « !=1 » ou true /
-    false ; la liste des puissances nucléaires (`nuclear_powers`) y est aussi. Ajouter un cas : une règle (avant les
-    règles plus générales de sa section) et une nouvelle clé, dont les variantes vont dans le CSV des textes.
-    Chaque phrase a **plusieurs variantes** (trois pour les alertes, deux pour les infos ordinaires) (même sens, tournures différentes), tirées au hasard à chaque passage. Textes :
-    `assets/tv/news_ticker.csv` (une ligne par clé et variante `CLE.n`, une colonne par langue, plus les réglages de
+	dont la condition est vraie** donne la **clé** de la phrase (aucune : la section est omise). Une condition porte
+	sur des faits nommés (`explosions`, `yield_kt`, `countries_hit`, `deaths`, `capitals_destroyed`,
+	`broadcaster_hit`, `broadcaster_nuclear`, `alert`, `cloud_cover`, `night`, `temperature`, `stock_change`, `roll`
+	— tirage au hasard à chaque passage, pour alterner les rubriques), avec des tests « 1 », « >0 », « >=2 », « <5 », « !=1 » ou true /
+	false ; la liste des puissances nucléaires (`nuclear_powers`) y est aussi. Ajouter un cas : une règle (avant les
+	règles plus générales de sa section) et une nouvelle clé, dont les variantes vont dans le CSV des textes.
+	Chaque phrase a **plusieurs variantes** (trois pour les alertes, deux pour les infos ordinaires) (même sens, tournures différentes), tirées au hasard à chaque passage. Textes :
+	`assets/tv/news_ticker.csv` (une ligne par clé et variante `CLE.n`, une colonne par langue, plus les réglages de
 	nombres et d'unités par langue : `LIST_SEP`, `THOUSANDS`, `DECIMAL`, `UNIT_KT`, `UNIT_MT` avec `{n}`). Pour les
 	langues à déclinaisons, les noms de pays et de capitales sont placés après deux-points (nominatif, sans faute
 	d'accord). Noms des pays (CLDR d'Unicode, à défaut Wikidata) et des capitales (Wikidata) dans chaque langue :

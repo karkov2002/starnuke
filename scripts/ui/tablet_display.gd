@@ -7,18 +7,11 @@ extends Control
 ## - onglet Pilotage : la carte du poste de pilotage en réduit (OrbitalMap : trace au sol, station, point de manœuvre
 ##   et trace fantôme), de MAP_MAX_LAT_DEG nord à sud (comme au poste), et, dans une colonne à droite, la commande
 ##   de poussée (BurnControl en colonne : compte à rebours, gros bouton BURN bleu, jauge verticale) ;
-## - onglet Photographie : la vue au nadir en temps réel (texture nadir_texture, rendue par la tablette seulement
-##   quand l'onglet est affiché), le bouton « Photo » (flash ; la tablette prend la photo, PhotoArchive) et la
-##   galerie des photos prises (◀ ▶, légende : date, point survolé, altitude, emprise au sol) ;
+## - onglet Photographie : PhotoPage (vue au nadir en direct, bouton Photo, galerie) ;
 ## - onglet Tir de missile : la commande de tir (LaunchControl : 48 silos, puissance, gros bouton rouge), agrandie
 ##   pour occuper la page (ses boutons ont une taille fixe en pixels) ;
-## - onglet Alertes : la tablette est le récepteur des appels prioritaires (PriorityCall), comme un téléphone. En
-##   haut (~80 %), l'écran de réception : l'appel en cours (expéditeur, objet, heure de réception ; le message se lit
-##   au poste COMM), sinon « Aucune alerte » ; au-dessus des boutons, le bandeau clignotant PRIORITY_CALL_BANNER
-##   pendant l'appel ; en bas, les 5 gros boutons du niveau d'alerte de la station (Station.set_alert : Normal,
-##   Jaune, Orange, Rouge, Tout éteindre = « plus de lumière »), dessinés comme le bouton de tir ou BURN
-##   (BigRedButton), de la couleur de l'alerte ; le niveau en cours est marqué. À l'arrivée d'un appel, la tablette
-##   passe sur cet onglet (call_started).
+## - onglet Alertes : AlertsPage (récepteur des appels prioritaires, boutons du niveau d'alerte) ; à l'arrivée d'un
+##   appel, la tablette passe sur cet onglet.
 ## Taille : celle du SubViewport (proportions de la dalle de la tablette).
 
 signal tab_changed(tab: int)
@@ -40,56 +33,24 @@ const BAR_HEIGHT := 44.0
 const CLOCK_HEIGHT := 30.0
 const SPACING := 8.0
 const TAB_KEYS: Array[String] = ["TABLET_TAB_PILOT", "TABLET_TAB_PHOTO", "TABLET_TAB_MISSILE", "TABLET_TAB_ALERTS"]
-## Boutons du niveau d'alerte, dans l'ordre de Station.Alert : texte et couleur du capuchon (celle de l'éclairage ;
-## noir pour « Tout éteindre »).
-const ALERT_KEYS: Array[String] = ["TABLET_ALERT_NONE", "TABLET_ALERT_YELLOW", "TABLET_ALERT_ORANGE",
-		"TABLET_ALERT_RED", "TABLET_ALERT_BLACKOUT"]
-const ALERT_CAPS: Array[Color] = [Color(0.86, 0.87, 0.88), Color(0.95, 0.78, 0.18), Color(0.95, 0.5, 0.1),
-		Color(0.8, 0.07, 0.04), Color(0.1, 0.1, 0.11)]
-const ALERT_BUTTON_SIZE := Vector2(80.0, 74.0)
-const COLOR_CALL := Color(1.0, 0.62, 0.18)
-const BLINK_S := 0.5
-const FLASH_S := 0.35
 
 var orbit: OrbitSimulation
 var flight_computer: FlightComputer
-## Image de la vue au nadir (SubViewport de la tablette).
+## Image de la vue au nadir (NadirCamera), fixée avant l'ajout à l'arbre.
 var nadir_texture: Texture2D
-## Photos prises (galerie de l'onglet Photographie) ; réglé par la tablette.
+## Photos prises (galerie de l'onglet Photographie) ; réglé par la tablette, relayé à la page.
 var archive: PhotoArchive:
 	set(value):
 		archive = value
-		if archive:
-			archive.photo_taken.connect(func(_photo: Dictionary) -> void: _show_photo(_photo_index))
-			archive.restored.connect(func() -> void: _show_photo(-1))
-		if _gallery_button:
-			_show_photo(_photo_index)
+		if _photo_page:
+			_photo_page.archive = value
 var current_tab := Tab.PILOT
 
 var _clock: Label
 var _pages: Array[Control] = []
 var _tab_buttons: Array[Button] = []
 var _hud_button: Button
-var _flash: ColorRect
-var _photo_view: TextureRect
-var _photo_caption: Label
-var _gallery_button: Button
-var _previous_button: Button
-var _next_button: Button
-## Photo affichée dans la galerie (−1 : vue en direct).
-var _photo_index := -1
-## Onglet Alertes : appel prioritaire suivi (trouvé à la première image où il existe), écran de réception (appel en
-## cours, ou « Aucune alerte »), bandeau, étiquettes des boutons de niveau, horloge du clignotement.
-var _call: PriorityCall
-var _call_idle: Label
-var _call_box: VBoxContainer
-var _call_from: Label
-var _call_subject: Label
-var _call_time: Label
-var _call_banner: PanelContainer
-var _alert_labels: Array[Label] = []
-var _shown_alert := -1
-var _blink := 0.0
+var _photo_page: PhotoPage
 ## État du HUD affiché sur le bouton (null avant la première image).
 var _hud_shown = null
 
@@ -147,10 +108,16 @@ func _ready() -> void:
 	stack.custom_minimum_size = page_size
 	stack.clip_contents = true
 	column.add_child(stack)
+	_photo_page = PhotoPage.new(page_size, SIDE_WIDTH)
+	_photo_page.nadir_texture = nadir_texture
+	_photo_page.archive = archive
+	_photo_page.photo_requested.connect(photo_requested.emit)
+	var alerts := AlertsPage.new()
+	alerts.call_started.connect(func() -> void: show_tab(Tab.ALERTS))
 	_pages.append(_build_pilot_page(page_size))
-	_pages.append(_build_photo_page(page_size))
+	_pages.append(_photo_page)
 	_pages.append(_build_missile_page(page_size))
-	_pages.append(_build_alerts_page(page_size))
+	_pages.append(alerts)
 	for page in _pages:
 		page.size = page_size
 		stack.add_child(page)
@@ -166,8 +133,7 @@ func show_tab(tab: int) -> void:
 	tab_changed.emit(tab)
 
 
-func _process(delta: float) -> void:
-	_update_alerts(delta)
+func _process(_delta: float) -> void:
 	var hud := _hud()
 	var on := hud == null or hud.overlay_enabled
 	if on != _hud_shown:
@@ -210,109 +176,6 @@ func _build_pilot_page(page_size: Vector2) -> Control:
 	return page
 
 
-## Vue au nadir en temps réel (légende en incrustation), bouton Photo et galerie des photos prises (PhotoArchive) :
-## « Galerie » remplace la vue en direct par la dernière photo (◀ ▶ : précédente, suivante ; légende : numéro, date,
-## point survolé, altitude, emprise), « Vue en direct » y revient ; le bouton Photo revient aussi à la vue en direct.
-func _build_photo_page(page_size: Vector2) -> Control:
-	var page := HBoxContainer.new()
-	page.add_theme_constant_override("separation", 16)
-	_photo_view = TextureRect.new()
-	_photo_view.texture = nadir_texture
-	_photo_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_photo_view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_photo_view.custom_minimum_size = Vector2(page_size.x - SIDE_WIDTH - 16.0, page_size.y)
-	_photo_view.clip_contents = true
-	page.add_child(_photo_view)
-	_flash = ColorRect.new()
-	_flash.color = Color(1, 1, 1, 0)
-	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_photo_view.add_child(_flash)
-	_photo_caption = Label.new()
-	_photo_caption.text = "TABLET_NADIR"
-	_photo_caption.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	_photo_caption.add_theme_font_size_override("font_size", 20)
-	_photo_caption.add_theme_color_override("font_color", PilotDisplay.COLOR_TEXT)
-	_photo_caption.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
-	# Fond sombre : légende lisible sur une photo claire (nuages, désert).
-	var caption_style := StyleBoxFlat.new()
-	caption_style.bg_color = Color(0.0, 0.0, 0.0, 0.6)
-	caption_style.set_corner_radius_all(4)
-	caption_style.set_content_margin_all(6)
-	_photo_caption.add_theme_stylebox_override("normal", caption_style)
-	_photo_caption.position = Vector2(8, 6)
-	_photo_view.add_child(_photo_caption)
-	var side := VBoxContainer.new()
-	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	side.alignment = BoxContainer.ALIGNMENT_CENTER
-	side.add_theme_constant_override("separation", 10)
-	page.add_child(side)
-	var shutter := BigRedButton.new()
-	shutter.cap_color = Color(0.82, 0.84, 0.86)
-	shutter.custom_minimum_size = Vector2(120.0, 112.0)
-	shutter.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	shutter.tooltip_text = "TABLET_PHOTO"
-	shutter.pressed.connect(_take_photo)
-	side.add_child(shutter)
-	var label := Label.new()
-	label.text = "TABLET_PHOTO"
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 26)
-	label.add_theme_color_override("font_color", PilotDisplay.COLOR_TEXT)
-	side.add_child(label)
-	side.add_child(HSeparator.new())
-	_gallery_button = Button.new()
-	_gallery_button.focus_mode = Control.FOCUS_NONE
-	_gallery_button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	_gallery_button.pressed.connect(func() -> void: _show_photo(-1 if _photo_index >= 0 else _photo_count() - 1))
-	side.add_child(_gallery_button)
-	var browse := HBoxContainer.new()
-	browse.alignment = BoxContainer.ALIGNMENT_CENTER
-	browse.add_theme_constant_override("separation", 10)
-	side.add_child(browse)
-	_previous_button = _make_arrow_button("◀", func() -> void: _show_photo(maxi(_photo_index - 1, 0)))
-	_next_button = _make_arrow_button("▶", func() -> void: _show_photo(mini(_photo_index + 1, _photo_count() - 1)))
-	browse.add_child(_previous_button)
-	browse.add_child(_next_button)
-	_show_photo(-1)
-	return page
-
-
-func _make_arrow_button(text: String, action: Callable) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.focus_mode = Control.FOCUS_NONE
-	button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	button.custom_minimum_size = Vector2(64.0, 44.0)
-	button.pressed.connect(action)
-	return button
-
-
-func _photo_count() -> int:
-	return archive.photos.size() if archive else 0
-
-
-## Affiche la photo index de la galerie, ou la vue en direct (index −1).
-func _show_photo(index: int) -> void:
-	_photo_index = index if index >= 0 and index < _photo_count() else -1
-	var count := _photo_count()
-	if _photo_index < 0:
-		_photo_view.texture = nadir_texture
-		_photo_caption.text = tr("TABLET_NADIR")
-	else:
-		var photo: Dictionary = archive.photos[_photo_index]
-		var footprint: Vector2 = photo.footprint_km
-		_photo_view.texture = photo.texture
-		_photo_caption.text = tr("TABLET_PHOTO_CAPTION").format({"n": _photo_index + 1, "count": count,
-				"date": Time.get_datetime_string_from_unix_time(int(photo.utc_unix), true).substr(0, 16),
-				"place": GeoMath.format_lat_lon(photo.lat, photo.lon), "altitude": roundi(photo.altitude_km),
-				"width": roundi(footprint.x), "height": roundi(footprint.y)})
-	_gallery_button.text = tr("TABLET_LIVE") if _photo_index >= 0 else tr("TABLET_GALLERY").format({"count": count})
-	_gallery_button.disabled = count == 0 and _photo_index < 0
-	_previous_button.disabled = _photo_index <= 0
-	_next_button.disabled = _photo_index < 0 or _photo_index >= count - 1
-
-
 ## Commande de tir, mise à l'échelle pour occuper la page (centrée).
 func _build_missile_page(page_size: Vector2) -> Control:
 	var page := CenterContainer.new()
@@ -327,122 +190,6 @@ func _build_missile_page(page_size: Vector2) -> Control:
 		launch.scale = Vector2.ONE * fit
 		holder.custom_minimum_size = launch.size * fit)
 	return page
-
-
-## Écran de réception (appel prioritaire en cours ou « Aucune alerte »), bandeau au-dessus des boutons, et les 5
-## boutons du niveau d'alerte de la station.
-func _build_alerts_page(page_size: Vector2) -> Control:
-	var page := VBoxContainer.new()
-	page.add_theme_constant_override("separation", 10)
-	var screen := PanelContainer.new()
-	screen.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	screen.add_theme_stylebox_override("panel", UiKit.flat_box(Color(0.02, 0.035, 0.03), ScreenPalette.FRAME, 1, 6, 16.0))
-	page.add_child(screen)
-	var center := CenterContainer.new()
-	screen.add_child(center)
-	_call_idle = _make_alert_label("TABLET_ALERT_IDLE", 26, ScreenPalette.DIM)
-	center.add_child(_call_idle)
-	_call_box = VBoxContainer.new()
-	_call_box.add_theme_constant_override("separation", 10)
-	center.add_child(_call_box)
-	_call_box.add_child(_make_alert_label("TABLET_CALL_TITLE", 34, COLOR_CALL))
-	_call_from = _make_alert_label("", 24, ScreenPalette.TEXT, false)
-	_call_subject = _make_alert_label("", 24, ScreenPalette.TEXT, false)
-	_call_time = _make_alert_label("", 22, ScreenPalette.DIM, false)
-	for label in [_call_from, _call_subject, _call_time]:
-		_call_box.add_child(label)
-	# Bandeau de l'appel, au-dessus des boutons : orange sur fond sombre, clignotant.
-	_call_banner = PanelContainer.new()
-	_call_banner.add_theme_stylebox_override("panel", UiKit.flat_box(Color(0.08, 0.04, 0.02), COLOR_CALL, 2, 4, 6.0))
-	var banner_text := _make_alert_label("PRIORITY_CALL_BANNER", 17, COLOR_CALL)
-	# Texte coupé plutôt que page élargie (traductions longues).
-	banner_text.clip_text = true
-	banner_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_call_banner.add_child(banner_text)
-	page.add_child(_call_banner)
-	# Boutons du niveau d'alerte (Station.Alert), répartis sur la largeur.
-	var buttons := HBoxContainer.new()
-	buttons.add_theme_constant_override("separation", 4)
-	page.add_child(buttons)
-	for level in ALERT_KEYS.size():
-		var cell := VBoxContainer.new()
-		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		cell.size_flags_stretch_ratio = 1.0
-		cell.add_theme_constant_override("separation", 2)
-		buttons.add_child(cell)
-		var button := BigRedButton.new()
-		button.cap_color = ALERT_CAPS[level]
-		button.custom_minimum_size = ALERT_BUTTON_SIZE
-		button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		button.pressed.connect(func() -> void:
-			var station := _station()
-			if station:
-				station.set_alert(level as Station.Alert))
-		cell.add_child(button)
-		# Texte traduit dès le départ (la clé brute, plus large, élargirait la page pour de bon).
-		var label := _make_alert_label(tr(ALERT_KEYS[level]), 18, ScreenPalette.DIM, false)
-		cell.add_child(label)
-		_alert_labels.append(label)
-	_show_call({})
-	return page
-
-
-## Étiquette centrée de la page Alertes (texte : clé de langue, ou composé si translate est faux).
-static func _make_alert_label(text: String, font_size: int, color: Color, translate := true) -> Label:
-	return UiKit.label(text, font_size, color, translate, HORIZONTAL_ALIGNMENT_CENTER)
-
-
-## Appel prioritaire (suivi dès qu'il existe : il est créé par le directeur de campagne), clignotement du bandeau et
-## niveau d'alerte en cours (étiquette du bouton allumée).
-func _update_alerts(delta: float) -> void:
-	if _call == null and is_inside_tree():
-		_call = get_tree().get_first_node_in_group(PriorityCall.GROUP) as PriorityCall
-		if _call:
-			_call.call_started.connect(func(call_info: Dictionary) -> void:
-				_show_call(call_info)
-				show_tab(Tab.ALERTS))
-			_call.call_stopped.connect(func() -> void: _show_call({}))
-			_show_call(_call.info)
-	if current_tab != Tab.ALERTS:
-		return
-	_blink += delta
-	_call_banner.modulate.a = 1.0 if fmod(_blink, BLINK_S * 2.0) < BLINK_S else 0.3
-	var station := _station()
-	var current := station.get_alert() if station else Station.Alert.NONE
-	if current == _shown_alert:
-		return
-	_shown_alert = current
-	for level in _alert_labels.size():
-		var label := _alert_labels[level]
-		var active := level == current
-		label.add_theme_color_override("font_color", ScreenPalette.TEXT if active else ScreenPalette.DIM)
-		label.text = ("▲ %s" if active else "%s") % tr(ALERT_KEYS[level])
-
-
-## Écran de réception : l'appel call_info (from, subject, received_unix), ou « Aucune alerte » s'il est vide.
-func _show_call(call_info: Dictionary) -> void:
-	var active := not call_info.is_empty()
-	_call_idle.visible = not active
-	_call_box.visible = active
-	_call_banner.visible = active
-	if not active:
-		return
-	_call_from.text = tr("TABLET_CALL_FROM").format({"from": call_info.get("from", "")})
-	_call_subject.text = tr("TABLET_CALL_SUBJECT").format({"subject": call_info.get("subject", "")})
-	_call_time.text = tr("TABLET_CALL_TIME").format({"time": Time.get_datetime_string_from_unix_time(
-			int(call_info.get("received_unix", 0.0))).substr(11, 5)})
-
-
-func _station() -> Station:
-	return get_tree().get_first_node_in_group(Station.GROUP) as Station if is_inside_tree() else null
-
-
-## Bouton Photo : retour à la vue en direct, flash, et prise de vue par la tablette (photo_requested).
-func _take_photo() -> void:
-	_show_photo(-1)
-	_flash.color.a = 0.9
-	create_tween().tween_property(_flash, "color:a", 0.0, FLASH_S)
-	photo_requested.emit()
 
 
 # --- Style ----------------------------------------------------------------------------------------------------------
