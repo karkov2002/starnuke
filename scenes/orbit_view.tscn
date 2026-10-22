@@ -147,7 +147,7 @@ script = ExtResource("10_hud")
 [node name="NukeLauncher" type="Node" parent="." unique_id=1883274914]
 script = ExtResource("12_nuam2")
 
-[node name="NukeReport" type="CanvasLayer" parent="." unique_id=491561246]
+[node name="NukeReport" type="Node" parent="." unique_id=491561246]
 script = ExtResource("13_tq5ei")
 
 [node name="PauseMenu" type="CanvasLayer" parent="." unique_id=93806264]

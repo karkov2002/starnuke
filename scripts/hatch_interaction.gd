@@ -8,7 +8,7 @@ extends Node
 ##   CampaignDirector.sleep) ;
 ## - clic gauche : mouvement animé (Station.toggle_hatch, Station.toggle_curtain ; un clic pendant le mouvement
 ##   l'inverse), Station.set_suit_worn, Station.toggle_airlock_pressure.
-## Inactif quand un écran est occupé (ScreenSeat : poste de pilotage, radio, télévision). Les clics pris avant
+## Inactif quand un écran est occupé (ScreenSeatConsole : poste de pilotage, radio, télévision). Les clics pris avant
 ## (tablette, interface) ne lui parviennent pas.
 
 const BUNK := "Interactif_Couchette"
@@ -86,7 +86,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _active() -> bool:
-	return _station != null and not ScreenSeat.any_seated(get_tree())
+	return _station != null and not ScreenSeatConsole.any_seated(get_tree())
 
 
 ## Écoutille ouvrable, rideau ou pièce du sas sous le curseur, à portée (premier obstacle touché par le rayon, zones

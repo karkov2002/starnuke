@@ -1,19 +1,18 @@
 class_name NukeReportPanel
-extends CanvasLayer
+extends ScreenConsole
 ## « Bilan des explosions » (nœud NukeReport de scenes/orbit_view.tscn) : affiché sur l'écran mural SCREEN_NODE du
 ## module Commande (en face de la télévision), dessiné dans un SubViewport appliqué à la dalle (shader des écrans
-## d'ambiance, shaders/tech_screen.gdshader). Affichage seulement : le bilan (pertes cumulées par pays, à l'instant
-## présent de chaque explosion, et projection) vient de NukeTally. Rafraîchi toutes les REFRESH_S.
+## d'ambiance, shaders/tech_screen.gdshader ; dalle, garde de distance et extinction avec « plus de lumière » :
+## ScreenConsole). Affichage seulement : le bilan (pertes cumulées par pays, à l'instant présent de chaque explosion,
+## et projection) vient de NukeTally. Rafraîchi toutes les REFRESH_S, seulement quand l'image est rendue.
 ## Contenu : titre, résumé (explosions, morts, blessés), projection, tableau par pays (pays, explosions, morts,
 ## blessés, part de la population ; ⚡ et couleur ambre : black-out national), note sur le modèle. Sans explosion :
 ## « Aucune explosion ». Quand la liste déborde, elle défile seule (pas de souris sur un écran mural) : descente lente,
-## pause en bas, retour en haut.
-## L'image n'est rendue que si la caméra est à moins de RENDER_DISTANCE ; écran éteint avec « plus de lumière »
-## (Station.get_blackout). (Ancienne fenêtre déplaçable à l'écran : remplacée par cet écran.)
+## pause en bas, retour en haut. (Ancienne fenêtre déplaçable à l'écran : remplacée par cet écran.)
 
 const SCREEN_NODE := "Interactif_Ecran_02"
+## Image de taille fixe (mise en page en pixels), étirée sur la dalle.
 const VIEWPORT_SIZE := Vector2i(1280, 800)
-const RENDER_DISTANCE := 12.0
 ## Colonnes : titre et largeur minimale (0 : la colonne du nom prend la place restante ; les autres sont alignées à
 ## droite).
 const COLUMNS: Array[Dictionary] = [
@@ -35,14 +34,8 @@ const SCROLL_SPEED := 30.0
 const SCROLL_PAUSE_S := 3.0
 
 @export var launcher_path: NodePath = ^"../NukeLauncher"
-@export var station_path: NodePath = ^"../Station/StationSpatiale"
-@export var screen_energy := 1.1
 
 var _launcher: NukeLauncher
-var _station: Station
-## Dalle de l'écran mural (StationScreen : matériau d'affichage, luminosité).
-var _screen: StationScreen
-var _viewport: SubViewport
 var _summary: Label
 var _projection: Label
 var _scroll: ScrollContainer
@@ -60,33 +53,32 @@ var _shown_none := -1
 var _sovereigns := {}
 
 
-func _ready() -> void:
+func _screen_node() -> String:
+	return SCREEN_NODE
+
+
+func _prepare() -> bool:
 	_launcher = get_node_or_null(launcher_path) as NukeLauncher
-	_station = get_node_or_null(station_path) as Station
 	if _launcher:
 		_launcher.detonated.connect(func(_effect: NukeEffect) -> void: _refresh_left = 0.0)
-	_screen = StationScreen.find(_station, SCREEN_NODE) if _station else null
-	if _screen == null:
-		push_error("NukeReportPanel : écran %s (ou sa dalle) introuvable" % SCREEN_NODE)
-		set_process(false)
-		return
-	# Image de taille fixe (mise en page en pixels), étirée sur la dalle.
-	_viewport = SubViewport.new()
-	_viewport.name = "Screen"
-	_viewport.size = VIEWPORT_SIZE
-	_viewport.disable_3d = true
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	add_child(_viewport)
+	return true
+
+
+func _make_viewport() -> SubViewport:
+	var viewport := SubViewport.new()
+	viewport.name = "Screen"
+	viewport.size = VIEWPORT_SIZE
+	viewport.disable_3d = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	return viewport
+
+
+func _create_display(_into: SubViewport) -> void:
 	_build()
-	_screen.apply_shader(StationScreen.TECH_SHADER, _viewport.get_texture(), {"scan_depth": 0.06})
 
 
-func _process(delta: float) -> void:
-	_screen.set_energy(screen_energy * (1.0 - _station.get_blackout()))
-	var camera := get_viewport().get_camera_3d()
-	var near := camera != null and _screen.distance_to(camera.global_position) < RENDER_DISTANCE
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if near else SubViewport.UPDATE_DISABLED
-	if not near:
+func _update_screen(delta: float, near_now: bool) -> void:
+	if not near_now:
 		return
 	_auto_scroll(delta)
 	_refresh_left -= delta
@@ -139,8 +131,6 @@ func _build() -> void:
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.custom_minimum_size.x = VIEWPORT_SIZE.x - 72.0
 	body.add_child(note)
-
-
 
 
 func _show(tally: Dictionary, none: bool) -> void:

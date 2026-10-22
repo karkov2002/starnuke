@@ -157,14 +157,14 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"tablet") and not event.is_echo() and not StationCamera.is_typing(self) \
-			and not ScreenSeat.any_seated(get_tree()):
+			and not ScreenSeatConsole.any_seated(get_tree()):
 		get_viewport().set_input_as_handled()
 		_set_wanted(not _wanted)
 
 
-## Poste de pilotage, télévision (ScreenSeat) : la tablette se range quand on s'y installe.
+## Poste de pilotage, radio, télévision (ScreenSeatConsole) : la tablette se range quand on s'y installe.
 func _connect_seats() -> void:
-	for seat in get_tree().get_nodes_in_group(ScreenSeat.GROUP):
+	for seat in get_tree().get_nodes_in_group(ScreenSeatConsole.GROUP):
 		seat.seated_changed.connect(func(seated: bool) -> void:
 			if seated:
 				_set_wanted(false))

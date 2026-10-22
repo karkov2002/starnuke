@@ -284,7 +284,13 @@ km/degré unique vaut 111,195.
 
 ### Lot 2 : découpes « une classe, un rôle » (plusieurs séances, une classe par commit)
 
-1. `ScreenSeatConsole` : base des trois consoles ; `NukeReportPanel` passe de `CanvasLayer` à `Node`.
+1. `ScreenSeatConsole` : base des trois consoles ; `NukeReportPanel` passe de `CanvasLayer` à `Node`. — **fait
+   le 22/10/2026** : deux bases (`ScreenConsole` pour la dalle, le viewport, la luminosité et la garde de
+   distance ; `ScreenSeatConsole` pour la vue assise), `ScreenSeat` fondu dans `ScreenSeatConsole` ; les trois
+   consoles passent de 178 / 158 / 270 lignes à 90 / 62 / 174, le bilan de 262 à 252. Vérifié par la sonde
+   `tools/bench/console_probe.tscn` (64 contrôles en headless) et en jeu par le MCP (captures des trois écrans).
+   Écart avec l'avant : pendant la transition de retour, la radio aussi garde la souris (comme le poste et la
+   télévision) ; l'interface n'est suspendue ou reprise qu'au changement de portée, plus à chaque image.
 2. `TvChannels` extrait de `TvConsole`, injecté dans `TvDisplay`.
 3. `Tablet` : `NadirCamera`, `AlertsPage`, `PhotoPage`.
 4. `Station` : `StationAnim`, puis un composant par commit (`StationLighting`, `StationSilos`,

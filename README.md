@@ -592,7 +592,15 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	que les clics et les glisser, pas le simple survol : il lui envoie l'entrée et la sortie de la souris
 	(`NOTIFICATION_VP_MOUSE_ENTER` / `EXIT`) quand le pointeur arrive sur l'écran ou le quitte, et transmet le
 	relâchement du bouton gauche tenu même hors de la dalle (BURN, curseurs). `HoverBubble` : bulles de survol et
-	de sortie (écrans, écoutilles, sas), masquées en pause. Interface construite en code : fabriques partagées
+	de sortie (écrans, écoutilles, sas), masquées en pause. Les nœuds d'écran héritent de deux bases :
+	`ScreenConsole` (`scripts/screens/screen_console.gd` : station, dalle, viewport, matériau, luminosité éteinte
+	avec « plus de lumière », garde de distance de 12 m qui coupe le rendu et prévient la sous-classe ; base du
+	bilan `NukeReportPanel`) et `ScreenSeatConsole` (`screen_seat_console.gd`, groupe `screen_seat` : survol et
+	bulle, vue assise au clic, souris et clavier transmis à l'interface, barre du temps du Hud toujours cliquable,
+	clic droit ou `stand_up()` pour quitter ; base du poste, de la radio et de la télévision, qui ne gardent que
+	leurs crochets : interface, dépendances, touche, réactions à l'installation). Sonde headless de ces écrans :
+	`tools/bench/console_probe.tscn` (installation et sortie à chaque poste par l'API, garde de distance, code de
+	sortie 0 si tout passe). Interface construite en code : fabriques partagées
 	`UiKit` (`scripts/ui/ui_kit.gd` : étiquettes, boutons des menus plein écran, boîtes de style) et couleurs des
 	écrans verts `ScreenPalette` (`scripts/ui/screen_palette.gd`), référencées par les écrans plutôt que recopiées.
   - **Navigation, comme une carte en ligne** (même carte au poste et sur la tablette, chacune sa vue) : **molette** =
@@ -625,7 +633,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   ou Courier New), palette CGA (fond bleu, cadres doubles cyan clair, barre de menu cyan avec l'heure UTC du jeu,
   barre des touches de fonction en bas, curseur clignotant), lignes de balayage du shader des écrans.
   - **Vue radio** : comme la télévision (survol à 2,5 m → bulle « Communications radio » ; clic → la vue se cadre
-	face à l'écran ; clic droit ou F10 → on quitte ; groupe `ScreenSeat`). En vue radio, souris **et clavier** vont à
+	face à l'écran ; clic droit ou F10 → on quitte ; `ScreenSeatConsole`). En vue radio, souris **et clavier** vont à
 	l'écran : F1 aide, F2 choix du canal, F10 quitter, flèches (message ou canal précédent / suivant), chiffres
     (envoyer la réponse correspondante), Entrée (valider le canal), Échap (fermer une fenêtre) ; tout se fait aussi à
     la souris.
@@ -647,7 +655,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   `Interactif_Ecran_03` du module Commande (retiré des écrans d'ambiance) diffuse les chaînes d'information du monde.
   - **Vue TV** : survol à portée (2,5 m) → bulle « Télévision » ; clic gauche → la vue se cadre face à l'écran, comme
 	au poste de pilotage (déplacements suspendus, tablette rangée, écoutilles non cliquables : groupe commun
-	`ScreenSeat`, `scripts/screen_seat.gd`) ; **clic droit** pour quitter, la télévision reste sur la chaîne choisie
+	`ScreenSeatConsole`, `scripts/screens/screen_seat_console.gd`) ; **clic droit** pour quitter, la télévision reste sur la chaîne choisie
 	(France par défaut).
   - **Chaînes** : bouton « Chaînes » en haut à gauche de l'écran → **guide des chaînes** plein écran, comme sur une
     vraie télévision : mosaïque défilante (molette) de vignettes (`scripts/ui/channel_tile.gd`) avec logo, drapeau du
