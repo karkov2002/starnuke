@@ -310,7 +310,8 @@ km/degré unique vaut 111,195.
    `SiloDoor`, gyrophares, lancement ; `StationAnim.tween_hinge` rend le Tween et `hinge_range` remplace les
    dictionnaires ; `Station` → 1 014 lignes, façade de relais) ; `StationHatches` fait le 22/10 (écoutilles et
    trappes verrouillées `Hatch`, volants, rideaux `Curtain` ; `Station` → 815 lignes) ; `StationAirlock` fait le
-   22/10 (combinaison, valve typée `Valve`, courbe de l'aiguille, voyants ; `Station` → 635 lignes). Non-régression :
+   22/10 (combinaison, valve typée `Valve`, courbe de l'aiguille, voyants ; `Station` → 635 lignes) ;
+   `StationThermal` fait le 22/10 (radiateurs `Radiator`, chaleur ; `Station` → 590 lignes). Non-régression :
    section Station de
    `tools/bench/console_probe.tscn` (écoutille, trappe, radiateurs et chaleur, cargo, combinaison, valve du sas,
    alerte et black-out, lancement d'un missile jusqu'au relais), écrite avant la découpe.

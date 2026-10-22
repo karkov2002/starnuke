@@ -153,14 +153,17 @@ const HIDDEN_SHADER := "shader_type spatial;\nrender_mode unshaded, skip_vertex_
 @export var heat_fall_per_s := 0.02
 
 ## Chaleur accumulée (0 à 1).
-var heat := 0.0
+## Chaleur de la station (0 à 1), tenue par StationThermal.
+var heat: float:
+	get:
+		return _thermal.heat if _thermal else 0.0
 
 ## Écoutilles, trappes verrouillées et rideaux : StationHatches.
 var _hatches: StationHatches
 ## Trappes des silos, gyrophares et lancement des missiles : StationSilos.
 var _silos: StationSilos
-## id -> {tracks : Array[int], is_deployed, tween}
-var _radiators := {}
+## Radiateurs et chaleur : StationThermal.
+var _thermal: StationThermal
 ## Animations du modèle (bibliothèque, lecteurs, pistes rejouées) : StationAnim.
 var _anim: StationAnim
 ## Panneaux solaires (suivi du soleil) : StationSolarPanels.
@@ -188,7 +191,7 @@ func _ready() -> void:
 		return
 	_hatches = StationHatches.new(self, _anim)
 	_silos = StationSilos.new(self, _anim)
-	_collect_radiators()
+	_thermal = StationThermal.new(self, _anim)
 	_split_interior_layers()
 	var world_environment := get_node_or_null(world_environment_path) as WorldEnvironment
 	_lighting = StationLighting.new(self, _orbit, world_environment.environment if world_environment else null)
@@ -213,17 +216,8 @@ func _process(delta: float) -> void:
 		_silos.update(delta)
 	if _airlock:
 		_airlock.update(delta)
-	if _radiators.is_empty():
-		return
-	var deployed := 0.0
-	for id: String in _radiators:
-		deployed += 1.0 if _radiators[id].is_deployed else 0.0
-	var share := deployed / _radiators.size()
-	var rate := heat_rise_per_s * (1.0 - share) - heat_fall_per_s * share
-	var value := clampf(heat + rate * delta, 0.0, 1.0)
-	if not is_equal_approx(value, heat):
-		heat = value
-		heat_changed.emit(heat)
+	if _thermal:
+		_thermal.update(delta)
 
 
 # --- Écoutilles et rideaux (StationHatches) --------------------------------------------------------------------------
@@ -454,51 +448,25 @@ func launch_missile(silo: int, tube: int) -> bool:
 	return _silos != null and _silos.launch_missile(silo, tube)
 
 
-# --- Radiateurs -----------------------------------------------------------------------------------------------------
+# --- Radiateurs et chaleur (StationThermal) --------------------------------------------------------------------------
 
 func radiator_ids() -> Array[String]:
-	var ids: Array[String] = []
-	ids.assign(_radiators.keys())
-	return ids
+	return _thermal.radiator_ids() if _thermal else []
 
 
 func is_radiator_deployed(id: String) -> bool:
-	return _radiators.has(id) and _radiators[id].is_deployed
+	return _thermal != null and _thermal.is_radiator_deployed(id)
 
 
 ## Déploie ou replie un radiateur (ses trois articulations, rejouées depuis Retraction_Radiateurs).
 func set_radiator_deployed(id: String, deployed: bool) -> bool:
-	if not _radiators.has(id):
-		return false
-	var radiator: Dictionary = _radiators[id]
-	if radiator.is_deployed == deployed:
-		return true
-	if radiator.tween:
-		radiator.tween.kill()
-	var anim := _anim.animation(ANIM_RADIATORS)
-	# Retraction_Radiateurs : début = déployé, fin = replié.
-	var from := 0.0 if deployed == false else anim.length
-	var to := anim.length if deployed == false else 0.0
-	radiator.tween = _anim.play_tracks(anim, radiator.tracks, from, to, anim.length)
-	radiator.tween.tween_callback(func() -> void:
-		radiator.tween = null
-		radiator.is_deployed = deployed
-		radiator_changed.emit(id, deployed))
-	return true
+	return _thermal != null and _thermal.set_radiator_deployed(id, deployed)
 
 
 ## Tous les radiateurs : animation complète s'ils sont tous dans le même état, sinon un par un.
 func set_all_radiators_deployed(deployed: bool) -> void:
-	var group := _radiators.keys().all(func(id: String) -> bool:
-		return _radiators[id].is_deployed != deployed and _radiators[id].tween == null)
-	if group:
-		_anim.play_group(ANIM_RADIATORS, deployed, func() -> void:
-			for id: String in _radiators:
-				_radiators[id].is_deployed = deployed
-				radiator_changed.emit(id, deployed))
-	else:
-		for id: String in _radiators:
-			set_radiator_deployed(id, deployed)
+	if _thermal:
+		_thermal.set_all_radiators_deployed(deployed)
 
 
 ## Mode furtif : radiateurs repliés (la chaleur monte).
@@ -553,19 +521,6 @@ static func fit_door_collision(door: Node) -> void:
 	for body in door.get_children():
 		if body is AnimatableBody3D:
 			(body as AnimatableBody3D).sync_to_physics = false
-
-
-func _collect_radiators() -> void:
-	if not _anim.has(ANIM_RADIATORS):
-		return
-	var anim := _anim.animation(ANIM_RADIATORS)
-	for id in RADIATOR_IDS:
-		var tracks: Array[int] = []
-		for t in anim.get_track_count():
-			if String(anim.track_get_path(t)).begins_with(id + "/"):
-				tracks.append(t)
-		if not tracks.is_empty():
-			_radiators[id] = {"tracks": tracks, "is_deployed": true, "tween": null}
 
 
 ## Calques intérieurs. Un maillage entièrement intérieur passe sur INTERIOR_LAYER ; un maillage mixte (coques : surfaces
