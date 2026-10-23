@@ -358,7 +358,7 @@ km/degré unique vaut 111,195.
    des clés StringName). Puis `scripts/earth_scene_driver.gd` (nœud `EarthScene` après `Orbit` dans
    `orbit_view.tscn` : pose de la Terre, du soleil, du ciel et des uniforms à chaque image et à chaque
    `orbit_changed`, matériaux de la Terre cachés et tenus à jour par `child_entered_tree` /
-   `child_exiting_tree`), `Orbit` modèle pur (483 → 393 lignes, plus de chemins de nœuds ; garde `ecef_to_world`
+   `child_exiting_tree`), `Orbit` modèle pur (483 → 411 lignes, plus de chemins de nœuds ; garde `ecef_to_world`
    écrit par le pilote), `OrbitSimulation.arg_lat_of` à la place des trois copies (`set_orbit_plane`,
    `FlightComputer` ×2, `MissionPlanner`), `sidereal_angle_at_unix` public. Les quatre sondes et les deux outils
    de campagne : identiques. Écart : la scène est aussi posée dès `orbit_changed` (avant : à l'image suivante,
