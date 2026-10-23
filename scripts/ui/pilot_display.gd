@@ -123,9 +123,18 @@ func _ready() -> void:
 	column.add_child(burn)
 
 
-func _process(_delta: float) -> void:
+## Valeurs affichées rafraîchies à refresh_hz (textes formatés : inutile à chaque image).
+@export var refresh_hz := 5.0
+var _since := INF
+
+
+func _process(delta: float) -> void:
 	if orbit == null or flight_computer == null:
 		return
+	_since += delta
+	if _since < 1.0 / refresh_hz:
+		return
+	_since = 0.0
 	var now := orbit.get_utc_datetime()
 	var point := orbit.get_subsatellite_point()
 	_values.PILOT_UTC.text = "%02d:%02d:%02d" % [now.hour, now.minute, now.second]

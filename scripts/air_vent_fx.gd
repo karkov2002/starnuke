@@ -41,6 +41,8 @@ var _plume: GPUParticles3D
 var _mist: GPUParticles3D
 var _sound: AudioStreamPlayer3D
 var _placed := false
+## Jets allumés à la dernière image (porte fermée et jets éteints : rien à refaire).
+var _was_on := false
 
 
 func _ready() -> void:
@@ -59,6 +61,10 @@ func _process(_delta: float) -> void:
 	if _station.is_hatch_opening(_station.airlock_outer_hatch):
 		level = _atmosphere.pressure_of(StationAtmosphere.SAS)
 	var on := level > min_level
+	# Porte fermée et jets déjà éteints (le cas courant) : rien à faire.
+	if not on and not _was_on:
+		return
+	_was_on = on
 	for particles: GPUParticles3D in [_plume, _mist]:
 		particles.emitting = on
 		if on:

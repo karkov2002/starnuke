@@ -37,6 +37,11 @@ var fallout_pending := false
 var smoke_yield_kg_m2 := -1.0
 ## Cache de can_ignite_land() (−1 : pas encore calculé).
 var _ignites_land := -1
+## Temps physique calculé une fois par image (get_time_s, appelé par chaque composant : flash, choc, champignon,
+## effets globaux) : image du calcul et valeur.
+var _time_frame := -1
+var _time_s := 0.0
+var _flash: NukeFlash
 
 @onready var _markers: Node3D = $DebugMarkers
 
@@ -46,6 +51,7 @@ func _ready() -> void:
 		params = NukeParams.new()
 	place()
 	_build_debug_markers()
+	_flash = get_node_or_null(^"Flash") as NukeFlash
 
 
 ## Place l'effet au point (latitude, longitude) de params, sur la sphère terrestre du parent (nœud Earth).
@@ -57,15 +63,20 @@ func place() -> void:
 			up * OrbitSimulation.EARTH_RADIUS_UNITS)
 
 
-## Temps physique (s) écoulé depuis l'explosion.
+## Flash de l'explosion (enfant Flash ; null s'il n'y en a pas).
 func get_flash() -> NukeFlash:
-	return get_node_or_null(^"Flash") as NukeFlash
+	return _flash
 
 
+## Temps physique (s) écoulé depuis l'explosion (temps imposé s'il y en a un), calculé une fois par image.
 func get_time_s() -> float:
 	if time_override_s >= 0.0:
 		return time_override_s
-	return NukeClock.physical_time(params.start_time_s)
+	var frame := Engine.get_process_frames()
+	if frame != _time_frame:
+		_time_frame = frame
+		_time_s = NukeClock.physical_time(params.start_time_s)
+	return _time_s
 
 
 ## Le flash peut-il allumer des incendies ? Faux pour une explosion en mer sans aucune terre dans le rayon des

@@ -66,6 +66,9 @@ var burn_required_s := 0.0
 var last_burn := {}
 
 var _orbit: OrbitSimulation
+## Orbite fantôme de l'image courante (get_ghost) et image de son calcul (−1 : à refaire).
+var _ghost := {}
+var _ghost_frame := -1
 ## Orbite et cible au début de la poussée en cours (inclinaison, altitude, Ω), et temps du point de manœuvre.
 var _burn_start := {}
 
@@ -73,6 +76,7 @@ var _burn_start := {}
 func _ready() -> void:
 	add_to_group(GROUP)
 	_orbit = get_node(orbit_path) as OrbitSimulation
+	plan_changed.connect(func() -> void: _ghost_frame = -1)
 	reset_target()
 
 
@@ -195,6 +199,17 @@ func _target_raan(time_s: float) -> float:
 ## raan (rad, au point de manœuvre), raan_rate (précession, rad/s), node_arg_lat (argument de latitude au point de
 ## manœuvre), node_time_s, mean_motion (rad/s).
 func get_ghost() -> Dictionary:
+	# Calculée une fois par image (GhostTrack et la carte la demandent chacun) ; refaite au changement de plan.
+	var frame := Engine.get_process_frames()
+	if frame == _ghost_frame:
+		return _ghost
+	_ghost_frame = frame
+	_ghost = _compute_ghost()
+	return _ghost
+
+
+## Orbite fantôme sans cache (get_ghost).
+func _compute_ghost() -> Dictionary:
 	var node_time := get_node_time_s()
 	var inclination := deg_to_rad(target_inclination_deg)
 	var raan := _target_raan(node_time)

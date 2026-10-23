@@ -41,11 +41,12 @@ var _tween: Tween
 
 
 ## Un poste de la scène est occupé.
-static func any_seated(tree: SceneTree) -> bool:
-	for seat in tree.get_nodes_in_group(GROUP):
-		if seat.is_seated():
-			return true
-	return false
+static func any_seated(_tree: SceneTree) -> bool:
+	return _seated_count > 0
+
+
+## Nombre de postes occupés (tenu par _sit / stand_up ; remis à zéro quand un poste occupé quitte l'arbre).
+static var _seated_count := 0
 
 
 func _ready() -> void:
@@ -66,6 +67,12 @@ func _ready() -> void:
 
 func is_seated() -> bool:
 	return _seated
+
+
+func _exit_tree() -> void:
+	if _seated:
+		_seated = false
+		_seated_count = maxi(_seated_count - 1, 0)
 
 
 func _process(delta: float) -> void:
@@ -120,6 +127,7 @@ func stand_up() -> void:
 		return
 	_input_forwarder.leave()
 	_seated = false
+	_seated_count = maxi(_seated_count - 1, 0)
 	_on_stood_up()
 	_move_to(_return_position, _return_rotation, func() -> void:
 		_moving = false
@@ -135,6 +143,7 @@ func _sit() -> void:
 	var local_rotation := (_observer.global_basis.inverse() * (pose.look as Basis)).get_rotation_quaternion()
 	_set_observer_active(false)
 	_seated = true
+	_seated_count += 1
 	_on_seated()
 	_move_to(pose.eye, local_rotation, func() -> void: _moving = false)
 	seated_changed.emit(true)

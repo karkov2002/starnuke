@@ -91,13 +91,22 @@ func _ready() -> void:
 	stack.add_child(_status)
 
 
-func _process(_delta: float) -> void:
+## Textes rafraîchis à refresh_hz ; bouton et jauge suivis à chaque image pendant une poussée.
+@export var refresh_hz := 5.0
+var _since := INF
+
+
+func _process(delta: float) -> void:
 	if flight_computer == null:
 		return
 	var computer := flight_computer
 	# Poussée arrêtée d'elle-même (150 %) ou mode changé : le bouton remonte.
 	if _button.is_held() and not computer.burning:
 		_button.release()
+	_since += delta
+	if _since < 1.0 / refresh_hz and not computer.burning:
+		return
+	_since = 0.0
 	_button.disabled = not computer.can_burn() and not computer.burning
 	if computer.is_burn_at_node():
 		_node_label.text = tr("PILOT_NODE_ASCENDING" if computer.is_node_ascending() else "PILOT_NODE_DESCENDING")

@@ -40,8 +40,18 @@ func _ready() -> void:
 		_gauges[zone] = _build(station, zone, GAUGES[zone][0], GAUGES[zone][1])
 
 
+## Témoins rafraîchis à refresh_hz (les pressions varient lentement) ; texte, couleur et témoin ne sont réécrits
+## que s'ils changent.
+@export var refresh_hz := 10.0
+var _since := INF
+
+
 func _process(delta: float) -> void:
 	_time = fmod(_time + delta, blink_s)
+	_since += delta
+	if _since < 1.0 / refresh_hz:
+		return
+	_since = 0.0
 	var lit := _time < blink_s * 0.5
 	for zone: String in _gauges:
 		var gauge: Dictionary = _gauges[zone]
@@ -51,11 +61,15 @@ func _process(delta: float) -> void:
 		if text != gauge.shown:
 			gauge.shown = text
 			(gauge.label as Label3D).text = text
-		(gauge.label as Label3D).modulate = color
-		var led: StandardMaterial3D = gauge.led
-		led.albedo_color = color
-		led.emission = color
-		led.emission_energy_multiplier = led_energy if color != RED or lit else 0.0
+		var energy := led_energy if color != RED or lit else 0.0
+		if color != gauge.get("color", Color.TRANSPARENT) or energy != gauge.get("energy", -1.0):
+			gauge.color = color
+			gauge.energy = energy
+			(gauge.label as Label3D).modulate = color
+			var led: StandardMaterial3D = gauge.led
+			led.albedo_color = color
+			led.emission = color
+			led.emission_energy_multiplier = energy
 
 
 ## Afficheur posé sur la paroi (position et normale en coordonnées Blender), face vers l'intérieur, haut vers le

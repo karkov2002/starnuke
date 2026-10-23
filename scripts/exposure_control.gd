@@ -61,6 +61,10 @@ var flash_received := 0.0
 ## Baisse de l'exposition par soleil de flux de flash reçu : facteur 1 / (1 + flash_adapt_gain × flux).
 @export var flash_adapt_gain := 8.0
 
+## Cadence d'évaluation de la cible (Hz) : l'adaptation est lissée (τ 0,25 à 1 s), une cible à 20 Hz suffit ; le
+## lissage et l'application restent par image (flash : dazzle et flash_received changent chaque image).
+@export var target_hz := 20.0
+
 var _earth: Node3D
 var _sun: DirectionalLight3D
 ## Station (scripts/station.gd), pour savoir si l'observateur est dans la cupola ; null sans station (décor du menu
@@ -68,6 +72,10 @@ var _sun: DirectionalLight3D
 var _station: Station
 var _attributes: CameraAttributes
 var _log_factor := 0.0
+## Dernière cible (log), hors flash, et temps écoulé depuis son évaluation ; caméra de l'évaluation en cours.
+var _log_target := 0.0
+var _since_target := INF
+var _camera: Camera3D
 
 
 func _ready() -> void:
@@ -79,12 +87,13 @@ func _ready() -> void:
 	var world_environment := get_node_or_null(world_environment_path) as WorldEnvironment
 	if world_environment:
 		_attributes = world_environment.camera_attributes
-	_log_factor = log(_target_factor())
+	_log_factor = log(_target_factor(true))
 	_apply()
 
 
 func _process(delta: float) -> void:
-	var target := log(_target_factor())
+	_since_target += delta
+	var target := log(_target_factor(_since_target >= 1.0 / target_hz))
 	var tau := darkening_s if target < _log_factor else adaptation_s
 	_log_factor += (target - _log_factor) * (1.0 - exp(-delta / maxf(tau, 1e-3)))
 	_apply()
@@ -109,25 +118,35 @@ func _apply() -> void:
 
 ## Facteur cible : intérieur de la station (interior_multiplier) fondu, selon la part de l'écran occupée par la Terre,
 ## avec le facteur jour / nuit du point regardé ; divisé par l'éblouissement du soleil dans le champ (depuis la cupola
-## seulement : ailleurs la coque le cache) et par l'adaptation au flash.
-func _target_factor() -> float:
+## seulement : ailleurs la coque le cache) et par l'adaptation au flash. La part « scène » (cupola, vue de la Terre,
+## soleil) n'est réévaluée que si evaluate (cadence target_hz) ; la part « flash » l'est à chaque image.
+func _target_factor(evaluate: bool) -> float:
+	if evaluate:
+		_since_target = 0.0
+		_camera = get_viewport().get_camera_3d()
+		_log_target = log(_scene_factor())
+	return exp(_log_target) / (1.0 + flash_adapt_gain * maxf(flash_received, 0.0))
+
+
+func _scene_factor() -> float:
 	# Hors de la cupola, dans les modules, la coque cache la Terre et les flashs : l'œil reste réglé sur l'éclairage
 	# intérieur (les rayons de _earth_view traversent la coque). Dehors (éjection), comme dans la cupola.
-	if not _in_cupola() and not _outside():
+	var in_cupola := _in_cupola()
+	if not in_cupola and not _outside():
 		return interior_multiplier
 	var view := _earth_view()
-	var night := 1.0 - smoothstep(night_elevation_deg, day_elevation_deg, view.elevation)
+	var night := 1.0 - smoothstep(night_elevation_deg, day_elevation_deg, view.y)
 	var earth_factor := lerpf(log(day_multiplier), log(night_multiplier), night)
 	# Les montants de la cupola occupent une part fixe de l'écran : la Terre domine dès qu'elle en couvre ~60 %.
-	var factor := exp(lerpf(log(interior_multiplier), earth_factor, smoothstep(0.0, 0.6, view.fraction)))
-	var sun := _sun_in_view() if _in_cupola() else 0.0
-	return factor / lerpf(1.0, sun_dimming, sun) / (1.0 + flash_adapt_gain * maxf(flash_received, 0.0))
+	var factor := exp(lerpf(log(interior_multiplier), earth_factor, smoothstep(0.0, 0.6, view.x)))
+	var sun := _sun_in_view() if in_cupola else 0.0
+	return factor / lerpf(1.0, sun_dimming, sun)
 
 
 ## Part (0 à 1) de l'éblouissement par le disque solaire : 1 quand il est dans le champ (demi-diagonale) et
 ## au-dessus du limbe terrestre vu de la caméra.
 func _sun_in_view() -> float:
-	var camera := get_viewport().get_camera_3d()
+	var camera := _camera
 	if camera == null or _sun == null or _earth == null:
 		return 0.0
 	var sun_dir := _sun.global_basis.z.normalized()
@@ -147,13 +166,12 @@ func _sun_in_view() -> float:
 	return 1.0 - smoothstep(edge - sun_dimming_deg, edge + sun_dimming_deg, rad_to_deg(angle))
 
 
-## Hauteur du soleil (degrés) au point de la Terre visé par le centre de la vue, sinon au point survolé.
-## Vue de la Terre : {fraction : part des rayons de la grille VIEW_GRID × VIEW_GRID qui touchent la Terre,
-## elevation : hauteur du soleil (degrés) au point moyen touché (sinon au point survolé)}.
-func _earth_view() -> Dictionary:
-	var camera := get_viewport().get_camera_3d()
+## Vue de la Terre : (part des rayons de la grille VIEW_GRID × VIEW_GRID qui touchent la Terre, hauteur du soleil
+## (degrés) au point moyen touché, sinon au point survolé).
+func _earth_view() -> Vector2:
+	var camera := _camera
 	if _earth == null or _sun == null or camera == null:
-		return {"fraction": 1.0, "elevation": 90.0}
+		return Vector2(1.0, 90.0)
 	var size := get_viewport().get_visible_rect().size
 	var hits := 0
 	var up := Vector3.ZERO
@@ -172,20 +190,18 @@ func _earth_view() -> Dictionary:
 	# La lumière Sun regarde vers −sun : +Z de sa base pointe vers le soleil.
 	var sun_dir := _sun.global_basis.z.normalized()
 	var elevation := rad_to_deg(asin(clampf(up.normalized().dot(sun_dir), -1.0, 1.0)))
-	return {"fraction": float(hits) / float(VIEW_GRID * VIEW_GRID), "elevation": elevation}
+	return Vector2(float(hits) / float(VIEW_GRID * VIEW_GRID), elevation)
 
 
 ## L'observateur est-il dans la cupola (Station.is_in_cupola) ? Sinon (intérieur de la station), le soleil n'est
 ## jamais en vue.
 func _in_cupola() -> bool:
-	var camera := get_viewport().get_camera_3d()
-	return _station != null and camera != null and _station.is_in_cupola(camera.global_position)
+	return _station != null and _camera != null and _station.is_in_cupola(_camera.global_position)
 
 
 ## La caméra est-elle hors de la station ? Éjection (Station.observer_outside), caméra à plus de outside_distance_m
 ## de la station (décor du menu : caméra extérieure), ou pas de station.
 func _outside() -> bool:
-	var camera := get_viewport().get_camera_3d()
-	if _station == null or camera == null:
+	if _station == null or _camera == null:
 		return true
-	return _station.observer_outside or camera.global_position.distance_to(_station.global_position) > outside_distance_m
+	return _station.observer_outside or _camera.global_position.distance_to(_station.global_position) > outside_distance_m

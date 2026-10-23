@@ -133,9 +133,20 @@ func show_tab(tab: int) -> void:
 	tab_changed.emit(tab)
 
 
-func _process(_delta: float) -> void:
-	var hud := _hud()
-	var on := hud == null or hud.overlay_enabled
+## Horloge et état du HUD rafraîchis à refresh_hz (textes formatés : inutile à chaque image).
+@export var refresh_hz := 5.0
+var _since := INF
+var _hud_node: Hud
+
+
+func _process(delta: float) -> void:
+	_since += delta
+	if _since < 1.0 / refresh_hz:
+		return
+	_since = 0.0
+	if _hud_node == null:
+		_hud_node = _hud()
+	var on := _hud_node == null or _hud_node.overlay_enabled
 	if on != _hud_shown:
 		_hud_shown = on
 		_hud_button.text = tr("TABLET_HUD_ON" if on else "TABLET_HUD_OFF")
