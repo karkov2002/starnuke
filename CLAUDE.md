@@ -31,7 +31,7 @@ Règle : **tous les textes du jeu sont dans les fichiers de langue** `locale/str
 affiché en dur : une clé (traduction automatique des contrôles) ou `tr("CLE").format({...})` ; toute nouvelle clé reçoit
 ses 5 traductions. Seuls la console et le panneau de debug (outils de développement) restent en français.
 Arborescence : `scenes/` (dont `scenes/ui/`), `scripts/`, `shaders/`, `materials/` (matériaux et Environment en `.tres`), `assets/textures/`,
-`nuke/` (tout le code des explosions nucléaires, dont l'autoload `NukeClock` et la scène de debug `nuke/debug/nuke_debug.tscn`).
+`nuke/` (tout le code des explosions nucléaires, dont l'autoload `NukeClock` ; section explosions du panneau de debug `nuke/debug/nuke_debug_section.gd`). Panneau de debug (F4) : `scripts/debug/` (`DebugPanel`, sections station et orbite, `DebugUi`), scène `scenes/debug_scene.tscn`.
 Socle géographique commun `scripts/geo/` : `GeoMath` (rayon terrestre, km par degré, haversine, lat/lon ↔ maillage de la
 Terre, rayon-sphère, formatage des coordonnées : **une seule source**, jamais de copie locale de ces constantes ou formules),
 `GeoGrid` (cellules de 1/120°), `DataResource` (chargement unique des ressources générées) ; nombres : `NumberFormat`.

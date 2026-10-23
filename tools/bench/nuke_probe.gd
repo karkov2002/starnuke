@@ -138,10 +138,11 @@ func _ready() -> void:
 	await _check_launch(view, launcher)
 
 	print("- Panneau de debug")
-	var panel: Node = load("res://nuke/debug/nuke_debug.tscn").instantiate()
+	var panel := DebugPanel.new()
 	add_child(panel)
 	await _frames(5)
-	_check(panel.get_child_count() > 0, "panneau construit")
+	_check(panel.get_child_count() > 0 and panel.find_children("*", "NukeDebugSection", true, false).size() == 1
+			and panel.find_children("*", "OrbitDebugSection", true, false).size() == 1, "panneau construit (3 sections)")
 	panel.queue_free()
 
 	print("- Référence")

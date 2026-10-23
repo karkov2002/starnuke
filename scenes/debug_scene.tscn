@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/debug/debug_panel.gd" id="1_panel"]
+[ext_resource type="PackedScene" uid="uid://pfaxai0nlbgo" path="res://scenes/orbit_view.tscn" id="2_view"]
+
+[node name="DebugScene" type="Node"]
+
+[node name="DebugPanel" type="CanvasLayer" parent="."]
+layer = 2
+script = ExtResource("1_panel")
+
+[node name="OrbitView" parent="." instance=ExtResource("2_view")]

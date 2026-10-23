@@ -2550,8 +2550,8 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   Au clic, le capuchon s'enfonce, reste un instant en bas puis remonte avec un léger rebond. Réticule au centre de l'écran
   (`nuke/aim_reticle.gd`) : rouge avec la latitude et la longitude du point visé quand la vue vise la Terre, gris
   sinon.
-- **Scène de debug** (`nuke/debug/nuke_debug.tscn` : dans l'éditeur, ouvrir la scène puis F6 ; **en jeu, F4** ouvre le même panneau sur la partie en cours, cf. `scripts/ui/fps_overlay.gd` ; instancie `orbit_view.tscn` et ajoute le
-  panneau `nuke/debug/nuke_debug_panel.gd` en haut à gauche) :
+- **Scène de debug** (`scenes/debug_scene.tscn` : dans l'éditeur, ouvrir la scène puis F6 ; **en jeu, F4** ouvre le même panneau sur la partie en cours, cf. `scripts/ui/fps_overlay.gd` ; instancie `orbit_view.tscn` et ajoute le
+  panneau `scripts/debug/debug_panel.gd` en haut à gauche, en trois sections : explosions (`nuke/debug/nuke_debug_section.gd`), station et radio (`scripts/debug/station_debug_section.gd`), orbite et temps (`scripts/debug/orbit_debug_section.gd`) ; contrôles communs `scripts/debug/debug_ui.gd`) :
   - curseur de puissance en échelle logarithmique (10 kt à 50 Mt), avec les tailles calculées ;
   - champs latitude / longitude (Madrid par défaut), bouton **Point visé** (recopie le centre de la vue),
 	**Tirer**, **Effacer** ;
