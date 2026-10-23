@@ -33,11 +33,6 @@ const PHASE_SHOCK := 0.5
 const PHASE_DELAYED := 0.2
 const PHASE_DELAYED_TAU_S := 21600.0
 
-## Abandon des calculs en cours (estimate, NukeFallout.estimate), testé à chaque ligne de la grille : levé par
-## NukeImpact à la fin de la partie, avant d'attendre ses tâches.
-static var abort := false
-
-
 ## Estimation pour une explosion (bilan final du souffle et de la chaleur). Retour : {killed, injured, exposed
 ## (population au-dessus de 1 psi), radii_km (rayon de chaque tranche, même ordre que BANDS), ring_arrival_s (arrivée de
 ## l'onde de choc au milieu de chaque anneau), countries : [{code, name_fr, sovereign_fr, killed, injured, exposed,
@@ -55,66 +50,45 @@ static func estimate(params: NukeParams) -> Dictionary:
 	if reach <= 0.0 or not PopulationGrid.is_available():
 		return result
 
-	var mask := CountryMask.get_mask()
 	var per_country := {} # indice du pays (-1 : aucun) -> [tués, blessés, exposés, tués par anneau…, blessés par anneau…]
-	var lat0 := params.latitude_deg
-	var lon0 := params.longitude_deg
 	var cell_deg := 1.0 / PopulationGrid.CELLS_PER_DEGREE
-	var first_row := PopulationGrid.row_of(minf(lat0 + reach / GeoMath.KM_PER_DEGREE, 90.0))
-	var last_row := PopulationGrid.row_of(maxf(lat0 - reach / GeoMath.KM_PER_DEGREE, -90.0))
-	for row in range(first_row, last_row + 1):
-		if abort:
-			return result
-		var lat := PopulationGrid.cell_latitude(row)
-		var km_x := GeoMath.KM_PER_DEGREE * maxf(cos(deg_to_rad(lat)), 1e-3)
-		var km_y := GeoMath.KM_PER_DEGREE
-		var dy := (lat - lat0) * km_y
-		if absf(dy) > reach + km_y * cell_deg:
-			continue
-		var half_cols := int(ceil(minf(reach / km_x, 180.0) * PopulationGrid.CELLS_PER_DEGREE)) + 1
-		var center_col := PopulationGrid.col_of(lon0)
+	var km_y := GeoMath.KM_PER_DEGREE
+	var visit := func(row: int, col: int, dx: float, dy: float, km_x: float) -> void:
+		var d := Vector2(dx, dy).length()
 		# Demi-diagonale d'une cellule (km) : au-delà de cette marge d'une limite, la cellule est entière dans sa tranche.
 		var half_diag := 0.5 * Vector2(km_x * cell_deg, km_y * cell_deg).length()
-		for k in range(-half_cols, half_cols + 1):
-			var col := center_col + k
-			var lon := PopulationGrid.cell_longitude(col)
-			var dx := wrapf(lon - lon0, -180.0, 180.0) * km_x
-			var d := Vector2(dx, dy).length()
-			if d > reach + half_diag:
-				continue
-			var pop := PopulationGrid.cell_population(row, col)
-			if pop <= 0.0:
-				continue
-			var fractions := _cell_fractions(d, half_diag, dx, dy, km_x * cell_deg, km_y * cell_deg, radii)
-			if fractions.z <= 0.0:
-				continue
-			var owner := PopulationGrid.cell_country(row, col)
-			var acc: PackedFloat64Array = per_country.get(owner, PackedFloat64Array())
-			if acc.is_empty():
-				acc.resize(3 + 2 * RINGS)
-			var ring := mini(int(d / reach * RINGS), RINGS - 1)
-			acc[0] += pop * fractions.x
-			acc[1] += pop * fractions.y
-			acc[2] += pop * fractions.z
-			acc[3 + ring] += pop * fractions.x
-			acc[3 + RINGS + ring] += pop * fractions.y
-			per_country[owner] = acc
+		if d > reach + half_diag:
+			return
+		var pop := PopulationGrid.cell_population(row, col)
+		if pop <= 0.0:
+			return
+		var fractions := _cell_fractions(d, half_diag, dx, dy, km_x * cell_deg, km_y * cell_deg, radii)
+		if fractions.z <= 0.0:
+			return
+		var owner := PopulationGrid.cell_country(row, col)
+		var acc: PackedFloat64Array = per_country.get(owner, PackedFloat64Array())
+		if acc.is_empty():
+			acc.resize(3 + 2 * RINGS)
+		var ring := mini(int(d / reach * RINGS), RINGS - 1)
+		acc[0] += pop * fractions.x
+		acc[1] += pop * fractions.y
+		acc[2] += pop * fractions.z
+		acc[3 + ring] += pop * fractions.x
+		acc[3 + RINGS + ring] += pop * fractions.y
+		per_country[owner] = acc
+	if not NukePopulationScan.scan(params.latitude_deg, params.longitude_deg, reach, 1, visit):
+		return result
 
+	var mask := CountryMask.get_mask()
 	var countries: Array[Dictionary] = []
 	for owner: int in per_country:
 		var acc: PackedFloat64Array = per_country[owner]
 		result.killed += acc[0]
 		result.injured += acc[1]
 		result.exposed += acc[2]
-		var entry := {"code": "", "name_fr": "(hors pays)", "sovereign_fr": "", "pop_est": 0,
-				"killed": acc[0], "injured": acc[1], "exposed": acc[2], "ring_killed": acc.slice(3, 3 + RINGS),
-				"ring_injured": acc.slice(3 + RINGS)}
-		if owner >= 0:
-			var c: Dictionary = mask.countries[owner]
-			entry.code = c.code
-			entry.name_fr = c.name_fr
-			entry.sovereign_fr = c.sovereign_fr
-			entry.pop_est = c.pop_est
+		var entry := NukePopulationScan.country_entry(owner, mask)
+		entry.merge({"killed": acc[0], "injured": acc[1], "exposed": acc[2], "ring_killed": acc.slice(3, 3 + RINGS),
+				"ring_injured": acc.slice(3 + RINGS)})
 		countries.append(entry)
 	countries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.killed > b.killed)
 	result.countries = countries

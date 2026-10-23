@@ -71,69 +71,44 @@ static func estimate(params: NukeParams, blast_radii: PackedFloat64Array) -> Dic
 			"hotline_km": x_max_mi / MI_PER_KM, "direction_deg": rad_to_deg(atan2(w.dir.x, w.dir.y))}
 	var reach_km := Vector2(maxf(x_max_mi, -x_min_mi), y_max_mi).length() / MI_PER_KM
 
-	var mask := CountryMask.get_mask()
 	var per_country := {} # indice du pays -> [morts par instant…, malades par instant…]
-	var lat0 := params.latitude_deg
-	var lon0 := params.longitude_deg
-	var block_deg := float(BLOCK) / PopulationGrid.CELLS_PER_DEGREE
-	var first_row := PopulationGrid.row_of(minf(lat0 + reach_km / GeoMath.KM_PER_DEGREE, 89.0))
-	var last_row := PopulationGrid.row_of(maxf(lat0 - reach_km / GeoMath.KM_PER_DEGREE, -89.0))
-	first_row -= first_row % BLOCK
-	for row in range(first_row, last_row + 1, BLOCK):
-		if NukeCasualties.abort:
-			return {}
-		var lat := PopulationGrid.cell_latitude(row) - 0.5 * (BLOCK - 1) / float(PopulationGrid.CELLS_PER_DEGREE)
-		var km_x := GeoMath.KM_PER_DEGREE * maxf(cos(deg_to_rad(lat)), 1e-3)
-		var dy_km := (lat - lat0) * GeoMath.KM_PER_DEGREE
-		var half_cols := int(ceil(minf(reach_km / km_x, 180.0) / block_deg)) + 1
-		var center_col := PopulationGrid.col_of(lon0)
-		center_col -= center_col % BLOCK
-		for k in range(-half_cols, half_cols + 1):
-			var col := center_col + k * BLOCK
-			var lon := PopulationGrid.cell_longitude(col) + 0.5 * (BLOCK - 1) / float(PopulationGrid.CELLS_PER_DEGREE)
-			var dx_km := wrapf(lon - lon0, -180.0, 180.0) * km_x
-			# Repère du vent (miles) : x sous le vent, y en travers.
-			var offset := Vector2(dx_km, dy_km) * MI_PER_KM
-			var xw := offset.dot(w.dir)
-			var yw := offset.dot(Vector2(-w.dir.y, w.dir.x))
-			if xw < x_min_mi or xw > x_max_mi or absf(yw) > y_max_mi:
-				continue
-			var d1 := w.dose_rate_h1(xw, yw)
-			var ta := w.arrival_h(xw)
-			var final_gy := 5.0 * d1 * pow(ta, -0.2) * R_TO_GY / PROTECTION_FACTOR
-			if final_gy < MIN_DOSE_GY:
-				continue
-			var survivors := 0.0
-			for r in BLOCK:
-				for c in BLOCK:
-					survivors += PopulationGrid.cell_population(row + r, col + c)
-			survivors *= 1.0 - NukeCasualties.killed_fraction(Vector2(dx_km, dy_km).length(), blast_radii)
-			if survivors <= 0.0:
-				continue
-			var owner := PopulationGrid.cell_country(row + 1, col + 1)
-			var acc: PackedFloat64Array = per_country.get(owner, PackedFloat64Array())
-			if acc.is_empty():
-				acc.resize(2 * TIME_SAMPLES)
-			for i in TIME_SAMPLES:
-				var effects := _effects(d1, ta, times[i])
-				acc[i] += survivors * effects.x
-				acc[TIME_SAMPLES + i] += survivors * effects.y
-			per_country[owner] = acc
+	var visit := func(row: int, col: int, dx_km: float, dy_km: float, _km_x: float) -> void:
+		# Repère du vent (miles) : x sous le vent, y en travers.
+		var offset := Vector2(dx_km, dy_km) * MI_PER_KM
+		var xw := offset.dot(w.dir)
+		var yw := offset.dot(Vector2(-w.dir.y, w.dir.x))
+		if xw < x_min_mi or xw > x_max_mi or absf(yw) > y_max_mi:
+			return
+		var d1 := w.dose_rate_h1(xw, yw)
+		var ta := w.arrival_h(xw)
+		var final_gy := 5.0 * d1 * pow(ta, -0.2) * R_TO_GY / PROTECTION_FACTOR
+		if final_gy < MIN_DOSE_GY:
+			return
+		var survivors := NukePopulationScan.block_population(row, col, BLOCK)
+		survivors *= 1.0 - NukeCasualties.killed_fraction(Vector2(dx_km, dy_km).length(), blast_radii)
+		if survivors <= 0.0:
+			return
+		var owner := PopulationGrid.cell_country(row + 1, col + 1)
+		var acc: PackedFloat64Array = per_country.get(owner, PackedFloat64Array())
+		if acc.is_empty():
+			acc.resize(2 * TIME_SAMPLES)
+		for i in TIME_SAMPLES:
+			var effects := _effects(d1, ta, times[i])
+			acc[i] += survivors * effects.x
+			acc[TIME_SAMPLES + i] += survivors * effects.y
+		per_country[owner] = acc
+	if not NukePopulationScan.scan(params.latitude_deg, params.longitude_deg, reach_km, BLOCK, visit):
+		return {}
 
+	var mask := CountryMask.get_mask()
 	var total_dead := PackedFloat64Array()
 	var total_sick := PackedFloat64Array()
 	total_dead.resize(TIME_SAMPLES)
 	total_sick.resize(TIME_SAMPLES)
 	for owner: int in per_country:
 		var acc: PackedFloat64Array = per_country[owner]
-		var entry := {"code": "", "name_fr": "(hors pays)", "sovereign_fr": "", "pop_est": 0,
-				"dead": acc.slice(0, TIME_SAMPLES), "sick": acc.slice(TIME_SAMPLES)}
-		if owner >= 0:
-			var c: Dictionary = mask.countries[owner]
-			entry.code = c.code
-			entry.name_fr = c.name_fr
-			entry.sovereign_fr = c.sovereign_fr
-			entry.pop_est = c.pop_est
+		var entry := NukePopulationScan.country_entry(owner, mask)
+		entry.merge({"dead": acc.slice(0, TIME_SAMPLES), "sick": acc.slice(TIME_SAMPLES)})
 		for i in TIME_SAMPLES:
 			total_dead[i] += acc[i]
 			total_sick[i] += acc[TIME_SAMPLES + i]

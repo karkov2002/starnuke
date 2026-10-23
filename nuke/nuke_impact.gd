@@ -12,7 +12,7 @@ extends Node
 ## Tant que les résultats manquent, NukeEffect.impact_pending / fallout_pending le signalent (fenêtre de bilan).
 ##
 ## Fin de partie ou du jeu (_exit_tree) : un bilan de 50 Mt prend plusieurs secondes (dix d'un coup : ~12 s) ; les
-## tâches sont abandonnées (NukeCasualties.abort, testé à chaque ligne de la grille) puis attendues — les tâches
+## tâches sont abandonnées (NukePopulationScan.abort, testé à chaque ligne de la grille) puis attendues — les tâches
 ## finies aussi, sinon elles ne sont jamais libérées — pour que rien ne tourne plus pendant la destruction de la scène
 ## (sinon : attente à la fermeture, puis plantage).
 
@@ -25,11 +25,11 @@ func setup(launcher: NukeLauncher) -> void:
 
 
 func _exit_tree() -> void:
-	NukeCasualties.abort = true
+	NukePopulationScan.abort = true
 	for task in _tasks:
 		WorkerThreadPool.wait_for_task_completion(task)
 	_tasks.clear()
-	NukeCasualties.abort = false
+	NukePopulationScan.abort = false
 
 
 func _on_detonated(effect: NukeEffect) -> void:
@@ -45,10 +45,10 @@ func _on_detonated(effect: NukeEffect) -> void:
 
 
 ## Dans un thread : calculs et textes. Les résultats sont remis à l'explosion par _apply (fil principal), désignée par
-## son identifiant : elle a pu être effacée entre-temps. Abandon (NukeCasualties.abort) : résultats partiels jetés.
+## son identifiant : elle a pu être effacée entre-temps. Abandon (NukePopulationScan.abort) : résultats partiels jetés.
 func _compute(effect_id: int, params: NukeParams) -> void:
 	var casualties := NukeCasualties.estimate(params)
-	if NukeCasualties.abort:
+	if NukePopulationScan.abort:
 		return
 	var grid := NukeGridImpact.assess(params)
 	var smoke := NukeSmokeYield.estimate(params)
@@ -57,7 +57,7 @@ func _compute(effect_id: int, params: NukeParams) -> void:
 			NukeReportText.grid(grid)])
 	if NukeScaling.low_burst(params.yield_kt, params.burst_height_km) > 0.01:
 		var fallout := NukeFallout.estimate(params, casualties.radii_km)
-		if NukeCasualties.abort:
+		if NukePopulationScan.abort:
 			return
 		_apply.call_deferred(effect_id, {"fallout": fallout})
 		print(NukeReportText.fallout(fallout, params))
