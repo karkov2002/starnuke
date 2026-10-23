@@ -386,11 +386,25 @@ changement ; `PressureGauges` 10 Hz et matériaux au changement ; `AirVentFx` so
 une fois ; `PhotoArchive` : PNG en thread. Déjà en place avant le lot : écrans suspendus hors de portée
 (`set_process(false)`), `_groups()` sur signaux, `get_effects()` liste tenue, `received_flux` une fois, `AlertSirens`
 sur signal. Écartés : `MissionPlanner.earliest` mesuré à 1,2 ms (pas de thread) ; texture des temps de
-`NukeGroundFX` (4 Ko par image : négligeable) ; `SettingsMenu` (rafraîchi sur événement, pas par image). Mesure :
-la machine partagée avec l'éditeur et une partie en cours rend le banc trop bruité (±3 ms sur certains états) pour
-chiffrer des gains de l'ordre de 0,5 ms ; les sondes (nuke, orbite, campagne, console) garantissent l'absence de
-changement visible ; A/B à refaire machine au repos (éditeur fermé), avec `tools/bench/bench.tscn` pour le GPU
-(champignons : PSNR avec `mushroom_probe`).
+`NukeGroundFX` (4 Ko par image : négligeable) ; `SettingsMenu` (rafraîchi sur événement, pas par image). Mesure
+A/B (23/10, éditeur ouvert sans partie, arbre de travail séparé à `3d36ac7` contre `main`, trois alternances en
+priorité haute, minimum des trois passages par état, ms par image) :
+
+| État | avant lot 3 | après | 
+|---|---|---|
+| Orbite seule | 3,80 | 3,73 |
+| 10 explosions à 5 s | 3,71 | 3,36 |
+| 10 explosions à 1 min | 6,48 | 3,61 |
+| 10 explosions à 30 min | 4,20 | 4,38 |
+| 10 explosions à 6 h | 3,50 | 3,30 |
+| Assis au poste (6 h) | 4,82 | 2,89 |
+| Tablette sortie (6 h) | 4,00 | 5,02 |
+
+Le bruit domine (un même état varie de 3 à 13 ms d'un passage à l'autre dans les deux versions, même machine au
+repos : seul le minimum est exploitable) : aucune régression visible, gains possibles à 1 min et au poste de
+pilotage, rien de concluant en dessous de ~1 ms. Les sondes (nuke, orbite, campagne, console) garantissent
+l'absence de changement visible. Reste à faire éditeur fermé : `tools/bench/bench.tscn` pour le GPU (champignons :
+PSNR avec `mushroom_probe`).
 
 ### Arborescence cible (optionnelle, en dernier)
 
