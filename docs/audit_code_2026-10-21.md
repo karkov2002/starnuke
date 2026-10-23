@@ -416,7 +416,11 @@ contre la référence du 16/10 (avant les lots 2 et 3), temps GPU moyen par imag
 Tout est dans la variation d'un lancement à l'autre (±1 ms, README « Performances ») : aucune régression des
 lots 2 et 3 ; les explosions à l'arrivée sont un peu moins chères (flash et choc). Un premier passage avait été
 faussé par une frappe clavier reçue par la fenêtre du banc (Espace ou Ctrl déplacent maintenant l'observateur) :
-ne rien taper pendant un banc.
+ne rien taper pendant un banc. Contrôle visuel des champignons (`tools/bench/mushroom_probe.tscn`, 10 × 50 Mt,
+captures de l'ancien code rendues le même jour depuis un arbre de travail à `3d36ac7`) : PSNR entre les deux
+versions de 41 à 43 dB (à 60 s et à 6 h), supérieur au PSNR entre deux captures consécutives d'un même état dans
+une même version (35 à 38 dB : particules, bruit animé, exposition) : aucune différence attribuable au lot 3 ;
+temps GPU des volumes identiques (6,7 ms à 6 h dans les deux versions).
 
 ### Arborescence cible (optionnelle, en dernier)
 
