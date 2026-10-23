@@ -4,7 +4,7 @@ extends Node
 ## fil principal (WorkerThreadPool) :
 ## 1. les pertes du souffle et de la chaleur (NukeCasualties.estimate) et l'effet sur le réseau électrique
 ##    (NukeGridImpact.assess), quelques ms à ~40 ms, et la fumée des incendies par m² en feu, selon la population
-##    (NukeScaling.smoke_yield_kg_m2) ;
+##    (NukeSmokeYield.estimate) ;
 ## 2. les retombées (NukeFallout.estimate), jusqu'à quelques secondes pour 50 Mt ;
 ## puis renseigne la NukeEffect (casualties, grid, smoke_yield_kg_m2, fallout) dans le fil principal et écrit le bilan
 ## en console (NukeReportText). L'écriture en console coûte plusieurs ms par ligne (sortie de l'éditeur) : elle se fait dans le
@@ -51,7 +51,7 @@ func _compute(effect_id: int, params: NukeParams) -> void:
 	if NukeCasualties.abort:
 		return
 	var grid := NukeGridImpact.assess(params)
-	var smoke := NukeScaling.smoke_yield_kg_m2(params)
+	var smoke := NukeSmokeYield.estimate(params)
 	_apply.call_deferred(effect_id, {"casualties": casualties, "grid": grid, "smoke": smoke})
 	print("%s\n%s\n%s" % [NukeReportText.launch(params), NukeReportText.casualties(casualties),
 			NukeReportText.grid(grid)])

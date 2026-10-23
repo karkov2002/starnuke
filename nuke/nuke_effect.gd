@@ -32,7 +32,7 @@ var grid := {}
 var fallout := {}
 var impact_pending := false
 var fallout_pending := false
-## Fumée des incendies par m² de sol en feu (kg/m², NukeScaling.smoke_yield_kg_m2, selon la population), calculée avec
+## Fumée des incendies par m² de sol en feu (kg/m², NukeSmokeYield.estimate, selon la population), calculée avec
 ## le bilan ; négatif tant qu'elle manque.
 var smoke_yield_kg_m2 := -1.0
 ## Cache de can_ignite_land() (−1 : pas encore calculé).

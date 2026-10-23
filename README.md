@@ -1689,7 +1689,7 @@ Une responsabilité par classe (principe « S » de SOLID). Trois familles :
 | **Tir** | `NukeLauncher` (visée, création de l'explosion, liste des explosions ; crée les nœuds ci-dessous), `NukeParams` (paramètres d'un tir), `NukeEffect` (une explosion : placement, temps, résultats du bilan), `NukeClock` (horloge) |
 | **Rendu d'une explosion** (enfants de `NukeEffect`) | `NukeFlash`, `NukeShock`, `NukeMushroom` (forme, volume, couleurs) avec `NukeMushroomDrift` (dérive au vent) et `NukeMushroomParticles` (particules) |
 | **Rendu global** (nœuds créés par le lanceur, alimentent les shaders du globe) | `NukeFlashFX`, `NukeCloudFX` (effets brefs, tableaux d'uniforms), `NukeGroundFX` (effets durables au sol : incendies, fumée, trace au sol, black-out ; textures de données sans plafond) ; `NukeFXMaterials` (recherche des matériaux qui déclarent un uniform) |
-| **Modèles** (calcul pur, sans nœud, utilisables depuis un thread) | `NukeScaling` (lois d'échelle, surpression de Brode), `NukeCasualties` (pertes du souffle et de la chaleur, chronologie), `NukeFallout` (doses et pertes des retombées) avec `NukeWSEG10` (champ de retombées) et `NukeMath`, `NukeGridImpact` (centrales détruites, panne nationale), `NukeAtmosphere`, `NukeWind` |
+| **Modèles** (calcul pur, sans nœud, utilisables depuis un thread) | `NukeScaling` (lois d'échelle, surpression de Brode ; aucune donnée géographique), `NukeSmokeYield` (fumée par m² de sol en feu selon la population), `NukeCasualties` (pertes du souffle et de la chaleur, chronologie), `NukeFallout` (doses et pertes des retombées) avec `NukeWSEG10` (champ de retombées) et `NukeMath`, `NukeGridImpact` (centrales détruites, panne nationale), `NukeAtmosphere`, `NukeWind` |
 | **Bilan** | `NukeImpact` (nœud `Impact` : calcule le bilan d'un tir dans un thread et l'écrit en console), `NukeTally` (cumul par pays, à l'instant présent), `NukeReportText` (textes et nombres), `NukeReportPanel` (écran mural du module Commande, affichage seulement) |
 | **Données géographiques** (`scripts/`, `scripts/geo/`) | `OceanMask`, `CountryMask` (dont `index_near` : pays le plus proche d'un point côtier), `PopulationGrid` (dont `cell_country`), `PowerPlants` ; socle commun `scripts/geo/` : `GeoMath` (rayon terrestre, km par degré, haversine, lat/lon ↔ repère du maillage de la Terre, rayon-sphère, formatage des coordonnées : une seule source pour tout le jeu), `GeoGrid` (découpage en cellules de 1/120° partagé par la grille de population et les masques), `DataResource` (chargement unique des ressources générées) ; nombres : `NumberFormat` (`scripts/number_format.gd`, estimations à 3 chiffres significatifs et milliers groupés, bilans et télévision) |
 
@@ -1705,6 +1705,16 @@ fermeture jusqu'à la fin des bilans, puis plantait (accès à des objets détru
 attendues plantaient aussi la sortie. Reproduction :
 `tools/bench/quit_probe.tscn` (10 × 50 Mt figés à 6 h puis `quit()` selon une variante : `none`, `clear`, `free`,
 `wait`, `t60`, `hide`).
+
+**Non-régression du code des explosions** : `godot --headless --path . res://tools/bench/nuke_probe.tscn` (sonde
+`tools/bench/nuke_probe.gd`, sans rendu) tire trois explosions (1 Mt au sol sur Tokyo, 100 kt en mer, 50 Mt en
+altitude près de Moscou) dans une scène figée à une date fixe, puis relève tout ce que le code remet aux shaders et
+aux bilans : pertes, retombées, réseau, fumée par m² ; uniforms des trois matériaux du champignon (Cloud, BaseSurge,
+Volume), visibilités et boîte englobante à sept instants ; compteurs et hachage des textures de données du sol à
+quatre instants ; séquence de tir complète par la commande de tir de la tablette (station → `MissileFlight` →
+explosion au point visé) ; panneau de debug construit. Le relevé est comparé, à une tolérance près sur les
+flottants, à la référence `tools/bench/results/nuke_probe_reference.txt` (`-- ref` la réécrit) ; code 0 si
+identique. Elle a été écrite avant la découpe de `nuke/` du lot 2 de l'audit (`docs/audit_code_2026-10-21.md`).
 
 ### Performances
 
@@ -2083,7 +2093,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	lieu de couvrir d'emblée toute la zone.
   - **Débit** Q = Y · R0² · f(t) / 6 h (`FIRE_BURN_S`), où f est la surface en feu (`NukeScaling.smoke_burning_area`,
 	mêmes lois que les incendies, table de 256 valeurs en échelle log, `nuke_smoke_rate`) et Y la fumée par m² en feu,
-	**selon ce qui brûle** (`NukeScaling.smoke_yield_kg_m2`, calculée au tir dans le thread de `NukeImpact` : moyenne
+	**selon ce qui brûle** (`NukeSmokeYield.estimate`, calculée au tir dans le thread de `NukeImpact` : moyenne
 	de 24 × 24 points des terres de la zone des incendies, population GHS-POP) :
 	- végétation : 2 kg/m² de combustible consumé (`SMOKE_WILDLAND_FUEL_KG_M2` ; herbe 0,3 à 0,5, broussailles 1 à 3,
 	  forêt 2 à 5, van der Werf et al. 2017), facteur d'émission 1,2 % (`SMOKE_WILDLAND_EF`, Andreae 2019) ;
