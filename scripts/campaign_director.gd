@@ -228,8 +228,7 @@ func _send_briefing() -> void:
 		_start_mission()
 		return
 	_briefing_id = _radio.reserve_id()
-	_post(mission, tr("BRIEFING_SUBJECT").format({"title": _text(mission, "title")}), _briefing_body(mission),
-			_briefing_id)
+	_radio.post(CampaignMessages.briefing(mission, _defaults(), _briefing_id))
 
 
 func _on_message_received(message: Dictionary) -> void:
@@ -254,9 +253,8 @@ func _start_mission() -> void:
 			"inclination_deg": _orbit.inclination_deg if _orbit else 0.0, "time_scale": _orbit.time_scale})
 	if _orbit:
 		_orbit.time_scale = 1.0
-	var sender := mission if mission.has("from") else Campaigns.current.defaults()
-	_call.ring({"from": Campaigns.text_of(sender, "from", "COMM_FROM_GROUND"),
-			"subject": tr("BRIEFING_SUBJECT").format({"title": _text(mission, "title")}), "received_unix": _now()})
+	_call.ring({"from": CampaignMessages.sender(mission, _defaults()),
+			"subject": CampaignMessages.briefing_subject(mission), "received_unix": _now()})
 	mission_started.emit(id)
 
 
@@ -320,13 +318,7 @@ func _finish_mission() -> void:
 			"deadline_s": CampaignData.deadline_s(mission), "complete": not _precisions.any(func(p: float) -> bool: return is_nan(p)),
 			"precisions": _precisions.map(func(p: float) -> float: return -1.0 if is_nan(p) else p)})
 	_mission_id = ""
-	var message := CampaignData.pick_message(mission.get("result", []), Campaigns.scores(day_id, id))
-	var verdict := tr("RESULT_SUCCESS") if success else tr("RESULT_FAILURE")
-	var text := Campaigns.text_of(message, "body") if not message.is_empty() \
-			else tr("RESULT_DEFAULT_SUCCESS" if success else "RESULT_DEFAULT_FAILURE")
-	_post(mission, tr("RESULT_SUBJECT").format({"title": _text(mission, "title")}),
-			tr("RESULT_BODY").format({"message": text, "score": "%.1f" % score, "verdict": verdict,
-			"precision": "%.1f" % precision, "time": "%.2f" % factor}))
+	_post(CampaignMessages.result(mission, _defaults(), Campaigns.scores(day_id, id), result))
 	mission_finished.emit(id, result)
 	_next_mission()
 
@@ -340,11 +332,11 @@ func _finish_day() -> void:
 			"global_score": scores.global_score})
 	var debrief := CampaignData.pick_message(day.get("debrief", []), scores)
 	if not debrief.is_empty():
-		_post({}, Campaigns.text_of(debrief, "subject", "BRIEFING_DEBRIEF"), Campaigns.text_of(debrief, "body"))
+		_post(CampaignMessages.debrief(debrief, _defaults()))
 	if Campaigns.day_index == Campaigns.current.days().size() - 1:
 		var ending := CampaignData.pick_message(Campaigns.current.data.get("ending", []), scores)
 		if not ending.is_empty():
-			_post({}, Campaigns.text_of(ending, "subject", "BRIEFING_DEBRIEF"), Campaigns.text_of(ending, "body"))
+			_post(CampaignMessages.debrief(ending, _defaults()))
 	_day_over = true
 	day_finished.emit(Campaigns.day_index)
 
@@ -416,35 +408,14 @@ func _advance_to_wake_up(day_index: int) -> void:
 
 # --- Messages -------------------------------------------------------------------------------------------------------
 
-## Briefing selon le gabarit : mission, objectif, texte, cibles (type et coordonnées), durée avant échec.
-func _briefing_body(mission: Dictionary) -> String:
-	var targets := PackedStringArray()
-	for objective: Dictionary in mission.objectives:
-		var kind := tr("OBJECTIVE_PHOTO" if objective.type == "photo" else "OBJECTIVE_STRIKE")
-		targets.append("  %s : %s" % [kind, GeoMath.format_lat_lon(float(objective.target.lat),
-				float(objective.target.lon))])
-	# Durée avant échec, toujours avec les minutes : « 6 h 00 min », « 5 h 30 min ».
-	var minutes := roundi(CampaignData.deadline_s(mission) / 60.0)
-	var duration := "%d h %02d min" % [floori(minutes / 60.0), minutes % 60]
-	return tr("BRIEFING_BODY").format({"title": _text(mission, "title"), "objective": _text(mission, "objective"),
-			"description": _text(mission, "description"), "targets": "\n".join(targets), "duration": duration})
+## Message radio de la campagne (CampaignMessages), s'il y a une radio.
+func _post(message: Dictionary) -> void:
+	if _radio:
+		_radio.post(message)
 
 
-## Message radio de la campagne (expéditeur et canal de la mission, sinon defaults), d'identifiant id (vide : attribué
-## par la radio) ; rend son identifiant.
-func _post(mission: Dictionary, subject: String, body: String, id := "") -> String:
-	if _radio == null:
-		return ""
-	var defaults := Campaigns.current.defaults()
-	var message := {"from": mission.get("from", defaults.get("from", "COMM_FROM_GROUND")), "subject": subject,
-			"body": body, "channel": int(mission.get("channel", defaults.get("channel", -1)))}
-	if not id.is_empty():
-		message.id = id
-	return _radio.post(message)
-
-
-func _text(mission: Dictionary, field: String) -> String:
-	return Campaigns.text_of(mission, field)
+func _defaults() -> Dictionary:
+	return Campaigns.current.defaults()
 
 
 func _day() -> Dictionary:
@@ -456,7 +427,7 @@ func _mission() -> Dictionary:
 
 
 func _tolerance_km(objective: Dictionary) -> float:
-	return MissionScoring.tolerance_km(objective, Campaigns.current.defaults())
+	return MissionScoring.tolerance_km(objective, _defaults())
 
 
 ## Passage le plus tôt possible depuis maintenant (arrivée du briefing, départ du chrono, MissionPlanner) et temps de
