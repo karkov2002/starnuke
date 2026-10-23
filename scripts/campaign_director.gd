@@ -58,15 +58,10 @@ var _radio: RadioComms
 ## Monde à sauvegarder et à recréer (WorldSnapshot), construit à la première demande (les cibles au sol sont
 ## trouvées par groupe, une fois toute la scène prête).
 var _world: WorldSnapshot
-## Mission en cours : identifiant, départ du chrono (heure UTC, s), temps de référence (s, depuis le départ du chrono),
-## passage le plus tôt possible (s, depuis l'arrivée du briefing ; INF : impossible à temps), précisions des
-## objectifs (NAN : pas rempli).
-var _mission_id := ""
+## Mission en cours (MissionRun : chrono, objectifs, note ; null : aucune) et identifiant du message de briefing
+## attendu ou pas encore lu.
+var _run: MissionRun
 var _briefing_id := ""
-var _started_unix := 0.0
-var _par := 0.0
-var _earliest := INF
-var _precisions: Array = []
 ## Journal de partie (scripts/campaign_journal.gd) ; partie reprise d'une sauvegarde (« Continuer »), journal
 ## commencé (événement session, à la première journée, une fois l'orbite en place).
 var _journal: CampaignJournal
@@ -102,7 +97,7 @@ func _ready() -> void:
 		_radio.message_received.connect(_on_message_received)
 	if _flight_computer:
 		_flight_computer.burn_finished.connect(func(quality: int, ratio: float) -> void:
-			_journal.write("burn", _now(), {"mission": _mission_id,
+			_journal.write("burn", _now(), {"mission": current_mission(),
 					"quality": FlightComputer.BurnQuality.keys()[quality].to_lower(), "ratio": ratio,
 					"auto": _flight_computer.mode == FlightComputer.Mode.AUTO}))
 	var photos := get_node_or_null(photos_path) as PhotoArchive
@@ -128,7 +123,7 @@ func is_active() -> bool:
 
 ## Mission en cours ("" : aucune).
 func current_mission() -> String:
-	return _mission_id
+	return _run.id if _run else ""
 
 
 ## Commence la journée day_index : départ appliqué s'il est défini (sinon, la station reste où elle est), puis
@@ -185,7 +180,7 @@ func _process(_delta: float) -> void:
 		return
 	if not _scheduled_id.is_empty() and _briefing_id.is_empty() and _now() >= _briefing_unix:
 		_send_briefing()
-	if not _mission_id.is_empty() and _now() - _started_unix >= CampaignData.deadline_s(_mission()):
+	if _run and _run.is_due(_now()):
 		_finish_mission()
 
 
@@ -240,21 +235,16 @@ func _on_message_received(message: Dictionary) -> void:
 func _start_mission() -> void:
 	var id := _scheduled_id
 	_scheduled_id = ""
-	_mission_id = id
-	var mission := _mission()
-	_started_unix = _now()
-	_plan(mission)
-	_precisions = []
-	for _objective in mission.objectives:
-		_precisions.append(NAN)
-	_journal.write("mission_start", _now(), {"mission": id, "deadline_s": CampaignData.deadline_s(mission), "par_s": _par,
-			"earliest_s": _earliest if _earliest < INF else -1.0,
+	_run = MissionRun.new(id, Campaigns.current.mission(id), _defaults(), _now())
+	_run.plan(_orbit)
+	_journal.write("mission_start", _now(), {"mission": id, "deadline_s": _run.deadline_s, "par_s": _run.par_s,
+			"earliest_s": _run.earliest_s if _run.earliest_s < INF else -1.0,
 			"altitude_km": _orbit.altitude_km if _orbit else 0.0,
 			"inclination_deg": _orbit.inclination_deg if _orbit else 0.0, "time_scale": _orbit.time_scale})
 	if _orbit:
 		_orbit.time_scale = 1.0
-	_call.ring({"from": CampaignMessages.sender(mission, _defaults()),
-			"subject": CampaignMessages.briefing_subject(mission), "received_unix": _now()})
+	_call.ring({"from": CampaignMessages.sender(_run.mission, _defaults()),
+			"subject": CampaignMessages.briefing_subject(_run.mission), "received_unix": _now()})
 	mission_started.emit(id)
 
 
@@ -264,62 +254,39 @@ func _on_message_read(message_id: String) -> void:
 		return
 	_briefing_id = ""
 	_call.stop()
-	_journal.write("briefing_read", _now(), {"mission": _mission_id, "elapsed_s": _now() - _started_unix})
+	_journal.write("briefing_read", _now(), {"mission": current_mission(),
+			"elapsed_s": _run.elapsed_s(_now()) if _run else 0.0})
 
 
-## Photo ou impact en (lat, lon) : remplit le premier objectif ouvert de ce type à portée (son préalable rempli).
+## Photo ou impact en (lat, lon) : remplit le premier objectif ouvert de ce type à portée (MissionRun.record) ;
+## mission finie quand tous le sont.
 func _record(type: String, lat: float, lon: float) -> void:
-	if _mission_id.is_empty():
+	if _run == null:
 		return
-	var objectives: Array = _mission().objectives
-	# Journal : distance à la cible de ce type la plus proche, objectif rempli (−1 : aucun).
-	var nearest := INF
-	var filled := -1
-	for k in objectives.size():
-		var objective: Dictionary = objectives[k]
-		if objective.type != type:
-			continue
-		var d := GeoMath.distance_km(lat, lon, float(objective.target.lat), float(objective.target.lon))
-		nearest = minf(nearest, d)
-		if filled >= 0 or not is_nan(_precisions[k]):
-			continue
-		if objective.has("after") and is_nan(_precisions[int(objective.after)]):
-			continue
-		var tolerance := _tolerance_km(objective)
-		if d < tolerance:
-			_precisions[k] = MissionScoring.precision(d, tolerance)
-			filled = k
-	_journal.write("shot", _now(), {"mission": _mission_id, "type": type, "lat": lat, "lon": lon,
-			"nearest_km": nearest if nearest < INF else -1.0, "objective": filled,
-			"precision": _precisions[filled] if filled >= 0 else 0.0, "elapsed_s": _now() - _started_unix})
-	if not _precisions.any(func(p: float) -> bool: return is_nan(p)):
+	var shot := _run.record(type, lat, lon)
+	shot.merge({"mission": _run.id, "type": type, "lat": lat, "lon": lon, "elapsed_s": _run.elapsed_s(_now())})
+	_journal.write("shot", _now(), shot)
+	if _run.is_complete():
 		_finish_mission()
 
 
+## Fin de mission (objectifs remplis ou échéance) : note retenue (Campaigns.results), message de résultat, mission
+## suivante.
 func _finish_mission() -> void:
-	var mission := _mission()
-	var defaults := Campaigns.current.defaults()
-	var weights: Array = mission.objectives.map(func(o: Dictionary) -> float: return float(o.get("weight", 1.0)))
-	var precision := MissionScoring.mission_precision(_precisions, weights)
-	var elapsed := _orbit.get_utc_unix_s() - _started_unix
-	var factor := MissionScoring.time_factor(elapsed, _par, CampaignData.deadline_s(mission),
-			float(defaults.get("time_floor", 0.6)))
-	var score := precision * factor
-	var success := score >= float(defaults.get("success_score", 10.0))
+	var run := _run
+	_run = null
 	var day_id: String = _day().id
-	var result := {"score": score, "success": success, "precision": precision, "time_factor": factor, "day": day_id}
-	var id := _mission_id
-	Campaigns.results[id] = result
+	var result := run.result(_now(), day_id)
+	Campaigns.results[run.id] = result
 	# Briefing jamais lu : l'appel s'arrête avec la mission.
 	_briefing_id = ""
 	_call.stop()
-	_journal.write("mission_end", _now(), {"mission": id, "score": score, "success": success,
-			"precision": precision, "time_factor": factor, "elapsed_s": elapsed, "par_s": _par,
-			"deadline_s": CampaignData.deadline_s(mission), "complete": not _precisions.any(func(p: float) -> bool: return is_nan(p)),
-			"precisions": _precisions.map(func(p: float) -> float: return -1.0 if is_nan(p) else p)})
-	_mission_id = ""
-	_post(CampaignMessages.result(mission, _defaults(), Campaigns.scores(day_id, id), result))
-	mission_finished.emit(id, result)
+	var line := {"mission": run.id, "score": result.score, "success": result.success, "precision": result.precision,
+			"time_factor": result.time_factor}
+	line.merge(run.report(_now()))
+	_journal.write("mission_end", _now(), line)
+	_post(CampaignMessages.result(run.mission, _defaults(), Campaigns.scores(day_id, run.id), result))
+	mission_finished.emit(run.id, result)
 	_next_mission()
 
 
@@ -420,26 +387,6 @@ func _defaults() -> Dictionary:
 
 func _day() -> Dictionary:
 	return Campaigns.current.days()[Campaigns.day_index]
-
-
-func _mission() -> Dictionary:
-	return Campaigns.current.mission(_mission_id)
-
-
-func _tolerance_km(objective: Dictionary) -> float:
-	return MissionScoring.tolerance_km(objective, _defaults())
-
-
-## Passage le plus tôt possible depuis maintenant (arrivée du briefing, départ du chrono, MissionPlanner) et temps de
-## référence (s, CampaignData.par_s : par_hours, sinon ce passage plus une orbite ; au plus l'échéance).
-func _plan(mission: Dictionary) -> void:
-	_earliest = INF
-	var period := 0.0
-	if _orbit:
-		var state := MissionPlanner.state_of(_orbit)
-		_earliest = MissionPlanner.earliest(state, mission.objectives, 0.0, CampaignData.deadline_s(mission)).time
-		period = MissionPlanner.period_s(state)
-	_par = CampaignData.par_s(mission, _earliest, period)
 
 
 ## Heure du jeu (UTC, s).
