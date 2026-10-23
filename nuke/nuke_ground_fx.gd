@@ -14,27 +14,18 @@ extends Node
 ##   incendies (0 : rien ne brûle), portée de l'explosion) en km ; ligne 2 = (direction où va le vent de la fumée,
 ##   vecteur unitaire du repère de la planète, vitesse en m/s) ; ligne 3 = (rayon des gravats en km, fumée par m²
 ##   de sol en feu en kg/m² (négative tant que NukeImpact ne l'a pas calculée : pas encore de fumée), inutilisés) ;
-## - nuke_ground_cells (RGF, maille de 1° en longitude × latitude) : (début, nombre) de la liste des explosions dont la
-##   portée touche la maille, rangée dans nuke_ground_index (RF, INDEX_WIDTH de large) : un pixel du sol ne teste que
-##   les explosions proches ;
-## - nuke_smoke_cells, nuke_smoke_index : même maille pour les panaches de fumée (qui s'étendent sous le vent, sur des
-##   centaines de km), reconstruite quand un panache s'allonge nettement ou disparaît ;
+## - nuke_ground_cells, nuke_ground_index : maille de 1° des explosions dont la portée touche la maille
+##   (NukeCellIndex) ;
+## - nuke_smoke_cells, nuke_smoke_index : même maille pour les panaches de fumée (NukeSmokePlumes : ils s'étendent sous
+##   le vent, sur des centaines de km), reconstruite quand un panache s'allonge nettement ou disparaît ;
 ## - nuke_smoke_rate (RF, NukeScaling.SMOKE_TABLE_SIZE) : surface en feu f(t), commune à toutes les puissances ;
 ## - nuke_ground_countries (RF, indice CountryMask + 1) : temps physique écoulé depuis la panne nationale (s), 0 sinon.
 ## Seuls les temps changent à chaque image (la texture des événements est renvoyée entière) ; la liste et l'index sont
 ## reconstruits quand la liste des explosions change (NukeLauncher.effects_changed : tir, effacement).
 
-const INDEX_WIDTH := 4096
-const CELLS_X := 360
-const CELLS_Y := 180
 const ROWS := 4
 const MIN_CAPACITY := 64
 const COUNTRY_IDS := preload("res://assets/textures/country_ids.png")
-## Pas (km) des disques qui couvrent un panache dans la maille de la fumée.
-const SMOKE_CELL_STEP_KM := 60.0
-## Le panache est indexé jusqu'où son épaisseur optique tombe sous SMOKE_CELL_MIN_TAU (au débit maximal des incendies :
-## la maille reste valable quand le débit varie).
-const SMOKE_CELL_MIN_TAU := 0.005
 
 var _launcher: NukeLauncher
 var _materials: Array[ShaderMaterial] = []
@@ -48,16 +39,10 @@ var _capacity := 0
 var _times := PackedFloat64Array()
 ## Données fixes d'une explosion (lignes 1 à 3), calculées une fois : instance_id -> Array[Vector4].
 var _statics := {}
-## État des panaches à la dernière construction de leur maille (une clé par explosion, cf. _smoke_key).
-var _smoke_keys := PackedInt32Array()
-## Fin des incendies (s, temps physique) : au-delà, plus de fumée émise ; surface en feu maximale (R0²).
-var _fire_end_s := 0.0
-var _burning_peak := 0.0
+## Maille des explosions et panaches de fumée (avec leur maille).
+var _index := NukeCellIndex.new()
+var _plumes := NukeSmokePlumes.new()
 var _events_texture := ImageTexture.new()
-var _cells_texture := ImageTexture.new()
-var _index_texture := ImageTexture.new()
-var _smoke_cells_texture := ImageTexture.new()
-var _smoke_index_texture := ImageTexture.new()
 var _countries_texture := ImageTexture.new()
 var _country_times := PackedFloat32Array()
 
@@ -67,12 +52,7 @@ func setup(launcher: NukeLauncher, earth: Node3D) -> void:
 	_launcher.effects_changed.connect(func() -> void: _dirty = true)
 	_materials = NukeFXMaterials.find(earth, &"nuke_ground_count")
 	var table := NukeScaling.smoke_table()
-	for value in table:
-		_burning_peak = maxf(_burning_peak, value)
 	var scale := log(1.0 + NukeScaling.SMOKE_TABLE_MAX_S / 60.0)
-	for i in table.size():
-		if table[i] > 1e-3 * _burning_peak:
-			_fire_end_s = 60.0 * (exp(float(i + 1) / float(table.size() - 1) * scale) - 1.0)
 	var rate := ImageTexture.create_from_image(Image.create_from_data(table.size(), 1, false, Image.FORMAT_RF,
 			table.to_byte_array()))
 	for material in _materials:
@@ -110,15 +90,14 @@ func _process(_delta: float) -> void:
 	var smoke_changed := false
 	for i in _effects.size():
 		var t := _effects[i].get_time_s()
+		var statics: Array = _statics[_effects[i].get_instance_id()]
 		if t != _times[i]:
 			_times[i] = t
 			_data[i * 4 + 3] = t
 			changed = true
-			var key := _smoke_key(i)
-			if key != _smoke_keys[i]:
+			if _plumes.key(statics, t) != _plumes.keys[i]:
 				smoke_changed = true
 		# Fumée par m² en feu, calculée par NukeImpact quelques ms après le tir.
-		var statics: Array = _statics[_effects[i].get_instance_id()]
 		var row3: Vector4 = statics[2]
 		if row3.y < 0.0 and _effects[i].smoke_yield_kg_m2 >= 0.0:
 			row3.y = _effects[i].smoke_yield_kg_m2
@@ -151,7 +130,7 @@ func _rebuild(effects: Array[NukeEffect]) -> void:
 	_statics = kept
 	_set_parameter("nuke_ground_count", count)
 	if count == 0:
-		_smoke_keys = PackedInt32Array()
+		_plumes.keys = PackedInt32Array()
 		_set_parameter("nuke_smoke_count", 0)
 		return
 
@@ -160,7 +139,7 @@ func _rebuild(effects: Array[NukeEffect]) -> void:
 	_data.resize(_capacity * ROWS * 4)
 	_times = PackedFloat64Array()
 	_times.resize(count)
-	var lists := {} # maille -> PackedInt32Array des explosions qui la touchent
+	_index.clear()
 	for i in count:
 		var effect := _effects[i]
 		var pos := effect.position / OrbitSimulation.SCENE_UNITS_PER_KM
@@ -171,14 +150,13 @@ func _rebuild(effects: Array[NukeEffect]) -> void:
 		for row in range(1, ROWS):
 			_write(i, row, statics[row - 1])
 		var reach: float = statics[0].w
-		for cell in _cells_within(effect.params.latitude_deg, effect.params.longitude_deg, reach):
-			_add_to_cell(lists, cell, i)
+		_index.add_disc(effect.params.latitude_deg, effect.params.longitude_deg, reach, i)
 
 	_events_texture.set_image(Image.create_from_data(_capacity, ROWS, false, Image.FORMAT_RGBAF, _data.to_byte_array()))
-	_upload_index(lists, _cells_texture, _index_texture)
+	_index.upload()
 	_set_parameter("nuke_ground_events", _events_texture)
-	_set_parameter("nuke_ground_cells", _cells_texture)
-	_set_parameter("nuke_ground_index", _index_texture)
+	_set_parameter("nuke_ground_cells", _index.cells_texture)
+	_set_parameter("nuke_ground_index", _index.index_texture)
 	_rebuild_smoke()
 
 
@@ -204,92 +182,11 @@ func _compute_statics(effect: NukeEffect) -> Array:
 			Vector4(rubble, effect.smoke_yield_kg_m2, 0.0, 0.0)]
 
 
-## Âges (s) de la fumée encore présente dans le panache de l'explosion i : (plus jeune, plus vieille) ; vide si elle
-## n'en a plus (ou n'en a jamais : rien ne brûle). Fumée émise de 0 à _fire_end_s, gardée jusqu'à SMOKE_MAX_AGE_S.
-func _smoke_ages(i: int) -> Vector2:
-	var statics: Array = _statics[_effects[i].get_instance_id()]
-	var t := _times[i]
-	# Rien ne brûle, ou fumée par m² pas encore calculée (NukeImpact).
-	if statics[0].z <= 0.0 or statics[2].y <= 0.0 or t <= 0.0:
-		return Vector2.ZERO
-	var youngest := maxf(t - _fire_end_s, 0.0)
-	var oldest := minf(t, NukeScaling.SMOKE_MAX_AGE_S)
-	return Vector2(youngest, oldest) if oldest > youngest else Vector2.ZERO
-
-
-## Clé de l'état d'un panache : la maille de la fumée est reconstruite quand une clé change (allongement de ~10 %,
-## fin de l'émission, disparition).
-func _smoke_key(i: int) -> int:
-	var ages := _smoke_ages(i)
-	if ages == Vector2.ZERO:
-		return -1
-	return floori(log(1.0 + ages.y / 600.0) * 10.0) * 1000 + floori(log(1.0 + ages.x / 600.0) * 10.0)
-
-
 func _rebuild_smoke() -> void:
-	_smoke_keys.resize(_effects.size())
-	var lists := {}
-	var active := 0
-	for i in _effects.size():
-		_smoke_keys[i] = _smoke_key(i)
-		var ages := _smoke_ages(i)
-		if ages == Vector2.ZERO:
-			continue
-		active += 1
-		var statics: Array = _statics[_effects[i].get_instance_id()]
-		var fire_km: float = statics[0].z
-		var wind: Vector4 = statics[1]
-		var smoke_yield: float = statics[2].y
-		var origin := (_effects[i].position / OrbitSimulation.SCENE_UNITS_PER_KM).normalized()
-		var direction := Vector3(wind.x, wind.y, wind.z)
-		var start_km := wind.w * ages.x / 1000.0
-		var end_km := wind.w * ages.y / 1000.0 + 2.0 * NukeScaling.smoke_sigma_m(fire_km, ages.y) / 1000.0
-		var steps := maxi(ceili((end_km - start_km) / SMOKE_CELL_STEP_KM), 1)
-		for s in steps + 1:
-			var along := lerpf(start_km, end_km, float(s) / steps)
-			var age := along * 1000.0 / wind.w
-			# Demi-largeur où τ tombe sous le seuil : τ_axe · exp(−y² / 2σ²) = SMOKE_CELL_MIN_TAU.
-			var sigma := NukeScaling.smoke_sigma_m(fire_km, age)
-			var axis_tau := NukeScaling.SMOKE_MEE_M2_KG * smoke_yield * 1.0e6 * fire_km * fire_km * _burning_peak \
-					/ NukeScaling.FIRE_BURN_S * exp(-age / NukeScaling.SMOKE_LIFETIME_S) / (wind.w * sqrt(TAU) * sigma)
-			var half_width := sigma * sqrt(2.0 * log(maxf(axis_tau / SMOKE_CELL_MIN_TAU, 1.0)))
-			# Marge : front étalé et bords déformés par le bruit du shader (jusqu'à ~0,7 σ), front à ±2 σ.
-			var radius := (half_width + 2.0 * sigma) / 1000.0 + SMOKE_CELL_STEP_KM
-			# Point du grand cercle à la distance along, dans la direction du vent (repère du maillage).
-			var angle := along / OrbitSimulation.EARTH_RADIUS_KM
-			var point := GeoMath.mesh_to_lat_lon(origin * cos(angle) + direction * sin(angle))
-			for cell in _cells_within(point.x, point.y, radius):
-				_add_to_cell(lists, cell, i)
-	_upload_index(lists, _smoke_cells_texture, _smoke_index_texture)
-	_set_parameter("nuke_smoke_cells", _smoke_cells_texture)
-	_set_parameter("nuke_smoke_index", _smoke_index_texture)
+	var active := _plumes.rebuild(_effects, _times, _statics)
+	_set_parameter("nuke_smoke_cells", _plumes.index.cells_texture)
+	_set_parameter("nuke_smoke_index", _plumes.index.index_texture)
 	_set_parameter("nuke_smoke_count", active)
-
-
-static func _add_to_cell(lists: Dictionary, cell: int, event: int) -> void:
-	if not lists.has(cell):
-		lists[cell] = PackedInt32Array()
-	var ids: PackedInt32Array = lists[cell]
-	if ids.is_empty() or ids[-1] != event:
-		ids.append(event)
-		lists[cell] = ids
-
-
-## Maille (début, nombre) et liste des explosions par maille, envoyées dans deux textures.
-static func _upload_index(lists: Dictionary, cells_texture: ImageTexture, index_texture: ImageTexture) -> void:
-	var cells := PackedFloat32Array()
-	cells.resize(CELLS_X * CELLS_Y * 2)
-	var index := PackedFloat32Array()
-	for cell: int in lists:
-		var ids: PackedInt32Array = lists[cell]
-		cells[cell * 2] = index.size()
-		cells[cell * 2 + 1] = ids.size()
-		for id in ids:
-			index.append(id)
-	var rows := maxi(ceili(index.size() / float(INDEX_WIDTH)), 1)
-	index.resize(rows * INDEX_WIDTH)
-	cells_texture.set_image(Image.create_from_data(CELLS_X, CELLS_Y, false, Image.FORMAT_RGF, cells.to_byte_array()))
-	index_texture.set_image(Image.create_from_data(INDEX_WIDTH, rows, false, Image.FORMAT_RF, index.to_byte_array()))
 
 
 func _write(column: int, row: int, value: Vector4) -> void:
@@ -298,28 +195,6 @@ func _write(column: int, row: int, value: Vector4) -> void:
 	_data[k + 1] = value.y
 	_data[k + 2] = value.z
 	_data[k + 3] = value.w
-
-
-## Mailles (indice ligne × CELLS_X + colonne ; ligne 0 au nord) que touche le disque de rayon radius_km centré en
-## (latitude, longitude) : bande de latitudes, et longitudes de la calotte sphérique (asin(sin α / cos φ)).
-static func _cells_within(latitude_deg: float, longitude_deg: float, radius_km: float) -> PackedInt32Array:
-	var result := PackedInt32Array()
-	var alpha := radius_km / OrbitSimulation.EARTH_RADIUS_KM
-	var alpha_deg := rad_to_deg(alpha)
-	var first_row := clampi(floori(90.0 - (latitude_deg + alpha_deg)), 0, CELLS_Y - 1)
-	var last_row := clampi(floori(90.0 - (latitude_deg - alpha_deg)), 0, CELLS_Y - 1)
-	var first_col := 0
-	var last_col := CELLS_X - 1
-	var cos_lat := cos(deg_to_rad(latitude_deg))
-	if latitude_deg + alpha_deg < 90.0 and latitude_deg - alpha_deg > -90.0 and sin(alpha) < cos_lat:
-		var dlon := rad_to_deg(asin(sin(alpha) / cos_lat))
-		var lon := wrapf(longitude_deg, -180.0, 180.0) + 180.0
-		first_col = floori(lon - dlon)
-		last_col = floori(lon + dlon)
-	for row in range(first_row, last_row + 1):
-		for col in range(first_col, last_col + 1):
-			result.append(row * CELLS_X + posmod(col, CELLS_X))
-	return result
 
 
 ## Pannes nationales (décidées au tir par NukeGridImpact, NukeEffect.grid, connues quelques ms plus tard) : temps
