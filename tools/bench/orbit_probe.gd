@@ -85,9 +85,11 @@ func _ready() -> void:
 	_record["planner/timeline"] = MissionPlanner.timeline(campaign)
 	var state := MissionPlanner.state_of(orbit)
 	var objectives: Array = campaign.mission("test_kourou").objectives
+	var started := Time.get_ticks_usec()
 	_record["planner/earliest"] = MissionPlanner.earliest(state, objectives, 0.0, 6.0 * 3600.0)
-	print("  %d ligne(s) de chronologie, passage au plus tôt %.0f s" % [_record["planner/timeline"].size(),
-			_record["planner/earliest"].time])
+	var cost_ms := (Time.get_ticks_usec() - started) / 1000.0
+	print("  %d ligne(s) de chronologie, passage au plus tôt %.0f s (calcul : %.1f ms)" % [
+			_record["planner/timeline"].size(), _record["planner/earliest"].time, cost_ms])
 
 	print("- Référence")
 	var result := ProbeCompare.check(_record, REFERENCE, write_reference)

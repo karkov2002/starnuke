@@ -117,9 +117,13 @@ func _ready() -> void:
 			var key := "shot%d/t%s" % [i, t]
 			_record[key + "/mushroom"] = {"visible": mushroom.visible, "scale": mushroom.scale,
 					"cloud_visible": cloud.visible, "surge_visible": surge.visible, "volume_visible": volume.visible,
-					"cloud_aabb": cloud.custom_aabb, "volume_transform": volume.transform}
-			_record[key + "/cloud"] = _uniforms(cloud.material_override as ShaderMaterial, CLOUD_UNIFORMS)
-			_record[key + "/surge"] = _uniforms(surge.material_override as ShaderMaterial, SURGE_UNIFORMS)
+					"cloud_aabb": cloud.custom_aabb if not mushroom.volumetric else AABB(),
+					"volume_transform": volume.transform}
+			# Maillages (Cloud, BaseSurge) : relevés seulement en rendu par maillage ; en volumétrique (défaut), ils sont
+			# invisibles et leurs uniforms ne sont plus posés (lot 3).
+			if not mushroom.volumetric:
+				_record[key + "/cloud"] = _uniforms(cloud.material_override as ShaderMaterial, CLOUD_UNIFORMS)
+				_record[key + "/surge"] = _uniforms(surge.material_override as ShaderMaterial, SURGE_UNIFORMS)
 			_record[key + "/volume"] = _uniforms(volume.material_override as ShaderMaterial, VOLUME_UNIFORMS)
 	print("  %d instants × 3 champignons relevés" % TIMES_S.size())
 

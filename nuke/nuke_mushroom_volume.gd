@@ -28,6 +28,8 @@ func _init(m: NukeMushroom, cull_margin: float) -> void:
 	material.shader = VOLUME_SHADER
 	material.render_priority = -1
 	material.set_shader_parameter("noise_tex", SHAPE_NOISE)
+	material.set_shader_parameter("base_flare", m.base_flare)
+	material.set_shader_parameter("drift_top", NukeMushroomDrift.TOP)
 	var box := BoxMesh.new()
 	box.size = Vector3(2.0, 2.0, 2.0)
 	node = MeshInstance3D.new()
@@ -39,11 +41,20 @@ func _init(m: NukeMushroom, cull_margin: float) -> void:
 	m.add_child(node)
 
 
+## Uniforms propres à l'explosion, posés une fois : extinction et premier pas de lumière (échelle du nœud), graine de
+## la déformation (point et puissance).
+func setup(params: NukeParams, top_km: float) -> void:
+	material.set_shader_parameter("extinction", _m.volume_extinction_per_km * top_km)
+	material.set_shader_parameter("light_first_step", 0.3 / top_km)
+	material.set_shader_parameter("seed", Vector3(fposmod(params.latitude_deg * 0.731, 7.0),
+			fposmod(params.longitude_deg * 0.377, 7.0), fposmod(params.yield_kt * 0.0013, 7.0)))
+
+
 ## Uniforms et boîte du volume : forme s, nuage de base (rayon, hauteur, opacité), boîte englobante (box_min, box_max,
 ## dérive comprise) et boîte cœur (extent, y_low, y_high : sans la dérive, là où le shader marche), repère de la
 ## planète, soleil, repère du champignon dans le monde, graine de la déformation.
 func update(s: NukeMushroomShape, surge: Vector3, box_min: Vector3, box_max: Vector3, extent: float, y_low: float,
-		y_high: float, to_planet: Transform3D, sun_dir: Vector3, world: Transform3D, seed: Vector3) -> void:
+		y_high: float, to_planet: Transform3D, sun_dir: Vector3, world: Transform3D) -> void:
 	var m := material
 	m.set_shader_parameter("cap_center", s.yc)
 	m.set_shader_parameter("cap_radius", s.rc)
@@ -51,7 +62,6 @@ func update(s: NukeMushroomShape, surge: Vector3, box_min: Vector3, box_max: Vec
 	m.set_shader_parameter("cap_under", s.under)
 	m.set_shader_parameter("stem_radius", s.rs)
 	m.set_shader_parameter("neck_height", s.y_neck)
-	m.set_shader_parameter("base_flare", _m.base_flare)
 	m.set_shader_parameter("base_flare_height", _m.base_flare_height * s.h)
 	m.set_shader_parameter("stem_erosion", clampf(s.erosion, 0.0, 1.0))
 	m.set_shader_parameter("surge_radius", surge.x)
@@ -68,8 +78,6 @@ func update(s: NukeMushroomShape, surge: Vector3, box_min: Vector3, box_max: Vec
 			m.set_shader_parameter("light_steps", int(level.y))
 			break
 	m.set_shader_parameter("warp_vertical", 1.0 / s.spread)
-	m.set_shader_parameter("extinction", _m.volume_extinction_per_km * s.top_km)
-	m.set_shader_parameter("light_first_step", 0.3 / s.top_km)
 	m.set_shader_parameter("albedo", s.albedo_vec())
 	m.set_shader_parameter("glow", s.glow_vec())
 	m.set_shader_parameter("sun_dir_planet", sun_dir)
@@ -77,7 +85,6 @@ func update(s: NukeMushroomShape, surge: Vector3, box_min: Vector3, box_max: Vec
 	m.set_shader_parameter("local_to_planet_km", Projection(to_planet))
 	m.set_shader_parameter("local_to_world", Projection(world))
 	m.set_shader_parameter("world_to_local", Projection(world.affine_inverse()))
-	m.set_shader_parameter("seed", seed)
 	m.set_shader_parameter("box_min", box_min)
 	m.set_shader_parameter("box_max", box_max)
 	# Boîte cœur (sans la dérive) : le shader ne marche que là où le rayon, dérive retirée, la traverse.

@@ -106,6 +106,7 @@ func _ready() -> void:
 	_particles = NukeMushroomParticles.new(self, stem_color, skirt_color, debris_color)
 	if _effect and _effect.params:
 		_drift = NukeMushroomDrift.new(_effect.params, height_curve, drift_shear)
+		_volume.setup(_effect.params, NukeScaling.cloud_top_km(_effect.params.yield_kt))
 		if _effect.params.over_ocean:
 			_steam = NukeScaling.low_burst(_effect.params.yield_kt, _effect.params.burst_height_km)
 			# Au pied, des embruns plutôt que des débris.
@@ -145,15 +146,17 @@ func _update(delta: float) -> void:
 	var has_sun := _sun != null and earth != null
 	if has_sun:
 		sun_dir = (earth.global_basis.inverse() * _sun.global_basis.z).normalized()
-	_mesh.update(s, to_planet, sun_dir, has_sun)
-
-	# Dérive au vent (profil vertical), partagée par tous les matériaux du champignon.
+	# Dérive au vent (profil vertical), partagée par les matériaux du champignon.
 	_drift.update(t, s.top_km, maxf(s.yc, 0.05))
-	for m: ShaderMaterial in [_mesh.material, _mesh.surge_material, _volume.material]:
-		m.set_shader_parameter("drift_profile", _drift.samples)
-		m.set_shader_parameter("drift_top", NukeMushroomDrift.TOP)
-
-	var surge := _mesh.update_surge(s, params.yield_kt, _steam, to_planet, sun_dir)
+	var surge := _mesh.surge_state(s, params.yield_kt, _steam)
+	# Rendu volumétrique : les maillages restent cachés, rien n'est posé sur leurs matériaux.
+	if not volumetric:
+		_mesh.update(s, to_planet, sun_dir, has_sun)
+		_mesh.set_drift(_drift.samples)
+		_mesh.apply_surge(s, surge, to_planet, sun_dir)
+	else:
+		_mesh.hide()
+	_volume.material.set_shader_parameter("drift_profile", _drift.samples)
 	# Boîte englobante : chapeau, nuage de base, dérive des hauteurs occupées. La densité s'étend jusqu'à ~1,2 fois la
 	# forme (bord rongé par le bruit) ; avec les lobes (+18 %) et la déformation (0,35 × rayon, verticale réduite de
 	# 1 / spread) : ~1,75 fois le rayon du chapeau. Une fois la tige dissoute (et le nuage de base retombé), la boîte ne
@@ -166,12 +169,11 @@ func _update(delta: float) -> void:
 	var drift_range := _drift.extent(y_low, y_high)
 	var box_min := Vector3(drift_range[0].x - extent, y_low, drift_range[0].z - extent)
 	var box_max := Vector3(drift_range[1].x + extent, y_high, drift_range[1].z + extent)
-	_mesh.set_bounds(AABB(box_min, box_max - box_min), not volumetric)
 	_volume.node.visible = volumetric
 	if volumetric:
-		var seed := Vector3(fposmod(params.latitude_deg * 0.731, 7.0), fposmod(params.longitude_deg * 0.377, 7.0),
-				fposmod(params.yield_kt * 0.0013, 7.0))
-		_volume.update(s, surge, box_min, box_max, extent, y_low, y_high, to_planet, sun_dir, global_transform, seed)
+		_volume.update(s, surge, box_min, box_max, extent, y_low, y_high, to_planet, sun_dir, global_transform)
+	else:
+		_mesh.set_bounds(AABB(box_min, box_max - box_min))
 	# Particules : vitesse du temps physique (pause, temps réel, accélération de l'horloge) et lumière du soleil au
 	# milieu du nuage (atmosphère traversée vers le soleil ; nulle de nuit).
 	var speed := (t - _last_t) / delta if _last_t >= 0.0 and delta > 0.0 else 0.0

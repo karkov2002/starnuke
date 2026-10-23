@@ -30,8 +30,13 @@ func _init(m: NukeMushroom, cloud_node: MeshInstance3D) -> void:
 	material = (cloud.material_override as ShaderMaterial).duplicate() as ShaderMaterial
 	cloud.material_override = material
 	cloud.mesh = _get_mesh()
+	# Uniforms constants, posés une fois.
+	material.set_shader_parameter("stem_fraction", float(STEM_POINTS - 1) / float(PROFILE_POINTS - 1))
+	material.set_shader_parameter("ground_fade", 0.04)
+	material.set_shader_parameter("drift_top", NukeMushroomDrift.TOP)
 	surge_material = material.duplicate() as ShaderMaterial
 	surge_material.set_shader_parameter("stem_fraction", 0.0)
+	surge_material.set_shader_parameter("edge_erosion", 0.6)
 	surge = MeshInstance3D.new()
 	surge.name = "BaseSurge"
 	surge.mesh = cloud.mesh
@@ -45,13 +50,11 @@ func _init(m: NukeMushroom, cloud_node: MeshInstance3D) -> void:
 func update(s: NukeMushroomShape, to_planet: Transform3D, sun_dir: Vector3, has_sun: bool) -> void:
 	material.set_shader_parameter("opacity", s.fade)
 	material.set_shader_parameter("profile", _profile(s.yc, 0.5 * s.hc, s.rc, s.rs, s.y_neck, s.h))
-	material.set_shader_parameter("stem_fraction", float(STEM_POINTS - 1) / float(PROFILE_POINTS - 1))
 	material.set_shader_parameter("ring", Vector2(0.55 * s.rc, s.yc))
 	material.set_shader_parameter("roll_angle", s.roll_angle(_m))
 	material.set_shader_parameter("rise_offset", s.rise_offset(_m))
 	material.set_shader_parameter("boil", _m.boil_rate * s.t)
 	material.set_shader_parameter("erosion", s.erosion)
-	material.set_shader_parameter("ground_fade", 0.04)
 	material.set_shader_parameter("albedo", s.albedo_vec())
 	material.set_shader_parameter("glow", s.glow_vec())
 	material.set_shader_parameter("local_to_planet_km", Projection(to_planet))
@@ -59,19 +62,27 @@ func update(s: NukeMushroomShape, to_planet: Transform3D, sun_dir: Vector3, has_
 		material.set_shader_parameter("sun_dir_planet", sun_dir)
 
 
-## Nuage de base : dôme de poussière bas, rayon = surge_shock_ratio × front de choc, même couleur que le champignon,
-## qui s'estompe avec l'érosion de la tige. Seulement pour les explosions basses. Retourne (rayon, hauteur, opacité),
-## nuls sans nuage de base (repris par le rendu volumétrique).
-func update_surge(s: NukeMushroomShape, yield_kt: float, steam: float, to_planet: Transform3D,
-		sun_dir: Vector3) -> Vector3:
+## Nuage de base : dôme de poussière bas, rayon = surge_shock_ratio × front de choc, qui s'estompe avec l'érosion de
+## la tige. Seulement pour les explosions basses. Retourne (rayon, hauteur, opacité), nuls sans nuage de base ; sert
+## au rendu volumétrique comme au maillage (apply_surge).
+func surge_state(s: NukeMushroomShape, yield_kt: float, steam: float) -> Vector3:
 	var radius := lerpf(_m.surge_shock_ratio, _m.steam_surge_ratio, steam) \
 			* NukeScaling.shock_front_radius_km(yield_kt, s.t) / s.top_km
 	var fade := lerpf(_m.surge_opacity, _m.steam_surge_opacity, steam) * smoothstep(0.0, 0.02, s.a) \
 			* (1.0 - smoothstep(0.0, 0.7, s.erosion))
-	surge.visible = s.yb < 2.0 * s.rf and radius > 0.002 and fade > 0.005
-	if not surge.visible:
+	if not (s.yb < 2.0 * s.rf and radius > 0.002 and fade > 0.005):
 		return Vector3.ZERO
-	var height := _m.surge_aspect * radius
+	return Vector3(radius, _m.surge_aspect * radius, fade)
+
+
+## Maillage du nuage de base (rendu par maillage) : profil, mouvements et couleur du champignon.
+func apply_surge(s: NukeMushroomShape, state: Vector3, to_planet: Transform3D, sun_dir: Vector3) -> void:
+	surge.visible = state != Vector3.ZERO
+	if not surge.visible:
+		return
+	var radius := state.x
+	var height := state.y
+	var fade := state.z
 	var points := PackedVector2Array()
 	points.resize(PROFILE_POINTS)
 	for i in PROFILE_POINTS:
@@ -84,19 +95,27 @@ func update_surge(s: NukeMushroomShape, yield_kt: float, steam: float, to_planet
 	m.set_shader_parameter("boil", material.get_shader_parameter("boil"))
 	m.set_shader_parameter("opacity", fade)
 	m.set_shader_parameter("ground_fade", height)
-	m.set_shader_parameter("edge_erosion", 0.6)
 	m.set_shader_parameter("albedo", s.albedo_vec())
 	m.set_shader_parameter("glow", s.glow_vec() * 0.03)
 	m.set_shader_parameter("local_to_planet_km", Projection(to_planet))
 	m.set_shader_parameter("sun_dir_planet", sun_dir)
-	return Vector3(radius, height, fade)
 
 
-## Boîte englobante du nuage et visibilité des maillages (cachés quand le rendu est volumétrique).
-func set_bounds(aabb: AABB, shown: bool) -> void:
+## Dérive au vent (profil vertical) des deux maillages.
+func set_drift(samples: Variant) -> void:
+	material.set_shader_parameter("drift_profile", samples)
+	surge_material.set_shader_parameter("drift_profile", samples)
+
+
+## Boîte englobante du nuage.
+func set_bounds(aabb: AABB) -> void:
 	cloud.custom_aabb = aabb
-	cloud.visible = shown
-	surge.visible = surge.visible and shown
+
+
+## Maillages cachés (rendu volumétrique) : plus rien n'est posé sur leurs matériaux tant qu'ils le restent.
+func hide() -> void:
+	cloud.visible = false
+	surge.visible = false
 
 
 ## Méridienne : tige (STEM_POINTS points, du sol au col, pied et col évasés) puis chapeau (dessous, bord arrondi,

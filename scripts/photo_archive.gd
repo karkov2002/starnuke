@@ -20,32 +20,55 @@ const THUMB_WIDTH := 600
 
 ## Photos, dans l'ordre de prise : {id, texture, lat, lon, utc_unix, altitude_km, footprint_km (Vector2), path}.
 var photos: Array[Dictionary] = []
+## Enregistrements PNG en cours (WorkerThreadPool) : attendus à la sortie, comme ceux de NukeImpact.
+var _tasks: Array[int] = []
 
 
 func _ready() -> void:
 	add_to_group(GROUP)
 
 
+func _exit_tree() -> void:
+	for task in _tasks:
+		WorkerThreadPool.wait_for_task_completion(task)
+	_tasks.clear()
+
+
 ## Ajoute une photo prise au-dessus de (lat, lon) : image pleine résolution (rendu final, enregistrée en PNG) et image
-## pour l'écran de la tablette (rendu de la vue en direct, cf. Tablet._take_photo) ; rend sa description.
+## pour l'écran de la tablette (rendu de la vue en direct, cf. Tablet._take_photo) ; rend sa description. Les PNG
+## (photo et vignette) sont écrits dans un thread : l'encodage d'une image pleine résolution figeait l'image ; les
+## images ne doivent plus être modifiées après l'appel.
 func add(image: Image, screen_image: Image, lat_deg: float, lon_deg: float, utc_unix: float, altitude_km: float,
 		footprint_km: Vector2) -> Dictionary:
-	var path := _save(image, lat_deg, lon_deg, utc_unix)
 	var thumb := screen_image.duplicate() as Image
 	if thumb.get_width() > THUMB_WIDTH:
 		thumb.resize(THUMB_WIDTH, roundi(THUMB_WIDTH * float(thumb.get_height()) / thumb.get_width()),
 				Image.INTERPOLATE_LANCZOS)
+	var path := ""
 	var thumb_path := ""
-	if not path.is_empty() and DirAccess.make_dir_recursive_absolute(THUMBS) == OK:
+	if DirAccess.make_dir_recursive_absolute(FOLDER) == OK and DirAccess.make_dir_recursive_absolute(THUMBS) == OK:
+		var stamp := Time.get_datetime_string_from_unix_time(int(utc_unix)).replace(":", "-")
+		path = FOLDER.path_join("%s_%+.2f_%+.2f.png" % [stamp, lat_deg, lon_deg])
 		thumb_path = THUMBS.path_join(path.get_file())
-		if thumb.save_png(thumb_path) != OK:
-			thumb_path = ""
+		for i in range(_tasks.size() - 1, -1, -1):
+			if WorkerThreadPool.is_task_completed(_tasks[i]):
+				WorkerThreadPool.wait_for_task_completion(_tasks[i])
+				_tasks.remove_at(i)
+		_tasks.append(WorkerThreadPool.add_task(_write_files.bind(image, path, thumb, thumb_path)))
 	var photo := {"id": photos.size() + 1, "texture": ImageTexture.create_from_image(thumb), "lat": lat_deg,
 			"lon": lon_deg, "utc_unix": utc_unix, "altitude_km": altitude_km, "footprint_km": footprint_km,
 			"path": path, "thumb_path": thumb_path}
 	photos.append(photo)
 	photo_taken.emit(photo)
 	return photo
+
+
+## Dans un thread : photo pleine résolution et vignette en PNG.
+static func _write_files(image: Image, path: String, thumb: Image, thumb_path: String) -> void:
+	if image.save_png(path) != OK:
+		push_warning("PhotoArchive : %s non enregistrée" % path)
+	if thumb.save_png(thumb_path) != OK:
+		push_warning("PhotoArchive : %s non enregistrée" % thumb_path)
 
 
 ## Photos pour une sauvegarde (sans les images : fichiers PNG de user://photos/ et de ses vignettes).
@@ -72,13 +95,3 @@ func restore(saved: Array) -> void:
 	restored.emit()
 
 
-## PNG dans user://photos/ (date et heure du jeu, point survolé dans le nom) ; "" en cas d'échec.
-func _save(image: Image, lat_deg: float, lon_deg: float, utc_unix: float) -> String:
-	if DirAccess.make_dir_recursive_absolute(FOLDER) != OK:
-		return ""
-	var stamp := Time.get_datetime_string_from_unix_time(int(utc_unix)).replace(":", "-")
-	var path := FOLDER.path_join("%s_%+.2f_%+.2f.png" % [stamp, lat_deg, lon_deg])
-	if image.save_png(path) != OK:
-		push_warning("PhotoArchive : %s non enregistrée" % path)
-		return ""
-	return path
