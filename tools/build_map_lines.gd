@@ -4,7 +4,7 @@ extends SceneTree
 ## https://github.com/nvkelso/natural-earth-vector, geojson/ne_50m_admin_0_countries.geojson). Usage :
 ##   godot --headless --path <projet> --script res://tools/build_map_lines.gd -- <ne_50m_admin_0_countries.geojson>
 
-const WorldMapLinesScript := preload("res://scripts/world_map_lines.gd")
+const WorldMapLinesScript := preload("res://scripts/geo/world_map_lines.gd")
 
 
 func _init() -> void:

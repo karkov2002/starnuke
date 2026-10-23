@@ -1,6 +1,6 @@
 .godot/
 # Cache du serveur MCP Godot (captures, instantanés d'annulation)
-addons/godot_mcp/cache/
+addons/godot_mcp/cache/*
 # Traductions compilées par l'import des CSV de langue (locale/*.csv), régénérées par l'éditeur
 locale/*.translation
 # Playlists personnelles (musiques déposées dans playlist/) : seules la playlist par défaut « starnuke » et le
@@ -13,3 +13,6 @@ playlist/*
 campaign/*
 !campaign/.gdignore
 !campaign/starnuke/
+
+# Le cache du MCP (copies d'annulation de scripts avec class_name) ne doit pas être scanné par l'éditeur.
+!addons/godot_mcp/cache/.gdignore

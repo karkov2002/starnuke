@@ -5,8 +5,8 @@ extends SceneTree
 ## capacités par pays sont ainsi cohérentes avec les frontières du jeu. Usage :
 ##   godot --headless --path <projet> --script res://tools/build_power_plants.gd -- <global_power_plant_database.csv>
 
-const PowerPlantsScript := preload("res://scripts/power_plants.gd")
-const CountryMaskScript := preload("res://scripts/country_mask.gd")
+const PowerPlantsScript := preload("res://scripts/geo/power_plants.gd")
+const CountryMaskScript := preload("res://scripts/geo/country_mask.gd")
 const GeoGridScript := preload("res://scripts/geo/geo_grid.gd")
 ## Recherche du pays d'une centrale côtière : 16 lignes de 1/120° (~15 km).
 const COAST_SEARCH := 16

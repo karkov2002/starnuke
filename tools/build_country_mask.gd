@@ -6,7 +6,7 @@ extends SceneTree
 ## traversées. Usage :
 ##   godot --headless --path <projet> --script res://tools/build_country_mask.gd -- <ne_10m_admin_0_countries.geojson>
 
-const CountryMaskScript := preload("res://scripts/country_mask.gd")
+const CountryMaskScript := preload("res://scripts/geo/country_mask.gd")
 const GeoGridScript := preload("res://scripts/geo/geo_grid.gd")
 
 

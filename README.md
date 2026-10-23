@@ -32,7 +32,7 @@ permet de piloter le jeu exporté.
 
 - **Modes de jeu** (règle de jeu ; `scripts/ui/main_menu.gd`, pages du menu, Échap : page précédente ;
   `scripts/campaign/campaign_session.gd`, classe `CampaignSession`, qui retient le mode, la campagne, la journée et
-  les notes le temps de la session ; catalogue des campagnes sur le disque : `scripts/campaigns.gd`, `Campaigns`) :
+  les notes le temps de la session ; catalogue des campagnes sur le disque : `scripts/campaign/campaigns.gd`, `Campaigns`) :
   **Start Game** ouvre la
   page des modes : **Start a new campaign** (choix de la campagne : il peut y en avoir des dizaines, d'où un
   **sélecteur déroulant** — bouton qui affiche la campagne choisie et ouvre une liste à défilement, 8 lignes
@@ -41,7 +41,7 @@ permet de piloter le jeu exporté.
   seulement s'il y a une sauvegarde, `CampaignSession.has_saved` : voir « Sauvegarde au coucher »),
   **Free mode** (le jeu tel quel : `orbit_view.tscn`) et **Back**. Le **mode campagne** sera le cœur du jeu
   (`CampaignSession.mode`, `current_id`, `current` : `CampaignData` vérifié, `day_index` retenus) : au lancement, le nœud
-  `CampaignDirector` (`scripts/campaign_director.gd`) applique le **départ de la journée** (heure UTC et position
+  `CampaignDirector` (`scripts/campaign/campaign_director.gd`) applique le **départ de la journée** (heure UTC et position
   exacte de la station, `OrbitSimulation.place` ; la manœuvre en préparation est annulée). Une campagne avec des
   erreurs est proposée **grisée**, avec leur nombre en infobulle, et ne se lance pas.
 - **Déroulement d'une journée** (règles de jeu, `CampaignDirector`) :
@@ -57,7 +57,7 @@ permet de piloter le jeu exporté.
 	délais sont en heures et minutes** (règle de jeu : plus précis et plus stressants que des jours). **À sa
 	réception, le chrono de la mission part** (pas avant), **le temps revient à ×1** et l'**appel prioritaire**
     retentit.
-  - **Appel prioritaire** (règle de jeu, `scripts/priority_call.gd`, `PriorityCall`, créé par `CampaignDirector`) :
+  - **Appel prioritaire** (règle de jeu, `scripts/campaign/priority_call.gd`, `PriorityCall`, créé par `CampaignDirector`) :
     **un appel passe la station en alerte jaune simple** (`Station.set_alert` : luminaires jaunes et **sirène
 	jaune**, voir « Sirènes d'alerte » ; pas de sonnerie propre) **jusqu'à la lecture du briefing**, puis retour au
     normal (sauf si le niveau a changé entre-temps) ; une alerte déjà en cours (jaune, orange, rouge, plus de
@@ -65,7 +65,7 @@ permet de piloter le jeu exporté.
 	**Alertes** (appel en cours, bandeau clignotant « TRANSMISSION PRIORITAIRE — poste COMM, module Commande »,
 	`PRIORITY_CALL_BANNER`, jusqu'à la lecture ; voir « Tablette ») ; plus rien ne s'affiche par-dessus la vue. Le
 	briefing se lit au poste COMM. Une mission terminée sans que son briefing ait été lu arrête l'appel.
-  - **Sirènes d'alerte** (règle de jeu, `scripts/alert_sirens.gd`, nœud `AlertSirens` de `orbit_view.tscn`, mode
+  - **Sirènes d'alerte** (règle de jeu, `scripts/station/alert_sirens.gd`, nœud `AlertSirens` de `orbit_view.tscn`, mode
 	libre compris) : tant que la station est en alerte **jaune, orange ou rouge** (tablette, panneau de debug, sas),
 	le son de ce niveau passe **en boucle par l'interphone, audible dans toute la station** (bus SFX, sans
     position) : **jaune** (précaution), carillon doux de deux notes descendantes 660 puis 523 Hz toutes les 4 s ;
@@ -81,13 +81,13 @@ permet de piloter le jeu exporté.
   - **Objectifs** : une **photo** satellite (point sous la station à la prise de vue) ou un **impact** de missile à
 	moins de la tolérance d'une cible remplit l'objectif correspondant (le premier encore ouvert de ce type, dont
 	l'objectif préalable `after` est rempli) ; plus loin, il ne compte pas.
-  - **Note sur 20** (`scripts/mission_scoring.gd`) : précision d'un objectif = 20 jusqu'à tolérance / 4, puis
+  - **Note sur 20** (`scripts/campaign/mission_scoring.gd`) : précision d'un objectif = 20 jusqu'à tolérance / 4, puis
 	décroissance linéaire jusqu'à 0 à la tolérance (non rempli : 0) ; précision de la mission = moyenne pondérée
 	(`weight`) ; **facteur temps** = 1 jusqu'au temps de référence, puis décroissance linéaire jusqu'à
 	`time_floor` (0,6) à l'échéance ; note = précision × facteur temps ; **réussite si note ≥ 10**
 	(`success_score`).
   - **Temps de référence** (règle de jeu) : `par_hours` s'il est donné, sinon **calculé à l'arrivée du briefing**
-	d'après l'orbite réelle (`scripts/mission_planner.gd`, `MissionPlanner`) : **passage le plus tôt possible**
+	d'après l'orbite réelle (`scripts/campaign/mission_planner.gd`, `MissionPlanner`) : **passage le plus tôt possible**
 	pour remplir tous les objectifs, compté depuis la réception du briefing, **plus une orbite** (~1 h 32 à 400 km), au
 	plus l'échéance (mission impossible à temps : pas de pénalité de temps). Passage possible : **photo**, le point
     sous la station passe à la verticale de la cible ; **tir**, la cible est vue à **au moins 20° au-dessus de
@@ -115,7 +115,7 @@ permet de piloter le jeu exporté.
 	journée, dormir termine la campagne : la sauvegarde est effacée et l'**écran de fin de campagne** s'affiche
 	(voir ci-dessous). Pendant la nuit et les sauts dans le temps, les explosions vieillissent d'autant (horloge
 	`NukeClock` avancée : incendies, fumées).
-  - **Journal de partie** (`scripts/campaign_journal.gd`, `CampaignJournal`, abonné aux signaux de
+  - **Journal de partie** (`scripts/campaign/campaign_journal.gd`, `CampaignJournal`, abonné aux signaux de
 	`CampaignDirector` et de `FlightComputer` : le directeur ne sait rien du fichier) : un fichier **JSON Lines** par
 	partie lancée (nouvelle campagne ou « Continuer »), `user://logs/<campagne>_<date et heure réelles>.jsonl`
 	(`%APPDATA%/Godot/app_userdata/Star Nuke/logs/`), écrit et vidé sur le disque ligne par ligne. Chaque ligne :
@@ -144,7 +144,7 @@ permet de piloter le jeu exporté.
     **recréées à leur âge** (`NukeLauncher.restore_at` : incendies, traces au sol, black-out où ils en étaient ;
     marquées `restored` : elles ne remplissent aucun objectif et la télévision garde leur heure réelle pour
 	l'édition spéciale), galerie et cibles rétablies.
-  - **Réveil** (règle de jeu, `scripts/wake_up.gd`, nœud `WakeUp`) : **au lancement de toute partie (mode libre
+  - **Réveil** (règle de jeu, `scripts/core/wake_up.gd`, nœud `WakeUp`) : **au lancement de toute partie (mode libre
 	compris)** et au début de chaque journée de campagne : noir, titre « Jour n » (campagne seulement) et, dessous,
 	**date, heure UTC et point survolé** de la journée (« 18 juillet 2035 — 11 h 15 UTC — 46.84° N  21.85° O »,
 	`CampaignDirector.day_heading`, clés `WAKE_HEADING` et `MONTH_1` à `MONTH_12`), puis **ouverture des
@@ -159,7 +159,7 @@ permet de piloter le jeu exporté.
   par `tools/package_game.ps1`), où **les joueurs ajoutent leurs propres campagnes** ; la liste est relue à chaque
   ouverture de la page. Campagne officielle : **`starnuke`** (proposée en premier, les autres par ordre
   alphabétique ; seule versionnée, `.gitignore`). Un dossier sans `campaign.json` lisible n'est pas proposé.
-- **Format de `campaign.json`** (format 2, lu et vérifié par `CampaignData`, `scripts/campaign_data.gd`, où il est
+- **Format de `campaign.json`** (format 2, lu et vérifié par `CampaignData`, `scripts/campaign/campaign_data.gd`, où il est
   décrit en entier) :
   - **Textes** (`name`, `description`, titres, messages…) : clé des fichiers de langue (la campagne officielle n'utilise
     que des clés, `CAMPAIGN_STARNUKE_*`), texte, ou dictionnaire par langue `{"en": …, "fr": …}` (langue du jeu,
@@ -281,7 +281,7 @@ permet de piloter le jeu exporté.
 	le bus et désactive (grise) le curseur, le volume réglé étant gardé pour la remise en route ; **playlist** : menu
 	déroulant des playlists disponibles (`GameSettings.playlist`, « starnuke » par défaut).
 	Une playlist est un sous-dossier de `playlist/` (son nom est celui du dossier) ; l'autoload `Music`
-	(`scripts/music_player.gd`) joue tous ses morceaux (.mp3, .ogg, .wav, ordre alphabétique) puis recommence, dès le
+	(`scripts/core/music_player.gd`) joue tous ses morceaux (.mp3, .ogg, .wav, ordre alphabétique) puis recommence, dès le
 	début de la partie (scène `orbit_view.tscn`, pause comprise) ; il s'arrête à l'écran de démarrage. Changer de
 	playlist en cours de partie lance aussitôt la nouvelle. Playlist « starnuke » : « Deep Space Hiss » 1 et 2.
 	**Le dossier `playlist/` est lu sur le disque, jamais importé ni mis dans le `.pck`** (`.gdignore`) : dans le
@@ -290,7 +290,7 @@ permet de piloter le jeu exporté.
 	et équivalents) ; dans l'éditeur, `playlist/` du projet. La liste est relue à chaque ouverture des paramètres
 	(pas besoin de relancer le jeu) ; un fichier illisible est sauté.
   - **Game** : **langue** (English, Français, Español, Deutsch, Italiano ; anglais par défaut), appliquée en direct.
-- **Sauvegarde** (autoload `GameSettings`, `scripts/game_settings.gd`) : `user://settings.cfg` (sous Windows
+- **Sauvegarde** (autoload `GameSettings`, `scripts/core/game_settings.gd`) : `user://settings.cfg` (sous Windows
   `%APPDATA%/Godot/app_userdata/Star Nuke/settings.cfg`), réappliqué au lancement suivant. Sections `[video]`
   (`window_mode` = `"fullscreen"` / `"windowed"`, `resolution`, `Vector2i(0, 0)` = native) et `[game]`
   (`locale`). Premier lancement : plein écran, résolution native, anglais.
@@ -327,7 +327,7 @@ permet de piloter le jeu exporté.
 | Altitude, inclinaison de l'orbite | Au **poste de pilotage** : manœuvre au prochain nœud (inclinaison visée **0 à 80°**, altitude visée **400 à 800 km**), exécutée en mode **Auto** ou en maintenant le bouton **BURN** bleu (mode **Manuel**, aussi sur la tablette) ; voir « Poste de pilotage ». Réglage direct (outil de développement) : section « Orbite » du **panneau de debug (F4)**, altitude 200 à 800 km, inclinaison 0 à 80° bornée par la latitude courante (voir ci-dessous) |
 | Date, heure (UTC), redémarrer | Outils de développement, dans le **panneau de debug (F4)** : champ **date** (AAAA-MM-JJ, valider par Entrée), boutons **−1 j / +1 j**, curseur de l'**heure** du jour (la station reste au-dessus du même point ; le soleil, les étoiles et les nuages se placent selon la nouvelle heure ; départ : **15 juillet 2035**) ; **Redémarrer (Europe) De jour / De nuit** : temps remis à zéro, station au-dessus de l'Espagne (Madrid, 40,4° N 3,7° O, phase montante) à **midi** / **minuit** heure solaire locale, le même jour ; l'altitude est conservée, l'inclinaison relevée à 40,4° si elle était plus faible |
 | Poste de pilotage | Grand écran de la console du module Commande (à l'avant) : le survoler à moins de 2,5 m affiche **« Contrôle orbital »** au curseur ; **clic gauche** dessus : position **« poste de pilotage »** (la vue se cadre face à l'écran, déplacements et rotation de la tête suspendus) ; **clic droit** : on quitte le poste (retour à la position d'avant). L'écran ne réagit à la souris qu'en position « poste de pilotage ». Voir « Poste de pilotage » |
-| Lampe torche | **L** (action `torch`, touche physique) : allume ou éteint une lampe torche tenue par l'observateur (nœud `Observer/Camera/Torch`, `scripts/torch.gd` : `SpotLight3D` de 32°, portée 10 m, lumière chaude, ombres portées — elle ne traverse pas les parois), qui éclaire devant soi, avec un léger tremblement de la main (bruit lisse, ±0,7°, 1,6 Hz, amplifié en déplacement) ; précieuse quand la station est éteinte (« plus de lumière ») |
+| Lampe torche | **L** (action `torch`, touche physique) : allume ou éteint une lampe torche tenue par l'observateur (nœud `Observer/Camera/Torch`, `scripts/player/torch.gd` : `SpotLight3D` de 32°, portée 10 m, lumière chaude, ombres portées — elle ne traverse pas les parois), qui éclaire devant soi, avec un léger tremblement de la main (bruit lisse, ±0,7°, 1,6 Hz, amplifié en déplacement) ; précieuse quand la station est éteinte (« plus de lumière ») |
 | Pause | **Échap** (action `pause`, touche physique ; un nouvel appui sur Échap reprend la partie) : fige le jeu (orbite, missiles en vol, explosions, animations : `SceneTree.paused`) et ouvre l'écran des paramètres par-dessus la vue figée (fond translucide), avec deux boutons : **Retour** (ou Échap) reprend la partie, **Quitter la partie** demande confirmation (**Oui** / **Non**, « Non » sélectionné par défaut) puis revient à l'écran de démarrage (la partie est perdue). Ignoré pendant la saisie de la date. Nœud `PauseMenu` de `orbit_view.tscn` (`scripts/ui/pause_menu.gd`, actif pendant la pause), `SettingsMenu.in_game` |
 | Silos | **48 voyants ronds numérotés de 1 à 48** en bas de la tablette, un par tube de lancement, en 2 blocs de 3 × 8 placés comme les deux silos sur la station (vue de dessus, l'avant en haut ; silo 1 à gauche). **Orange** : missile prêt ; clic → **vert** : tube choisi pour le prochain tir (un seul à la fois, nouveau clic pour annuler) ; **gris** : tube vide. **48 missiles en tout**, sans rechargement. Choisir un tube **ouvre sa trappe** (animation Blender) et allume à côté un **gyrophare rouge** à éclats, qui éclaire la trappe et le dessous de la coque ; le tube choisi auparavant referme sa trappe et éteint son gyrophare (de même si on annule le choix). Après le tir, quand le missile a quitté la station, la trappe se referme et le gyrophare s'éteint |
 | Tir nucléaire | **Gros bouton rouge** à droite des silos (tablette), **depuis la cupola seulement** (ailleurs, il est grisé avec « Actif uniquement dans la coupole ») : lance le missile du **tube choisi (vert)** sur le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie sous les silos (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Le point visé et la puissance sont figés à l'appui. Le missile sort de son tube (animation de lancement, 5 s : trappe, descente, allumage), le tube passe au gris, puis le missile tourne vers la cible en accélérant pendant que son moteur brûle (9 s) et part vers la zone d'impact ; moteur éteint, on le perd de vue ; dans les dernières secondes, sa **rentrée atmosphérique** apparaît au-dessus de la cible, comme une étoile filante, puis l'explosion a lieu. **Durée du vol : de 20 s (cible au nadir) à 2 min (cible à l'horizon)**, proportionnelle à la distance (temps de jeu : le vol se fige en pause et s'accélère avec le temps). Un **chronomètre** par missile, en bas à droite de l'écran (« Silo 7 · impact dans 0:43 », toujours visible, même hors de la cupola), décompte jusqu'à l'impact, passe au rouge et clignote dans les 10 dernières secondes. Sans tube choisi, ou si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien et le missile reste dans son tube. Voir « Explosions nucléaires » |
@@ -338,7 +338,7 @@ Pendant la rotation le curseur est masqué, puis replacé là où le clic droit 
 Les touches sont définies par leur **position physique** sur le clavier (actions `move_forward`, `move_back`,
 `move_left`, `move_right`, `roll_left`, `roll_right` de `project.godot`) : la même disposition en AZERTY et en QWERTY.
 Elles sont ignorées pendant la saisie du champ date.
-L'inertie (`smooth_toward` de `scripts/station_camera.gd`) est un double lissage exponentiel : la commande est lissée,
+L'inertie (`smooth_toward` de `scripts/player/station_camera.gd`) est un double lissage exponentiel : la commande est lissée,
 puis la vitesse est lissée vers la commande lissée, ce qui donne une courbe en S sans à-coup au départ ni à l'arrivée
 (constantes de temps : 0,25 s en translation, 0,2 s en roulis). La souris garde un léger lissage (0,08 s) pour rester
 précise à la visée.
@@ -375,7 +375,7 @@ avant-bras dans la manche bleu marine d'une combinaison de vol, dans l'axe de l'
 avec la tablette ; sortie, **seul le pouce reste visible** (la paume est derrière, le poignet et le bras sous le bas
 de la vue).
 
-- **Nœud `Observer/Camera/Tablet`** (`scripts/tablet.gd`) : enfant de la caméra, il suit la vue. Sortie, elle est
+- **Nœud `Observer/Camera/Tablet`** (`scripts/player/tablet.gd`) : enfant de la caméra, il suit la vue. Sortie, elle est
   **en bas à droite** de la vue (pas centrée) : 42 % de la hauteur de la vue (`view_fill` ; cadrage calculé d'après
   le champ de la caméra et les proportions de la fenêtre), son bord droit à 10 % du bord droit (le coin inférieur
   droit, qui dépasse avec la perspective, et le pouce restent dans le champ), son bord bas un peu au-dessus du bas
@@ -409,13 +409,13 @@ de la vue).
 	manœuvre, trace fantôme), **de 80° N à 80° S** comme au poste (rapport 1,29), aussi grande que la page le permet, et, dans une colonne à droite (210 px), la commande de
 	poussée (`BurnControl` en colonne, compacte : compte à rebours 44 px, BURN bleu 100 × 94, textes 18 px,
 	**jauge verticale** à droite sur toute la hauteur du bloc, remplie du bas vers le haut, pour un dosage précis) ;
-  - **Photographie** (`PhotoPage`) : **vue au nadir en temps réel** (`NadirCamera`, `scripts/nadir_camera.gd` :
+  - **Photographie** (`PhotoPage`) : **vue au nadir en temps réel** (`NadirCamera`, `scripts/player/nadir_camera.gd` :
 	`SubViewport` de 600 × 470 créé par la tablette, qui partage le monde de la scène, caméra 15 m sous la station,
 	champ de 22°, haut de l'image dans le sens du vol ; rendue seulement quand la tablette est sortie sur cet onglet,
 	`active`) et bouton **« Photo »**. La caméra a une copie de l'environnement en mappage tonal linéaire et sans
 	halo : l'image est ensuite vue par la caméra principale, qui les applique déjà (ACES deux fois : image délavée).
 	**Photos satellites** (`NadirCamera.capture_photo`, relayée par `Tablet._take_photo` vers l'archive
-	`scripts/photo_archive.gd`, nœud `Photos`, groupe
+	`scripts/player/photo_archive.gd`, nœud `Photos`, groupe
 	`photo_archive`) : flash, puis la vue au nadir est rendue une fois en **1 600 × 1 253** avec le rendu final du
 	jeu (environnement d'origine : ACES, halo) et enregistrée en **PNG dans `user://photos/`** (nom : date et heure
 	du jeu, latitude, longitude ; le joueur garde ses photos ; l'encodage PNG de la photo et de sa vignette se fait
@@ -492,7 +492,7 @@ Le grand écran de la console du module Commande (`Interactif_Ecran_Principal`, 
 1,59 × 0,89 m ; les deux petits écrans latéraux ont été retirés du modèle) est l'écran de **contrôle orbital**,
 une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et affichée par la dalle elle-même.
 
-- **Nœud `PilotConsole`** de `scenes/orbit_view.tscn` (`scripts/pilot_console.gd`) : crée le `SubViewport`
+- **Nœud `PilotConsole`** de `scenes/orbit_view.tscn` (`scripts/screens/pilot_console.gd`) : crée le `SubViewport`
   (1 000 px de haut, largeur aux proportions de la dalle), remplace le matériau de la dalle par
   `shaders/pilot_screen.gdshader` (image émise, dalle noire peu réfléchissante ; les UV du modèle étant inutilisables,
   la position dans l'image vient de la position du sommet dans le rectangle de la dalle, mesuré au démarrage sur les
@@ -530,7 +530,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	inclinaison constante, ~105 m/s par degré à 51,6° ;
   - s'y ajoute la **précession nodale J2** (aplatissement de la Terre, `Orbit.raan_precession`) : Ω dérive de
 	−3/2·n·J2·(R/a)²·cos i, −5,0°/jour à 400 km et 51,6° (vers l'ouest pour une orbite prograde, nulle à 90°).
-- **Règles de la manœuvre** (`scripts/flight_computer.gd`, nœud `FlightComputer`) :
+- **Règles de la manœuvre** (`scripts/orbit/flight_computer.gd`, nœud `FlightComputer`) :
   - tant que la cible diffère de l'orbite réelle (plus de 0,05°, 0,5 km ou 0,05° de décalage du nœud), une
 	manœuvre est prévue et son orbite, la **trace fantôme**, est affichée ;
   - **point de manœuvre** : un changement de plan se fait là où l'orbite actuelle coupe le plan visé (droite
@@ -561,7 +561,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	relâche.
 - **Trace fantôme** : sur la carte, trace au sol de l'orbite fantôme en **pointillés cyan** sur une période, à partir
   du point de manœuvre (losange cyan, toujours affiché) ; en 3D, **anneau en pointillés cyan autour de la Terre**
-  (`scripts/ghost_track.gd`, nœud `GhostTrack`, `MeshInstance3D` + `ImmediateMesh` en lignes, 720 segments, un sur
+  (`scripts/orbit/ghost_track.gd`, nœud `GhostTrack`, `MeshInstance3D` + `ImmediateMesh` en lignes, 720 segments, un sur
   deux tracés par paires). L'anneau est construit dans le repère inertiel ECI pour Ω = 0 (reconstruit seulement si
   le rayon ou l'inclinaison changent) et, à chaque image après `Orbit`, placé au centre de la Terre, tourné de Ω
   (précession comprise) puis par `Orbit.get_eci_to_world()` : la Terre tourne dessous, sa trace au sol reste
@@ -570,14 +570,14 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   n'est prévue.
 - **Carte** (`scripts/ui/orbital_map.gd`) : projection de **Mercator de 80° N à 80° S** (rapport largeur / hauteur
   2π / (2·ln tan(45° + 40°)) ≈ 1,29), lignes blanches sur fond noir : contours des pays et des continents
-  (`assets/world_map_lines.res`, Natural Earth 1:50 M, `scripts/world_map_lines.gd`, généré par
+  (`assets/world_map_lines.res`, Natural Earth 1:50 M, `scripts/geo/world_map_lines.gd`, généré par
   `tools/build_map_lines.gd` ; sommets à au moins 0,05° les uns des autres). Méridiens et parallèles tous les 10° et
   équateur en gris. Trace au sol de l'orbite (sinusoïde déformée par la projection et décalée vers l'ouest à
   chaque tour par la rotation de la Terre), coupée à l'antiméridien : demi-période passée en gris-vert fin, **orbite
   en cours** (une période à partir de maintenant) en **vert très clair**, puis les **orbites à venir** (0 à 4, 1 par
   défaut) d'un vert de plus en plus sombre, la 4ᵉ vert sombre mais bien visible ; station en jaune (flèche dans le
   sens du déplacement, cerclée) ; prochain nœud et trace fantôme en cyan (voir ci-dessus).
-  - **Cibles au sol** (règle de jeu ; `scripts/ground_target.gd`, nœud `GroundTarget`, affichées par la carte du
+  - **Cibles au sol** (règle de jeu ; `scripts/orbit/ground_target.gd`, nœud `GroundTarget`, affichées par la carte du
 	poste et celle de la tablette) : **jusqu'à 5 cibles, chacune de sa couleur** (jaune doré, rouge, magenta, violet,
 	orange : distinctes du jaune pâle de la station, du vert des traces et du cyan de l'orbite visée), dont une
 	**cible choisie**. **Elles ne se placent que sur la carte du poste de pilotage** (`OrbitalMap.targets_editable`),
@@ -628,7 +628,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	l'échelle. Les points de trace sont **en cache** sur une grille de 20 s (une trace recalculée à chaque image
 	coûtait ~3,5 ms par carte à 4 orbites) ; un point témoin recalculé par image (premier point de grille après le début de la trace) vide le cache si l'orbite ou l'orbite visée change
 	(manœuvre, date, altitude). Une carte non affichée (onglet caché, tablette rangée) n'est pas redessinée.
-- **Écrans d'ambiance des modules Commande et Arrimage** (`scripts/tech_screens.gd`, nœud `TechScreens` de
+- **Écrans d'ambiance des modules Commande et Arrimage** (`scripts/screens/tech_screens.gd`, nœud `TechScreens` de
   `orbit_view.tscn`, shader `shaders/tech_screen.gdshader`) : sur les écrans plats et les portables du module Commande
   (pas sur le grand écran du poste) et sur le portable `Interactif_Ordinateur_05` de l'Arrimage (télémétrie), des programmes « techno-thriller » dessinés en 2D dans cinq `SubViewport` partagés : listage de code et
   de journaux qui défile (lignes générées une fois au démarrage ; clin d'œil : quelques commentaires « // only Trap15
@@ -640,8 +640,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   Arrimage ; volumes de `StationLayout.ZONES` élargis de 1,5 m) ; écrans éteints avec « plus de lumière »
   (`Station.get_blackout`). Mesure : 120 im/s inchangés dans le module. Les textes affichés sont du pseudo-code et
   des valeurs techniques, sans langue : ils ne passent pas par les fichiers de langue.
-- **Communication radio** (`scripts/comm_console.gd`, nœud `CommConsole` ; interface `scripts/ui/comm_display.gd` ;
-  radio `scripts/radio_comms.gd`, nœud `Radio`, groupe `radio`) : l'écran 08 du module Commande (paroi −Y, retiré des
+- **Communication radio** (`scripts/screens/comm_console.gd`, nœud `CommConsole` ; interface `scripts/ui/comm_display.gd` ;
+  radio `scripts/screens/radio_comms.gd`, nœud `Radio`, groupe `radio`) : l'écran 08 du module Commande (paroi −Y, retiré des
   écrans d'ambiance `TechScreens`) affiche le programme **COMM.EXE**, interface « MS-DOS années 80 » façon Norton
   Commander en mode texte : grille de 80 × 25 caractères d'une police à chasse fixe (Consolas, sinon Lucida Console
   ou Courier New), palette CGA (fond bleu, cadres doubles cyan clair, barre de menu cyan avec l'heure UTC du jeu,
@@ -665,8 +665,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   - API pour la campagne : `RadioComms.post({from, subject, body, channel, replies})` (textes : clé des fichiers de
 	langue, texte, ou dictionnaire par langue comme `campaign.json`), signaux `message_received`, `replied`. Panneau
 	de debug : bouton « Radio » (message d'essai du contrôle sol, deux réponses).
-- **Télévision** (`scripts/tv_console.gd`, nœud `TvConsole` ; interface `scripts/ui/tv_display.gd` ; chaînes et
-  règles de jeu `scripts/tv_channels.gd`, classe `TvChannels`, tenue par la console et lue par l'interface) : l'écran
+- **Télévision** (`scripts/screens/tv_console.gd`, nœud `TvConsole` ; interface `scripts/ui/tv_display.gd` ; chaînes et
+  règles de jeu `scripts/screens/tv_channels.gd`, classe `TvChannels`, tenue par la console et lue par l'interface) : l'écran
   `Interactif_Ecran_03` du module Commande (retiré des écrans d'ambiance) diffuse les chaînes d'information du monde.
   - **Vue TV** : survol à portée (2,5 m) → bulle « Télévision » ; clic gauche → la vue se cadre face à l'écran, comme
 	au poste de pilotage (déplacements suspendus, tablette rangée, écoutilles non cliquables : groupe commun
@@ -704,7 +704,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	elle diffuse les vidéos communes. Après retouche d'un maître dans un logiciel vidéo : `build_tv_videos.ps1
 	-ConvertOnly` ; après remplacement de `explosion.mp4` : `-Studio` (nouveau rendu du plateau) ; sans option :
 	tout est régénéré (rendus Blender compris). Puis rescan dans l'éditeur.
-  - **Bandeau défilant** (`scripts/tv_news.gd`, classe `TvNews`), dans les deux éditions (rouge en édition spéciale,
+  - **Bandeau défilant** (`scripts/screens/tv_news.gd`, classe `TvNews`), dans les deux éditions (rouge en édition spéciale,
 	bleu nuit en temps normal) : en bas de l'écran, dans la
 	**langue de la chaîne** (colonne `lang` de `channels.csv` : langue majoritaire du pays, à défaut celle de ses
 	journaux télévisés — anglais, français, portugais… pour les pays sans langue majoritaire ou dont la langue
@@ -713,7 +713,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	et aussitôt après chaque tir :
 	0. **tant qu'aucune explosion n'a eu lieu, infos ordinaires** : préfixe « En bref : » / « L'essentiel : », Bourse
 	   du pays (variation tirée chaque jour de jeu), **météo de la capitale** d'après les **vrais nuages** vus de la
-	   station (`scripts/cloud_weather.gd`, classe `CloudWeather` : carte réduite de l'instantané VIIRS
+	   station (`scripts/geo/cloud_weather.gd`, classe `CloudWeather` : carte réduite de l'instantané VIIRS
 	   `assets/cloud_cover.res`, 0,25°, générée par `tools/build_cloud_cover.gd`, lue au point d'où vient l'air en
 	   remontant le vent GFS comme le shader des nuages : soleil ou nuit claire, éclaircies dès 30 % de couverture,
 	   ciel couvert dès 65 %) et température plausible (latitude, saison, heure solaire, nuages), puis un **résultat
@@ -968,7 +968,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	zone de texture ; l'anneau du cou garde son métal sombre) ; hauteur de l'ancienne combinaison (1,93 m).
   - `Interactif_Porte_Combinaison` (extras `type` « porte_combinaison », `combinaison`) : support séparé (deux rails
     sur pattes, berceau du sac à sabots, crochets, cale-pieds), qui reste en place quand la combinaison est portée.
-    **Casque porté** (`scripts/suit_helmet.gd`, nœud `Observer/Camera/Helmet`) : tant que la combinaison est portée
+    **Casque porté** (`scripts/player/suit_helmet.gd`, nœud `Observer/Camera/Helmet`) : tant que la combinaison est portée
 	(`Station.suit_changed`), on voit l'intérieur du casque, qui suit la tête : coque noire mate (sphère de 16,5 cm
 	de rayon centrée 7 cm derrière l'œil), fenêtre ronde comme la visière vue de l'extérieur (ellipse dans le plan de
 	la vue, demi-axes ±59° de côté, +37° en haut, −46° en bas vus de l'œil : bord haut en dôme, au ras du haut de
@@ -1022,7 +1022,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   animées, faux pour l'écoutille cargo, verrouillée).
 - **Scène héritée** `scenes/station_spatiale.tscn` : base de tout le jeu (script, réglages des lumières, etc.).
   Aperçu seul : `scenes/debug/station_preview.tscn` (soleil, fond noir, caméra extérieure).
-- **Pilotage** (`scripts/station.gd`, classe `Station`, racine de la scène héritée : façade qui porte les signaux, les
+- **Pilotage** (`scripts/station/station.gd`, classe `Station`, racine de la scène héritée : façade qui porte les signaux, les
   réglages exportés et l'API, construite sur les composants de `scripts/station/` : `StationHatches` (écoutilles,
   trappes verrouillées, volants, rideaux), `StationSilos` (trappes des silos, gyrophares, lancement des missiles),
   `StationAirlock` (combinaison, valve, voyants), `StationThermal` (radiateurs, chaleur), `StationLighting`
@@ -1065,7 +1065,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	`is_airlock_cycling()`, `is_airlock_filling()`, `set_airlock_pressurized(full)`, `toggle_airlock_pressure()`,
 	`airlock_step(pression, secondes)` (courbe de vidange du manomètre), `set_airlock_gauge(pression)` ; signaux
 	`airlock_changed(pressurized)` (fin de cycle) et `hatch_moving(id, open)` (une écoutille commence à bouger).
-  - **Air de la station** (règles de jeu, `scripts/station_atmosphere.gd`, classe `StationAtmosphere`, nœud
+  - **Air de la station** (règles de jeu, `scripts/station/station_atmosphere.gd`, classe `StationAtmosphere`, nœud
 	`StationAir` de `orbit_view.tscn`) : une pression (0–1) par volume : modules Commande, Habitation, Arrimage,
 	Missile 1 et 2, jonctions avant et arrière, sas (table `StationLayout.ZONES`, `scripts/station/station_layout.gd` :
 	géométrie de la station en coordonnées Blender, une seule source pour l'air, les témoins de pression et les
@@ -1097,7 +1097,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	  dans tout ce qui communique avec lui ; un module isolé (écoutilles fermées) garde sa pression, affichée par son
 	  témoin, sans retenir l'alerte. L'alerte d'avant est rétablie (sauf si le joueur en a choisi une autre
 	  entre-temps). Pas d'alerte sans courant (« Plus de lumière »).
-	- **Témoins de pression** (`scripts/pressure_gauges.gd`, nœud `PressureGauges`) : dans chaque module (Commande,
+	- **Témoins de pression** (`scripts/station/pressure_gauges.gd`, nœud `PressureGauges`) : dans chaque module (Commande,
 	  Habitation, Arrimage, Missile 1 et 2), près de son écoutille d'entrée, un afficheur mural de 34 × 22 cm
 	  (`gauge_scale` 2 : à taille réelle, 17 × 11 cm, il ne se lisait pas à travers le module) construit au
 	  démarrage (`Temoin_Pression_<module>`, enfant de la station) : pression du module en bar, voyant et chiffres
@@ -1106,7 +1106,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	  par lancer de rayons dans le modèle (table `StationLayout.GAUGES`) : panneau de paroi à 30° au-dessus de l'horizontale, sous
 	  les tuyaux et les luminaires ; dans les modules de missiles, cloison de l'écoutille, côté opposé au battant.
 	  Le sas a le manomètre de sa valve.
-  - **Jets d'air** (`scripts/air_vent_fx.gd`, nœud `AirVentFx`, placé de lui-même à la porte extérieure, +Y vers
+  - **Jets d'air** (`scripts/station/air_vent_fx.gd`, nœud `AirVentFx`, placé de lui-même à la porte extérieure, +Y vers
 	l'espace ; `StationAtmosphere.hatch_center`, `hatch_axis_from`) : porte extérieure ouverte et de l'air dans le
 	sas (et ce qui communique avec lui), l'air jaillit vers l'espace. Détendu dans le vide, il se refroidit et son
 	humidité se condense en glace : brouillard blanc, visible là où il est éclairé. Dans le sas, brouillard aspiré
@@ -1117,7 +1117,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	**Son** : souffle généré au démarrage (sifflement et grondement en boucle de 3 s, fondu au raccord), à la porte
 	côté intérieur, bus SFX, plus fort et plus aigu à forte pression ; il ne porte que dans l'air : volume × racine
 	de la pression du volume de l'auditeur (rien dans le vide, ni dehors).
-  - **Expulsion** (règle de jeu, `StationAtmosphere.flow_at`, `scripts/airlock_hazard.gd`) : porte extérieure
+  - **Expulsion** (règle de jeu, `StationAtmosphere.flow_at`, `scripts/station/airlock_hazard.gd`) : porte extérieure
 	ouverte, un courant d'air porte l'observateur vers la sortie **depuis n'importe quel volume qui communique avec
 	l'espace** : de volume en volume, vers l'écoutille suivante sur le chemin de la porte extérieure (visée 0,8 m
 	au-delà du passage), à travers la station jusque dans le vide. Vitesse : pression de l'ensemble × de 3 m/s (sas
@@ -1143,7 +1143,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	sous `death_pressure` (0,3 bar : vidange par la valve avec la porte intérieure ouverte, expulsion…) ou dehors.
 	**Avec la combinaison, on ne meurt jamais.** Le corps reste porté par le courant après la mort (expulsé, il
 	traverse la station et sort).
-  - **Séquence de mort** (`scripts/death_sequence.gd`, classe `DeathSequence`, créée par `AirlockHazard`) : commandes
+  - **Séquence de mort** (`scripts/core/death_sequence.gd`, classe `DeathSequence`, créée par `AirlockHazard`) : commandes
 	coupées (déplacements, regard, interactions, tablette masquée ; le corps reste porté par le courant d'air ;
 	dehors, le regard se tourne vers la station qui s'éloigne en roulant lentement ; yeux fermés après 1,2 s sur
 	place, 3,5 s emporté, jusqu'à 3 s de plus quand on s'éloigne lentement), puis la vue se ferme comme des yeux qui se ferment
@@ -1166,7 +1166,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	Comme pour les trappes, une demande inverse en cours de mouvement repart de la position actuelle. Écoutille à
 	volant (extras `volant`, `volant_tours`) : à l'ouverture, le volant tourne d'abord (déverrouillage, `volant_tours`
 	tours en `hatch_wheel_s` = 0,9 s) puis la porte pivote ; à la fermeture, la porte puis le verrouillage.
-  - **Écoutilles à la souris** (`scripts/hatch_interaction.gd`, nœud `HatchInteraction` de `orbit_view.tscn`) :
+  - **Écoutilles à la souris** (`scripts/station/hatch_interaction.gd`, nœud `HatchInteraction` de `orbit_view.tscn`) :
 	rayon de la caméra contre les collisions, à 2,5 m au plus (`reach_m`) ; survol d'une écoutille ouvrable : bulle
 	« Ouvrir l'écoutille » / « Fermer l'écoutille » (`HATCH_OPEN`, `HATCH_CLOSE`) ; clic gauche : ouverture ou
 	fermeture animée (rotation de la charnière, durée de `Fermeture_Ecoutilles`). Inactif au poste de pilotage.
@@ -1200,7 +1200,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	allumée) et sa vitesse de sortie pour la suite du vol (voir « Vol du missile » ci-dessous) ; sans récepteur, la
 	station le masque. Chaque tube ne tire qu'une fois. `tube_ids()` et `tube_position(silo, tube)` (repère de la
 	station : +X avant, +Z droite) servent au panneau des silos ; la station est dans le groupe `Station.GROUP`.
-  - **Propulsion du missile** (`scenes/effects/missile_exhaust.tscn`, script `scripts/missile_exhaust.gd`, classe
+  - **Propulsion du missile** (`scenes/effects/missile_exhaust.tscn`, script `scripts/orbit/missile_exhaust.gd`, classe
 	`MissileExhaust`, instancié sous `Missile_Balistique_1_12/Point_Tuyere_1_12` dans la scène héritée : chaque copie
 	du missile en hérite). Moteur à propergol solide dans le vide :
 	- cœur : cône additif de 2,6 m (`shaders/missile_exhaust_core.gdshader`), éblouissant au ras de la tuyère
@@ -1221,7 +1221,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	- En vol (`enter_flight`) : panache en coordonnées locales (il suit le missile et rétrécit avec lui ; le panache
 	  en coordonnées du monde s'éteint de lui-même), direction du jet imposée (`jet_direction`, opposée à la pointe),
 	  lumière atténuée (`light_scale`).
-  - **Vol du missile** (`scripts/missile_flight.gd`, classe `MissileFlight`, créée par `nuke/launch_control.gd` à
+  - **Vol du missile** (`scripts/orbit/missile_flight.gd`, classe `MissileFlight`, créée par `nuke/launch_control.gd` à
 	`missile_released`, enfant de la scène) :
 	- **durée du vol** (règle de jeu, `flight_time_range` de `nuke/launch_control.gd`) : proportionnelle à la
 	  distance réelle œil → cible, de **20 s** quand on vise le nadir (distance = altitude) à **2 min** quand on vise
@@ -1239,7 +1239,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	  V · (9 s / 2 + durée de la croisière)). La pointe (−Y du missile) suit la direction du déplacement (1,2 rad/s
 	  au plus). On voit donc le missile partir vers la zone d'impact, puis on le perd de vue bien avant l'impact
 	  (à quelques dizaines de km de la station à l'extinction) ;
-	- **rentrée atmosphérique** (les derniers 20 % du vol, entre 6 et 12 s ; `scripts/reentry_streak.gd`,
+	- **rentrée atmosphérique** (les derniers 20 % du vol, entre 6 et 12 s ; `scripts/orbit/reentry_streak.gd`,
 	  `shaders/reentry_streak.gdshader`) : du point d'entrée au point d'explosion (500 m au-dessus de la cible), en
 	  ralentissant, **dans le prolongement du vol** : le point d'entrée est en amont de la cible, du côté de la
 	  station. Pente : 0,7 × la hauteur de la station vue depuis la cible (ligne de visée), bornée entre 8° (rentrée
@@ -1312,9 +1312,9 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   silos, −Y) face à la Terre. L'unité de la scène est le mètre (station ~42 × 80 m avec les panneaux).
   - Ancienne station, gardée dans le projet : `scenes/iss_cupola.tscn` (module Node 3 « Tranquility » + Cupola en
 	CSG, inclinée de 30°).
-- **Observateur** : corps `Observer` (`CharacterBody3D`, script `scripts/observer.gd`, déplacement en mode
+- **Observateur** : corps `Observer` (`CharacterBody3D`, script `scripts/player/observer.gd`, déplacement en mode
   « flottant », sphère de collision de 0,3 m) portant la caméra `Observer/Camera` (script
-  `scripts/station_camera.gd`, orientation). Le courant d'air de l'expulsion s'ajoute à son déplacement
+  `scripts/player/station_camera.gd`, orientation). Le courant d'air de l'expulsion s'ajoute à son déplacement
   (`set_air_flow`, voir « Expulsion »). **Règle de jeu : on démarre allongé dans la couchette de l'Habitation,
   le regard vers ses pieds** (on voit le sac de couchage) : au démarrage, `Observer._place_at_start` place la caméra
   sur le repère `Point_Vue_Couchette` du modèle (`start_marker` ; vide : position de la scène), seulement quand la
@@ -1348,8 +1348,8 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   - `Surface` (shader `earth_surface.gdshader` + script `earth_detail_tiles.gd`, voir ci-dessous).
   - `CloudLayer` (sphère de 638,4 u) : nuages volumétriques procéduraux, voir ci-dessous.
   - `AtmosphereGround` (638,7 u) et `AtmosphereSky` (664 u) : diffusion atmosphérique physique, voir ci-dessous.
-- **Orbite** (`Orbit`, script `scripts/orbit.gd`) : mécanique orbitale, modèle pur, voir ci-dessous.
-- **Pose de la scène** (`EarthScene`, script `scripts/earth_scene_driver.gd`, `EarthSceneDriver`, juste après `Orbit` dans l'arbre) : à chaque image et à chaque `orbit_changed`, aligne le repère orbital local sur celui de la station et place la Terre, oriente le soleil (énergie selon l'éclipse) et le ciel étoilé, et pose les uniforms des matériaux de la Terre (`sun_direction`, `cloud_utc_day_s` : liste des matériaux tenue à jour quand les enfants de `Earth` changent) et du ciel (disque solaire) ; écrit `Orbit.ecef_to_world`.
+- **Orbite** (`Orbit`, script `scripts/orbit/orbit.gd`) : mécanique orbitale, modèle pur, voir ci-dessous.
+- **Pose de la scène** (`EarthScene`, script `scripts/orbit/earth_scene_driver.gd`, `EarthSceneDriver`, juste après `Orbit` dans l'arbre) : à chaque image et à chaque `orbit_changed`, aligne le repère orbital local sur celui de la station et place la Terre, oriente le soleil (énergie selon l'éclipse) et le ciel étoilé, et pose les uniforms des matériaux de la Terre (`sun_direction`, `cloud_utc_day_s` : liste des matériaux tenue à jour quand les enfants de `Earth` changent) et du ciel (disque solaire) ; écrit `Orbit.ecef_to_world`.
 - **Soleil** : `DirectionalLight3D` orientée par `EarthScene` (position réelle du soleil, éteinte pendant l'éclipse) ;
   elle éclaire la Terre et produit le reflet du soleil sur les océans. Masque d'eau : mers et océans d'après la carte
   des pays (`assets/textures/country_ids.png`, 0 = mer, `nuke_land_share`), plus les eaux intérieures reconnues à
@@ -1381,7 +1381,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   (et les reflets les plus intenses) dépasse nettement le seuil : il produit un halo progressif. Comme c'est un
   effet d'image, ce halo déborde sur les montants des fenêtres, comme dans l'œil ou un objectif. Il disparaît dès que
   le disque est masqué par la station ou par la Terre.
-- **Exposition** (nœud `Exposure`, `scripts/exposure_control.gd`, classe `ExposureControl` ; attributs de caméra
+- **Exposition** (nœud `Exposure`, `scripts/core/exposure_control.gd`, classe `ExposureControl` ; attributs de caméra
   `materials/camera_attributes.tres` affectés au `WorldEnvironment`). L'exposition automatique de Godot, laissée
   libre, se réglait sur la luminance moyenne de toute l'image : en 32:9, ou en plein écran, le ciel noir pèse
   davantage qu'en 16:9, la moyenne chute et l'exposition monte — Terre et station brûlées à 5120 × 1440 alors que
@@ -1436,7 +1436,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	comme sur les photos prises depuis l'ISS.
   - **Vitesse d'adaptation** : `auto_exposure_speed` = 1.
 
-### Orbite (`scripts/orbit.gd`)
+### Orbite (`scripts/orbit/orbit.gd`)
 
 Orbite **circulaire képlérienne** autour d'une Terre **en rotation** (sidérale, 7,292 × 10⁻⁵ rad/s) :
 - rayon a = 6371 km + altitude ; vitesse angulaire n = √(μ / a³) (μ = 398 600,44 km³/s²) ; période 2π/n
@@ -1573,7 +1573,7 @@ gardées en L8 en mémoire, ~50 Mo de VRAM).
 - Partout : `assets/textures/earth_bluemarble_16k.jpg` et `earth_night_16k.jpg` (16384 × 8192, ~2,4 km/pixel).
 - Autour du point survolé : tuiles de 5° en **500 m/pixel** (`assets/earth_tiles/rLL_cCC.jpg` et
   `assets/earth_night_tiles/rLL_cCC.jpg`, 1200 × 1200 px, 72 colonnes × 36 lignes, ligne 0 = 90° N, colonne 0 =
-  180° O). Le script `scripts/earth_detail_tiles.gd` garde une fenêtre de 5 × 5 tuiles (25° × 25°, soit au moins
+  180° O). Le script `scripts/orbit/earth_detail_tiles.gd` garde une fenêtre de 5 × 5 tuiles (25° × 25°, soit au moins
   1100 km autour du nadir) dans un `Texture2DArray` par jeu (jour, nuit, nuages), tous avec la même attribution de
   couches. Il transmet ces tableaux, l'origine de la fenêtre et la table des couches au matériau de surface et à
   celui des nuages (`extra_material_paths`) ; la logique de lecture est partagée dans
@@ -1698,7 +1698,7 @@ Une responsabilité par classe (principe « S » de SOLID). Trois familles :
 | **Rendu global** (nœuds créés par le lanceur, alimentent les shaders du globe) | `NukeFlashFX`, `NukeCloudFX` (effets brefs, tableaux d'uniforms), `NukeGroundFX` (effets durables au sol : incendies, fumée, trace au sol, black-out ; textures de données sans plafond) avec `NukeCellIndex` (maille de 1° et index des événements, deux textures) et `NukeSmokePlumes` (âges, clés et maille des panaches de fumée) ; `NukeFXMaterials` (recherche des matériaux qui déclarent un uniform) |
 | **Modèles** (calcul pur, sans nœud, utilisables depuis un thread) | `NukeScaling` (lois d'échelle, surpression de Brode ; aucune donnée géographique), `NukeSmokeYield` (fumée par m² de sol en feu selon la population), `NukePopulationScan` (balayage de la grille GHS-POP autour d'un point, partagé ; drapeau `abort`), `NukeCasualties` (pertes du souffle et de la chaleur, chronologie), `NukeFallout` (doses et pertes des retombées) avec `NukeWSEG10` (champ de retombées) et `NukeMath`, `NukeGridImpact` (centrales détruites, panne nationale), `NukeAtmosphere`, `NukeWind` |
 | **Bilan** | `NukeImpact` (nœud `Impact` : calcule le bilan d'un tir dans un thread et l'écrit en console), `NukeTally` (cumul par pays, à l'instant présent), `NukeReportText` (textes et nombres), `NukeReportPanel` (écran mural du module Commande, affichage seulement) |
-| **Données géographiques** (`scripts/`, `scripts/geo/`) | `OceanMask`, `CountryMask` (dont `index_near` : pays le plus proche d'un point côtier), `PopulationGrid` (dont `cell_country`), `PowerPlants` ; socle commun `scripts/geo/` : `GeoMath` (rayon terrestre, km par degré, haversine, lat/lon ↔ repère du maillage de la Terre, rayon-sphère, formatage des coordonnées : une seule source pour tout le jeu), `GeoGrid` (découpage en cellules de 1/120° partagé par la grille de population et les masques), `DataResource` (chargement unique des ressources générées) ; nombres : `NumberFormat` (`scripts/number_format.gd`, estimations à 3 chiffres significatifs et milliers groupés, bilans et télévision) |
+| **Données géographiques** (`scripts/`, `scripts/geo/`) | `OceanMask`, `CountryMask` (dont `index_near` : pays le plus proche d'un point côtier), `PopulationGrid` (dont `cell_country`), `PowerPlants` ; socle commun `scripts/geo/` : `GeoMath` (rayon terrestre, km par degré, haversine, lat/lon ↔ repère du maillage de la Terre, rayon-sphère, formatage des coordonnées : une seule source pour tout le jeu), `GeoGrid` (découpage en cellules de 1/120° partagé par la grille de population et les masques), `DataResource` (chargement unique des ressources générées) ; nombres : `NumberFormat` (`scripts/core/number_format.gd`, estimations à 3 chiffres significatifs et milliers groupés, bilans et télévision) |
 
 Un tir ne fait que créer la scène de l'explosion (~1 ms) : tout le bilan (pertes, réseau électrique, retombées) est
 calculé par `NukeImpact` dans un `WorkerThreadPool`, puis remis à l'explosion dans le fil principal ; la console est
@@ -2292,7 +2292,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	 (R · (1 − exp(−t / 15 s))), par plaques d'une vingtaine de km (quartiers, communes : bruit fixe), et reste
 	 éteint.
   3. **Panne nationale** : au tir, `NukeGridImpact.assess()` (dans le thread de `NukeImpact`) cherche les centrales détruites (rayon de 5 psi,
-	 `BLACKOUT_PLANT_PSI`) dans la Global Power Plant Database (`scripts/power_plants.gd`, classe `PowerPlants`,
+	 `BLACKOUT_PLANT_PSI`) dans la Global Power Plant Database (`scripts/geo/power_plants.gd`, classe `PowerPlants`,
 	 `assets/power_plants.res`). Si elles représentent au moins 10 % de la capacité du pays
 	 (`BLACKOUT_NATIONAL_SHARE`), tout le pays s'éteint, à ses frontières (carte `assets/textures/country_ids.png`
 	 lue par le shader), par plaques en 5 à 30 s (effondrement de la fréquence), et reste éteint. Repère : la panne
@@ -2347,7 +2347,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	| 1 Mt | 2,85 km | 4,65 km | 8,5 km | 14,3 km |
 	| 50 Mt | 10,5 km | 17,1 km | 31,5 km | 52,5 km |
 
-  - **Population** : grille GHS-POP 2030 (`scripts/population_grid.gd`, classe `PopulationGrid`, données
+  - **Population** : grille GHS-POP 2030 (`scripts/geo/population_grid.gd`, classe `PopulationGrid`, données
 	`assets/population_2030.bin`), ~0,9 km par cellule. Fichier découpé en tuiles de 5° : seules celles qui touchent
 	la zone sont lues (cache de 24 tuiles). Cellules quantifiées sur 16 bits (habitants = (q / 64)²). Une cellule
 	coupée par la limite d'une tranche est découpée en 4 × 4 sous-cellules.
@@ -2397,7 +2397,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   - **Non comptés** : tempête de feu (le modèle de surpression la sous-estime pour les fortes puissances, critique
 	de Postol), effets à long terme (cancers), contamination de l'eau et des aliments, évacuation et soins. Le
 	modèle de l'OTA vaut pour une ville de faible hauteur ; il est discutable pour les tours modernes.
-- **Pays touché** (`scripts/country_mask.gd`, classe `CountryMask`, données `assets/country_mask.res`) : au tir,
+- **Pays touché** (`scripts/geo/country_mask.gd`, classe `CountryMask`, données `assets/country_mask.res`) : au tir,
   `NukeLauncher` renseigne `NukeParams.country_code` (code ADM0_A3) avec `CountryMask.country_at(latitude,
   longitude)` ; `NukeParams.get_country()` rend la fiche du pays, vide en mer. La console affiche le pays, et l'État
   souverain pour un territoire dépendant (« Gibraltar, Royaume-Uni »).
@@ -2419,7 +2419,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
   - Chargement : ~0,5 s, lancé en tâche de fond par `NukeLauncher` au démarrage (`OceanMask` aussi) : pas d'à-coup au
 	premier tir. Sans le fichier, aucun pays n'est détecté.
 - **Explosions sur la mer** (règles de jeu) :
-  - **Détection** (`scripts/ocean_mask.gd`, classe `OceanMask`, données `assets/ocean_mask.res`) : au tir,
+  - **Détection** (`scripts/geo/ocean_mask.gd`, classe `OceanMask`, données `assets/ocean_mask.res`) : au tir,
 	`NukeLauncher` demande `OceanMask.is_ocean(latitude, longitude)` et renseigne `NukeParams.over_ocean` (la console
 	affiche « en mer »). Le masque vient du trait de côte Natural Earth 1:10 M (couche « ocean » : océans et mers
 	reliées, la Caspienne comprise ; les lacs comptent comme de la terre). Il est stocké par lignes de latitude
@@ -2692,7 +2692,7 @@ Les paragraphes (§) sont ceux des ouvrages ; entre parenthèses, les fichiers d
 ### Orbite et astronomie
 
 - U.S. Naval Observatory et HM Nautical Almanac Office. *The Astronomical Almanac*, section C, « Low-precision
-  formulas for the Sun ». Position du soleil (`scripts/orbit.gd`, précision ~0,01°).
+  formulas for the Sun ». Position du soleil (`scripts/orbit/orbit.gd`, précision ~0,01°).
 - Capitaine, N., Guinot, B. et McCarthy, D. D. (2000). « Definition of the Celestial Ephemeris Origin and of UT1 in
   the International Celestial Reference Frame ». *Astronomy & Astrophysics*, 355, p. 398–405. Angle de rotation de
   la Terre (IAU 2000).
@@ -2702,7 +2702,7 @@ Les paragraphes (§) sont ceux des ouvrages ; entre parenthèses, les fichiers d
   3ᵉ édition. Constante gravitationnelle géocentrique μ = 398 600,4418 km³/s², J2 = 1,08263 × 10⁻³.
 - Vallado, D. A. (2013). *Fundamentals of Astrodynamics and Applications*, 4ᵉ édition, Microcosm Press.
   Changements de plan (Δv = 2·v·sin(θ/2), changement de Ω au point d'intersection des plans), transfert de Hohmann,
-  précession nodale J2 (`scripts/flight_computer.gd`, `scripts/orbit.gd`).
+  précession nodale J2 (`scripts/orbit/flight_computer.gd`, `scripts/orbit/orbit.gd`).
 
 ### Images satellites et données géographiques
 

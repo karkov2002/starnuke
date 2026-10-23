@@ -46,7 +46,7 @@ accès par réflexion (`campaign_director.gd:374-376` appelle la méthode privé
 
 ## 2. Constats par zone
 
-### 2.1 `scripts/station.gd` (Station)
+### 2.1 `scripts/station/station.gd` (Station)
 
 Rôles mélangés dans la même classe : (a) boîte à outils d'animation (`_play_tracks`, `_apply_track`, `_play_group`,
 `_track_for`, `_fill_hinge`, `_tween_hinge`) ; (b) écoutilles et volants ; (c) rideaux (clés de forme + zones de
@@ -127,7 +127,7 @@ Autres constats :
 | `ScreenInputForwarder` (RefCounted) | transfert souris/clavier vers un SubViewport, état `mouse_inside`, `pressing` |
 | `HoverBubble` (CanvasLayer) | bulles de survol et de sortie, style unique, masquage en pause ; sert aussi à `HatchInteraction` |
 | `ScreenSeatConsole` (Node, base) | exports communs, survol, garde de distance, siège, `_input`/`_unhandled_input`, observateur suspendu ; crochets `_screen_name`, `_measure`, `_make_material`, `_create_display`, `_on_seated`, `_on_stood_up`, `_on_near_changed`, `_handle_key` |
-| `TvChannels` (`scripts/tv_channels.gd`) | modèle des chaînes extrait de `TvConsole`, injecté dans `TvDisplay` à la place de `console` |
+| `TvChannels` (`scripts/screens/tv_channels.gd`) | modèle des chaînes extrait de `TvConsole`, injecté dans `TvDisplay` à la place de `console` |
 | `NadirCamera` (SubViewport) | caméra nadir, `capture()` ; `Tablet` ne fait que relayer |
 | `AlertsPage`, `PhotoPage` (Control) | pages de la tablette, comme `BurnControl` l'est déjà |
 | `UiKit` / `HudStyles` / `ScreenPalette` (static) | fabriques de Label, boutons de menu, StyleBox, couleurs d'écran |
@@ -292,11 +292,11 @@ km/degré unique vaut 111,195.
    Écart avec l'avant : pendant la transition de retour, la radio aussi garde la souris (comme le poste et la
    télévision) ; l'interface n'est suspendue ou reprise qu'au changement de portée, plus à chaque image.
 2. `TvChannels` extrait de `TvConsole`, injecté dans `TvDisplay`. — **fait le 22/10/2026** : `TvChannels`
-   (RefCounted, `scripts/tv_channels.gd`) tient le CSV, les deux règles de jeu et le texte des bandeaux, sans
+   (RefCounted, `scripts/screens/tv_channels.gd`) tient le CSV, les deux règles de jeu et le texte des bandeaux, sans
    nœud : la console lui passe les explosions et l'heure UTC (`update`), l'interface se rafraîchit sur son signal
    `changed` et ne connaît plus la console. `TvConsole` : 174 → 95 lignes.
 3. `Tablet` : `NadirCamera`, `AlertsPage`, `PhotoPage`. — **fait le 22/10/2026** : `NadirCamera` (SubViewport,
-   `scripts/nadir_camera.gd` : caméra, suivi de la station, `capture_photo`, emprise), `PhotoPage` et `AlertsPage`
+   `scripts/player/nadir_camera.gd` : caméra, suivi de la station, `capture_photo`, emprise), `PhotoPage` et `AlertsPage`
    (`scripts/ui/`) ; `Tablet` 340 → 272 lignes, `TabletDisplay` 473 → 220. Sonde : section Tablette (sortie,
    nadir active sur l'onglet, visée, emprise, niveau d'alerte marqué ; la photo elle-même n'est vérifiable qu'avec
    rendu : `frame_post_draw` ne vient pas en headless), photo vérifiée en jeu par le MCP.
@@ -355,7 +355,7 @@ km/degré unique vaut 111,195.
    commande de l'API, orbite fantôme, chronologie du planificateur ; référence
    `tools/bench/results/orbit_probe_reference.txt`), comparateur commun `tools/bench/probe_compare.gd` (preload :
    `tools/` est `.gdignore`, aucun `class_name` n'y est enregistré ; clés triées par texte, car `dict.cle = …` crée
-   des clés StringName). Puis `scripts/earth_scene_driver.gd` (nœud `EarthScene` après `Orbit` dans
+   des clés StringName). Puis `scripts/orbit/earth_scene_driver.gd` (nœud `EarthScene` après `Orbit` dans
    `orbit_view.tscn` : pose de la Terre, du soleil, du ciel et des uniforms à chaque image et à chaque
    `orbit_changed`, matériaux de la Terre cachés et tenus à jour par `child_entered_tree` /
    `child_exiting_tree`), `Orbit` modèle pur (483 → 411 lignes, plus de chemins de nœuds ; garde `ecef_to_world`
@@ -393,6 +393,21 @@ changement visible ; A/B à refaire machine au repos (éditeur fermé), avec `to
 (champignons : PSNR avec `mushroom_probe`).
 
 ### Arborescence cible (optionnelle, en dernier)
+
+**Fait le 23/10/2026** : les 49 scripts à plat de `scripts/` ont été déplacés par le MCP (`rename_file`, qui
+réécrit les références des `.tscn`, des outils et de `project.godot` : autoloads compris) dans `scripts/core/`
+(paramètres, musique, réveil, mort, exposition, nombres), `scripts/player/` (observateur, caméra, torche,
+tablette, caméra nadir, photos, casque : groupe ajouté au plan), `scripts/station/`, `scripts/orbit/` (orbite,
+pose de la scène, tuiles HD, ordinateur de vol, orbite fantôme, cibles, vol et rentrée du missile),
+`scripts/campaign/`, `scripts/screens/` (consoles, écrans d'ambiance, télévision, radio) et `scripts/geo/` (masques,
+population, centrales, contours, météo des nuages). Chemins réécrits dans le README, `CLAUDE.md` et ce rapport.
+Deux pièges rencontrés : (1) les ressources binaires générées (`assets/ocean_mask.res`, `country_mask.res`,
+`power_plants.res`, `world_map_lines.res`) embarquent le chemin de leur script et ne se chargeaient plus
+(« Can't load dependency ») : réenregistrées une fois (stub `extends` temporaire à l'ancien chemin, copie des
+propriétés sur le script déplacé, `ResourceSaver.FLAG_COMPRESS` comme les outils) ; (2) le cache d'annulation du
+MCP (`addons/godot_mcp/cache/undo/`) garde des copies des scripts déplacés, que l'éditeur enregistrait comme
+classes globales (« hides a global script class ») : `.gdignore` posé sur ce cache (exception dans `.gitignore`)
+et cache des classes nettoyé.
 
 `scripts/` compte 46 fichiers à plat. Une fois les découpes faites, regrouper par domaine avec le déplacement
 de l'éditeur Godot (qui réécrit les références) : `scripts/station/` (station et composants, air, sas,

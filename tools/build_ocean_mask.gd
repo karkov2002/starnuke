@@ -5,7 +5,7 @@ extends SceneTree
 ## Usage :
 ##   godot --headless --path <projet> --script res://tools/build_ocean_mask.gd -- <ne_10m_ocean.geojson>
 
-const OceanMaskScript := preload("res://scripts/ocean_mask.gd")
+const OceanMaskScript := preload("res://scripts/geo/ocean_mask.gd")
 const GeoGridScript := preload("res://scripts/geo/geo_grid.gd")
 
 
