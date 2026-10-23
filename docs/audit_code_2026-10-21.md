@@ -335,7 +335,21 @@ km/degré unique vaut 111,195.
    `root()` reste dupliqué avec `music_player.gd`. `check_campaign` et `balance_campaign` : sorties identiques.
 6. `nuke/` : `NukePopulationScan`, `NukeMushroomShape`/`Volume`/`Mesh`, `NukeCellIndex` + `NukeSmokePlumes`
    hors de `NukeGroundFX`, `LaunchSequencer`, `NukeSmokeYield` hors de `NukeScaling`, panneau de debug scindé
-   (`scripts/debug/`).
+   (`scripts/debug/`). — **fait le 23/10/2026** (7 commits « Lot 2 (6/7, a-g) ») : sonde
+   `tools/bench/nuke_probe.tscn` écrite avant la découpe (headless, sans rendu : trois explosions dans une scène
+   figée à une date fixe ; bilans, uniforms des trois matériaux du champignon à sept instants, hachages des
+   textures du sol à quatre instants, séquence de tir complète, panneau de debug ; comparaison à
+   `tools/bench/results/nuke_probe_reference.txt` à une tolérance près, `-- ref` pour la réécrire ; `var_to_str`
+   trie les clés des dictionnaires : la comparaison aussi). Puis : `NukeSmokeYield` (lit seul OceanMask et
+   PopulationGrid), `NukePopulationScan` (balayage partagé, visiteur par cellule, `abort` déplacé), `NukeCellIndex`
+   et `NukeSmokePlumes` (`NukeGroundFX` 358 → 233 lignes), `NukeMushroomShape`/`Mesh`/`Volume` (`NukeMushroom`
+   423 → 182 lignes), `LaunchSequencer` (une par station ; `LaunchControl` 203 → 151 lignes, interface seule),
+   panneau de debug : `scripts/debug/` (`DebugPanel`, `StationDebugSection`, `OrbitDebugSection`, `DebugUi`) +
+   `nuke/debug/nuke_debug_section.gd`, scène `scenes/debug_scene.tscn`. Relevés identiques à la référence après
+   chaque commit ; `console_probe` et `campaign_probe` : 0 échec. Écarts : dans le panneau de debug, le menu
+   Alerte et le bouton Cargo passent dans la section station (sous un séparateur) et le titre devient « Debug » ;
+   `NukeScaling.format_yield` (présentation) reste en place ; les points par image du rapport (§ 2.6 :
+   `get_effects()` par image, `received_flux` calculé deux fois, `get_time_s()` répété) relèvent du lot 3.
 7. `Orbit` : `EarthSceneDriver` ; `arg_lat_of` partagé.
 
 ### Lot 3 : boucles par image (après les lots 1 et 2, mesuré en A/B)
