@@ -403,8 +403,20 @@ priorité haute, minimum des trois passages par état, ms par image) :
 Le bruit domine (un même état varie de 3 à 13 ms d'un passage à l'autre dans les deux versions, même machine au
 repos : seul le minimum est exploitable) : aucune régression visible, gains possibles à 1 min et au poste de
 pilotage, rien de concluant en dessous de ~1 ms. Les sondes (nuke, orbite, campagne, console) garantissent
-l'absence de changement visible. Reste à faire éditeur fermé : `tools/bench/bench.tscn` pour le GPU (champignons :
-PSNR avec `mushroom_probe`).
+l'absence de changement visible. Banc GPU complet du 23/10 (éditeur fermé, `tools/bench/results/bench_2026-10-23T22-16-11_1Mt.md`)
+contre la référence du 16/10 (avant les lots 2 et 3), temps GPU moyen par image :
+
+| Résolution | Orbite simple | Rentrée des missiles | Explosions à l'arrivée (0–4 s) | 10 × 1 Mt à 1 min | 10 × 1 Mt à 6 h |
+|---|---|---|---|---|---|
+| 1920 × 1080 | 3,74 → 3,70 | 4,12 → 4,03 | 6,08 → 5,26 | 4,26 → 4,25 | 3,73 → 3,71 |
+| 2560 × 1440 | 6,01 → 6,07 | 6,60 → 6,48 | 8,66 → 7,86 | 6,52 → 6,85 | 5,97 → 6,17 |
+| 3440 × 1440 | 7,47 → 7,66 | 8,06 → 7,90 | 10,09 → 9,22 | 8,12 → 8,09 | 7,39 → 7,42 |
+| 5120 × 1440 | 9,74 → 9,51 | 10,38 → 10,11 | 11,65 → 11,47 | 9,49 → 10,02 | 9,08 → 9,26 |
+
+Tout est dans la variation d'un lancement à l'autre (±1 ms, README « Performances ») : aucune régression des
+lots 2 et 3 ; les explosions à l'arrivée sont un peu moins chères (flash et choc). Un premier passage avait été
+faussé par une frappe clavier reçue par la fenêtre du banc (Espace ou Ctrl déplacent maintenant l'observateur) :
+ne rien taper pendant un banc.
 
 ### Arborescence cible (optionnelle, en dernier)
 
