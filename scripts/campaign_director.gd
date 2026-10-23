@@ -36,10 +36,24 @@ extends Node
 ##   (scenes/ui/campaign_end_screen.tscn : message de fin, moyenne globale, notes par journée et par mission), puis
 ##   écran de démarrage. Sauvegarde au coucher (Campaigns.save).
 
+## Déroulement (le journal de partie, CampaignJournal, y est abonné ; la tablette et l'écran de communication aussi
+## pour ce qui les concerne) : journée commencée (départ appliqué) ; mission programmée (heure d'arrivée de son
+## briefing, UTC, s) ; briefing envoyé par le sol ; mission commencée (briefing reçu, chrono parti : mission_run() ;
+## émis avant le retour du temps à ×1) ; briefing lu (temps écoulé depuis le départ du chrono, s) ; photo ou impact
+## enregistré ({mission, type, lat, lon, nearest_km, objective, precision, elapsed_s}, MissionRun.record) ; mission
+## finie (result : note retenue (score, success, precision, time_factor, day) et détail (elapsed_s, par_s,
+## deadline_s, complete, precisions), MissionRun.result et report) ; journée finie ; endormi (journée suivante) ;
+## campagne finie (dernière nuit : écran de fin).
 signal day_started(day_index: int)
+signal mission_scheduled(mission_id: String, briefing_unix: float)
+signal briefing_sent(mission_id: String)
 signal mission_started(mission_id: String)
+signal briefing_read(mission_id: String, elapsed_s: float)
+signal shot_recorded(shot: Dictionary)
 signal mission_finished(mission_id: String, result: Dictionary)
 signal day_finished(day_index: int)
+signal fell_asleep(next_day_index: int)
+signal campaign_finished
 
 const GROUP := &"campaign_director"
 const END_SCENE := "res://scenes/ui/campaign_end_screen.tscn"
@@ -62,11 +76,8 @@ var _world: WorldSnapshot
 ## attendu ou pas encore lu.
 var _run: MissionRun
 var _briefing_id := ""
-## Journal de partie (scripts/campaign_journal.gd) ; partie reprise d'une sauvegarde (« Continuer »), journal
-## commencé (événement session, à la première journée, une fois l'orbite en place).
+## Journal de partie (scripts/campaign_journal.gd), abonné aux signaux.
 var _journal: CampaignJournal
-var _continued := false
-var _session_logged := false
 ## Mission programmée (briefing pas encore arrivé, "" : aucune) et heure d'arrivée de son briefing (UTC, s).
 var _scheduled_id := ""
 var _briefing_unix := 0.0
@@ -87,19 +98,14 @@ func _ready() -> void:
 	if not is_active():
 		set_process(false)
 		return
-	_journal = CampaignJournal.new(Campaigns.current_id)
-	_continued = not Campaigns.pending_world.is_empty()
+	_journal = CampaignJournal.new(Campaigns.current_id, not Campaigns.pending_world.is_empty())
+	_journal.attach(self, _orbit, _flight_computer)
 	_call = PriorityCall.new()
 	_call.name = "PriorityCall"
 	add_child(_call)
 	if _radio:
 		_radio.message_read.connect(_on_message_read)
 		_radio.message_received.connect(_on_message_received)
-	if _flight_computer:
-		_flight_computer.burn_finished.connect(func(quality: int, ratio: float) -> void:
-			_journal.write("burn", _now(), {"mission": current_mission(),
-					"quality": FlightComputer.BurnQuality.keys()[quality].to_lower(), "ratio": ratio,
-					"auto": _flight_computer.mode == FlightComputer.Mode.AUTO}))
 	var photos := get_node_or_null(photos_path) as PhotoArchive
 	if photos:
 		photos.photo_taken.connect(func(photo: Dictionary) -> void:
@@ -126,6 +132,11 @@ func current_mission() -> String:
 	return _run.id if _run else ""
 
 
+## Mission en cours (null : aucune) : chrono, objectifs, note.
+func mission_run() -> MissionRun:
+	return _run
+
+
 ## Commence la journée day_index : départ appliqué s'il est défini (sinon, la station reste où elle est), puis
 ## première mission programmée.
 func start_day(day_index: int) -> void:
@@ -139,11 +150,6 @@ func start_day(day_index: int) -> void:
 	apply_start(start)
 	_next_entry = 0
 	_day_over = false
-	if not _session_logged:
-		_session_logged = true
-		_journal.write("session", _now(), {"campaign": Campaigns.current_id, "day_index": day_index,
-				"continued": _continued})
-	_journal.write("day_start", _now(), {"day": _day().id, "day_index": day_index})
 	day_started.emit(day_index)
 	_next_mission()
 
@@ -208,7 +214,7 @@ func _next_mission() -> void:
 		if CampaignData.check(entry.get("when", {}), Campaigns.scores(day.id, "")):
 			_scheduled_id = str(entry.mission)
 			_briefing_unix = Campaigns.current.briefing_unix(entry, _now())
-			_journal.write("mission_scheduled", _now(), {"mission": _scheduled_id, "briefing_unix": _briefing_unix})
+			mission_scheduled.emit(_scheduled_id, _briefing_unix)
 			return
 	_finish_day()
 
@@ -218,7 +224,7 @@ func _next_mission() -> void:
 ## L'identifiant du message est réservé avant l'envoi, pour reconnaître cette réception. Sans radio : tout de suite.
 func _send_briefing() -> void:
 	var mission := Campaigns.current.mission(_scheduled_id)
-	_journal.write("briefing_sent", _now(), {"mission": _scheduled_id})
+	briefing_sent.emit(_scheduled_id)
 	if _radio == null:
 		_start_mission()
 		return
@@ -237,15 +243,12 @@ func _start_mission() -> void:
 	_scheduled_id = ""
 	_run = MissionRun.new(id, Campaigns.current.mission(id), _defaults(), _now())
 	_run.plan(_orbit)
-	_journal.write("mission_start", _now(), {"mission": id, "deadline_s": _run.deadline_s, "par_s": _run.par_s,
-			"earliest_s": _run.earliest_s if _run.earliest_s < INF else -1.0,
-			"altitude_km": _orbit.altitude_km if _orbit else 0.0,
-			"inclination_deg": _orbit.inclination_deg if _orbit else 0.0, "time_scale": _orbit.time_scale})
+	# Émis avant le retour du temps à ×1 (le journal note la vitesse à l'arrivée du briefing).
+	mission_started.emit(id)
 	if _orbit:
 		_orbit.time_scale = 1.0
 	_call.ring({"from": CampaignMessages.sender(_run.mission, _defaults()),
 			"subject": CampaignMessages.briefing_subject(_run.mission), "received_unix": _now()})
-	mission_started.emit(id)
 
 
 ## Briefing lu (écran de communication) : fin de l'appel prioritaire.
@@ -254,8 +257,7 @@ func _on_message_read(message_id: String) -> void:
 		return
 	_briefing_id = ""
 	_call.stop()
-	_journal.write("briefing_read", _now(), {"mission": current_mission(),
-			"elapsed_s": _run.elapsed_s(_now()) if _run else 0.0})
+	briefing_read.emit(current_mission(), _run.elapsed_s(_now()) if _run else 0.0)
 
 
 ## Photo ou impact en (lat, lon) : remplit le premier objectif ouvert de ce type à portée (MissionRun.record) ;
@@ -265,7 +267,7 @@ func _record(type: String, lat: float, lon: float) -> void:
 		return
 	var shot := _run.record(type, lat, lon)
 	shot.merge({"mission": _run.id, "type": type, "lat": lat, "lon": lon, "elapsed_s": _run.elapsed_s(_now())})
-	_journal.write("shot", _now(), shot)
+	shot_recorded.emit(shot)
 	if _run.is_complete():
 		_finish_mission()
 
@@ -281,12 +283,10 @@ func _finish_mission() -> void:
 	# Briefing jamais lu : l'appel s'arrête avec la mission.
 	_briefing_id = ""
 	_call.stop()
-	var line := {"mission": run.id, "score": result.score, "success": result.success, "precision": result.precision,
-			"time_factor": result.time_factor}
-	line.merge(run.report(_now()))
-	_journal.write("mission_end", _now(), line)
 	_post(CampaignMessages.result(run.mission, _defaults(), Campaigns.scores(day_id, run.id), result))
-	mission_finished.emit(run.id, result)
+	var detail := result.duplicate()
+	detail.merge(run.report(_now()))
+	mission_finished.emit(run.id, detail)
 	_next_mission()
 
 
@@ -295,8 +295,6 @@ func _finish_day() -> void:
 	var scores := Campaigns.scores(day.id, "")
 	if scores.day_score != null:
 		Campaigns.day_scores[day.id] = scores.day_score
-	_journal.write("day_end", _now(), {"day": day.id, "day_score": scores.day_score,
-			"global_score": scores.global_score})
 	var debrief := CampaignData.pick_message(day.get("debrief", []), scores)
 	if not debrief.is_empty():
 		_post(CampaignMessages.debrief(debrief, _defaults()))
@@ -325,10 +323,9 @@ func sleep() -> void:
 	if wake:
 		await wake.fall_asleep()
 	var next := Campaigns.day_index + 1
-	_journal.write("sleep", _now(), {"next_day_index": next})
+	fell_asleep.emit(next)
 	if next >= Campaigns.current.days().size():
-		_journal.write("campaign_end", _now(), {"global_score": Campaigns.global_score(),
-				"day_scores": Campaigns.day_scores})
+		campaign_finished.emit()
 		Campaigns.delete_save()
 		get_tree().change_scene_to_file(END_SCENE)
 		return
