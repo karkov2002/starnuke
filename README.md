@@ -1687,7 +1687,7 @@ Une responsabilité par classe (principe « S » de SOLID). Trois familles :
 | Rôle | Classes (fichiers dans `nuke/` sauf mention) |
 |---|---|
 | **Tir** | `NukeLauncher` (visée, création de l'explosion, liste des explosions ; crée les nœuds ci-dessous), `NukeParams` (paramètres d'un tir), `NukeEffect` (une explosion : placement, temps, résultats du bilan), `NukeClock` (horloge) |
-| **Rendu d'une explosion** (enfants de `NukeEffect`) | `NukeFlash`, `NukeShock`, `NukeMushroom` (forme, volume, couleurs) avec `NukeMushroomDrift` (dérive au vent) et `NukeMushroomParticles` (particules) |
+| **Rendu d'une explosion** (enfants de `NukeEffect`) | `NukeFlash`, `NukeShock`, `NukeMushroom` (réglages, orchestration, boîte englobante) avec `NukeMushroomShape` (forme et couleurs à un instant, calcul pur), `NukeMushroomMesh` (maillage de révolution et nuage de base), `NukeMushroomVolume` (rendu volumétrique), `NukeMushroomDrift` (dérive au vent) et `NukeMushroomParticles` (particules) |
 | **Rendu global** (nœuds créés par le lanceur, alimentent les shaders du globe) | `NukeFlashFX`, `NukeCloudFX` (effets brefs, tableaux d'uniforms), `NukeGroundFX` (effets durables au sol : incendies, fumée, trace au sol, black-out ; textures de données sans plafond) avec `NukeCellIndex` (maille de 1° et index des événements, deux textures) et `NukeSmokePlumes` (âges, clés et maille des panaches de fumée) ; `NukeFXMaterials` (recherche des matériaux qui déclarent un uniform) |
 | **Modèles** (calcul pur, sans nœud, utilisables depuis un thread) | `NukeScaling` (lois d'échelle, surpression de Brode ; aucune donnée géographique), `NukeSmokeYield` (fumée par m² de sol en feu selon la population), `NukePopulationScan` (balayage de la grille GHS-POP autour d'un point, partagé ; drapeau `abort`), `NukeCasualties` (pertes du souffle et de la chaleur, chronologie), `NukeFallout` (doses et pertes des retombées) avec `NukeWSEG10` (champ de retombées) et `NukeMath`, `NukeGridImpact` (centrales détruites, panne nationale), `NukeAtmosphere`, `NukeWind` |
 | **Bilan** | `NukeImpact` (nœud `Impact` : calcule le bilan d'un tir dans un thread et l'écrit en console), `NukeTally` (cumul par pays, à l'instant présent), `NukeReportText` (textes et nombres), `NukeReportPanel` (écran mural du module Commande, affichage seulement) |
@@ -2133,7 +2133,7 @@ surtout des volumes hauts, où 64 pas restent nécessaires).
 	- Éclairage comme les nuages de la couche : marche vers le soleil (5 pas doublés depuis 0,3 km, auto-ombrage,
 	  loi de Beer et diffusion multiple approchée), phase double de Henyey-Greenstein, soleil filtré par
 	  l'atmosphère, ciel ambiant. La lueur de la boule de feu est émise au cœur du chapeau. Extinction : 1 km⁻¹
-	  (`volume_extinction_per_km`). **Pas de lumière selon la dilution** (`NukeMushroom.LIGHT_STEPS_BY_FADE`) : 5
+	  (`volume_extinction_per_km`). **Pas de lumière selon la dilution** (`NukeMushroomVolume.LIGHT_STEPS_BY_FADE`) : 5
 	  tant que la densité `fade` ≥ 0,25, 3 au-dessus de 0,08, 2 en dessous — un voile dilué n'a presque plus d'ombre
 	  propre (à 3 % de densité, 2 pas au lieu de 5 : PSNR > 65 dB, pour ~45 % du coût du volume à ce stade).
 	- 64 pas par rayon sur la traversée de la boîte englobante, décalage d'échantillonnage fixe par pixel (pas de
