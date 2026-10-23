@@ -13,6 +13,7 @@ extends Node
 ##   godot --headless --path . res://tools/bench/nuke_probe.tscn            compare à la référence (code 0 si identique)
 ##   godot --headless --path . res://tools/bench/nuke_probe.tscn -- ref     (ré)écrit la référence
 
+const ProbeCompare := preload("res://tools/bench/probe_compare.gd")
 const REFERENCE := "res://tools/bench/results/nuke_probe_reference.txt"
 const TIMES_S: Array[float] = [0.5, 30.0, 300.0, 900.0, 3600.0, 21600.0, 86400.0]
 const GROUND_TIMES_S: Array[float] = [10.0, 3600.0, 86400.0, 259200.0]
@@ -146,19 +147,15 @@ func _ready() -> void:
 	panel.queue_free()
 
 	print("- Référence")
-	if write_reference:
-		var file := FileAccess.open(REFERENCE, FileAccess.WRITE)
-		file.store_string(var_to_str(_record))
+	var result := ProbeCompare.check(_record, REFERENCE, write_reference)
+	if result.written:
 		print("  référence écrite : " + ProjectSettings.globalize_path(REFERENCE))
-	elif FileAccess.file_exists(REFERENCE):
-		var reference: Variant = str_to_var(FileAccess.get_file_as_string(REFERENCE))
-		var diffs: Array[String] = []
-		_diff(reference, _record, "", diffs)
-		for d in diffs.slice(0, 40):
-			print("  ≠ " + d)
-		_check(diffs.is_empty(), "identique à la référence (%d écart(s))" % diffs.size())
-	else:
+	elif result.missing:
 		_check(false, "pas de référence (lancer avec -- ref)")
+	else:
+		for d: String in result.diffs.slice(0, 40):
+			print("  ≠ " + d)
+		_check(result.diffs.is_empty(), "identique à la référence (%d écart(s))" % result.diffs.size())
 	print("=== %d échec(s) au total" % _failures)
 	get_tree().quit(0 if _failures == 0 else 1)
 
@@ -204,20 +201,8 @@ func _uniforms(material: ShaderMaterial, names: Array[StringName]) -> Dictionary
 	if material == null:
 		return out
 	for name in names:
-		out[name] = _portable(material.get_shader_parameter(name))
+		out[name] = ProbeCompare.portable(material.get_shader_parameter(name))
 	return out
-
-
-## Valeur comparable et sérialisable : une texture est remplacée par la taille et le hachage de ses données.
-func _portable(value: Variant) -> Variant:
-	if value is Texture2D:
-		var image: Image = (value as Texture2D).get_image()
-		if image == null:
-			return "texture sans image"
-		return {"size": image.get_size(), "format": image.get_format(), "hash": hash(image.get_data())}
-	return value
-
-
 ## Bilan sans les textes par pays (noms), gardant codes et nombres.
 func _trim(report: Dictionary) -> Dictionary:
 	var out := report.duplicate(true)
@@ -230,70 +215,3 @@ func _trim(report: Dictionary) -> Dictionary:
 			countries.append(entry)
 		out.countries = countries
 	return out
-
-
-## Écarts entre deux valeurs (tolérance relative sur les flottants), listés avec leur chemin.
-func _diff(a: Variant, b: Variant, path: String, out: Array[String]) -> void:
-	if a is Dictionary and b is Dictionary:
-		for k in a:
-			if not b.has(k):
-				out.append(path + "/" + str(k) + " : absent")
-			else:
-				_diff(a[k], b[k], path + "/" + str(k), out)
-		for k in b:
-			if not a.has(k):
-				out.append(path + "/" + str(k) + " : nouveau")
-		return
-	var fa := _flatten(a)
-	var fb := _flatten(b)
-	if fa.size() != fb.size():
-		out.append("%s : %d valeur(s) contre %d" % [path, fa.size(), fb.size()])
-		return
-	for i in fa.size():
-		var x: Variant = fa[i]
-		var y: Variant = fb[i]
-		if x is float or y is float:
-			if not is_equal_approx(float(x), float(y)) and absf(float(x) - float(y)) > 1e-5 * maxf(1.0, absf(float(x))):
-				out.append("%s[%d] : %s contre %s" % [path, i, str(x), str(y)])
-				return
-		elif x != y:
-			out.append("%s[%d] : %s contre %s" % [path, i, str(x), str(y)])
-			return
-
-
-## Toute valeur en liste plate de nombres, booléens et chaînes.
-func _flatten(value: Variant) -> Array:
-	match typeof(value):
-		TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING, TYPE_STRING_NAME:
-			return [value]
-		TYPE_VECTOR2, TYPE_VECTOR2I:
-			return [value.x, value.y]
-		TYPE_VECTOR3, TYPE_VECTOR3I:
-			return [value.x, value.y, value.z]
-		TYPE_VECTOR4, TYPE_VECTOR4I:
-			return [value.x, value.y, value.z, value.w]
-		TYPE_COLOR:
-			return [value.r, value.g, value.b, value.a]
-		TYPE_AABB:
-			return _flatten(value.position) + _flatten(value.size)
-		TYPE_TRANSFORM3D:
-			return _flatten(value.basis.x) + _flatten(value.basis.y) + _flatten(value.basis.z) + _flatten(value.origin)
-		TYPE_PROJECTION:
-			return _flatten(value.x) + _flatten(value.y) + _flatten(value.z) + _flatten(value.w)
-		TYPE_ARRAY, TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY, TYPE_PACKED_INT32_ARRAY, \
-				TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_VECTOR2_ARRAY, TYPE_PACKED_VECTOR3_ARRAY, \
-				TYPE_PACKED_STRING_ARRAY, TYPE_PACKED_COLOR_ARRAY, TYPE_PACKED_VECTOR4_ARRAY:
-			var out := []
-			for item in value:
-				out.append_array(_flatten(item))
-			return out
-		TYPE_DICTIONARY:
-			# Clés triées : var_to_str écrit les dictionnaires dans l'ordre des clés, pas d'insertion.
-			var out := []
-			var keys: Array = value.keys()
-			keys.sort()
-			for k in keys:
-				out.append(str(k))
-				out.append_array(_flatten(value[k]))
-			return out
-	return [str(value)]
