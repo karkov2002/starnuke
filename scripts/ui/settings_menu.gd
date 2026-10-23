@@ -41,6 +41,7 @@ var _tabs: TabContainer
 var _mode: OptionButton
 var _resolution: OptionButton
 var _resolution_note: Label
+var _anti_aliasing: OptionButton
 var _brightness: HSlider
 var _brightness_value: Label
 var _interior_light: HSlider
@@ -157,7 +158,8 @@ func _notification(what: int) -> void:
 		_refresh()
 
 
-## Onglet Vidéo : mode d'affichage, résolution, note sur le sens de la résolution selon le mode.
+## Onglet Vidéo : mode d'affichage, résolution, anticrénelage, luminosité, éclairage intérieur, note sur le sens de
+## la résolution selon le mode.
 func _build_video(page: VBoxContainer) -> void:
 	var grid := _make_grid(page)
 	_mode = _add_option(grid, "VIDEO_DISPLAY_MODE")
@@ -170,6 +172,11 @@ func _build_video(page: VBoxContainer) -> void:
 	_resolution.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_resolution.item_selected.connect(func(index: int) -> void:
 		GameSettings.set_resolution(_resolution.get_item_metadata(index)))
+	_anti_aliasing = _add_option(grid, "VIDEO_ANTI_ALIASING")
+	for mode in GameSettings.AntiAliasing.values():
+		_anti_aliasing.add_item(GameSettings.ANTI_ALIASING_KEYS[mode], mode)
+	_anti_aliasing.item_selected.connect(func(index: int) -> void:
+		GameSettings.set_anti_aliasing(_anti_aliasing.get_item_id(index) as GameSettings.AntiAliasing))
 	# Luminosité : curseur de 25 à 150 % (facteur d'exposition, GameSettings.brightness).
 	var brightness := _add_percent_slider(grid, "VIDEO_BRIGHTNESS", func(value: float) -> void:
 		GameSettings.set_brightness(value / 100.0), GameSettings.BRIGHTNESS_RANGE)
@@ -368,6 +375,7 @@ func _refresh() -> void:
 		_resolution.set_item_metadata(_resolution.item_count - 1, r)
 		if r == current:
 			_resolution.select(_resolution.item_count - 1)
+	_anti_aliasing.select(_anti_aliasing.get_item_index(GameSettings.anti_aliasing))
 	_resolution_note.text = tr("VIDEO_RESOLUTION_NOTE_FULLSCREEN"
 			if GameSettings.window_mode == GameSettings.WindowMode.FULLSCREEN else "VIDEO_RESOLUTION_NOTE_WINDOWED")
 	if not GameSettings.can_change_display():

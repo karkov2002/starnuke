@@ -243,7 +243,13 @@ permet de piloter le jeu exporté.
 	du **clavier du joueur** (`DisplayServer.keyboard_get_keycode_from_physical` : Z / S en AZERTY, W / S en QWERTY) ;
 	flèches en symboles, Échap, Tab, Espace et Ctrl traduits (Strg en allemand ; `CONTROLS_HELP`, `KEY_NAMES` de
 	`settings_menu.gd`).
-  - **Video** : mode d'affichage (**fenêtré** / **plein écran**), **résolution** et **luminosité** (25 à 150 %,
+  - **Video** : mode d'affichage (**fenêtré** / **plein écran**), **résolution**, **anticrénelage** (**désactivé
+	par défaut** : réglage de référence des bancs de performances ; **FXAA**, rapide mais un peu flou ; **MSAA 2×,
+	4×, 8×**, lissage des bords des géométries seulement, coût croissant ; **TAA**, temporel, lisse aussi les
+	reflets et les ombres mais peut laisser des traînées sur les mouvements rapides ; `GameSettings.anti_aliasing`,
+	sauvé dans `user://settings.cfg` ; appliqué aussitôt au viewport racine (`msaa_3d`, `screen_space_aa`, `use_taa`,
+	un seul des trois actif, `GameSettings.apply_anti_aliasing`) et à la caméra nadir des photos (`NadirCamera`,
+	abonnée à `GameSettings.changed`) ; les écrans 2D de la station gardent leur propre rendu) et **luminosité** (25 à 150 %,
 	`GameSettings.brightness`, sauvée dans `user://settings.cfg` : facteur lu à chaque image par le nœud
 	`Exposure`, qui impose la sensibilité de l'exposition au menu comme au jeu, voir « Exposition » dans
 	« Organisation de la scène ») et **éclairage intérieur** (10 à 150 %, **40 % par défaut**,
@@ -292,8 +298,9 @@ permet de piloter le jeu exporté.
   - **Game** : **langue** (English, Français, Español, Deutsch, Italiano ; anglais par défaut), appliquée en direct.
 - **Sauvegarde** (autoload `GameSettings`, `scripts/core/game_settings.gd`) : `user://settings.cfg` (sous Windows
   `%APPDATA%/Godot/app_userdata/Star Nuke/settings.cfg`), réappliqué au lancement suivant. Sections `[video]`
-  (`window_mode` = `"fullscreen"` / `"windowed"`, `resolution`, `Vector2i(0, 0)` = native) et `[game]`
-  (`locale`). Premier lancement : plein écran, résolution native, anglais.
+  (`window_mode` = `"fullscreen"` / `"windowed"`, `resolution`, `Vector2i(0, 0)` = native, `anti_aliasing` =
+  `"off"` / `"fxaa"` / `"msaa_2x"` / `"msaa_4x"` / `"msaa_8x"` / `"taa"`) et `[game]`
+  (`locale`). Premier lancement : plein écran, résolution native, sans anticrénelage, anglais.
 - **Langues** (règle du projet : **tous les textes du jeu sont dans des fichiers de langue**) : tableaux CSV importés
   par Godot (`TranslationServer`), une colonne par langue (`en`, `fr`, `es`, `de`, `it`), déclarés dans
   `project.godot` (`internationalization/locale/translations`) :

@@ -1,6 +1,6 @@
 extends Node
-## Paramètres du joueur (autoload GameSettings) : affichage (mode, résolution), audio (volumes musique et effets,
-## playlist) et langue. Sauvés dans
+## Paramètres du joueur (autoload GameSettings) : affichage (mode, résolution, anticrénelage), audio (volumes musique
+## et effets, playlist) et langue. Sauvés dans
 ## user://settings.cfg à chaque changement et réappliqués au lancement suivant.
 ##
 ## Affichage :
@@ -13,6 +13,11 @@ extends Node
 ## Les écrans ultra-larges sont gérés par l'étirement « expand » du projet : la vue 3D garde son champ vertical et
 ## s'élargit, l'interface s'étend sur toute la largeur.
 ##
+## Anticrénelage (anti_aliasing) : désactivé par défaut (réglage de référence des bancs de performances), FXAA, MSAA 2×,
+## 4× ou 8×, ou TAA ; appliqué à la fenêtre (Viewport racine : msaa_3d, screen_space_aa, use_taa) et à tout autre
+## viewport 3D qui le demande (apply_anti_aliasing : caméra nadir des photos). Jamais aux écrans 2D de la station,
+## rendus à leur propre résolution.
+##
 ## Luminosité (brightness, 0,25 à 1,5) : seulement sauvée ici ; le nœud Exposure de orbit_view.tscn (ExposureControl :
 ## jour / nuit au point regardé, soleil dans le champ, éblouissement du flash) la lit à chaque image et impose la
 ## sensibilité de l'exposition (menu et jeu, qui instancient la scène du jeu). CameraAttributes.exposure_multiplier
@@ -24,6 +29,7 @@ extends Node
 signal changed
 
 enum WindowMode { WINDOWED, FULLSCREEN }
+enum AntiAliasing { OFF, FXAA, MSAA_2X, MSAA_4X, MSAA_8X, TAA }
 
 const PATH := "user://settings.cfg"
 const LOCALES: Array[String] = ["en", "fr", "es", "de", "it"]
@@ -47,10 +53,18 @@ const DEFAULT_INTERIOR_LIGHT := 0.4
 const DEFAULT_MUSIC_VOLUME := 1.0
 const DEFAULT_SFX_VOLUME := 0.8
 const DEFAULT_PLAYLIST := "starnuke"
+## Noms des modes d'anticrénelage dans settings.cfg, dans l'ordre de AntiAliasing.
+const ANTI_ALIASING_NAMES: Array[String] = ["off", "fxaa", "msaa_2x", "msaa_4x", "msaa_8x", "taa"]
+## Clés de langue des modes d'anticrénelage, dans l'ordre de AntiAliasing.
+const ANTI_ALIASING_KEYS: Array[String] = ["VIDEO_AA_OFF", "VIDEO_AA_FXAA", "VIDEO_AA_MSAA_2X", "VIDEO_AA_MSAA_4X",
+		"VIDEO_AA_MSAA_8X", "VIDEO_AA_TAA"]
+const MSAA_LEVELS := {AntiAliasing.MSAA_2X: Viewport.MSAA_2X, AntiAliasing.MSAA_4X: Viewport.MSAA_4X,
+		AntiAliasing.MSAA_8X: Viewport.MSAA_8X}
 
 var window_mode := WindowMode.FULLSCREEN
 ## Résolution choisie ; Vector2i.ZERO : celle de l'écran.
 var resolution := Vector2i.ZERO
+var anti_aliasing := AntiAliasing.OFF
 var locale := DEFAULT_LOCALE
 ## Multiplicateur de luminosité (1 = exposition calculée seule), lu par ExposureControl.
 var brightness := 1.0
@@ -70,6 +84,7 @@ func _ready() -> void:
 	_load()
 	TranslationServer.set_locale(locale)
 	apply_display()
+	apply_anti_aliasing(get_tree().root)
 	_apply_audio()
 
 
@@ -136,6 +151,22 @@ func set_resolution(value: Vector2i) -> void:
 	resolution = Vector2i.ZERO if value == screen_size() else value
 	apply_display()
 	_save()
+
+
+func set_anti_aliasing(mode: AntiAliasing) -> void:
+	anti_aliasing = mode
+	apply_anti_aliasing(get_tree().root)
+	_save()
+	changed.emit()
+
+
+## Applique le mode d'anticrénelage choisi à un viewport 3D (la fenêtre ; la caméra nadir des photos, qui rappelle
+## cette fonction à chaque changed). MSAA, FXAA et TAA s'excluent : un seul est actif.
+func apply_anti_aliasing(viewport: Viewport) -> void:
+	viewport.msaa_3d = MSAA_LEVELS.get(anti_aliasing, Viewport.MSAA_DISABLED) as Viewport.MSAA
+	viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if anti_aliasing == AntiAliasing.FXAA \
+			else Viewport.SCREEN_SPACE_AA_DISABLED
+	viewport.use_taa = anti_aliasing == AntiAliasing.TAA
 
 
 func set_locale(value: String) -> void:
@@ -240,6 +271,8 @@ func _load() -> void:
 	window_mode = WindowMode.WINDOWED if config.get_value("video", "window_mode", "fullscreen") == "windowed" \
 			else WindowMode.FULLSCREEN
 	resolution = config.get_value("video", "resolution", Vector2i.ZERO)
+	anti_aliasing = maxi(ANTI_ALIASING_NAMES.find(String(config.get_value("video", "anti_aliasing", "off"))), 0) \
+			as AntiAliasing
 	brightness = clampf(float(config.get_value("video", "brightness", 1.0)), BRIGHTNESS_RANGE.x, BRIGHTNESS_RANGE.y)
 	interior_light = clampf(float(config.get_value("video", "interior_light", DEFAULT_INTERIOR_LIGHT)), INTERIOR_LIGHT_RANGE.x,
 			INTERIOR_LIGHT_RANGE.y)
@@ -257,6 +290,7 @@ func _save() -> void:
 	var config := ConfigFile.new()
 	config.set_value("video", "window_mode", "windowed" if window_mode == WindowMode.WINDOWED else "fullscreen")
 	config.set_value("video", "resolution", resolution)
+	config.set_value("video", "anti_aliasing", ANTI_ALIASING_NAMES[anti_aliasing])
 	config.set_value("video", "brightness", brightness)
 	config.set_value("video", "interior_light", interior_light)
 	config.set_value("audio", "music_volume", music_volume)

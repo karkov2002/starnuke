@@ -10,6 +10,7 @@ extends SubViewport
 ## capture_photo() : photo satellite, rendue une fois en PHOTO_SIZE avec le rendu final du jeu (environnement
 ## d'origine), puis une seconde image au rendu de la vue en direct pour la galerie (sur l'écran, le rendu final
 ## serait délavé) ; la vue revient ensuite en l'état.
+## Anticrénelage : celui des paramètres (GameSettings.apply_anti_aliasing), suivi à chaque changement.
 
 const LIVE_SIZE := Vector2i(600, 470)
 const PHOTO_SIZE := Vector2i(1600, 1253)
@@ -54,6 +55,11 @@ func _init(main_camera: Camera3D, earth: Node3D, world_environment: WorldEnviron
 		_camera.environment = environment
 	_camera.current = true
 	add_child(_camera)
+
+
+func _ready() -> void:
+	GameSettings.apply_anti_aliasing(self)
+	GameSettings.changed.connect(func() -> void: GameSettings.apply_anti_aliasing(self))
 
 
 func _process(_delta: float) -> void:
