@@ -5,31 +5,24 @@ extends HBoxContainer
 ## (Station.is_in_cupola, là où le réticule est affiché) : ailleurs, le bouton rouge est grisé, avec « Actif uniquement
 ## dans la coupole » écrit dessus.
 ##
-## Tir : on choisit un tube (vert) puis on appuie sur le bouton rouge. Le point visé (centre de la vue, cf.
-## NukeLauncher.get_aim) et la puissance sont figés à l'appui ; le missile du tube sort par l'animation de lancement
-## (Station.launch_missile), le tube passe au gris (vide). À la fin de l'animation (Station.missile_released), le
-## missile vole vers le point visé (MissileFlight) et l'explosion a lieu à son arrivée. Durée du vol (temps de jeu) :
-## proportionnelle à la distance de la cible, de flight_time_range.x quand on vise le nadir (distance = altitude) à
-## flight_time_range.y quand on vise l'horizon (√((R + h)² − R²), ~2 290 km à 400 km). Un chronomètre par missile
-## (ImpactTimers) décompte jusqu'à l'impact.
-## Rien ne se passe sans tube choisi, ni si la vue ne vise pas la Terre (le missile reste dans son tube). 48 missiles en
-## tout, un par tube : un tube vide ne se recharge pas.
+## Tir : on choisit un tube (vert) puis on appuie sur le bouton rouge ; le tube choisi a sa trappe ouverte et son
+## gyrophare allumé. La séquence elle-même (point visé et puissance figés, sortie du missile par l'animation de la
+## station, vol vers la cible, explosion à l'arrivée, durée du vol) est LaunchSequencer ; ici : le tube passe au gris
+## (vide) et un chronomètre par missile (ImpactTimers) décompte jusqu'à l'impact.
 
 @export var default_yield_kt := 1000.0
 ## Boutons de puissance réduits (tablette) : petits caractères, sans largeur minimale. Fixé avant l'ajout à l'arbre.
 ## (À terme, chaque silo aura sa bombe et sa puissance : ce choix disparaîtra.)
 var compact_yields := false
-## Durée du vol (s, temps de jeu) : visée au nadir, visée à l'horizon (règle de jeu : plus rapide que la réalité, où
-## une frappe depuis l'orbite prend plusieurs minutes, pour garder la tension d'une attente de torpille).
+## Durée du vol (s, temps de jeu) : visée au nadir, visée à l'horizon (LaunchSequencer.flight_time_range).
 @export var flight_time_range := Vector2(20.0, 120.0)
 
 var _yield_kt := 1000.0
 var _silos: SiloPanel
 var _station: Station
+var _sequencer: LaunchSequencer
 ## Tube choisi (vert) : trappe ouverte, gyrophare allumé.
 var _armed := SiloPanel.NONE
-## Vector2i(silo, tube) -> {latitude, longitude, yield_kt} : missiles lancés, en attente de leur sortie de la station.
-var _pending := {}
 var _timers: ImpactTimers
 var _button: BigRedButton
 
@@ -111,34 +104,22 @@ func _add_timers() -> void:
 	_timers.offset_bottom = -40.0
 
 
-## Durée du vol (s, temps de jeu) vers un point de la scène, proportionnelle à sa distance (du nadir à l'horizon).
-func _flight_time(target_scene: Vector3) -> float:
-	# Caméra de la vue principale (ce panneau est dessiné dans le SubViewport de la tablette).
-	var camera := get_tree().root.get_camera_3d()
-	var orbit := NukeClock.orbit
-	if camera == null or orbit == null:
-		return flight_time_range.x
-	var distance_km := camera.global_position.distance_to(target_scene) / OrbitSimulation.SCENE_UNITS_PER_KM
-	var altitude := orbit.altitude_km
-	var radius := OrbitSimulation.EARTH_RADIUS_KM
-	var horizon := sqrt((radius + altitude) * (radius + altitude) - radius * radius)
-	var share := clampf(inverse_lerp(altitude, horizon, distance_km), 0.0, 1.0)
-	return lerpf(flight_time_range.x, flight_time_range.y, share)
-
-
+## Station et lanceur résolus une fois ; la séquence de tir s'abonne à la station.
 func _connect_station() -> void:
 	_station = get_tree().get_first_node_in_group(Station.GROUP) as Station
 	if _station == null:
 		return
 	_silos.setup(_station)
 	_silos.selection_changed.connect(_on_selection_changed)
-	_station.missile_released.connect(_on_missile_released)
+	var launcher := get_tree().get_first_node_in_group(NukeLauncher.GROUP) as NukeLauncher
+	_sequencer = LaunchSequencer.new(_station, launcher, get_tree().root, get_tree().current_scene)
+	_sequencer.flight_time_range = flight_time_range
 
 
 ## Tube choisi : sa trappe s'ouvre (animation Blender) et son gyrophare clignote ; le tube choisi auparavant (s'il n'a
 ## pas tiré) referme sa trappe et éteint son gyrophare.
 func _on_selection_changed(key: Vector2i) -> void:
-	if _armed != SiloPanel.NONE and not _pending.has(_armed):
+	if _armed != SiloPanel.NONE and not (_sequencer and _sequencer.is_pending(_armed)):
 		_station.close_silo_door(_armed.x, _armed.y)
 		_station.set_silo_beacon(_armed.x, _armed.y, false)
 	_armed = key
@@ -148,56 +129,23 @@ func _on_selection_changed(key: Vector2i) -> void:
 
 
 func _on_fire() -> void:
-	var launcher := get_tree().get_first_node_in_group(NukeLauncher.GROUP) as NukeLauncher
 	var camera := get_tree().root.get_camera_3d()
 	if _station and camera and not _station.is_in_cupola(camera.global_position):
 		return
+	var launcher := get_tree().get_first_node_in_group(NukeLauncher.GROUP) as NukeLauncher
 	if launcher:
 		fire_tube(_silos.selected, launcher.get_aim(), _yield_kt)
 
 
-## Tire le missile du tube key sur le point aim ({local, latitude, longitude}, cf. NukeLauncher.get_aim et aim_at)
-## avec la puissance yield_kt. Faux (et rien ne se passe) sans tube, sans point visé, ou si le tube ne peut pas tirer.
-## Aussi utilisé par le banc de mesure (tools/bench).
+## Tire le missile du tube key sur le point aim avec la puissance yield_kt (LaunchSequencer.fire_tube) ; le tube
+## passe au gris et son chronomètre démarre. Faux (et rien ne se passe) si le tir est refusé. Aussi utilisé par le
+## banc de mesure (tools/bench).
 func fire_tube(key: Vector2i, aim: Dictionary, yield_kt: float) -> bool:
-	var launcher := get_tree().get_first_node_in_group(NukeLauncher.GROUP) as NukeLauncher
-	if key == SiloPanel.NONE or aim.is_empty() or launcher == null or _station == null:
+	if _sequencer == null:
 		return false
-	if not _station.launch_missile(key.x, key.y):
+	var shot := _sequencer.fire_tube(key, aim, yield_kt)
+	if shot.is_empty():
 		return false
-	var flight_time := _flight_time(launcher.get_earth().global_transform * (aim.local as Vector3))
-	var shot := {"latitude": aim.latitude, "longitude": aim.longitude, "local": aim.local, "yield_kt": yield_kt,
-			"flight_time": flight_time}
-	_pending[key] = shot
 	_silos.mark_empty(key)
-	# Chronomètre : animation de sortie (temps réel) puis vol (temps de jeu, MissileFlight.time_left).
-	var fired_at := Time.get_ticks_msec() / 1000.0
-	var handoff := _station.launch_handoff_s()
-	_timers.add_timer(_silos.number_of(key), func() -> float:
-		if shot.has("flight"):
-			# Vol terminé : le nœud est libéré (tester avant toute affectation typée).
-			if not is_instance_valid(shot.flight):
-				return 0.0
-			return (shot.flight as MissileFlight).time_left()
-		return maxf(handoff - (Time.get_ticks_msec() / 1000.0 - fired_at), 0.0) + flight_time)
+	_timers.add_timer(_silos.number_of(key), func() -> float: return _sequencer.time_left(shot))
 	return true
-
-
-func _on_missile_released(silo: int, tube: int, missile: Node3D, velocity: Vector3) -> void:
-	var key := Vector2i(silo, tube)
-	# Le missile a quitté le tube : gyrophare éteint, trappe refermée (station furtive).
-	_station.set_silo_beacon(silo, tube, false)
-	_station.close_silo_door(silo, tube)
-	var launcher := get_tree().get_first_node_in_group(NukeLauncher.GROUP) as NukeLauncher
-	if not _pending.has(key) or launcher == null:
-		missile.queue_free()
-		return
-	var shot: Dictionary = _pending[key]
-	_pending.erase(key)
-	var flight := MissileFlight.new()
-	flight.name = "MissileFlight_%d_%02d" % [silo, tube]
-	flight.flight_time_s = shot.flight_time
-	shot.flight = flight
-	get_tree().current_scene.add_child(flight)
-	flight.setup(missile, velocity, _station, launcher.get_earth(), shot.local, NukeScaling.DEFAULT_BURST_HEIGHT_KM)
-	flight.arrived.connect(func() -> void: launcher.launch_at(shot.latitude, shot.longitude, shot.yield_kt))
