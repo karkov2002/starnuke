@@ -20,8 +20,8 @@ enum Mode { FREE, CAMPAIGN }
 const FOLDER := "campaign"
 const FILE := "campaign.json"
 const OFFICIAL := "starnuke"
-## Sauvegarde de la campagne en cours (un seul emplacement) et version de son format.
-const SAVE_PATH := "user://saves/campaign.json"
+## Sauvegarde de la campagne en cours (un seul emplacement ; les bancs de mesure la redirigent) et version de son format.
+static var save_path := "user://saves/campaign.json"
 const SAVE_FORMAT := 1
 
 ## Mode de la partie en cours (ou de la dernière lancée).
@@ -124,11 +124,11 @@ static func has_saved() -> bool:
 ## journées, moyenne globale) et monde (world : orbite, explosions, photos, cibles). Un seul emplacement : la campagne
 ## en cours. Rend vrai si le fichier est écrit.
 static func save(world: Dictionary) -> bool:
-	if DirAccess.make_dir_recursive_absolute(SAVE_PATH.get_base_dir()) != OK:
+	if DirAccess.make_dir_recursive_absolute(save_path.get_base_dir()) != OK:
 		return false
-	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	var file := FileAccess.open(save_path, FileAccess.WRITE)
 	if file == null:
-		push_warning("Campaigns : sauvegarde impossible (%s)" % SAVE_PATH)
+		push_warning("Campaigns : sauvegarde impossible (%s)" % save_path)
 		return false
 	file.store_string(JSON.stringify({"format": SAVE_FORMAT, "campaign": current_id, "day_index": day_index,
 			"results": results, "day_scores": day_scores, "global_score": global_score(), "world": world}, "\t"))
@@ -150,14 +150,14 @@ static func continue_saved() -> bool:
 
 ## Campagne terminée : plus rien à continuer.
 static func delete_save() -> void:
-	if FileAccess.file_exists(SAVE_PATH):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+	if FileAccess.file_exists(save_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
 
 
 static func _read_save() -> Dictionary:
-	if not FileAccess.file_exists(SAVE_PATH):
+	if not FileAccess.file_exists(save_path):
 		return {}
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(save_path))
 	return parsed if parsed is Dictionary and int(parsed.get("format", 0)) == SAVE_FORMAT else {}
 
 

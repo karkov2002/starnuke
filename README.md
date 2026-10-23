@@ -206,6 +206,12 @@ permet de piloter le jeu exporté.
 	La campagne officielle contient pour l'instant deux journées d'essai : photo de Kourou (briefing à 06 h 30),
     puis, trois jours plus tard (saut au 18 juillet 2035, 11 h 15 UTC), photo de Toulouse (briefing 30 min après le
     réveil).
+  - **Sonde de la campagne** : `godot --headless --path . res://tools/bench/campaign_probe.tscn` (ou
+	`tools/bench/run_probe.ps1 campaign_probe`, qui lance aussi les scripts `-Script tools/balance_campaign.gd`)
+	joue la campagne officielle de bout en bout par l'API du jeu (départ, briefing reçu avec la liaison, appel
+	prioritaire, tir hors objectif, photo sur l'objectif, réussite, coucher et sauvegarde, « Continuer » avec le
+	monde recréé, échéance dépassée, message de fin, écran de fin) et vérifie les journaux de partie ; code 0 si
+	tout passe. Elle écrit sa sauvegarde à part (`Campaigns.save_path`) : la vraie n'est pas touchée.
 
 - **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : titre
   provisoire « Star Nuke » lumineux (`scripts/ui/title_glow.gd`, `shaders/title_glow.gdshader` : texte rendu en
