@@ -229,9 +229,7 @@ static func _state_after(state: Dictionary, burn: float, point: Vector3, plane: 
 		return state
 	var inclination := acos(clampf(plane.z, -1.0, 1.0))
 	var raan := atan2(plane.x, -plane.y)
-	var node := Vector3(cos(raan), sin(raan), 0.0)
-	var quarter := Vector3(-sin(raan) * cos(inclination), cos(raan) * cos(inclination), sin(inclination))
-	var arg_lat := atan2(point.dot(quarter), point.dot(node))
+	var arg_lat := OrbitSimulation.arg_lat_of(point, inclination, raan)
 	var after := _state(state.unix, state.radius - OrbitSimulation.EARTH_RADIUS_KM, rad_to_deg(inclination), raan,
 			arg_lat, state.raan_rate != 0.0)
 	# Ramené au temps 0 de state.
@@ -266,7 +264,7 @@ static func _target_at_burn(state: Dictionary, burn: float, lat: float, lon: flo
 
 # Direction (unitaire, ECI) d'un point du sol au temps t (la Terre tourne).
 static func _target(state: Dictionary, lat: float, lon: float, t: float) -> Vector3:
-	var theta := OrbitSimulation._sidereal_angle_at_unix(state.unix + t)
+	var theta := OrbitSimulation.sidereal_angle_at_unix(state.unix + t)
 	var la := deg_to_rad(lat)
 	var lo := deg_to_rad(lon)
 	var x := cos(la) * cos(lo)

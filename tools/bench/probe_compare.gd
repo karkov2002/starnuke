@@ -90,8 +90,9 @@ static func flatten(value: Variant) -> Array:
 			return out
 		TYPE_DICTIONARY:
 			var out := []
+			# Tri par le texte des clés : String et StringName (clé créée par « dict.cle = … ») se mélangent.
 			var keys: Array = value.keys()
-			keys.sort()
+			keys.sort_custom(func(a: Variant, b: Variant) -> bool: return str(a) < str(b))
 			for k in keys:
 				out.append(str(k))
 				out.append_array(flatten(value[k]))

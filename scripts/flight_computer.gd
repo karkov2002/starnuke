@@ -175,9 +175,7 @@ func _next_burn_time_s(time_s: float) -> float:
 	var line := old_normal.cross(new_normal)
 	var line_arg_lat := 0.0
 	if line.length() > 1e-6:
-		var node := Vector3(cos(raan), sin(raan), 0.0)
-		var quarter := Vector3(-sin(raan) * cos(inclination), cos(raan) * cos(inclination), sin(inclination))
-		line_arg_lat = atan2(line.dot(quarter), line.dot(node))
+		line_arg_lat = OrbitSimulation.arg_lat_of(line, inclination, raan)
 	var u := _orbit.get_argument_of_latitude(time_s)
 	var next := line_arg_lat + (floorf((u - line_arg_lat) / PI) + 1.0) * PI
 	return time_s + (next - u) / _orbit.get_mean_motion()
@@ -201,14 +199,12 @@ func get_ghost() -> Dictionary:
 	var inclination := deg_to_rad(target_inclination_deg)
 	var raan := _target_raan(node_time)
 	var at_point := _orbit.get_position_eci(node_time)
-	var node := Vector3(cos(raan), sin(raan), 0.0)
-	var quarter := Vector3(-sin(raan) * cos(inclination), cos(raan) * cos(inclination), sin(inclination))
 	return {
 		"radius_km": OrbitSimulation.EARTH_RADIUS_KM + target_altitude_km,
 		"inclination": inclination,
 		"raan": raan,
 		"raan_rate": OrbitSimulation.raan_rate_at(target_altitude_km, target_inclination_deg) if _orbit.raan_precession else 0.0,
-		"node_arg_lat": atan2(at_point.dot(quarter), at_point.dot(node)),
+		"node_arg_lat": OrbitSimulation.arg_lat_of(at_point, inclination, raan),
 		"node_time_s": node_time,
 		"mean_motion": OrbitSimulation.mean_motion_at(target_altitude_km),
 	}

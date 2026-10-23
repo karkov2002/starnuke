@@ -350,7 +350,19 @@ km/degré unique vaut 111,195.
    Alerte et le bouton Cargo passent dans la section station (sous un séparateur) et le titre devient « Debug » ;
    `NukeScaling.format_yield` (présentation) reste en place ; les points par image du rapport (§ 2.6 :
    `get_effects()` par image, `received_flux` calculé deux fois, `get_time_s()` répété) relèvent du lot 3.
-7. `Orbit` : `EarthSceneDriver` ; `arg_lat_of` partagé.
+7. `Orbit` : `EarthSceneDriver` ; `arg_lat_of` partagé. — **fait le 23/10/2026** (2 commits « Lot 2 (7/7, a-b) ») :
+   sonde `tools/bench/orbit_probe.tscn` écrite avant (modèle et pose de la scène à cinq instants et après chaque
+   commande de l'API, orbite fantôme, chronologie du planificateur ; référence
+   `tools/bench/results/orbit_probe_reference.txt`), comparateur commun `tools/bench/probe_compare.gd` (preload :
+   `tools/` est `.gdignore`, aucun `class_name` n'y est enregistré ; clés triées par texte, car `dict.cle = …` crée
+   des clés StringName). Puis `scripts/earth_scene_driver.gd` (nœud `EarthScene` après `Orbit` dans
+   `orbit_view.tscn` : pose de la Terre, du soleil, du ciel et des uniforms à chaque image et à chaque
+   `orbit_changed`, matériaux de la Terre cachés et tenus à jour par `child_entered_tree` /
+   `child_exiting_tree`), `Orbit` modèle pur (483 → 393 lignes, plus de chemins de nœuds ; garde `ecef_to_world`
+   écrit par le pilote), `OrbitSimulation.arg_lat_of` à la place des trois copies (`set_orbit_plane`,
+   `FlightComputer` ×2, `MissionPlanner`), `sidereal_angle_at_unix` public. Les quatre sondes et les deux outils
+   de campagne : identiques. Écart : la scène est aussi posée dès `orbit_changed` (avant : à l'image suivante,
+   sauf `place` et `restart`). **Lot 2 terminé le 23/10/2026.**
 
 ### Lot 3 : boucles par image (après les lots 1 et 2, mesuré en A/B)
 

@@ -55,7 +55,7 @@ et `flash_probe.tscn` (A/B par effet dans le même état, captures comparées pa
 comparer en A/B dans le même lancement.
 L'architecture (échelle 1/10 000 de la Terre, mécanique orbitale `scripts/orbit.gd`, atmosphère, nuages volumétriques,
 tuiles HD, sources des textures) est décrite dans le README. Toute la scène est placée autour d'une station fixe :
-c'est la Terre que `Orbit` déplace et oriente à chaque image. L'horloge est une vraie date UTC (le jeu se passe en
+c'est la Terre que le nœud `EarthScene` (`scripts/earth_scene_driver.gd`) déplace et oriente à chaque image d'après `Orbit` (modèle pur). L'horloge est une vraie date UTC (le jeu se passe en
 2035) ; les nuages (instantané VIIRS du 15/07/2023) sont déplacés par le vent réel GFS du même jour
 (`assets/textures/cloud_wind.exr`, généré par `tools/build_wind_field.ps1`).
 

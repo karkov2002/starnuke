@@ -1342,12 +1342,13 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   traverse jamais la Terre miniature.
 - **Terre** (`Earth/`) : rendue à l'échelle **1/10 000** (1 unité = 10 km ; rayon 637,1 u) pour éviter les
   problèmes de précision du tampon de profondeur. La caméra ne se déplaçant pas, la taille angulaire est identique
-  à celle d'une vraie Terre. Sa position et son orientation sont recalculées à chaque image par le nœud `Orbit`.
+  à celle d'une vraie Terre. Sa position et son orientation sont recalculées à chaque image par le nœud `EarthScene`.
   - `Surface` (shader `earth_surface.gdshader` + script `earth_detail_tiles.gd`, voir ci-dessous).
   - `CloudLayer` (sphère de 638,4 u) : nuages volumétriques procéduraux, voir ci-dessous.
   - `AtmosphereGround` (638,7 u) et `AtmosphereSky` (664 u) : diffusion atmosphérique physique, voir ci-dessous.
-- **Orbite** (`Orbit`, script `scripts/orbit.gd`) : mécanique orbitale, voir ci-dessous.
-- **Soleil** : `DirectionalLight3D` orientée par `Orbit` (position réelle du soleil, éteinte pendant l'éclipse) ;
+- **Orbite** (`Orbit`, script `scripts/orbit.gd`) : mécanique orbitale, modèle pur, voir ci-dessous.
+- **Pose de la scène** (`EarthScene`, script `scripts/earth_scene_driver.gd`, `EarthSceneDriver`, juste après `Orbit` dans l'arbre) : à chaque image et à chaque `orbit_changed`, aligne le repère orbital local sur celui de la station et place la Terre, oriente le soleil (énergie selon l'éclipse) et le ciel étoilé, et pose les uniforms des matériaux de la Terre (`sun_direction`, `cloud_utc_day_s` : liste des matériaux tenue à jour quand les enfants de `Earth` changent) et du ciel (disque solaire) ; écrit `Orbit.ecef_to_world`.
+- **Soleil** : `DirectionalLight3D` orientée par `EarthScene` (position réelle du soleil, éteinte pendant l'éclipse) ;
   elle éclaire la Terre et produit le reflet du soleil sur les océans. Masque d'eau : mers et océans d'après la carte
   des pays (`assets/textures/country_ids.png`, 0 = mer, `nuke_land_share`), plus les eaux intérieures reconnues à
   leur couleur (sombre et bleue). La couleur seule ne suffit pas : en espace linéaire, les mers de Blue Marble sont
@@ -1474,7 +1475,8 @@ inclinaison au poste de pilotage et au panneau de debug) :
 | `altitude_km` (200–800) | Change l'altitude ; le point survolé et le sens de passage sont conservés. |
 | `inclination_deg` (0–80°) | Change l'inclinaison au point courant (comme une manœuvre de changement de plan) ; bornée à ≥ \|latitude courante\|. |
 | `circular_position_eci(rayon, i, Ω, u)`, `mean_motion_at(altitude)` | Position sur une orbite circulaire quelconque, vitesse angulaire (orbite fantôme du poste de pilotage). |
-| `get_eci_to_world()`, `ecef_to_world` | Rotations ECI → scène et ECEF → scène de la dernière image (objets fixes dans l'espace inertiel autour de la Terre). |
+| `get_eci_to_world()`, `ecef_to_world` | Rotations ECI → scène et ECEF → scène de la dernière pose (`ecef_to_world` est écrite par `EarthSceneDriver` ; objets fixes dans l'espace inertiel autour de la Terre). |
+| `arg_lat_of(point, i, Ω)`, `sidereal_angle_at_unix(unix)` | Argument de latitude d'une direction ECI dans un plan d'orbite (manœuvres, orbite fantôme, planificateur : une seule source) ; angle sidéral de Greenwich. |
 | `set_orbit_plane(i, Ω, altitude, t)` | Manœuvre : nouvelle inclinaison, Ω (au temps t) et altitude ; la station garde au temps t sa position projetée sur le nouveau plan (continue sur la droite d'intersection des deux plans). |
 | `get_raan(t)`, `get_raan_rate()`, `raan_rate_at(altitude, i)`, `raan_precession` | Ω au temps t et sa dérive J2 (rad/s) ; `raan_precession` l'active (par défaut). |
 | `ground_shift_per_orbit_deg(altitude, i)`, `plane_normal(i, Ω)` | Décalage de la trace au sol d'un tour à l'autre (rotation de la Terre pendant une période, moins la précession) ; normale au plan d'une orbite. |
