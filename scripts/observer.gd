@@ -6,7 +6,8 @@ extends CharacterBody3D
 ## par Station au démarrage).
 ## - avancer / reculer dans la direction du regard (y compris vers le haut ou le bas) : move_forward, move_back
 ##   (Z / S en AZERTY, W / S en QWERTY, flèches haut / bas) ;
-## - déplacement latéral : move_left, move_right (Q / D en AZERTY, A / D en QWERTY, flèches gauche / droite).
+## - déplacement latéral : move_left, move_right (Q / D en AZERTY, A / D en QWERTY, flèches gauche / droite) ;
+## - déplacement vertical (vers le haut / le bas de la vue) : move_up, move_down (Espace / Ctrl gauche).
 ## Inertie d'apesanteur : double lissage (commande lissée, puis vitesse lissée vers la commande), soit une courbe en S
 ## sans à-coup au démarrage ni à l'arrivée (~1 s pour atteindre la vitesse de croisière ou s'arrêter) ; contre une
 ## paroi, le mouvement glisse le long d'elle.
@@ -68,11 +69,13 @@ func get_blast() -> Vector3:
 
 
 func _physics_process(delta: float) -> void:
-	var input := Vector2.ZERO
+	# x : latéral, y : vertical, z : avant / arrière, dans le repère de la vue.
+	var input := Vector3.ZERO
 	if controls_enabled and not StationCamera.is_typing(self):
-		input = Vector2(Input.get_axis(&"move_left", &"move_right"), Input.get_axis(&"move_back", &"move_forward"))
+		input = Vector3(Input.get_axis(&"move_left", &"move_right"), Input.get_axis(&"move_down", &"move_up"),
+				Input.get_axis(&"move_back", &"move_forward"))
 	var view := _camera.global_basis.orthonormalized()
-	var wish := (-view.z * input.y + view.x * input.x)
+	var wish := (-view.z * input.z + view.x * input.x + view.y * input.y)
 	if wish.length() > 1.0:
 		wish = wish.normalized()
 	_drive = StationCamera.smooth_toward(_drive, wish * speed, delta, smoothing_s)

@@ -24,6 +24,7 @@ const DISABLED_TABS: Array[String] = []
 const CONTROLS_HELP: Array[Array] = [
 	["CONTROLS_MOVE", ["move_forward", "move_back"]],
 	["CONTROLS_STRAFE", ["move_left", "move_right"]],
+	["CONTROLS_VERTICAL", ["move_up", "move_down"]],
 	["CONTROLS_ROLL", ["roll_left", "roll_right"]],
 	["CONTROLS_LOOK", ["=CONTROLS_RIGHT_DRAG"]],
 	["CONTROLS_INTERACT", ["=CONTROLS_LEFT_CLICK"]],
@@ -34,7 +35,7 @@ const CONTROLS_HELP: Array[Array] = [
 ]
 ## Touches spéciales : symbole, ou clé de langue (préfixe « = »).
 const KEY_NAMES := {KEY_UP: "↑", KEY_DOWN: "↓", KEY_LEFT: "←", KEY_RIGHT: "→", KEY_ESCAPE: "=KEY_ESCAPE",
-		KEY_TAB: "=KEY_TAB"}
+		KEY_TAB: "=KEY_TAB", KEY_SPACE: "=KEY_SPACE", KEY_CTRL: "=KEY_CTRL"}
 
 var _tabs: TabContainer
 var _mode: OptionButton

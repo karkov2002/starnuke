@@ -229,10 +229,11 @@ permet de piloter le jeu exporté.
 - **Écran des paramètres** (`scenes/ui/settings_menu.tscn`, script `scripts/ui/settings_menu.gd`) : onglets
   **Video**, **Audio**, **Controls**, **Game**. **Back** ou Échap pour revenir. Chaque choix est appliqué et sauvé aussitôt.
   - **Controls** : aide (la réaffectation des touches viendra plus tard) : une ligne par action (avancer / reculer,
-	déplacement latéral, roulis, orienter la vue, utiliser, quitter le poste ou la télévision, tablette, lampe torche,
+	déplacement latéral, déplacement vertical, roulis, orienter la vue, utiliser, quitter le poste ou la télévision, tablette, lampe torche,
 	pause) avec ses touches dessinées comme des touches de clavier. Les touches étant physiques, leur lettre est celle
 	du **clavier du joueur** (`DisplayServer.keyboard_get_keycode_from_physical` : Z / S en AZERTY, W / S en QWERTY) ;
-	flèches en symboles, Échap et Tab traduits (`CONTROLS_HELP`, `KEY_NAMES` de `settings_menu.gd`).
+	flèches en symboles, Échap, Tab, Espace et Ctrl traduits (Strg en allemand ; `CONTROLS_HELP`, `KEY_NAMES` de
+	`settings_menu.gd`).
   - **Video** : mode d'affichage (**fenêtré** / **plein écran**), **résolution** et **luminosité** (25 à 150 %,
 	`GameSettings.brightness`, sauvée dans `user://settings.cfg` : facteur lu à chaque image par le nœud
 	`Exposure`, qui impose la sensibilité de l'exposition au menu comme au jeu, voir « Exposition » dans
@@ -310,7 +311,7 @@ permet de piloter le jeu exporté.
 | Action | Contrôle |
 |---|---|
 | Orienter la vue | Maintenir le **clic droit** et déplacer la souris (lacet et tangage autour des axes de la tête) ; **A / E** (AZERTY, Q / E en QWERTY) : **roulis** gauche / droite autour de l'axe du regard (60°/s, mise en rotation et arrêt progressifs). Orientation libre comme en apesanteur : pas de « haut » imposé, tangage non limité |
-| Se déplacer dans la station | **Z / S** (W / S en QWERTY) ou **flèches haut / bas** : avancer / reculer dans la direction du regard (y compris vers le haut ou le bas, apesanteur) ; **Q / D** (A / D en QWERTY) ou **flèches gauche / droite** : déplacement latéral. 1,5 m/s ; inertie d'apesanteur : démarrage et arrêt en douceur (~1 s), on continue sur sa lancée un instant après avoir relâché la touche ; collisions avec les parois, les vitres et les objets intérieurs (tubes des silos…) |
+| Se déplacer dans la station | **Z / S** (W / S en QWERTY) ou **flèches haut / bas** : avancer / reculer dans la direction du regard (y compris vers le haut ou le bas, apesanteur) ; **Q / D** (A / D en QWERTY) ou **flèches gauche / droite** : déplacement latéral ; **Espace / Ctrl gauche** : déplacement vertical, vers le haut / le bas de la vue. 1,5 m/s ; inertie d'apesanteur : démarrage et arrêt en douceur (~1 s), on continue sur sa lancée un instant après avoir relâché la touche ; collisions avec les parois, les vitres et les objets intérieurs (tubes des silos…) |
 | Curseur | Libre le reste du temps (clic gauche sur la tablette, la barre du temps, l'écran du poste de pilotage) |
 | Tablette | **Tab** (action `tablet`, touche physique) : sort ou range la **tablette** tenue en bas de la vue (elle glisse depuis le bas en 0,35 s) ; on clique directement sur son écran. Quatre onglets : **Pilotage** (carte, **BURN** bleu), **Photographie** (vue au nadir en direct, bouton Photo : photo satellite enregistrée dans `user://photos/`, galerie), **Tir de missile** (silos, puissance, bouton rouge), **Alertes** (appel prioritaire reçu, 5 boutons du niveau d'alerte de la station) ; bouton **HUD : On / Off** (surimpression dans la cupola). Ignorée pendant la saisie d'un texte et au poste de pilotage (elle s'y range). Voir « Tablette » |
 | Vitesse du temps | **Barre toujours visible en haut au centre** : pause (deux barres) puis ×1 à ×16 en icônes de flèches (1 à 5 flèches ; infobulle : le facteur) ; la vitesse en cours est allumée. Le poste de pilotage et le BURN ramènent à ×1 |
