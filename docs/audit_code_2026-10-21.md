@@ -376,6 +376,22 @@ km/degré unique vaut 111,195.
   rafraîchies séparément ; `PhotoArchive.save_png` en thread ; `MissionPlanner.earliest` en thread si > 50 ms.
 - `FlightComputer.get_ghost()` mis en cache ; `_groups()`/`any_seated` sans allocation par image.
 
+**Fait le 23/10/2026** (commits « Lot 3 (1/n) », « Lot 3 (2/n) ») : banc CPU headless `tools/bench/cpu_probe.tscn`
+(temps de traitement par image sans rendu, sept états, meilleur de cinq passages ; ligne de base
+`tools/bench/results/cpu_baseline.md` : ~3,2 ms orbite seule, 4 à 5,7 ms avec dix explosions). Faits :
+`ExposureControl` à 20 Hz (cible), caméra cachée, `Vector2` sans allocation ; `NukeEffect.get_time_s` une fois par
+image et flash cache ; `get_ghost` en cache par image ; `any_seated` par compteur ; `AimReticle` redessiné au
+changement ; `PressureGauges` 10 Hz et matériaux au changement ; `AirVentFx` sortie anticipée ; `PilotDisplay`,
+`TabletDisplay`, `BurnControl` à 5 Hz ; `NukeMushroom` : rien pour les maillages cachés, uniforms constants posés
+une fois ; `PhotoArchive` : PNG en thread. Déjà en place avant le lot : écrans suspendus hors de portée
+(`set_process(false)`), `_groups()` sur signaux, `get_effects()` liste tenue, `received_flux` une fois, `AlertSirens`
+sur signal. Écartés : `MissionPlanner.earliest` mesuré à 1,2 ms (pas de thread) ; texture des temps de
+`NukeGroundFX` (4 Ko par image : négligeable) ; `SettingsMenu` (rafraîchi sur événement, pas par image). Mesure :
+la machine partagée avec l'éditeur et une partie en cours rend le banc trop bruité (±3 ms sur certains états) pour
+chiffrer des gains de l'ordre de 0,5 ms ; les sondes (nuke, orbite, campagne, console) garantissent l'absence de
+changement visible ; A/B à refaire machine au repos (éditeur fermé), avec `tools/bench/bench.tscn` pour le GPU
+(champignons : PSNR avec `mushroom_probe`).
+
 ### Arborescence cible (optionnelle, en dernier)
 
 `scripts/` compte 46 fichiers à plat. Une fois les découpes faites, regrouper par domaine avec le déplacement

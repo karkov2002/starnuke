@@ -418,7 +418,9 @@ de la vue).
 	`scripts/photo_archive.gd`, nœud `Photos`, groupe
 	`photo_archive`) : flash, puis la vue au nadir est rendue une fois en **1 600 × 1 253** avec le rendu final du
 	jeu (environnement d'origine : ACES, halo) et enregistrée en **PNG dans `user://photos/`** (nom : date et heure
-	du jeu, latitude, longitude ; le joueur garde ses photos) ; deux images plus tard, une seconde capture au rendu de
+	du jeu, latitude, longitude ; le joueur garde ses photos ; l'encodage PNG de la photo et de sa vignette se fait
+	dans un thread (`WorkerThreadPool`, attendu à la sortie) : la prise de vue ne fige plus l'image) ; deux images
+	plus tard, une seconde capture au rendu de
 	la vue en direct sert à la galerie (sans quoi elle serait délavée sur l'écran). Chaque photo garde le **point
 	survolé** à la prise de vue (point sous la station : c'est lui qui comptera pour la précision d'une photo de
 	mission, signal `PhotoArchive.photo_taken`), l'heure UTC du jeu, l'altitude et l'**emprise au sol**
@@ -1367,7 +1369,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 - **Disque solaire** (shader de ciel `shaders/space_sky.gdshader`, qui dessine aussi le panorama étoilé) : soleil à
   sa position calculée, de rayon angulaire réel (0,267°), avec assombrissement centre-bord. Sa luminance
   (`sun_disc_energy` = 40 000, proche du maximum du format 16 bits) sature l'image et pilote l'éblouissement et
-  l'exposition (voir ci-dessous). `Orbit` lui transmet à chaque image la
+  l'exposition (voir ci-dessous). `EarthScene` lui transmet à chaque image la
   direction du soleil et la position de l'observateur, dans le repère du ciel. Près du limbe, le disque est atténué
   par la transmittance spectrale de l'atmosphère, avec le même modèle que `atmosphere.gdshader` (paramètres
   partagés dans `shaders/atmosphere_common.gdshaderinc`). Il rougit, s'éteint en passant derrière le limbe, puis la
@@ -1386,6 +1388,9 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   la fenêtre 16:9 était correcte ; et elle dépendait de l'historique de la session (luminance moyenne de la même
   vue de jour, à froid : 86 à 100 ; de nuit : 45 à 135). Désormais l'exposition ne dépend que de ce qui est
   regardé, comme un œil adapté à l'extérieur, indépendamment du cadrage.
+  - **Cadence** : la cible (cupola ou non, part de la Terre dans la vue, hauteur du soleil, disque dans le champ)
+	est évaluée à `target_hz` = 20 Hz (neuf rayons et une recherche de caméra par évaluation, au lieu de chaque
+	image) ; le lissage de l'adaptation et l'adaptation au flash restent par image (lot 3 de l'audit).
   - **Mécanisme** : l'exposition automatique reste activée mais **bridée** — le nœud impose à chaque image
 	`auto_exposure_min_sensitivity` = `max_sensitivity` = `base_sensitivity` / facteur (`auto_exposure_scale`
 	0,22, vitesse 20 : elle suit la consigne en quelques images ; le lissage est fait par le nœud). Pourquoi pas
@@ -1863,6 +1868,16 @@ Le jeu est limité par le GPU (temps CPU ≈ temps GPU). Ce qui a été corrigé
   globe dès qu'un feu existait ; il ne l'est plus que là où il y a du feu ;
 - **dérive des champignons** (CPU) : pendant les 10 min de montée, 512 interpolations du profil de vent par
   champignon et par image ; le vent est maintenant lu dans une table précalculée (`NukeMushroomDrift`).
+- **boucles par image** (CPU, lot 3 de l'audit `docs/audit_code_2026-10-21.md`) : banc headless
+  `tools/bench/cpu_probe.tscn` (temps de traitement par image, scripts et moteur sans rendu, dans sept états :
+  orbite seule, dix explosions figées à 5 s, 1 min, 30 min et 6 h, assis au poste, tablette sortie ; meilleur de
+  cinq passages, moyenne tronquée ; `--breakdown` : ventilation par nœud, bruitée en dessous de ~0,5 ms ; ligne de
+  base `tools/bench/results/cpu_baseline.md`, ~3,2 ms par image orbite seule). Mesures qui exigent une machine au
+  repos : l'éditeur et une partie ouverte font varier un même état de 3 à 13 ms. Fait : cible de l'exposition à
+  20 Hz, temps physique d'une explosion calculé une fois par image, orbite fantôme en cache par image, compteur
+  d'assises, réticule redessiné au changement, témoins de pression à 10 Hz, jets d'air en sortie anticipée, textes
+  du poste, de la tablette et de la commande de poussée à 5 Hz, champignon sans travail pour les maillages cachés
+  (uniforms constants posés une fois), PNG des photos en thread.
 
 Coût restant (16 × 1 Mt à 60 s, GPU) : champignons volumétriques 1,5 ms, anneaux d'onde de choc 0,6 ms. Essayé sans
 gain mesurable, donc abandonné : un pas adaptatif pour la marche de rayon du champignon (les rayons traversent
