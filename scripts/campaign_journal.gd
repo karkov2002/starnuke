@@ -59,7 +59,7 @@ func attach(director: CampaignDirector, orbit: OrbitSimulation, flight_computer:
 	director.fell_asleep.connect(func(next_day_index: int) -> void:
 		write("sleep", {"next_day_index": next_day_index}))
 	director.campaign_finished.connect(func() -> void:
-		write("campaign_end", {"global_score": Campaigns.global_score(), "day_scores": Campaigns.day_scores}))
+		write("campaign_end", {"global_score": CampaignSession.global_score(), "day_scores": CampaignSession.day_scores}))
 	if flight_computer:
 		flight_computer.burn_finished.connect(func(quality: int, ratio: float) -> void:
 			write("burn", {"mission": director.current_mission(),
@@ -84,7 +84,7 @@ func _on_day_started(day_index: int) -> void:
 	if not _session_logged:
 		_session_logged = true
 		write("session", {"campaign": _campaign_id, "day_index": day_index, "continued": _continued})
-	write("day_start", {"day": Campaigns.current.days()[day_index].id, "day_index": day_index})
+	write("day_start", {"day": CampaignSession.current.days()[day_index].id, "day_index": day_index})
 
 
 ## Départ du chrono : échéance, temps de référence, passage le plus tôt possible (−1 : impossible à temps), orbite et
@@ -100,8 +100,8 @@ func _on_mission_started(mission_id: String) -> void:
 
 
 func _on_day_finished(day_index: int) -> void:
-	var day_id: String = Campaigns.current.days()[day_index].id
-	var scores := Campaigns.scores(day_id, "")
+	var day_id: String = CampaignSession.current.days()[day_index].id
+	var scores := CampaignSession.scores(day_id, "")
 	write("day_end", {"day": day_id, "day_score": scores.day_score, "global_score": scores.global_score})
 
 

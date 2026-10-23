@@ -1,7 +1,7 @@
 class_name CampaignDirector
 extends Node
 ## Déroulement d'une campagne (nœud CampaignDirector de scenes/orbit_view.tscn), actif seulement en mode campagne
-## (Campaigns.mode, choisi à l'écran de démarrage) ; en mode libre, il ne fait rien. Règles de jeu :
+## (CampaignSession.mode, choisi à l'écran de démarrage) ; en mode libre, il ne fait rien. Règles de jeu :
 ## - début de journée : départ appliqué (CampaignData.start_of_day) : avec orbit, heure UTC et position exactes
 ##   (altitude, inclinaison, point survolé, sens de passage, OrbitSimulation.place) ; sans orbit, saut dans le temps
 ##   jusqu'à cette date, la station continuant son orbite (ignoré si la date est déjà passée). La manœuvre en
@@ -21,7 +21,7 @@ extends Node
 ##   type, dont l'objectif préalable « after » est rempli), avec la précision obtenue (MissionScoring) ; plus loin, il
 ##   ne compte pas ;
 ## - fin de mission : tous les objectifs remplis, ou échéance (deadline_hours après l'arrivée du briefing) : note =
-##   précision pondérée × facteur temps (MissionScoring), réussite si ≥ success_score ; résultat retenu (Campaigns.results,
+##   précision pondérée × facteur temps (MissionScoring), réussite si ≥ success_score ; résultat retenu (CampaignSession.results,
 ##   moyenne globale) et message radio de résultat (message « result » de la mission choisi selon la note, sinon
 ##   RESULT_DEFAULT_*), puis la mission suivante de la journée dont la condition est vraie est programmée ;
 ## - fin de journée (plus de mission) : note de la journée retenue, message « debrief » de la journée (selon les
@@ -34,7 +34,7 @@ extends Node
 ##   ouverture des paupières (WakeUp.play ; au lancement, WakeUp joue lui-même le réveil).
 ##   Après la dernière journée, dormir termine la campagne : sauvegarde effacée, écran de fin de campagne
 ##   (scenes/ui/campaign_end_screen.tscn : message de fin, moyenne globale, notes par journée et par mission), puis
-##   écran de démarrage. Sauvegarde au coucher (Campaigns.save).
+##   écran de démarrage. Sauvegarde au coucher (CampaignSession.save).
 
 ## Déroulement (le journal de partie, CampaignJournal, y est abonné ; la tablette et l'écran de communication aussi
 ## pour ce qui les concerne) : journée commencée (départ appliqué) ; mission programmée (heure d'arrivée de son
@@ -98,7 +98,8 @@ func _ready() -> void:
 	if not is_active():
 		set_process(false)
 		return
-	_journal = CampaignJournal.new(Campaigns.current_id, not Campaigns.pending_world.is_empty())
+	var pending := CampaignSession.take_pending_world()
+	_journal = CampaignJournal.new(CampaignSession.current_id, not pending.is_empty())
 	_journal.attach(self, _orbit, _flight_computer)
 	_call = PriorityCall.new()
 	_call.name = "PriorityCall"
@@ -117,14 +118,13 @@ func _ready() -> void:
 			if effect.params and not effect.params.restored:
 				_record("strike", effect.params.latitude_deg, effect.params.longitude_deg))
 	# Après la mise en place de l'orbite (son _ready) : monde d'une sauvegarde recréé (« Continuer »), puis journée.
-	if not Campaigns.pending_world.is_empty():
-		_restore_world.call_deferred(Campaigns.pending_world)
-		Campaigns.pending_world = {}
-	start_day.call_deferred(Campaigns.day_index)
+	if not pending.is_empty():
+		_restore_world.call_deferred(pending)
+	start_day.call_deferred(CampaignSession.day_index)
 
 
 func is_active() -> bool:
-	return Campaigns.mode == Campaigns.Mode.CAMPAIGN and Campaigns.current != null
+	return CampaignSession.mode == CampaignSession.Mode.CAMPAIGN and CampaignSession.current != null
 
 
 ## Mission en cours ("" : aucune).
@@ -140,13 +140,13 @@ func mission_run() -> MissionRun:
 ## Commence la journée day_index : départ appliqué s'il est défini (sinon, la station reste où elle est), puis
 ## première mission programmée.
 func start_day(day_index: int) -> void:
-	if not is_active() or day_index < 0 or day_index >= Campaigns.current.days().size():
+	if not is_active() or day_index < 0 or day_index >= CampaignSession.current.days().size():
 		return
-	Campaigns.day_index = day_index
-	var start := Campaigns.current.start_of_day(day_index)
+	CampaignSession.day_index = day_index
+	var start := CampaignSession.current.start_of_day(day_index)
 	# Première journée sans orbite propre : départ de la campagne, puis saut à sa date.
 	if day_index == 0 and not start.has("orbit"):
-		apply_start(Campaigns.current.data.get("start", {}))
+		apply_start(CampaignSession.current.data.get("start", {}))
 	apply_start(start)
 	_next_entry = 0
 	_day_over = false
@@ -211,9 +211,9 @@ func _next_mission() -> void:
 	while _next_entry < entries.size():
 		var entry: Dictionary = entries[_next_entry]
 		_next_entry += 1
-		if CampaignData.check(entry.get("when", {}), Campaigns.scores(day.id, "")):
+		if CampaignData.check(entry.get("when", {}), CampaignSession.scores(day.id, "")):
 			_scheduled_id = str(entry.mission)
-			_briefing_unix = Campaigns.current.briefing_unix(entry, _now())
+			_briefing_unix = CampaignSession.current.briefing_unix(entry, _now())
 			mission_scheduled.emit(_scheduled_id, _briefing_unix)
 			return
 	_finish_day()
@@ -223,7 +223,7 @@ func _next_mission() -> void:
 ## RadioComms), et c'est à sa réception (message_received, parfois émis pendant post même) que la mission commence.
 ## L'identifiant du message est réservé avant l'envoi, pour reconnaître cette réception. Sans radio : tout de suite.
 func _send_briefing() -> void:
-	var mission := Campaigns.current.mission(_scheduled_id)
+	var mission := CampaignSession.current.mission(_scheduled_id)
 	briefing_sent.emit(_scheduled_id)
 	if _radio == null:
 		_start_mission()
@@ -241,7 +241,7 @@ func _on_message_received(message: Dictionary) -> void:
 func _start_mission() -> void:
 	var id := _scheduled_id
 	_scheduled_id = ""
-	_run = MissionRun.new(id, Campaigns.current.mission(id), _defaults(), _now())
+	_run = MissionRun.new(id, CampaignSession.current.mission(id), _defaults(), _now())
 	_run.plan(_orbit)
 	# Émis avant le retour du temps à ×1 (le journal note la vitesse à l'arrivée du briefing).
 	mission_started.emit(id)
@@ -272,18 +272,18 @@ func _record(type: String, lat: float, lon: float) -> void:
 		_finish_mission()
 
 
-## Fin de mission (objectifs remplis ou échéance) : note retenue (Campaigns.results), message de résultat, mission
+## Fin de mission (objectifs remplis ou échéance) : note retenue (CampaignSession.results), message de résultat, mission
 ## suivante.
 func _finish_mission() -> void:
 	var run := _run
 	_run = null
 	var day_id: String = _day().id
 	var result := run.result(_now(), day_id)
-	Campaigns.results[run.id] = result
+	CampaignSession.results[run.id] = result
 	# Briefing jamais lu : l'appel s'arrête avec la mission.
 	_briefing_id = ""
 	_call.stop()
-	_post(CampaignMessages.result(run.mission, _defaults(), Campaigns.scores(day_id, run.id), result))
+	_post(CampaignMessages.result(run.mission, _defaults(), CampaignSession.scores(day_id, run.id), result))
 	var detail := result.duplicate()
 	detail.merge(run.report(_now()))
 	mission_finished.emit(run.id, detail)
@@ -292,18 +292,18 @@ func _finish_mission() -> void:
 
 func _finish_day() -> void:
 	var day := _day()
-	var scores := Campaigns.scores(day.id, "")
+	var scores := CampaignSession.scores(day.id, "")
 	if scores.day_score != null:
-		Campaigns.day_scores[day.id] = scores.day_score
+		CampaignSession.day_scores[day.id] = scores.day_score
 	var debrief := CampaignData.pick_message(day.get("debrief", []), scores)
 	if not debrief.is_empty():
 		_post(CampaignMessages.debrief(debrief, _defaults()))
-	if Campaigns.day_index == Campaigns.current.days().size() - 1:
-		var ending := CampaignData.pick_message(Campaigns.current.data.get("ending", []), scores)
+	if CampaignSession.day_index == CampaignSession.current.days().size() - 1:
+		var ending := CampaignData.pick_message(CampaignSession.current.data.get("ending", []), scores)
 		if not ending.is_empty():
 			_post(CampaignMessages.debrief(ending, _defaults()))
 	_day_over = true
-	day_finished.emit(Campaigns.day_index)
+	day_finished.emit(CampaignSession.day_index)
 
 
 # --- Sommeil --------------------------------------------------------------------------------------------------------
@@ -322,17 +322,17 @@ func sleep() -> void:
 	var wake := _wake_up()
 	if wake:
 		await wake.fall_asleep()
-	var next := Campaigns.day_index + 1
+	var next := CampaignSession.day_index + 1
 	fell_asleep.emit(next)
-	if next >= Campaigns.current.days().size():
+	if next >= CampaignSession.current.days().size():
 		campaign_finished.emit()
-		Campaigns.delete_save()
+		CampaignSession.delete_save()
 		get_tree().change_scene_to_file(END_SCENE)
 		return
 	_advance_to_wake_up(next)
 	# Sauvegarde au coucher (règle de jeu) : journée à venir, notes, monde au réveil.
-	Campaigns.day_index = next
-	Campaigns.save(_snapshot().capture())
+	CampaignSession.day_index = next
+	CampaignSession.save(_snapshot().capture())
 	start_day(next)
 	var observer := get_node_or_null(observer_path) as Observer
 	if observer:
@@ -364,7 +364,7 @@ func _restore_world(world: Dictionary) -> void:
 func _advance_to_wake_up(day_index: int) -> void:
 	if _orbit == null:
 		return
-	var sleep_s := Campaigns.current.night_s(day_index, _orbit.get_utc_unix_s())
+	var sleep_s := CampaignSession.current.night_s(day_index, _orbit.get_utc_unix_s())
 	# Les explosions vieillissent aussi pendant la nuit (incendies, fumées).
 	if sleep_s > 0.0:
 		_advance(sleep_s)
@@ -379,11 +379,11 @@ func _post(message: Dictionary) -> void:
 
 
 func _defaults() -> Dictionary:
-	return Campaigns.current.defaults()
+	return CampaignSession.current.defaults()
 
 
 func _day() -> Dictionary:
-	return Campaigns.current.days()[Campaigns.day_index]
+	return CampaignSession.current.days()[CampaignSession.day_index]
 
 
 ## Heure du jeu (UTC, s).

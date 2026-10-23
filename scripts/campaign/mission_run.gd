@@ -88,7 +88,7 @@ func record(type: String, lat: float, lon: float) -> Dictionary:
 
 
 ## Note de la mission à now_unix : {score, success, precision, time_factor, day : day_id} (forme retenue dans
-## Campaigns.results et la sauvegarde).
+## CampaignSession.results et la sauvegarde).
 func result(now_unix: float, day_id: String) -> Dictionary:
 	var weights: Array = mission.objectives.map(func(o: Dictionary) -> float: return float(o.get("weight", 1.0)))
 	var precision := MissionScoring.mission_precision(precisions, weights)

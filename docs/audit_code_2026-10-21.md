@@ -321,6 +321,18 @@ km/degré unique vaut 111,195.
    alerte et black-out, lancement d'un missile jusqu'au relais), écrite avant la découpe.
 5. `CampaignDirector` : `WorldSnapshot`, `CampaignMessages`, `MissionRun`, journal par signaux ; `Campaigns`
    scindé en catalogue et session. Non-régression : une campagne jouée de bout en bout + `balance_campaign`.
+   — **fait le 23/10/2026** (6 commits « Lot 2 (5/7, a-f) ») : sonde `tools/bench/campaign_probe.tscn` écrite
+   avant la découpe (campagne officielle jouée en headless par l'API : départ, briefing reçu avec la liaison,
+   appel prioritaire, tir et photo, réussite, coucher et sauvegarde à part (`CampaignSession.save_path`),
+   « Continuer » avec le monde recréé, échéance, message et écran de fin, journaux vérifiés ; 56 contrôles) ;
+   `scripts/campaign/` : `WorldSnapshot` (capture/restore), `CampaignMessages` (statique : briefing, résultat,
+   débriefing, enveloppe), `MissionRun` (chrono, plan, record, result, report), `CampaignSession` (mode, campagne,
+   journée, notes, sauvegarde ; `take_pending_world` remplace le canal implicite) ; `Campaigns` = catalogue et
+   textes ; `CampaignJournal.attach` abonné aux signaux (six nouveaux : `mission_scheduled`, `briefing_sent`,
+   `briefing_read`, `shot_recorded`, `fell_asleep`, `campaign_finished`). `CampaignDirector` 504 → 391 lignes
+   (séquencement, horloge, sommeil). Écarts : `mission_started` est émis avant le retour du temps à ×1 (le journal
+   garde la vitesse à l'arrivée du briefing) ; la ligne `mission_end` du journal gagne le champ `day` ;
+   `root()` reste dupliqué avec `music_player.gd`. `check_campaign` et `balance_campaign` : sorties identiques.
 6. `nuke/` : `NukePopulationScan`, `NukeMushroomShape`/`Volume`/`Mesh`, `NukeCellIndex` + `NukeSmokePlumes`
    hors de `NukeGroundFX`, `LaunchSequencer`, `NukeSmokeYield` hors de `NukeScaling`, panneau de debug scindé
    (`scripts/debug/`).

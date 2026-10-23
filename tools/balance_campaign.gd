@@ -14,7 +14,7 @@ extends SceneTree
 ##   moins égal à la tolérance ne compte pas. Chaque passage manqué ou raté coûte une orbite ;
 ## - au-delà de l'échéance, les objectifs restants valent 0 ; note = précision pondérée × facteur temps
 ##   (MissionScoring), réussite si ≥ success_score.
-## Note de la campagne d'un tirage : moyenne de ses missions (comme Campaigns.global_score). Les profils sont des
+## Note de la campagne d'un tirage : moyenne de ses missions (comme CampaignSession.global_score). Les profils sont des
 ## estimations à recaler avec les journaux de vraies parties (user://logs, scripts/campaign_journal.gd) : retards
 ## (earliest_s, elapsed_s), distances (shot.nearest_km), passages manqués.
 

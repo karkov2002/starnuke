@@ -3,7 +3,7 @@ extends Control
 ## - accueil : « Commencer la partie » (page des modes), « Paramètres » (écran scenes/ui/settings_menu.tscn
 ##   par-dessus), « Crédits » (scenes/ui/credits_menu.tscn par-dessus : onglets Références et Crédits), « Quitter » ;
 ## - modes de jeu : « Démarrer une nouvelle campagne » (page des campagnes), « Continuer la campagne en cours »
-##   (cliquable seulement si une campagne est en cours, Campaigns.has_saved : reprend la sauvegarde du dernier coucher), « Mode libre »
+##   (cliquable seulement si une campagne est en cours, CampaignSession.has_saved : reprend la sauvegarde du dernier coucher), « Mode libre »
 ##   (le jeu tel quel), « Retour » ;
 ## - campagnes : sélecteur déroulant des campagnes du dossier campaign/ (scripts/campaigns.gd ; l'officielle en premier
 ##   et en bleu, les autres en blanc), « Lancer la campagne » (pour le moment, la partie normale), « Retour ».
@@ -97,12 +97,12 @@ func _ready() -> void:
 	_add_button(_main_page, "MENU_QUIT", func() -> void: get_tree().quit())
 	_mode_page = _add_page(column)
 	_add_button(_mode_page, "MENU_NEW_CAMPAIGN", _open_campaigns)
-	# Reprend la campagne sauvegardée au dernier coucher (grisé sans sauvegarde : Campaigns.has_saved).
+	# Reprend la campagne sauvegardée au dernier coucher (grisé sans sauvegarde : CampaignSession.has_saved).
 	_continue_button = _add_button(_mode_page, "MENU_CONTINUE_CAMPAIGN", func() -> void:
-		if Campaigns.continue_saved():
+		if CampaignSession.continue_saved():
 			_on_start())
 	_add_button(_mode_page, "MENU_FREE_MODE", func() -> void:
-		Campaigns.start_free()
+		CampaignSession.start_free()
 		_on_start())
 	_add_button(_mode_page, "MENU_BACK", func() -> void: _show_page(_main_page))
 	_campaign_page = _add_page(column)
@@ -207,7 +207,7 @@ func _show_page(page: VBoxContainer) -> void:
 	for other: VBoxContainer in [_main_page, _mode_page, _campaign_page]:
 		other.visible = other == page
 	_page = page
-	_continue_button.disabled = not Campaigns.has_saved()
+	_continue_button.disabled = not CampaignSession.has_saved()
 	for child in page.get_children():
 		var button := child as Button
 		if button and not button.disabled:
@@ -254,7 +254,7 @@ func _open_campaigns() -> void:
 		_campaign_select.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		_campaign_list = _build_campaign_list()
 		_launch_button = _add_button(_campaign_page, "MENU_LAUNCH_CAMPAIGN", func() -> void:
-			if Campaigns.start_campaign(_campaigns[_campaign_index].id):
+			if CampaignSession.start_campaign(_campaigns[_campaign_index].id):
 				_on_start())
 		_select_campaign(0)
 	_add_button(_campaign_page, "MENU_BACK", func() -> void: _show_page(_mode_page))

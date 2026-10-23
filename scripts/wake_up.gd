@@ -89,7 +89,7 @@ func _play_start() -> void:
 	await get_tree().process_frame
 	var director := get_tree().get_first_node_in_group(CampaignDirector.GROUP) as CampaignDirector
 	if director and director.is_active():
-		play(tr("DAY_TITLE").format({"n": Campaigns.day_index + 1}), director.day_heading())
+		play(tr("DAY_TITLE").format({"n": CampaignSession.day_index + 1}), director.day_heading())
 	else:
 		play("")
 

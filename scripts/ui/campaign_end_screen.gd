@@ -3,7 +3,7 @@ extends Control
 ## (CampaignDirector.sleep, sauvegarde déjà effacée) : nom de la campagne, message de fin (« ending », choisi selon
 ## les notes comme celui envoyé par la radio), moyenne globale sur 20 avec RÉUSSITE / ÉCHEC (success_score), puis le
 ## détail par journée (note de la journée) et par mission jouée (note, verdict), dans l'ordre de la campagne. Lit les
-## notes de Campaigns (results, day_scores) : elles ne sont vidées (Campaigns.start_free) qu'au « Retour au menu ».
+## notes de Campaigns (results, day_scores) : elles ne sont vidées (CampaignSession.start_free) qu'au « Retour au menu ».
 ## Textes : clés des fichiers de langue (CAMPAIGN_END_*).
 
 const MAIN_MENU := "res://scenes/ui/main_menu.tscn"
@@ -30,18 +30,18 @@ func _ready() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 24)
 	center.add_child(column)
-	var campaign := Campaigns.current
+	var campaign := CampaignSession.current
 	var success_score := float(campaign.defaults().get("success_score", 10.0)) if campaign else 10.0
 
 	_add_label(column, "CAMPAIGN_END_TITLE", 56, Color.WHITE)
 	if campaign:
-		_add_label(column, Campaigns.text_of(campaign.data, "name", Campaigns.current_id), 30, DIM_COLOR, false)
+		_add_label(column, Campaigns.text_of(campaign.data, "name", CampaignSession.current_id), 30, DIM_COLOR, false)
 		var ending := _ending_text()
 		if not ending.is_empty():
 			var message := _add_label(column, ending, 24, Color(0.85, 0.87, 0.9), false)
 			message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			message.custom_minimum_size.x = DETAIL_WIDTH
-	var global: Variant = Campaigns.global_score()
+	var global: Variant = CampaignSession.global_score()
 	if global == null:
 		_add_label(column, "CAMPAIGN_END_NO_MISSION", 32, DIM_COLOR)
 	else:
@@ -53,7 +53,7 @@ func _ready() -> void:
 		column.add_child(_build_details(campaign, success_score))
 
 	var back := UiKit.menu_button("CAMPAIGN_END_BACK_TO_MENU", func() -> void:
-		Campaigns.start_free()
+		CampaignSession.start_free()
 		get_tree().change_scene_to_file(MAIN_MENU))
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(back)
@@ -65,11 +65,11 @@ func _ready() -> void:
 
 ## Message de fin : le même que celui de la radio (notes de la dernière journée) ; "" si la campagne n'en a pas.
 func _ending_text() -> String:
-	var days := Campaigns.current.days()
+	var days := CampaignSession.current.days()
 	if days.is_empty():
 		return ""
-	var scores := Campaigns.scores(str(days[-1].id), "")
-	var ending := CampaignData.pick_message(Campaigns.current.data.get("ending", []), scores)
+	var scores := CampaignSession.scores(str(days[-1].id), "")
+	var ending := CampaignData.pick_message(CampaignSession.current.data.get("ending", []), scores)
 	return "" if ending.is_empty() else Campaigns.text_of(ending, "body")
 
 
@@ -87,7 +87,7 @@ func _build_details(campaign: CampaignData, success_score: float) -> ScrollConta
 	var days := campaign.days()
 	for i in days.size():
 		var day: Dictionary = days[i]
-		var day_score: Variant = Campaigns.day_scores.get(day.id, null)
+		var day_score: Variant = CampaignSession.day_scores.get(day.id, null)
 		var day_label := _add_label(grid, tr("DAY_TITLE").format({"n": i + 1}), 26, Color.WHITE, false)
 		day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		day_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -95,7 +95,7 @@ func _build_details(campaign: CampaignData, success_score: float) -> ScrollConta
 		var played := false
 		for entry: Dictionary in day.get("missions", []):
 			var id := str(entry.mission)
-			var result: Dictionary = Campaigns.results.get(id, {})
+			var result: Dictionary = CampaignSession.results.get(id, {})
 			if result.is_empty() or result.get("day", "") != day.id:
 				continue
 			played = true

@@ -31,14 +31,16 @@ permet de piloter le jeu exporté.
 ## Écran de démarrage, paramètres et langues
 
 - **Modes de jeu** (règle de jeu ; `scripts/ui/main_menu.gd`, pages du menu, Échap : page précédente ;
-  `scripts/campaigns.gd`, classe `Campaigns`, qui retient le mode le temps de la session) : **Start Game** ouvre la
+  `scripts/campaign/campaign_session.gd`, classe `CampaignSession`, qui retient le mode, la campagne, la journée et
+  les notes le temps de la session ; catalogue des campagnes sur le disque : `scripts/campaigns.gd`, `Campaigns`) :
+  **Start Game** ouvre la
   page des modes : **Start a new campaign** (choix de la campagne : il peut y en avoir des dizaines, d'où un
   **sélecteur déroulant** — bouton qui affiche la campagne choisie et ouvre une liste à défilement, 8 lignes
   visibles — avec **la campagne officielle toujours en premier, en bleu**, les autres en blanc, la description en
   infobulle ; puis **Launch campaign** et **Back**), **Continue current campaign** (cliquable
-  seulement s'il y a une sauvegarde, `Campaigns.has_saved` : voir « Sauvegarde au coucher »),
+  seulement s'il y a une sauvegarde, `CampaignSession.has_saved` : voir « Sauvegarde au coucher »),
   **Free mode** (le jeu tel quel : `orbit_view.tscn`) et **Back**. Le **mode campagne** sera le cœur du jeu
-  (`Campaigns.mode`, `current_id`, `current` : `CampaignData` vérifié, `day_index` retenus) : au lancement, le nœud
+  (`CampaignSession.mode`, `current_id`, `current` : `CampaignData` vérifié, `day_index` retenus) : au lancement, le nœud
   `CampaignDirector` (`scripts/campaign_director.gd`) applique le **départ de la journée** (heure UTC et position
   exacte de la station, `OrbitSimulation.place` ; la manœuvre en préparation est annulée). Une campagne avec des
   erreurs est proposée **grisée**, avec leur nombre en infobulle, et ne se lance pas.
@@ -96,12 +98,12 @@ permet de piloter le jeu exporté.
     Recherche par pas (point de poussée tous les 5 min, passage tous les 2 min affiné par dichotomie) : quelques
     millisecondes à moins de 0,1 s.
   - **Fin de mission** : tous les objectifs remplis, ou échéance (`deadline_hours` heures après la réception du briefing) ;
-    résultat retenu (`Campaigns.results` : note, réussite, précision, facteur temps, journée ; **moyenne globale**
-    `Campaigns.global_score()`, toutes missions jouées, échecs compris) et message de résultat (message `result` de
+    résultat retenu (`CampaignSession.results` : note, réussite, précision, facteur temps, journée ; **moyenne globale**
+    `CampaignSession.global_score()`, toutes missions jouées, échecs compris) et message de résultat (message `result` de
     la mission choisi selon la note, sinon « Objectif atteint » / « Objectif non atteint », avec la note, RÉUSSITE
     ou ÉCHEC, la précision et le facteur temps), puis la mission suivante de la journée dont la condition est vraie
     est programmée (son briefing à son heure).
-  - **Fin de journée** (plus de mission) : note de la journée retenue (`Campaigns.day_scores`), message `debrief` ;
+  - **Fin de journée** (plus de mission) : note de la journée retenue (`CampaignSession.day_scores`), message `debrief` ;
     à la dernière journée, message de fin de campagne (`ending`, selon la moyenne globale).
   - **Nuit** : la journée terminée, promenade libre ; **la couchette devient cliquable** (bulle « Dormir »,
     `HatchInteraction`, `CampaignDirector.can_sleep` ; avant, elle ne réagit pas). Dormir : fondu au noir (1,5 s),
@@ -113,8 +115,9 @@ permet de piloter le jeu exporté.
 	journée, dormir termine la campagne : la sauvegarde est effacée et l'**écran de fin de campagne** s'affiche
 	(voir ci-dessous). Pendant la nuit et les sauts dans le temps, les explosions vieillissent d'autant (horloge
 	`NukeClock` avancée : incendies, fumées).
-  - **Journal de partie** (`scripts/campaign_journal.gd`, `CampaignJournal`) : un fichier **JSON Lines** par partie
-	lancée (nouvelle campagne ou « Continuer »), `user://logs/<campagne>_<date et heure réelles>.jsonl`
+  - **Journal de partie** (`scripts/campaign_journal.gd`, `CampaignJournal`, abonné aux signaux de
+	`CampaignDirector` et de `FlightComputer` : le directeur ne sait rien du fichier) : un fichier **JSON Lines** par
+	partie lancée (nouvelle campagne ou « Continuer »), `user://logs/<campagne>_<date et heure réelles>.jsonl`
 	(`%APPDATA%/Godot/app_userdata/Star Nuke/logs/`), écrit et vidé sur le disque ligne par ligne. Chaque ligne :
 	`event`, heure réelle (`real`), heure du jeu (`utc`, `unix`) et les champs de l'événement — `session`
     (campagne, journée, reprise ou non), `day_start`, `mission_scheduled` (heure prévue du briefing),
@@ -130,14 +133,14 @@ permet de piloter le jeu exporté.
 	(`success_score`), puis le **détail à défilement** : pour chaque journée, « Jour n » et sa note, et chaque
 	mission jouée (titre, note, verdict ; vert si réussie, rouge sinon), dans l'ordre de la campagne (« — » et
     « Aucune mission jouée » pour une journée sans mission). « Retour au menu » vide les notes
-	(`Campaigns.start_free`) et ramène à l'écran de démarrage.
-  - **Sauvegarde au coucher** (règle de jeu ; `Campaigns.save`, `user://saves/campaign.json`, un seul emplacement :
+	(`CampaignSession.start_free`) et ramène à l'écran de démarrage.
+  - **Sauvegarde au coucher** (règle de jeu ; `CampaignSession.save`, `user://saves/campaign.json`, un seul emplacement :
 	la campagne en cours) : campagne, **journée à venir**, notes (missions, journées, **moyenne globale**
 	`global_score`) et monde au réveil — orbite (heure UTC, altitude, inclinaison, point survolé, sens de passage),
 	**explosions** (point, puissance, âge sur l'horloge des explosions, heure UTC), photos (fichiers de
 	`user://photos/` et leurs vignettes `user://photos/thumbs/`), cibles. La radio n'est pas gardée (la journée
 	commence par son briefing). **« Continuer la campagne en cours »** (cliquable s'il y a une sauvegarde valide,
-    `Campaigns.continue_saved`) relance la partie au réveil de la journée sauvegardée : orbite replacée, explosions
+    `CampaignSession.continue_saved`) relance la partie au réveil de la journée sauvegardée : orbite replacée, explosions
     **recréées à leur âge** (`NukeLauncher.restore_at` : incendies, traces au sol, black-out où ils en étaient ;
     marquées `restored` : elles ne remplissent aucun objectif et la télévision garde leur heure réelle pour
 	l'édition spéciale), galerie et cibles rétablies.
@@ -211,7 +214,7 @@ permet de piloter le jeu exporté.
 	joue la campagne officielle de bout en bout par l'API du jeu (départ, briefing reçu avec la liaison, appel
 	prioritaire, tir hors objectif, photo sur l'objectif, réussite, coucher et sauvegarde, « Continuer » avec le
 	monde recréé, échéance dépassée, message de fin, écran de fin) et vérifie les journaux de partie ; code 0 si
-	tout passe. Elle écrit sa sauvegarde à part (`Campaigns.save_path`) : la vraie n'est pas touchée.
+	tout passe. Elle écrit sa sauvegarde à part (`CampaignSession.save_path`) : la vraie n'est pas touchée.
 
 - **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : titre
   provisoire « Star Nuke » lumineux (`scripts/ui/title_glow.gd`, `shaders/title_glow.gdshader` : texte rendu en
@@ -1045,23 +1048,23 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	`start_open_hatches`) **et les 6 autres écoutilles ouvrables sont fermées** (`start_hatches_closed`) : Arrimage AV,
 	Habitation AR, les 2 des modules de missiles (`Ecoutille_Missile_1`, `_2`) et les 2 du sas de sortie
 	(`Ecoutille_Sas_Haut`, `Ecoutille_Sas_Bas`). Écoutille cargo verrouillée (`ouvrable` faux, rien n'est modélisé
-    derrière) : ses commandes renvoient `false`.
+	derrière) : ses commandes renvoient `false`.
   - **Sas de sortie** (`Station`, groupe « Sas de sortie ») : une porte intérieure (`airlock_inner_hatch`,
 	`Ecoutille_Sas_Haut`, plancher de l'Arrimage) et une porte extérieure (`airlock_outer_hatch`,
 	`Ecoutille_Sas_Bas`, vers la Terre). **Règle de jeu : aucun verrouillage**, la sécurité est l'affaire du joueur :
-    les portes, les écoutilles et la valve se manœuvrent librement. La valve (`Interactif_Valve_Sas`) est un
+	les portes, les écoutilles et la valve se manœuvrent librement. La valve (`Interactif_Valve_Sas`) est un
 	robinet : un clic l'ouvre pour vider le sas (ou pour le remplir s'il est vide ; un clic pendant un cycle
 	l'inverse) et elle se referme d'elle-même une fois la pression visée atteinte. Manette : début de
-    `Depressurisation_Sas` (fermée → ouverte en 0,5 s) ; aiguille du manomètre : pression du sas calculée par
-    `StationAtmosphere`, placée sur sa piste (rotation cumulée de la piste qui tourne le plus). Le sas est plein au
-    démarrage. Voyants : vert allumé sas plein, rouge allumé sas vide, rouge clignotant (0,8 s) pendant un cycle
-    (`indicator_energy`, `indicator_blink_s` ; copies émissives des matériaux `extras.voyant_plein` /
-    `voyant_vide`). API : `get_airlock_pressure()`, `get_airlock_valve_mode()` (−1 vidange, +1 remplissage, 0),
-    `is_airlock_cycling()`, `is_airlock_filling()`, `set_airlock_pressurized(full)`, `toggle_airlock_pressure()`,
-    `airlock_step(pression, secondes)` (courbe de vidange du manomètre), `set_airlock_gauge(pression)` ; signaux
-    `airlock_changed(pressurized)` (fin de cycle) et `hatch_moving(id, open)` (une écoutille commence à bouger).
+	`Depressurisation_Sas` (fermée → ouverte en 0,5 s) ; aiguille du manomètre : pression du sas calculée par
+	`StationAtmosphere`, placée sur sa piste (rotation cumulée de la piste qui tourne le plus). Le sas est plein au
+	démarrage. Voyants : vert allumé sas plein, rouge allumé sas vide, rouge clignotant (0,8 s) pendant un cycle
+	(`indicator_energy`, `indicator_blink_s` ; copies émissives des matériaux `extras.voyant_plein` /
+	`voyant_vide`). API : `get_airlock_pressure()`, `get_airlock_valve_mode()` (−1 vidange, +1 remplissage, 0),
+	`is_airlock_cycling()`, `is_airlock_filling()`, `set_airlock_pressurized(full)`, `toggle_airlock_pressure()`,
+	`airlock_step(pression, secondes)` (courbe de vidange du manomètre), `set_airlock_gauge(pression)` ; signaux
+	`airlock_changed(pressurized)` (fin de cycle) et `hatch_moving(id, open)` (une écoutille commence à bouger).
   - **Air de la station** (règles de jeu, `scripts/station_atmosphere.gd`, classe `StationAtmosphere`, nœud
-    `StationAir` de `orbit_view.tscn`) : une pression (0–1) par volume : modules Commande, Habitation, Arrimage,
+	`StationAir` de `orbit_view.tscn`) : une pression (0–1) par volume : modules Commande, Habitation, Arrimage,
 	Missile 1 et 2, jonctions avant et arrière, sas (table `StationLayout.ZONES`, `scripts/station/station_layout.gd` :
 	géométrie de la station en coordonnées Blender, une seule source pour l'air, les témoins de pression et les
 	écrans d'ambiance, avec la seule conversion Blender → station `StationLayout.to_godot` (x, z, −y) ; boîtes, volume d'air,

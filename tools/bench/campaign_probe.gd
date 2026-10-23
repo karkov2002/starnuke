@@ -8,7 +8,7 @@ extends Node
 ## - journée 2 : briefing après le délai, photo manquée, échéance dépassée (échec), fin de campagne (message de fin
 ##   selon la moyenne), sommeil : sauvegarde effacée, écran de fin.
 ## Les journaux de partie (user://logs) des deux parties sont vérifiés (suite des événements) puis supprimés ; la
-## sauvegarde est écrite à part (Campaigns.save_path), la vraie n'est pas touchée. Usage :
+## sauvegarde est écrite à part (CampaignSession.save_path), la vraie n'est pas touchée. Usage :
 ##   godot --headless --path . res://tools/bench/campaign_probe.tscn        (code 0 si tout passe)
 
 const VIEW := "res://scenes/orbit_view.tscn"
@@ -66,25 +66,25 @@ func _utc(text: String) -> float:
 
 
 func _ready() -> void:
-	Campaigns.save_path = SAVE
-	Campaigns.delete_save()
-	_check(Campaigns.start_campaign(CAMPAIGN), "campagne %s lancée" % CAMPAIGN)
+	CampaignSession.save_path = SAVE
+	CampaignSession.delete_save()
+	_check(CampaignSession.start_campaign(CAMPAIGN), "campagne %s lancée" % CAMPAIGN)
 	print("- Journée 1")
 	var view := await _load_view()
 	await _play_day_1(view)
 	print("- Continuer")
 	view.queue_free()
 	await get_tree().process_frame
-	_check(Campaigns.has_saved(), "sauvegarde lisible")
-	_check(Campaigns.continue_saved(), "campagne reprise")
-	_check(Campaigns.day_index == 1 and Campaigns.results.has("test_kourou"), "journée 2, résultat de la mission 1 gardé")
-	_check(not Campaigns.pending_world.is_empty(), "monde à recréer")
+	_check(CampaignSession.has_saved(), "sauvegarde lisible")
+	_check(CampaignSession.continue_saved(), "campagne reprise")
+	_check(CampaignSession.day_index == 1 and CampaignSession.results.has("test_kourou"), "journée 2, résultat de la mission 1 gardé")
+	_check(not CampaignSession.pending_world.is_empty(), "monde à recréer")
 	view = await _load_view()
 	await _play_day_2(view)
 	print("- Journaux")
 	_check_journals()
-	Campaigns.delete_save()
-	Campaigns.start_free()
+	CampaignSession.delete_save()
+	CampaignSession.start_free()
 	print("=== %d échec(s) au total" % _failures)
 	get_tree().quit(0 if _failures == 0 else 1)
 
@@ -103,7 +103,7 @@ func _play_day_1(view: Node) -> void:
 	director.day_finished.connect(func(i: int) -> void: events.append("day_finished:%d" % i))
 	_journals.append(director.get("_journal").path)
 	_check(director.is_active(), "directeur actif")
-	_check(Campaigns.day_index == 0, "journée 1")
+	_check(CampaignSession.day_index == 0, "journée 1")
 	_check(is_equal_approx(orbit.get_utc_unix_s(), _utc("2035-07-15T06:00:00Z")), "départ : 15/07/2035 06:00 UTC")
 	var point := orbit.get_subsatellite_point()
 	_check(absf(point.x - 40.4) < 0.1 and absf(point.y + 3.7) < 0.1, "départ : au-dessus de Madrid (%.2f, %.2f)" % [point.x, point.y])
@@ -129,7 +129,7 @@ func _play_day_1(view: Node) -> void:
 	# Photo sur l'objectif (à 1 km) : mission réussie.
 	photos.photo_taken.emit({"lat": KOUROU.x + 0.009, "lon": KOUROU.y})
 	_check(director.current_mission() == "", "mission terminée après la photo")
-	var result: Dictionary = Campaigns.results.get("test_kourou", {})
+	var result: Dictionary = CampaignSession.results.get("test_kourou", {})
 	_check(result.get("success", false) and is_equal_approx(float(result.get("precision", 0.0)), 20.0), "réussite, précision 20 (note %.1f)" % float(result.get("score", 0.0)))
 	_check(radio.inbox.size() == 3, "résultat et débriefing reçus (%d messages)" % radio.inbox.size())
 	_check(director.can_sleep(), "couchette ouverte")
@@ -146,7 +146,7 @@ func _play_day_1(view: Node) -> void:
 	_check(is_equal_approx(float(world.get("orbit", {}).get("utc", 0.0)), bedtime), "sauvegarde : orbite au coucher")
 	_check(world.get("detonations", []).size() == 1 and is_equal_approx(float(world.detonations[0].lat), 48.86), "sauvegarde : l'explosion")
 	_check(world.get("targets", {}).get("targets", [null])[0] != null, "sauvegarde : la cible")
-	_check(Campaigns.day_index == 1 and is_equal_approx(orbit.get_utc_unix_s(), _utc("2035-07-18T11:15:00Z")), "journée 2 : saut au 18/07/2035 11:15 UTC")
+	_check(CampaignSession.day_index == 1 and is_equal_approx(orbit.get_utc_unix_s(), _utc("2035-07-18T11:15:00Z")), "journée 2 : saut au 18/07/2035 11:15 UTC")
 	_check(events.size() == 4 and events[3] == "day_started:1", "signal day_started:1")
 
 
@@ -158,10 +158,10 @@ func _play_day_2(view: Node) -> void:
 	var launcher := view.get_node("NukeLauncher") as NukeLauncher
 	var targets := get_tree().get_first_node_in_group(GroundTarget.GROUP) as GroundTarget
 	_journals.append(director.get("_journal").path)
-	_check(Campaigns.pending_world.is_empty(), "monde recréé")
+	_check(CampaignSession.pending_world.is_empty(), "monde recréé")
 	_check(launcher.get_effects().size() == 1 and launcher.get_effects()[0].params.restored, "explosion recréée (restored)")
 	_check(targets.has_target(0), "cible recréée")
-	_check(Campaigns.day_index == 1 and is_equal_approx(orbit.get_utc_unix_s(), _utc("2035-07-18T11:15:00Z")), "journée 2 reprise à sa date")
+	_check(CampaignSession.day_index == 1 and is_equal_approx(orbit.get_utc_unix_s(), _utc("2035-07-18T11:15:00Z")), "journée 2 reprise à sa date")
 	_check(director.current_mission() == "", "pas de mission avant le briefing")
 	# Briefing 30 min après le réveil (délai par défaut), reçu avec la liaison.
 	var ok := await _advance_until(view, func() -> bool: return director.current_mission() != "", 60.0, 4.0 * 3600.0)
@@ -173,9 +173,9 @@ func _play_day_2(view: Node) -> void:
 	orbit.sim_time_s += 5.5 * 3600.0 + 1.0
 	await get_tree().process_frame
 	_check(director.current_mission() == "", "échéance dépassée : mission terminée")
-	var result: Dictionary = Campaigns.results.get("test_toulouse", {})
+	var result: Dictionary = CampaignSession.results.get("test_toulouse", {})
 	_check(not result.get("success", true) and is_zero_approx(float(result.get("score", 1.0))), "échec, note 0")
-	var global: Variant = Campaigns.global_score()
+	var global: Variant = CampaignSession.global_score()
 	_check(global != null and is_equal_approx(float(global), 10.0), "moyenne globale %.1f (20 et 0)" % float(global))
 	# Journée et campagne finies : résultat, débriefing, message de fin (moyenne ≥ 10 : le bon), reçus avec la liaison.
 	ok = await _advance_until(view, func() -> bool: return radio.inbox.size() >= 4, 60.0, 4.0 * 3600.0)
