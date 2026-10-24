@@ -20,10 +20,13 @@ void vertex() {
 }
 
 void fragment() {
-	float facing = abs(dot(normalize(NORMAL), normalize(VIEW)));
+	// En MSAA, le fragment peut être évalué hors du triangle : variables extrapolées (along > 1, normale nulle). Sans
+	// ces bornes, pow() d'une base négative donnait NaN, que le glow étalait en tache blanche clignotante.
+	float a = clamp(along, 0.0, 1.0);
+	float facing = clamp(abs(dot(NORMAL, VIEW)) / max(length(NORMAL) * length(VIEW), 1e-6), 0.0, 1.0);
 	float body = pow(facing, 1.5);
-	float fade = pow(1.0 - along, 2.2);
-	vec3 color = mix(cool_color, hot_color, pow(1.0 - along, 3.0));
+	float fade = pow(1.0 - a, 2.2);
+	vec3 color = mix(cool_color, hot_color, pow(1.0 - a, 3.0));
 	ALBEDO = color * hdr * intensity;
 	ALPHA = body * fade;
 }
