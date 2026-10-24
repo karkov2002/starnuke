@@ -5,9 +5,9 @@ extends Control
 ## programme du panneau. Grenouille : gros carré creux à point central, cerné de noir (visible sur un tronc) ;
 ## objets en code hexadécimal (ambiance de débogage) : troncs = blocs mémoire en vidéo inverse (rectangle blanc,
 ## chiffres noirs), voitures = chiffres blancs bruts ; un chiffre par objet change toutes les GLITCH_S
-## (scintillement) ; eau : pointillés gris ; talus et départ : gris foncé ; arrivée : mur gris percé de trois baies.
-## Positions arrondies à PIXEL pixels (mouvement saccadé de vieil écran). En haut : niveau, baies remplies, chrono
-## (clignotant dans les 10 dernières secondes) ; en bas : touches.
+## (scintillement) ; eau : pointillés gris ; route : noire, sans marquage ; talus et départ : gris foncé ; arrivée :
+## mur gris percé de trois baies. Positions arrondies à PIXEL pixels (mouvement saccadé de vieil écran). En haut :
+## niveau, baies remplies, chrono (clignotant dans les 10 dernières secondes) ; en bas : touches.
 
 const FONTS: PackedStringArray = ["Consolas", "Lucida Console", "Courier New", "monospace"]
 const INK := Color(0.86, 0.86, 0.86)
@@ -111,12 +111,6 @@ func _draw_row(row: int) -> void:
 		while x < rect.end.x:
 			draw_rect(Rect2(x, y, PIXEL, PIXEL), DIM)
 			x += 16.0
-	else:
-		# Route : marquage en tirets en bas de la voie.
-		var x := rect.position.x
-		while x < rect.end.x:
-			draw_rect(Rect2(x, rect.end.y - PIXEL * 0.5, 12, PIXEL * 0.5), DARK)
-			x += 24.0
 	var is_log: bool = lane["log"]
 	var objects := game.lane_objects(lane)
 	for k in objects.size():
