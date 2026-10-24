@@ -3,9 +3,11 @@ extends Control
 ## Dessin du mini-jeu de réparation (RepairFrogger) dans le panneau de maintenance (enfant d'EquipmentDisplay, même
 ## taille, par-dessus pendant la partie) : basse résolution, très schématique, monochrome noir et blanc comme le
 ## programme du panneau. Grenouille : gros carré creux à point central, cerné de noir (visible sur un tronc) ;
-## voitures et troncs : rectangles blancs pleins ; eau : pointillés gris ; talus et départ : gris foncé ; arrivée : mur gris percé de
-## trois baies. Positions arrondies à PIXEL pixels (mouvement saccadé de vieil écran). En haut : niveau, baies
-## remplies, chrono (clignotant dans les 10 dernières secondes) ; en bas : touches.
+## objets en code hexadécimal (ambiance de débogage) : troncs = blocs mémoire en vidéo inverse (rectangle blanc,
+## chiffres noirs), voitures = chiffres blancs bruts ; un chiffre par objet change toutes les GLITCH_S
+## (scintillement) ; eau : pointillés gris ; talus et départ : gris foncé ; arrivée : mur gris percé de trois baies.
+## Positions arrondies à PIXEL pixels (mouvement saccadé de vieil écran). En haut : niveau, baies remplies, chrono
+## (clignotant dans les 10 dernières secondes) ; en bas : touches.
 
 const FONTS: PackedStringArray = ["Consolas", "Lucida Console", "Courier New", "monospace"]
 const INK := Color(0.86, 0.86, 0.86)
@@ -18,21 +20,33 @@ const PIXEL := 4.0
 const HEADER_H := 48.0
 const FOOTER_H := 48.0
 const FONT_SIZE := 20
+## Taille des chiffres hexadécimaux des objets, et période du scintillement (s).
+const HEX_SIZE := 22
+const GLITCH_S := 0.35
+const HEX_DIGITS := "0123456789ABCDEF"
 
 var game: RepairFrogger
 
 var _font: SystemFont
 var _cell := 32.0
 var _origin := Vector2.ZERO
+var _hex_font: SystemFont
+var _hex_w := 12.0
+var _time := 0.0
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_font = SystemFont.new()
 	_font.font_names = FONTS
+	_hex_font = SystemFont.new()
+	_hex_font.font_names = FONTS
+	_hex_font.font_weight = 700
+	_hex_w = _hex_font.get_char_size("0".unicode_at(0), HEX_SIZE).x
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_time += delta
 	if visible:
 		queue_redraw()
 
@@ -103,12 +117,34 @@ func _draw_row(row: int) -> void:
 		while x < rect.end.x:
 			draw_rect(Rect2(x, rect.end.y - PIXEL * 0.5, 12, PIXEL * 0.5), DARK)
 			x += 24.0
-	var inset := 3.0 if lane["log"] else 6.0
-	for o in game.lane_objects(lane):
-		var x0 := maxf(_snap(o.x * _cell), 0.0)
-		var x1 := minf(_snap((o.x + o.y) * _cell), rect.size.x)
+	var is_log: bool = lane["log"]
+	var objects := game.lane_objects(lane)
+	for k in objects.size():
+		_draw_hex_object(rect, row, k, objects[k], is_log)
+
+
+## Objet d'une voie en chiffres hexadécimaux : tronc = bloc en vidéo inverse, voiture = chiffres blancs ; coupé aux
+## bords de l'écran, chiffre par chiffre.
+func _draw_hex_object(rect: Rect2, row: int, k: int, o: Vector2, is_log: bool) -> void:
+	var left := rect.position.x + _snap(o.x * _cell)
+	var width := o.y * _cell
+	if is_log:
+		var x0 := maxf(left + 1.0, rect.position.x)
+		var x1 := minf(left + width - 1.0, rect.end.x)
 		if x1 > x0:
-			draw_rect(Rect2(rect.position.x + x0 + 1, rect.position.y + inset, x1 - x0 - 2, _cell - inset * 2), BRIGHT)
+			draw_rect(Rect2(x0, rect.position.y + 3.0, x1 - x0, _cell - 6.0), BRIGHT)
+	var count := maxi(int((width - 4.0) / _hex_w), 1)
+	var start := left + (width - count * _hex_w) * 0.5
+	var baseline := rect.position.y + _cell * 0.5 + _hex_font.get_ascent(HEX_SIZE) * 0.38
+	var tick := int(_time / GLITCH_S)
+	for c in count:
+		var x := start + c * _hex_w
+		if x < rect.position.x or x + _hex_w > rect.end.x:
+			continue
+		# Chiffres stables par objet ; un seul, à tour de rôle, change à chaque scintillement.
+		var salt := tick if c == tick % count else 0
+		var digit := HEX_DIGITS[absi(hash([row, k, c, salt])) % 16]
+		draw_char(_hex_font, Vector2(x, baseline), digit, HEX_SIZE, PAPER if is_log else BRIGHT)
 
 
 func _draw_frog() -> void:

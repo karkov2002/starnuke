@@ -1415,8 +1415,9 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	- **Mini-jeu de réparation** (`scripts/ui/repair_frogger.gd`, `RepairFrogger` : modèle pur ; dessin
 	  `scripts/ui/frogger_view.gd`, `FroggerView`, par-dessus le programme du panneau) : un **« Frogger »** en basse
 	  résolution, très schématique, monochrome noir et blanc. Grille de 20 × 12 cases : départ en bas, **route** (cinq
-	  voies de voitures : rectangles blancs pleins), talus, **rivière** (quatre voies de troncs : rectangles blancs
-	  sur l'eau en pointillés, qui portent la grenouille), arrivée en haut (mur gris percé de **trois baies**).
+	  voies de voitures : **code hexadécimal** blanc brut), talus, **rivière** (quatre voies de troncs : blocs mémoire
+	  en vidéo inverse, rectangles blancs couverts de code hexadécimal noir, sur l'eau en pointillés ; ils portent la
+	  grenouille ; ambiance « débogage » : un chiffre de chaque objet change toutes les 0,35 s), arrivée en haut (mur gris percé de **trois baies**).
 	  Grenouille : gros carré creux à point central. Flèches (ou ZQSD / WASD, touches physiques) : un saut d'une case.
 	  Écrasée par une voiture, tombée à l'eau, emportée hors de l'écran par un tronc, contre le mur ou dans une baie
 	  déjà prise : elle clignote et revient au départ (0,7 s, seul le temps est perdu). **Remplir les trois baies
