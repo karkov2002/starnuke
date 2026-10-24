@@ -39,6 +39,7 @@
 [ext_resource type="Script" uid="uid://dg8apa0r08bm5" path="res://scripts/core/wake_up.gd" id="36_4hs2m"]
 [ext_resource type="Script" uid="uid://wd5pqymx5yg7" path="res://scripts/station/alert_sirens.gd" id="37_2urrc"]
 [ext_resource type="Script" uid="uid://dq2exvqy1ujig" path="res://scripts/screens/station_clocks.gd" id="39_nn0rq"]
+[ext_resource type="Script" uid="uid://chwoo57o5ordl" path="res://scripts/screens/station_position.gd" id="40_m8b5w"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -217,3 +218,6 @@ script = ExtResource("37_2urrc")
 
 [node name="StationClocks" type="Node" parent="." unique_id=682144399]
 script = ExtResource("39_nn0rq")
+
+[node name="StationPosition" type="Node" parent="." unique_id=104511902]
+script = ExtResource("40_m8b5w")

@@ -74,11 +74,11 @@ permet de piloter le jeu exporté.
 	6 h 00 min (chronomètre en marche) » (toujours avec les minutes : « 5 h 30 min ») (clés `BRIEFING_*`). **Les
 	délais sont en heures et minutes** (règle de jeu : plus précis et plus stressants que des jours). **À sa
 	réception, le chrono de la mission part** (pas avant), **le temps revient à ×1** et l'**appel prioritaire**
-    retentit.
+	retentit.
   - **Appel prioritaire** (règle de jeu, `scripts/campaign/priority_call.gd`, `PriorityCall`, créé par `CampaignDirector`) :
-    **un appel passe la station en alerte jaune simple** (`Station.set_alert` : luminaires jaunes et **sirène
+	**un appel passe la station en alerte jaune simple** (`Station.set_alert` : luminaires jaunes et **sirène
 	jaune**, voir « Sirènes d'alerte » ; pas de sonnerie propre) **jusqu'à la lecture du briefing**, puis retour au
-    normal (sauf si le niveau a changé entre-temps) ; une alerte déjà en cours (jaune, orange, rouge, plus de
+	normal (sauf si le niveau a changé entre-temps) ; une alerte déjà en cours (jaune, orange, rouge, plus de
 	lumière) est gardée. **La tablette est le récepteur de l'appel, comme un téléphone** : elle passe sur son onglet
 	**Alertes** (appel en cours, bandeau clignotant « TRANSMISSION PRIORITAIRE — poste COMM, module Commande »,
 	`PRIORITY_CALL_BANNER`, jusqu'à la lecture ; voir « Tablette ») ; plus rien ne s'affiche par-dessus la vue. Le
@@ -86,16 +86,16 @@ permet de piloter le jeu exporté.
   - **Sirènes d'alerte** (règle de jeu, `scripts/station/alert_sirens.gd`, nœud `AlertSirens` de `orbit_view.tscn`, mode
 	libre compris) : tant que la station est en alerte **jaune, orange ou rouge** (tablette, panneau de debug, sas),
 	le son de ce niveau passe **en boucle par l'interphone, audible dans toute la station** (bus SFX, sans
-    position) : **jaune** (précaution), carillon doux de deux notes descendantes 660 puis 523 Hz toutes les 4 s ;
-    **orange** (avertissement), trois bips secs à 740 Hz toutes les 2,4 s ; **rouge** (urgence), sirène montante
-    de 550 à 1 450 Hz, continue. Normal et « Tout éteindre » (courant coupé) : silence. Volume croissant avec
+	position) : **jaune** (précaution), carillon doux de deux notes descendantes 660 puis 523 Hz toutes les 4 s ;
+	**orange** (avertissement), trois bips secs à 740 Hz toutes les 2,4 s ; **rouge** (urgence), sirène montante
+	de 550 à 1 450 Hz, continue. Normal et « Tout éteindre » (courant coupé) : silence. Volume croissant avec
 	l'urgence (−12, −9, −8 dB, `AlertSirens.VOLUMES_DB`) ; abonné au signal `Station.alert_changed`. Sons
 	**provisoires** : `assets/audio/alarms/`
 	`alert_yellow.ogg`, `alert_orange.ogg`, `alert_red.ogg`, synthétisés par `tools/build_alarm_sounds.ps1`
 	(ffmpeg, formules d'onde). **Pour les remplacer**, déposer à leur place des fichiers **Ogg Vorbis de même
 	nom** : l'éditeur les réimporte, et le fichier entier est joué en boucle (`loop` réglé par le code ; durée
 	libre, prévoir un raccord propre entre la fin et le début). Le script n'écrase jamais un son présent, sauf avec
-    `-Force`.
+	`-Force`.
   - **Objectifs** : une **photo** satellite (point sous la station à la prise de vue) ou un **impact** de missile à
 	moins de la tolérance d'une cible remplit l'objectif correspondant (le premier encore ouvert de ce type, dont
 	l'objectif préalable `after` est rempli) ; plus loin, il ne compte pas.
@@ -108,28 +108,28 @@ permet de piloter le jeu exporté.
 	d'après l'orbite réelle (`scripts/campaign/mission_planner.gd`, `MissionPlanner`) : **passage le plus tôt possible**
 	pour remplir tous les objectifs, compté depuis la réception du briefing, **plus une orbite** (~1 h 32 à 400 km), au
 	plus l'échéance (mission impossible à temps : pas de pénalité de temps). Passage possible : **photo**, le point
-    sous la station passe à la verticale de la cible ; **tir**, la cible est vue à **au moins 20° au-dessus de
+	sous la station passe à la verticale de la cible ; **tir**, la cible est vue à **au moins 20° au-dessus de
 	l'horizon** (`MIN_ELEVATION_DEG`, ~870 km autour du point survolé à 400 km). **Manœuvres comprises** : orbite
 	actuelle ou changement de plan en une poussée, n'importe où sur l'orbite, dans les limites du poste de pilotage
 	(inclinaison ≤ 80°, décalage du nœud ≤ ±20°, altitude inchangée), précession J2 comprise ; objectifs dans
 	l'ordre de `after`, sinon le plus tôt possible d'abord, chacun depuis l'orbite laissée par le précédent.
-    Recherche par pas (point de poussée tous les 5 min, passage tous les 2 min affiné par dichotomie) : quelques
-    millisecondes à moins de 0,1 s.
+	Recherche par pas (point de poussée tous les 5 min, passage tous les 2 min affiné par dichotomie) : quelques
+	millisecondes à moins de 0,1 s.
   - **Fin de mission** : tous les objectifs remplis, ou échéance (`deadline_hours` heures après la réception du briefing) ;
-    résultat retenu (`CampaignSession.results` : note, réussite, précision, facteur temps, journée ; **moyenne globale**
-    `CampaignSession.global_score()`, toutes missions jouées, échecs compris) et message de résultat (message `result` de
-    la mission choisi selon la note, sinon « Objectif atteint » / « Objectif non atteint », avec la note, RÉUSSITE
-    ou ÉCHEC, la précision et le facteur temps), puis la mission suivante de la journée dont la condition est vraie
-    est programmée (son briefing à son heure).
+	résultat retenu (`CampaignSession.results` : note, réussite, précision, facteur temps, journée ; **moyenne globale**
+	`CampaignSession.global_score()`, toutes missions jouées, échecs compris) et message de résultat (message `result` de
+	la mission choisi selon la note, sinon « Objectif atteint » / « Objectif non atteint », avec la note, RÉUSSITE
+	ou ÉCHEC, la précision et le facteur temps), puis la mission suivante de la journée dont la condition est vraie
+	est programmée (son briefing à son heure).
   - **Fin de journée** (plus de mission) : note de la journée retenue (`CampaignSession.day_scores`), message `debrief` ;
-    à la dernière journée, message de fin de campagne (`ending`, selon la moyenne globale).
+	à la dernière journée, message de fin de campagne (`ending`, selon la moyenne globale).
   - **Nuit** : la journée terminée, promenade libre ; **la couchette devient cliquable** (bulle « Dormir »,
-    `HatchInteraction`, `CampaignDirector.can_sleep` ; avant, elle ne réagit pas). Dormir : fondu au noir (1,5 s),
+	`HatchInteraction`, `CampaignDirector.can_sleep` ; avant, elle ne réagit pas). Dormir : fondu au noir (1,5 s),
 	puis **réveil dans la couchette** au départ de la journée suivante — son `start` s'il est défini : avec `orbit`,
 	heure et position exactes ; **sans `orbit`, saut dans le temps** jusqu'à sa date et son heure (plusieurs jours
-    peuvent séparer deux journées), la station ayant continué son orbite (ignoré si la date est déjà passée) ; sans
+	peuvent séparer deux journées), la station ayant continué son orbite (ignoré si la date est déjà passée) ; sans
 	`start`, **la station a continué son orbite** jusqu'à l'heure de réveil (`wake_up_utc`, le lendemain si elle
-    est passée ; sans heure, 8 h de sommeil) —, puis la première mission est programmée. Après la dernière
+	est passée ; sans heure, 8 h de sommeil) —, puis la première mission est programmée. Après la dernière
 	journée, dormir termine la campagne : la sauvegarde est effacée et l'**écran de fin de campagne** s'affiche
 	(voir ci-dessous). Pendant la nuit et les sauts dans le temps, les explosions vieillissent d'autant (horloge
 	`NukeClock` avancée : incendies, fumées).
@@ -138,19 +138,19 @@ permet de piloter le jeu exporté.
 	partie lancée (nouvelle campagne ou « Continuer »), `user://logs/<campagne>_<date et heure réelles>.jsonl`
 	(`%APPDATA%/Godot/app_userdata/Star Nuke/logs/`), écrit et vidé sur le disque ligne par ligne. Chaque ligne :
 	`event`, heure réelle (`real`), heure du jeu (`utc`, `unix`) et les champs de l'événement — `session`
-    (campagne, journée, reprise ou non), `day_start`, `mission_scheduled` (heure prévue du briefing),
-    `briefing_sent` (envoi par le sol), `mission_start` (réception : échéance, temps de référence, **passage le plus
-    tôt possible** `earliest_s`, −1 si impossible, altitude, inclinaison, vitesse du temps avant le retour à ×1),
-    `briefing_read` (délai de lecture), `burn` (qualité de la poussée, dosage, Auto ou Manuel), `shot` (photo ou
-    tir : point, distance à la cible la plus proche de ce type, objectif rempli ou −1, précision, temps depuis le
-    départ du chrono), `mission_end` (note et son détail, temps écoulé, mission complète ou non), `day_end`,
+	(campagne, journée, reprise ou non), `day_start`, `mission_scheduled` (heure prévue du briefing),
+	`briefing_sent` (envoi par le sol), `mission_start` (réception : échéance, temps de référence, **passage le plus
+	tôt possible** `earliest_s`, −1 si impossible, altitude, inclinaison, vitesse du temps avant le retour à ×1),
+	`briefing_read` (délai de lecture), `burn` (qualité de la poussée, dosage, Auto ou Manuel), `shot` (photo ou
+	tir : point, distance à la cible la plus proche de ce type, objectif rempli ou −1, précision, temps depuis le
+	départ du chrono), `mission_end` (note et son détail, temps écoulé, mission complète ou non), `day_end`,
 	`sleep`, `campaign_end`. Il sert à régler les profils du banc d'équilibrage d'après de vraies parties.
   - **Fin de campagne** (`scenes/ui/campaign_end_screen.tscn`, `scripts/ui/campaign_end_screen.gd`), sur fond noir
-    en fondu : « Campagne terminée », nom de la campagne, **message de fin** (`ending`, le même que celui de la
+	en fondu : « Campagne terminée », nom de la campagne, **message de fin** (`ending`, le même que celui de la
 	radio : choisi d'après les notes de la dernière journée), **moyenne globale** sur 20 avec RÉUSSITE / ÉCHEC
 	(`success_score`), puis le **détail à défilement** : pour chaque journée, « Jour n » et sa note, et chaque
 	mission jouée (titre, note, verdict ; vert si réussie, rouge sinon), dans l'ordre de la campagne (« — » et
-    « Aucune mission jouée » pour une journée sans mission). « Retour au menu » vide les notes
+	« Aucune mission jouée » pour une journée sans mission). « Retour au menu » vide les notes
 	(`CampaignSession.start_free`) et ramène à l'écran de démarrage.
   - **Sauvegarde au coucher** (règle de jeu ; `CampaignSession.save`, `user://saves/campaign.json`, un seul emplacement :
 	la campagne en cours) : campagne, **journée à venir**, notes (missions, journées, **moyenne globale**
@@ -158,9 +158,9 @@ permet de piloter le jeu exporté.
 	**explosions** (point, puissance, âge sur l'horloge des explosions, heure UTC), photos (fichiers de
 	`user://photos/` et leurs vignettes `user://photos/thumbs/`), cibles. La radio n'est pas gardée (la journée
 	commence par son briefing). **« Continuer la campagne en cours »** (cliquable s'il y a une sauvegarde valide,
-    `CampaignSession.continue_saved`) relance la partie au réveil de la journée sauvegardée : orbite replacée, explosions
-    **recréées à leur âge** (`NukeLauncher.restore_at` : incendies, traces au sol, black-out où ils en étaient ;
-    marquées `restored` : elles ne remplissent aucun objectif et la télévision garde leur heure réelle pour
+	`CampaignSession.continue_saved`) relance la partie au réveil de la journée sauvegardée : orbite replacée, explosions
+	**recréées à leur âge** (`NukeLauncher.restore_at` : incendies, traces au sol, black-out où ils en étaient ;
+	marquées `restored` : elles ne remplissent aucun objectif et la télévision garde leur heure réelle pour
 	l'édition spéciale), galerie et cibles rétablies.
   - **Réveil** (règle de jeu, `scripts/core/wake_up.gd`, nœud `WakeUp`) : **au lancement de toute partie (mode libre
 	compris)** et au début de chaque journée de campagne : noir, titre « Jour n » (campagne seulement) et, dessous,
@@ -180,30 +180,30 @@ permet de piloter le jeu exporté.
 - **Format de `campaign.json`** (format 2, lu et vérifié par `CampaignData`, `scripts/campaign/campaign_data.gd`, où il est
   décrit en entier) :
   - **Textes** (`name`, `description`, titres, messages…) : clé des fichiers de langue (la campagne officielle n'utilise
-    que des clés, `CAMPAIGN_STARNUKE_*`), texte, ou dictionnaire par langue `{"en": …, "fr": …}` (langue du jeu,
+	que des clés, `CAMPAIGN_STARNUKE_*`), texte, ou dictionnaire par langue `{"en": …, "fr": …}` (langue du jeu,
 	sinon l'anglais).
   - **`start`** : départ de la campagne — `utc` (« 2035-07-15T06:00:00Z ») et `orbit` (`altitude_km` 200 à 800,
 	`inclination_deg` 0 à 80, `over` {`lat`, `lon`} : point survolé à cet instant, `|lat|` ≤ inclinaison,
 	`ascending` : sens de passage). **Chaque journée peut avoir son propre `start`** : avec `orbit`, heure et
 	position exactes de la station au début de la journée ; **`utc` seul : saut dans le temps** jusqu'à cette date
-    (ex. `"start": {"utc": "2035-07-18T11:15:00Z"}` : trois jours plus tard), la station continuant son orbite.
-    Sans `start`, la première journée prend celui de la campagne et les suivantes reprennent là où la précédente
+	(ex. `"start": {"utc": "2035-07-18T11:15:00Z"}` : trois jours plus tard), la station continuant son orbite.
+	Sans `start`, la première journée prend celui de la campagne et les suivantes reprennent là où la précédente
 	s'est arrêtée (`wake_up_utc`, sinon 8 h de sommeil). `start` et `wake_up_utc` s'excluent.
   - **`defaults`** : expéditeur des messages (`from`), canal radio (`channel`), note de réussite (`success_score`,
 	10), tolérances par type d'objectif (`tolerance_km` : photo 40 km, tir 15 km), plancher du facteur temps
 	(`time_floor`, 0,6), délai d'un briefing sans heure (`briefing_delay_minutes`, 30).
   - **`days`** : journées, dans l'ordre — `id`, `start` (facultatif), `wake_up_utc` (« HH:MM »), `missions` (liste
 	de `{mission, when, briefing_utc}` : `briefing_utc` « HH:MM » UTC, heure d'arrivée du briefing, facultative ;
-    une entrée dont la condition est fausse est sautée, ce qui permet de choisir la mission
-    selon les notes), `debrief` (messages de fin de journée).
+	une entrée dont la condition est fausse est sautée, ce qui permet de choisir la mission
+	selon les notes), `debrief` (messages de fin de journée).
   - **`missions`** (dictionnaire par identifiant) : `title`, `objective`, `description`, `deadline_hours` et `deadline_minutes` (facultatif, 0 à 59) (durée avant
-    échec, en heures : règle de jeu), `par_hours` (temps de référence, `null` : calculé), `objectives` (`type` « photo » ou « strike »,
-    `target` {`lat`, `lon`}, `tolerance_km`, `weight`, `yield_kt` pour un tir, `after` : objectif à remplir avant),
-    `result` (messages selon la note).
+	échec, en heures : règle de jeu), `par_hours` (temps de référence, `null` : calculé), `objectives` (`type` « photo » ou « strike »,
+	`target` {`lat`, `lon`}, `tolerance_km`, `weight`, `yield_kt` pour un tir, `after` : objectif à remplir avant),
+	`result` (messages selon la note).
   - **`ending`** : messages de fin de campagne.
   - **Messages** : `{when, subject, body}` ; le premier dont la condition est vraie est retenu. **Conditions**
-    (`when`) : `global_score`, `day_score`, `mission_score` ou `score_of` {`id`} avec `min` (inclus) et/ou `max`
-    (exclu), notes sur 20 ; une note encore inconnue rend la condition fausse.
+	(`when`) : `global_score`, `day_score`, `mission_score` ou `score_of` {`id`} avec `min` (inclus) et/ou `max`
+	(exclu), notes sur 20 ; une note encore inconnue rend la condition fausse.
   - **Vérification** : `godot --headless --path . -s tools/check_campaign.gd [-- <campagne>]` liste les erreurs de
 	chaque campagne (chemin dans le fichier et explication, en français ; code de sortie 1 s'il y en a). Pour une
 	campagne valide, il donne aussi, journée par journée, l'heure du briefing, le **passage le plus tôt
@@ -221,12 +221,12 @@ permet de piloter le jeu exporté.
 	passage le plus tôt possible (expert 0 à 0,3 orbite, moyen 0,3 à 1,2, débutant 1 à 2,5), passage manqué
 	(5 %, 20 %, 35 %), écart au sol demi-normal (écart type photo 5, 12, 20 km ; tir 3, 6, 10 km) ; chaque
 	passage manqué ou raté (écart ≥ tolérance) coûte une orbite ; au-delà de l'échéance, les objectifs restants
-    valent 0. Ces profils sont des **estimations à recaler** avec les journaux de vraies parties. Rapport Markdown
-    dans `tools/bench/results/balance_<campagne>_<date>.md` (part de réussites, note moyenne ± écart type). Il
-    sert à régler les missions (échéance, tolérance, `par_hours`) pour que chaque profil tombe dans sa cible.
+	valent 0. Ces profils sont des **estimations à recaler** avec les journaux de vraies parties. Rapport Markdown
+	dans `tools/bench/results/balance_<campagne>_<date>.md` (part de réussites, note moyenne ± écart type). Il
+	sert à régler les missions (échéance, tolérance, `par_hours`) pour que chaque profil tombe dans sa cible.
 	La campagne officielle contient pour l'instant deux journées d'essai : photo de Kourou (briefing à 06 h 30),
-    puis, trois jours plus tard (saut au 18 juillet 2035, 11 h 15 UTC), photo de Toulouse (briefing 30 min après le
-    réveil).
+	puis, trois jours plus tard (saut au 18 juillet 2035, 11 h 15 UTC), photo de Toulouse (briefing 30 min après le
+	réveil).
   - **Sonde de la campagne** : `godot --headless --path . res://tools/bench/campaign_probe.tscn` (ou
 	`tools/bench/run_probe.ps1 campaign_probe`, qui lance aussi les scripts `-Script tools/balance_campaign.gd`)
 	joue la campagne officielle de bout en bout par l'API du jeu (départ, briefing reçu avec la liaison, appel
@@ -655,15 +655,23 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	l'échelle. Les points de trace sont **en cache** sur une grille de 20 s (une trace recalculée à chaque image
 	coûtait ~3,5 ms par carte à 4 orbites) ; un point témoin recalculé par image (premier point de grille après le début de la trace) vide le cache si l'orbite ou l'orbite visée change
 	(manœuvre, date, altitude). Une carte non affichée (onglet caché, tablette rangée) n'est pas redessinée.
-- **Horloges murales** (`scripts/screens/station_clocks.gd`, nœud `StationClocks` de `orbit_view.tscn`) : les quatre
-  horloges LCD du modèle (`Interactif_Horloge_*` : couchette, cuisine, poste de pilotage, sas ; voir « Station
-  spatiale », « Horloges murales LCD ») affichent la **date ISO 8601 et l'heure UTC du jeu** (`Orbit.get_utc_unix_s`) :
-  date en petit en haut à gauche, « UTC » en haut à droite, heure en grands chiffres à sept segments légèrement
-  penchés (segments éteints à peine visibles, comme un vrai afficheur), deux points du séparateur. Un seul
-  `SubViewport` (1024 × 368, MSAA 4×) dessiné en 2D et **partagé par les quatre dalles** (matériau `Ecran_Horloge`,
-  shader des écrans d'ambiance sans balayage de lignes), **redessiné seulement quand la seconde affichée change**
-  (une fois par seconde à ×1, au plus une fois par image en accéléré) ; éteintes avec « plus de lumière ». Textes :
-  chiffres et « UTC » seulement (aucune langue) : hors fichiers de langue.
+- **Afficheurs muraux LCD** (base `StationLcd`, `scripts/screens/station_lcd.gd` ; dessin `SegmentDisplay`,
+  `scripts/ui/segment_display.gd` : chiffres à sept segments légèrement penchés, segments éteints à peine visibles
+  comme un vrai afficheur, « : », « . », « ° », lettres en police normale ; modèles : voir « Station spatiale »,
+  « Afficheurs muraux LCD ») : toutes les dalles d'une même sorte partagent **un seul `SubViewport`** (1024 × 368,
+  MSAA 4×, shader des écrans d'ambiance sans balayage de lignes), **redessiné seulement quand le contenu change**, au
+  plus 10 fois par seconde ; éteints avec « plus de lumière ».
+  - **Horloges** (`scripts/screens/station_clocks.gd`, nœud `StationClocks` de `orbit_view.tscn`) : les quatre
+	`Interactif_Horloge_*` (couchette, cuisine, poste de pilotage, sas) affichent la **date ISO 8601 et l'heure UTC
+	du jeu** (`Orbit.get_utc_unix_s`) : date en petit en haut à gauche, « UTC » en haut à droite, heure en grands
+	chiffres en bas. Textes : chiffres et « UTC » (aucune langue) : hors fichiers de langue.
+  - **Position de la station** (règle de jeu ; `scripts/screens/station_position.gd`, nœud `StationPosition`) :
+	l'afficheur `Interactif_Position_Couchette`, à droite de l'horloge au pied de la couchette, donne **en temps
+	réel la latitude et la longitude du point survolé** (`Orbit.get_subsatellite_point`), en degrés décimaux à trois
+	décimales : lettre de l'hémisphère à gauche, latitude en haut (« N 48.857° »), longitude en bas sur trois
+	chiffres (« E 002.352° »). **Au réveil, un joueur doué en géographie devine où il se trouve.** Lettres des
+	hémisphères traduites (clés `DIR_N`, `DIR_S`, `DIR_E`, `DIR_W` : O pour Ouest en français, en espagnol et en
+	italien, O pour Ost en allemand), redessinées au changement de langue.
 - **Écrans d'ambiance des modules Commande et Arrimage** (`scripts/screens/tech_screens.gd`, nœud `TechScreens` de
   `orbit_view.tscn`, shader `shaders/tech_screen.gdshader`) : sur les écrans plats et les portables du module Commande
   (pas sur le grand écran du poste) et sur le portable `Interactif_Ordinateur_05` de l'Arrimage (télémétrie), des programmes « techno-thriller » dessinés en 2D dans cinq `SubViewport` partagés : listage de code et
@@ -824,22 +832,25 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   créé par le script s'il manque (table `NEW_DEVICES`) ; `ONLY = [...]` limite le mode « apply » à quelques appareils.
   Penser à **enregistrer le `.blend`** après chaque modification exportée : un export depuis un fichier non
   enregistré se perd à la réouverture.
-- **Horloges murales LCD** (`tools/blender/build_station_clock.py`, envoyé au Blender ouvert : `CLOCK_MODE = "preview"`
-  construit une horloge sur une paroi dans une scène temporaire du fichier ouvert, aperçus dans
-  `E:\Blender\apercus_horloge\`, puis retire tout ; `CLOCK_MODE = "apply"` sur `nuke_station.blend` crée ou remplace
-  les objets de la table `TARGETS`, rejouable) : quatre horloges `Interactif_Horloge_<id>` de 20 × 8,2 × 2,3 cm
-  (boîtier anthracite mat aux coins arrondis sur une platine murale aluminium de 3 mm, vitre noire brillante
-  affleurante dont la face avant est la dalle, matériau `Ecran_Horloge` partagé, UV 0–1 ; deux boutons de réglage sur
-  la tranche supérieure, voyant vert, câble qui rentre dans la paroi ; 917 faces chacune ; extras `type` « horloge »,
-  `id`, `materiau_ecran`). Emplacements relevés par lancer de rayons sur les parois (coordonnées Blender) :
-  **Couchette** (1,80 ; 1,43 ; −0,15), fond de la niche côté pieds, lisible par le dormeur allongé la tête vers
-  l'écoutille (haut de l'affichage vers −Y) ; **Cuisine** (−2,95 ; 1,25 ; 0,42), au-dessus de la jonction
-  réchauffeur / distributeur d'eau, entre les deux sachets repas de la rangée haute et sous le faisceau de câbles ;
-  **Pilotage** (16,07 ; 0 ; 0,72), cloison avant, centrée au-dessus du grand écran ; **Sas** (−8,98 ; 0 ; −3,25),
-  paroi de la chambre basse au-dessus du manomètre et de la valve. Affichage en jeu : nœud `StationClocks`, voir
-  « Organisation de la scène » ; pour l'aperçu Blender, une texture de démonstration à chiffres à sept segments
-  (`E:\Blender\textures\horloge_demo.png`, rendue par le script) imite l'affichage, sans jamais rester dans le
-  matériau exporté (dalle noire).
+- **Afficheurs muraux LCD** (`tools/blender/build_station_clock.py`, envoyé au Blender ouvert : `CLOCK_MODE =
+  "preview"` construit une horloge et un afficheur de position sur une paroi dans une scène temporaire du fichier
+  ouvert, aperçus dans `E:\Blender\apercus_horloge\`, puis retire tout ; `CLOCK_MODE = "apply"` sur
+  `nuke_station.blend` crée ou remplace les objets de la table `TARGETS`, rejouable) : boîtier de
+  **28 × 11,5 × 3,2 cm** (cotes nominales 20 × 8,2 × 2,3 cm × `SCALE` 1,4, agrandi le 24/10/2026 pour être lisible
+  depuis la couchette au réveil) anthracite mat aux coins arrondis sur une platine murale aluminium, vitre noire
+  brillante affleurante dont la face avant est la dalle (UV 0–1), deux boutons de réglage sur la tranche supérieure,
+  voyant vert, câble qui rentre dans la paroi. Deux sortes (extras `type`, `id`, `materiau_ecran`) : **horloge**
+  (`Interactif_Horloge_<id>`, dalle `Ecran_Horloge`, 917 faces) et **afficheur de position** (`Interactif_Position_<id>`,
+  dalle `Ecran_Position`, même boîtier avec une galette d'antenne GPS blanc cassé sur la tranche supérieure, 1 075
+  faces). Emplacements relevés par lancer de rayons (coordonnées Blender) : **couchette**, fond de la niche côté
+  pieds, lisible par le dormeur allongé la tête vers l'écoutille (haut de l'affichage vers −Y) : horloge à gauche
+  (1,80 ; 1,43 ; −0,17) et position à droite (1,80 ; 1,43 ; 0,17), 6 cm d'écart ; horloge de la **cuisine**
+  (−2,95 ; 1,25 ; 0,41), au-dessus de la jonction réchauffeur / distributeur d'eau, entre les deux sachets repas de
+  la rangée haute et sous le faisceau de câbles ; du **poste de pilotage** (16,07 ; 0 ; 0,72), cloison avant au-dessus
+  du grand écran ; du **sas** (−8,98 ; 0 ; −3,25), chambre basse au-dessus du manomètre et de la valve. Affichage en
+  jeu : voir « Organisation de la scène », « Afficheurs muraux LCD » ; pour l'aperçu Blender, des textures de
+  démonstration à sept segments (`E:\Blender\textures\horloge_demo.png`, `position_demo.png`, rendues par le script
+  avec la même disposition que le jeu) imitent l'affichage, sans jamais rester dans les matériaux exportés.
 - **Écoutilles des modules de missiles** (`tools/blender/add_missile_hatches.py`, envoyé au Blender ouvert sur
   `nuke_station.blend`, rejouable) : le tunnel Habitation → silo (Ø 2,88 m) est rétréci au passage standard
   (Ø 1,32 m) par une cloison `Missile_<s>_Cloison_Ecoutille-col` (couronne grise, anneaux métal et jaune aux
@@ -938,27 +949,27 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   modérée : le métal nu des écaillures, très réfléchissant, faisait des traînées noires ; l'acier poli d'origine ne
   reflétait que du noir (rugosité × 2,4, métallicité 0,75).
   - **Impressions** (`pbr_kit.Print`) : textures dessinées par Blender avec de vrais caractères (police Arial),
-    rendues en orthographique (EEVEE, vue « Standard » : couleurs exactes) dans `E:\Blender\textures\Generated`,
-    plaquées sur des pièces qui portent leurs propres coordonnées de texture (`uv_quad`, `uv_disk`, `_label_band` ;
-    les `Builder` des scripts les recopient au lieu de projeter) : cadran du manomètre de la valve (0–1,2 bar,
-    graduations, chiffres, zones rouge et verte, « AIRLOCK PRESSURE »), plaques gravées en aluminium anodisé noir
-    (« AIRLOCK EQUALIZATION VALVE », « CLOSED » →, « VENT » ↓, « PRESS », « VAC »), cadran du manomètre de
+	rendues en orthographique (EEVEE, vue « Standard » : couleurs exactes) dans `E:\Blender\textures\Generated`,
+	plaquées sur des pièces qui portent leurs propres coordonnées de texture (`uv_quad`, `uv_disk`, `_label_band` ;
+	les `Builder` des scripts les recopient au lieu de projeter) : cadran du manomètre de la valve (0–1,2 bar,
+	graduations, chiffres, zones rouge et verte, « AIRLOCK PRESSURE »), plaques gravées en aluminium anodisé noir
+	(« AIRLOCK EQUALIZATION VALVE », « CLOSED » →, « VENT » ↓, « PRESS », « VAC »), cadran du manomètre de
 	l'extincteur, étiquette de l'extincteur (bandeau « FIRE EXTINGUISHER », « ABC DRY POWDER 6 kg », pictogrammes
 	des classes A, B, C, mode d'emploi en quatre étapes, mentions, code-barres). Textes en anglais : marquages
 	d'origine du matériel, pas de l'interface (hors fichiers de langue, comme les touches des portables).
   - Peintures 2K (`painted_metal_2k`) : valve orange et jaune propres (rayures légères, pas d'écaillures :
-    `chips` 0), laque rouge brillante des extincteurs (rugosité × 0,55, quelques écaillures discrètes) ; `chips`
+	`chips` 0), laque rouge brillante des extincteurs (rugosité × 0,55, quelques écaillures discrètes) ; `chips`
 	dose la carte d'usure (presque binaire : un seuil ne la réduisait pas).
   - Valve : vis cruciformes à tête fraisée aux coins de la platine, lunette sertie chromée et verre bombé du
 	manomètre, écrou hexagonal et poignée caoutchouc moletée de la manette, lunettes chromées des voyants, bride
 	boulonnée du conduit d'évent.
   - **Extincteur réaliste** (`build_extinguisher`, poudre 6 kg : Ø 0,13 m) : corps embouti à fond bombé et
-    épaulement (soudure, fond serti), pied en caoutchouc, col fileté en laiton, tête de robinet chromée à bouchon
-    moleté, levier de percussion et poignée de portage à gaine caoutchouc, goupille de sécurité, scellé et sa
-    plaquette, manomètre imprimé à zone verte sous verre, flexible à bagues serties qui contourne le corps par le
+	épaulement (soudure, fond serti), pied en caoutchouc, col fileté en laiton, tête de robinet chromée à bouchon
+	moleté, levier de percussion et poignée de portage à gaine caoutchouc, goupille de sécurité, scellé et sa
+	plaquette, manomètre imprimé à zone verte sous verre, flexible à bagues serties qui contourne le corps par le
 	côté et lance à cornet clipsée, étiquette imprimée enroulée, colliers et platine murale vissée. Dans le sas (paroi −X) et dans l'Arrimage : `build_arrimage_extinguisher.py` remplace le cylindre rouge
 	sommaire du râtelier de la paroi diagonale (îlot `Int_Rouge` d'`Arrimage_Stockage-col`, retiré une fois) par
-    `Arrimage_Extincteur` (9 kg, échelle 1,35, couché le long du module).
+	`Arrimage_Extincteur` (9 kg, échelle 1,35, couché le long du module).
 - **Rangements souples du module Arrimage** (`tools/blender/build_arrimage_stowage.py`, rejouable ; d'après la
   cuisine de l'Habitation) : les blocs rigides et lisses d'`Arrimage_Stockage-col` (deux rangées de casiers verts
   `Int_Caisse`, pavés beiges sous filet `Int_Sac_Beige` au sol, au plafond, sur la paroi +Y et sur trois diagonales,
@@ -966,14 +977,14 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   (propriétés `rangement_souple`, `sangles_casiers_retirees`) ; les casiers blancs rigides, la boîte métallique du
   plafond et les cadres jaunes restent. À leur place, objet `Arrimage_Rangement` (~150 000 faces) :
   - sacs de transfert souples type CTB de tailles variées (grille irrégulière par zone, profondeur variable, second
-    rang de petits sacs çà et là) : toile tissée blanc cassé ou beige, coins très arrondis, gonflée et froissée,
-    glissière du rabat, poignées cousues, pastilles velcro, étiquette ;
+	rang de petits sacs çà et là) : toile tissée blanc cassé ou beige, coins très arrondis, gonflée et froissée,
+	glissière du rabat, poignées cousues, pastilles velcro, étiquette ;
   - maintien : deux sangles d'arrimage plaquées sur les sacs (lancer de rayons), boucle à came, platines aux bouts
 	(anciens casiers) ; ailleurs, filet de cordelette (mailles de 11 cm) drapé sur les sacs, bordure et anneaux ;
   - poches d'eau souples type CWC (tissu enduit bleuté, très gonflées, poignées, bouchon bleu, étiquette) à la place
-    des réservoirs ;
+	des réservoirs ;
   - `Interactif_Caisse_01`–`03` (maillages remplacés, noms et extras gardés) : caisses moelleuses en tissu
-    matelassé, couvercle à glissière, sangle jaune de ceinture, poignée, étiquette ; `Arrimage_Sacs` : sac CTB ;
+	matelassé, couvercle à glissière, sangle jaune de ceinture, poignée, étiquette ; `Arrimage_Sacs` : sac CTB ;
   - collisions : `Arrimage_Rangement_Collision-colonly`, un pavé par sac du premier rang.
   Textures (photos ambientCG CC0, 2K) par `pbr_kit.fabric_material` : `Fabric036` (toile tissée, recolorée en blanc
   cassé `Int_Toile_CTB`, beige `Int_Toile_Beige`, noir `Int_Sangle_Toile` ; 3 répétitions par mètre), `Fabric048`
@@ -1005,22 +1016,22 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	lèvre d'appui extérieure de la porte du bas est en retrait du col (r 0,512 m) : à rayon égal, leurs faces se
 	disputaient l'affichage (rectangles gris ou noirs qui clignotaient).
   - Intérieur Ø 2,24 m : parois blanches à montants et nervures, quatre mains courantes, deux luminaires au plafond
-    (lampes `Lum_Sas_1`, `Lum_Sas_2`, copies de `Lum_Arrimage_2`), fond conique.
+	(lampes `Lum_Sas_1`, `Lum_Sas_2`, copies de `Lum_Arrimage_2`), fond conique.
   - Porte extérieure `Interactif_Ecoutille_Sas_Bas` (Ø 1,20 m, passage Ø 1,00 m) : hublot central (`Vitrage`, on voit
-    la Terre défiler), face intérieure `Int_` à poignées jaunes et levier, face extérieure `Metal_Furtif` à poignée de
+	la Terre défiler), face intérieure `Int_` à poignées jaunes et levier, face extérieure `Metal_Furtif` à poignée de
 	sortie ; charnière d'axe X côté −Y : elle s'ouvre vers le bas, vers la Terre (−100°). Les deux portes suivent la
-    convention de `Fermeture_Ecoutilles` (image 1 ouverte, 40 fermée).
+	convention de `Fermeture_Ecoutilles` (image 1 ouverte, 40 fermée).
   - `Interactif_Combinaison` (extras `type` « combinaison », `porte`) : scaphandre texturé debout contre la paroi +Y,
-    dos contre son support. Maillage remplacé par `tools/blender/build_suit_model.py` (à rejouer après
+	dos contre son support. Maillage remplacé par `tools/blender/build_suit_model.py` (à rejouer après
 	`build_airlock.py`, qui recrée l'ancienne combinaison procédurale d'après l'Axiom AxEMU, gardée dans le `.blend`
 	sous `Interactif_Combinaison_Procedurale`) : modèle « Walking astronaut » (`E:\Blender\astronaute\`, hors dépôt ;
 	58 000 triangles, textures 2K/1K `Combi_Astro_*`) figé en pose de repos, bras abaissés (72°, 12° vers l'avant) et
-    raccourcis (bras ×0,99, avant-bras ×0,825 : mains en haut des cuisses), squelette et animations supprimés ;
-    pare-soleil doré `Int_Combi_Visiere_Or` (faces noires du casque trouvées par lancer de rayons, complétées par leur
+	raccourcis (bras ×0,99, avant-bras ×0,825 : mains en haut des cuisses), squelette et animations supprimés ;
+	pare-soleil doré `Int_Combi_Visiere_Or` (faces noires du casque trouvées par lancer de rayons, complétées par leur
 	zone de texture ; l'anneau du cou garde son métal sombre) ; hauteur de l'ancienne combinaison (1,93 m).
   - `Interactif_Porte_Combinaison` (extras `type` « porte_combinaison », `combinaison`) : support séparé (deux rails
-    sur pattes, berceau du sac à sabots, crochets, cale-pieds), qui reste en place quand la combinaison est portée.
-    **Casque porté** (`scripts/player/suit_helmet.gd`, nœud `Observer/Camera/Helmet`) : tant que la combinaison est portée
+	sur pattes, berceau du sac à sabots, crochets, cale-pieds), qui reste en place quand la combinaison est portée.
+	**Casque porté** (`scripts/player/suit_helmet.gd`, nœud `Observer/Camera/Helmet`) : tant que la combinaison est portée
 	(`Station.suit_changed`), on voit l'intérieur du casque, qui suit la tête : coque noire mate (sphère de 16,5 cm
 	de rayon centrée 7 cm derrière l'œil), fenêtre ronde comme la visière vue de l'extérieur (ellipse dans le plan de
 	la vue, demi-axes ±59° de côté, +37° en haut, −46° en bas vus de l'œil : bord haut en dôme, au ras du haut de
@@ -1028,8 +1039,8 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	transparente (`shaders/helmet_visor.gdshader` : voile gris-bleu vers les bords et en incidence rasante) et ses
 	reflets en arc (passe additive `shaders/helmet_visor_glint.gdshader`, en haut à gauche et plus faible en bas à
 	droite : nets sur fond sombre, discrets sur fond clair, jamais d'assombrissement). Maillage généré par le script
-    (pas de modèle Blender), sans ombre portée ni collision, sur le calque `Station.INTERIOR_LAYER`.
-    **Règle de jeu** (`station.gd`) : un clic sur la combinaison la fait disparaître
+	(pas de modèle Blender), sans ombre portée ni collision, sur le calque `Station.INTERIOR_LAYER`.
+	**Règle de jeu** (`station.gd`) : un clic sur la combinaison la fait disparaître
 	(on l'enfile) ; un clic sur le porte-combinaison la remet en place.
   - `Interactif_Valve_Sas` (paroi +X, extras `type` « valve_sas », `animation`, `voyant_plein`, `voyant_vide`) :
 	bien visible : platine orange vif (`Int_Valve_Orange`) dans un cadre jaune riveté (rivets bombés sombres), agrandie
@@ -1037,7 +1048,7 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	paroi courbe sur un socle (à plat contre elle, ses bords s'y enfonçaient) ; platine à manomètre 0–1,2 bar (zone rouge près de 0, repère vert à 1 bar), manette quart de tour (vers la droite
 	fermée, vers le bas ouverte ; elle ne passe jamais devant le cadran), voyants `Int_Voyant_Sas_Vert` (plein) et
 	`Int_Voyant_Sas_Rouge` (vide), conduit d'évent. Pivots enfants `Pivot_Valve_Sas` et `Pivot_Aiguille_Sas` ; piste
-    NLA `Depressurisation_Sas` (images 1–505 à 24 i/s) : manette ouverte (0,5 s), aiguille de 1 à 0 bar en 20 s
+	NLA `Depressurisation_Sas` (images 1–505 à 24 i/s) : manette ouverte (0,5 s), aiguille de 1 à 0 bar en 20 s
 	(vidange exponentielle adoucie, constante de temps 20 s / 2,2 : elle ne traîne plus aux faibles pressions), manette refermée (0,5 s). **Règle de jeu** : la valve vide le sas, jouée à l'envers elle
 	le remplit.
   - `Sas_Equipements` (sans collision) : trois sacs CTB sous sandows, extincteur (paroi −X, au-dessus de la
@@ -1048,8 +1059,8 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   - Extérieur `Sas_Coque-col` : col du puits et bride, coque `Coque_Silo` (UV cylindriques en mètres), deux cerclages,
 	lèvre d'appui de la porte, paumelles, mains courantes de sortie (matériau `Poignee_EVA`).
   - Contrôle : rendus EEVEE et Workbench avec élimination des faces arrière (comme Godot). Dans EEVEE, la face
-    extérieure de la porte du bas paraît blanche et dentelée sous un soleil rasant : artefact de rendu, la géométrie
-    et les normales sont saines.
+	extérieure de la porte du bas paraît blanche et dentelée sous un soleil rasant : artefact de rendu, la géométrie
+	et les normales sont saines.
 - **Import** (`station_spatiale.glb.import`) : échelle 1 (mètres), racine `StationSpatiale`, collisions par
   suffixes de noms (`-col` : collision statique concave + maillage ; `-convcolonly` : collision convexe seule),
   LOD générés, animations à 24 i/s, **Rotation_Panneaux** (plus jouée : suivi du soleil, voir plus bas) et **Balayage_Antennes** en boucle (les autres jouées
@@ -1063,12 +1074,12 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	(`Station._add_interior_collisions`, gardé en secours), elle coûtait 3,5 s sur le fil principal (77 objets, dont
 	~1,6 s pour les portables et écrans détaillés) ;
   - pistes constantes retirées des animations : l'export Blender met dans chaque action tous les objets animés
-    (75 pistes) ; il ne reste que les pistes utiles (Rotation_Panneaux 4, Balayage_Antennes 3, Fermeture_Ecoutilles
-    6, Ouverture_Trappes 48, Retraction_Radiateurs 12, Lancement_Missile 5). Sans cela, jouer une animation
-    remettrait aussi en place tous les autres objets animés.
+	(75 pistes) ; il ne reste que les pistes utiles (Rotation_Panneaux 4, Balayage_Antennes 3, Fermeture_Ecoutilles
+	6, Ouverture_Trappes 48, Retraction_Radiateurs 12, Lancement_Missile 5). Sans cela, jouer une animation
+	remettrait aussi en place tous les autres objets animés.
   - **Piège** : l'éditeur garde le script de post-import en cache ; modifié hors de l'éditeur, il n'est pas relu à
 	l'import suivant (relancer l'éditeur). Toucher le `.import` ne relance pas l'import : il faut changer un
-    réglage ou réexporter le .glb.
+	réglage ou réexporter le .glb.
 - **Métadonnées** : les propriétés personnalisées Blender (extras glTF) sont dans `get_meta("extras")`, un
   dictionnaire ; les nombres y sont des flottants (`silo: 1.0`). `ouvrable` (vrai pour les écoutilles et trappes
   animées, faux pour l'écoutille cargo, verrouillée).
