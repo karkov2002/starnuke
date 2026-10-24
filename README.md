@@ -499,7 +499,7 @@ des phalanges puis gonflée de 4,5 mm : tissu épais, gonflement et lissage nuls
 	(dernière photo), ◀ ▶ (précédente, suivante), légende sur fond sombre (numéro, date, point survolé, altitude,
 	emprise), « Vue en direct » pour revenir ; le bouton Photo revient aussi à la vue en direct. Photos gardées le
 	temps de la partie (elles entreront dans la sauvegarde de campagne) ;
-	**Capteur infrarouge** (bouton « Capteur : visible / infrarouge » sous le bouton Photo, choix manuel ;
+	**Capteur infrarouge** (« Caméra » sous le bouton Photo : cases IR / Normal, choix manuel ;
 	`NadirCamera.infrared`) : vue et photos en **infrarouge thermique**, niveaux de gris « blanc = chaud » (style
 	militaire), pour photographier aussi de nuit. La caméra ne voit alors que la Terre thermique (`ThermalSurface`,
 	`scripts/orbit/thermal_surface.gd`, enfant de `Earth` à côté de `Surface` : maillage et copie de son matériau avec

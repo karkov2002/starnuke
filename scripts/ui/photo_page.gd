@@ -5,7 +5,8 @@ extends HBoxContainer
 ## ShutterOverlay, puis photo_requested : la tablette prend la photo, PhotoArchive) et la galerie des photos prises : « Galerie (n) »
 ## remplace la vue en direct par la dernière photo (◀ ▶ : précédente, suivante ; légende : numéro, date, point
 ## survolé, altitude, emprise), « Vue en direct » y revient ; le bouton Photo revient aussi à la vue en direct.
-## Bouton « Capteur : visible / infrarouge » (choix manuel) : infrared_changed, la tablette règle NadirCamera.infrared ;
+## « Caméra » : cases IR / Normal (choix manuel, l'une exclut l'autre) : infrared_changed, la tablette règle
+## NadirCamera.infrared ;
 ## les photos infrarouges sont marquées « IR » dans leur légende.
 
 ## Bouton Photo pressé : la tablette prend la photo (scripts/tablet.gd).
@@ -33,8 +34,7 @@ var _photo_caption: Label
 var _gallery_button: Button
 var _previous_button: Button
 var _next_button: Button
-var _sensor_button: Button
-## Capteur infrarouge choisi (bouton « Capteur »).
+## Capteur infrarouge choisi (case IR de « Caméra »).
 var _infrared := false
 ## Photo affichée dans la galerie (−1 : vue en direct).
 var _photo_index := -1
@@ -89,12 +89,27 @@ func _ready() -> void:
 	label.add_theme_font_size_override("font_size", 26)
 	label.add_theme_color_override("font_color", PilotDisplay.COLOR_TEXT)
 	side.add_child(label)
-	_sensor_button = Button.new()
-	_sensor_button.focus_mode = Control.FOCUS_NONE
-	_sensor_button.toggle_mode = true
-	_sensor_button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	_sensor_button.toggled.connect(_set_infrared)
-	side.add_child(_sensor_button)
+	# Caméra : deux cases exclusives, libellés courts (tiennent dans toutes les langues, allemand compris).
+	var camera_label := Label.new()
+	camera_label.text = "TABLET_CAMERA"
+	camera_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	camera_label.add_theme_color_override("font_color", PilotDisplay.COLOR_TEXT)
+	side.add_child(camera_label)
+	var modes := HBoxContainer.new()
+	modes.alignment = BoxContainer.ALIGNMENT_CENTER
+	modes.add_theme_constant_override("separation", 14)
+	side.add_child(modes)
+	var group := ButtonGroup.new()
+	for infrared in [true, false]:
+		var box := CheckBox.new()
+		box.text = "PHOTO_IR_TAG" if infrared else "TABLET_CAMERA_NORMAL"
+		box.focus_mode = Control.FOCUS_NONE
+		box.button_group = group
+		box.button_pressed = not infrared
+		box.toggled.connect(func(on: bool) -> void:
+			if on:
+				_set_infrared(infrared))
+		modes.add_child(box)
 	side.add_child(HSeparator.new())
 	_gallery_button = Button.new()
 	_gallery_button.focus_mode = Control.FOCUS_NONE
@@ -143,14 +158,13 @@ func _show_photo(index: int) -> void:
 				"width": roundi(footprint.x), "height": roundi(footprint.y)})
 		if photo.get("infrared", false):
 			_photo_caption.text = tr("PHOTO_IR_TAG") + " · " + _photo_caption.text
-	_sensor_button.text = tr("TABLET_SENSOR_IR" if _infrared else "TABLET_SENSOR_VISIBLE")
 	_gallery_button.text = tr("TABLET_LIVE") if _photo_index >= 0 else tr("TABLET_GALLERY").format({"count": count})
 	_gallery_button.disabled = count == 0 and _photo_index < 0
 	_previous_button.disabled = _photo_index <= 0
 	_next_button.disabled = _photo_index < 0 or _photo_index >= count - 1
 
 
-## Bouton « Capteur » : visible ou infrarouge ; retour à la vue en direct.
+## Case IR ou Normal de « Caméra » ; retour à la vue en direct.
 func _set_infrared(infrared: bool) -> void:
 	_infrared = infrared
 	_show_photo(-1)
