@@ -1,15 +1,13 @@
 class_name PhotoPage
 extends HBoxContainer
 ## Onglet Photographie de la tablette (TabletDisplay) : la vue au nadir en temps réel (nadir_texture, rendue par la
-## tablette seulement quand l'onglet est affiché, légende en incrustation), le bouton « Photo » (flash, puis
-## photo_requested : la tablette prend la photo, PhotoArchive) et la galerie des photos prises : « Galerie (n) »
+## tablette seulement quand l'onglet est affiché, légende en incrustation), le bouton « Photo » (obturateur à iris,
+## ShutterOverlay, puis photo_requested : la tablette prend la photo, PhotoArchive) et la galerie des photos prises : « Galerie (n) »
 ## remplace la vue en direct par la dernière photo (◀ ▶ : précédente, suivante ; légende : numéro, date, point
 ## survolé, altitude, emprise), « Vue en direct » y revient ; le bouton Photo revient aussi à la vue en direct.
 
 ## Bouton Photo pressé : la tablette prend la photo (scripts/tablet.gd).
 signal photo_requested
-
-const FLASH_S := 0.35
 
 ## Image de la vue au nadir (NadirCamera), fixée avant l'ajout à l'arbre.
 var nadir_texture: Texture2D
@@ -25,7 +23,7 @@ var archive: PhotoArchive:
 
 var _page_size: Vector2
 var _side_width: float
-var _flash: ColorRect
+var _shutter: ShutterOverlay
 var _photo_view: TextureRect
 var _photo_caption: Label
 var _gallery_button: Button
@@ -50,11 +48,8 @@ func _ready() -> void:
 	_photo_view.custom_minimum_size = Vector2(_page_size.x - _side_width - 16.0, _page_size.y)
 	_photo_view.clip_contents = true
 	add_child(_photo_view)
-	_flash = ColorRect.new()
-	_flash.color = Color(1, 1, 1, 0)
-	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_photo_view.add_child(_flash)
+	_shutter = ShutterOverlay.new()
+	_photo_view.add_child(_shutter)
 	_photo_caption = Label.new()
 	_photo_caption.text = "TABLET_NADIR"
 	_photo_caption.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
@@ -139,9 +134,8 @@ func _show_photo(index: int) -> void:
 	_next_button.disabled = _photo_index < 0 or _photo_index >= count - 1
 
 
-## Bouton Photo : retour à la vue en direct, flash, et prise de vue par la tablette (photo_requested).
+## Bouton Photo : retour à la vue en direct, obturateur, et prise de vue par la tablette (photo_requested).
 func _take_photo() -> void:
 	_show_photo(-1)
-	_flash.color.a = 0.9
-	create_tween().tween_property(_flash, "color:a", 0.0, FLASH_S)
+	_shutter.trigger()
 	photo_requested.emit()

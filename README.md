@@ -481,7 +481,9 @@ des phalanges puis gonflée de 4,5 mm : tissu épais, gonflement et lissage nuls
 	halo : l'image est ensuite vue par la caméra principale, qui les applique déjà (ACES deux fois : image délavée).
 	**Photos satellites** (`NadirCamera.capture_photo`, relayée par `Tablet._take_photo` vers l'archive
 	`scripts/player/photo_archive.gd`, nœud `Photos`, groupe
-	`photo_archive`) : flash, puis la vue au nadir est rendue une fois en **1 600 × 1 253** avec le rendu final du
+	`photo_archive`) : **obturateur à iris** sur la vue en direct (`scripts/ui/shutter_overlay.gd`, 6 lames qui se
+	ferment en tournant en 0,07 s, restent fermées 0,04 s et se rouvrent en 0,12 s ; simple effet d'interface), puis la vue au nadir est rendue
+	une fois en **1 600 × 1 253** avec le rendu final du
 	jeu (environnement d'origine : ACES, halo), **sans les surimpressions du HUD** (cibles, cône de tir,
 	orbite visée : couche de rendu `Hud.OVERLAY_LAYER`, retirée du `cull_mask` le temps de la prise de vue ; on ne
 	les voit qu'en direct, dans la cupola et sur la tablette) et enregistrée en **PNG dans `user://photos/`** (nom : date et heure
