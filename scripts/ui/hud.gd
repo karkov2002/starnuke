@@ -7,8 +7,9 @@ extends CanvasLayer
 ## - chronomètres des missiles (ImpactTimers, ajoutés par LaunchControl), en bas à droite.
 ## Affichage en surimpression dans la cupola (overlay_enabled, bouton « HUD : On / Off » de la tablette, désactivé au
 ## départ) : éléments 3D vus à travers les vitres, comme l'anneau de l'orbite visée (GhostTrack), et les cibles au sol
-## posées sur la carte du poste (TargetMarker, chacune de sa couleur) et le cône de tir (FiringConeMarker : secteur au
-## sol devant la station où l'on peut viser, FiringCone) ; masqués si désactivé.
+## posées sur la carte du poste (TargetMarker, chacune de sa couleur) et, la tablette sur l'onglet « Tir de missile »,
+## le cône de tir (FiringConeMarker : secteur au sol devant la station où l'on peut viser, FiringCone) ; masqués si
+## désactivé.
 ## Le reste des commandes (date, carte, silos, tir, BURN) est sur la tablette (scripts/tablet.gd, touche Tab).
 
 signal overlay_changed(enabled: bool)
@@ -25,6 +26,7 @@ var _station: Station
 var _reticle: Control
 var _target_marker: TargetMarker
 var _cone_marker: FiringConeMarker
+var _tablet: Tablet
 var _time_bar: TimeBar
 var _in_cupola := true
 var _fade: Tween
@@ -48,7 +50,6 @@ func _ready() -> void:
 	_cone_marker.earth = _target_marker.earth
 	_cone_marker.orbit = get_node(orbit_path) as OrbitSimulation
 	add_child(_cone_marker)
-	_cone_marker.shown = overlay_enabled and _in_cupola
 	_time_bar = TimeBar.new()
 	_time_bar.orbit = _cone_marker.orbit
 	add_child(_time_bar)
@@ -61,11 +62,11 @@ func _process(_delta: float) -> void:
 	if _station == null or camera == null:
 		return
 	var inside := _station.is_in_cupola(camera.global_position)
+	_cone_marker.shown = overlay_enabled and inside and _missile_mode()
 	if inside == _in_cupola:
 		return
 	_in_cupola = inside
 	_target_marker.shown = overlay_enabled and inside
-	_cone_marker.shown = overlay_enabled and inside
 	if _fade:
 		_fade.kill()
 	if inside:
@@ -82,10 +83,15 @@ func set_overlay_enabled(enabled: bool) -> void:
 	overlay_enabled = enabled
 	if _target_marker:
 		_target_marker.shown = enabled and _in_cupola
-	if _cone_marker:
-		_cone_marker.shown = enabled and _in_cupola
 	overlay_changed.emit(enabled)
 
+
+
+## Tablette sur l'onglet « Tir de missile » (sortie ou rangée) : le cône de tir n'est dessiné que dans ce mode.
+func _missile_mode() -> bool:
+	if _tablet == null:
+		_tablet = get_tree().get_first_node_in_group(Tablet.GROUP) as Tablet
+	return _tablet != null and _tablet.current_tab() == TabletDisplay.Tab.MISSILE
 
 ## La position (repère de l'écran) est-elle sur la barre du temps ? (Le poste de pilotage lui laisse la souris.)
 func is_over_controls(screen_position: Vector2) -> bool:

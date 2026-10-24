@@ -165,6 +165,11 @@ func _process(delta: float) -> void:
 		_nadir.active = visible and _display.current_tab == TabletDisplay.Tab.PHOTO
 
 
+## Onglet affiché par l'interface (TabletDisplay.Tab), même tablette rangée ; -1 avant sa construction.
+func current_tab() -> int:
+	return _display.current_tab if _display else -1
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"tablet") and not event.is_echo() and not StationCamera.is_typing(self) \
 			and not ScreenSeatConsole.any_seated(get_tree()):

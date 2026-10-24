@@ -385,7 +385,8 @@ l'horizon** (~1 760 km à 400 km, ~2 430 km à 800 km). Valeurs à régler d'apr
 `APERTURE_LOW`, `APERTURE_HIGH` (altitude, ouverture) et `RANGE_HORIZON_FRACTION` en tête du script. Point visé hors
 du cône ou trop loin : le réticule passe à l'orangé pâle avec la raison sous les coordonnées (« Hors du cône de tir »,
 « Hors de portée ») et le bouton rouge de la tablette est grisé avec la même raison (`LaunchControl`). Le panneau de
-debug (F4) tire toujours librement. En mode « HUD : On », le cône est **dessiné sur la Terre** depuis la cupola
+debug (F4) tire toujours librement. En mode « HUD : On », **la tablette sur l'onglet « Tir de missile »** (sortie ou
+rangée), le cône est **dessiné sur la Terre** depuis la cupola
 (`scripts/ui/firing_cone_marker.gd`, `FiringConeMarker`) : traits verts qui épousent la courbure, deux bords gradués
 vers l'intérieur (tous les 100 km, longs tous les 500 km), arc de portée, axe en pointillés barré tous les 250 km ;
 épaisseur à peu près constante à l'écran. Sonde : `tools/bench/orbit_probe.tscn`.
@@ -493,7 +494,7 @@ des phalanges puis gonflée de 4,5 mm : tissu épais, gonflement et lissage nuls
 - **HUD (surimpression dans la cupola)** : `Hud.overlay_enabled` (**désactivé au démarrage** ; `set_overlay_enabled`,
   signal `overlay_changed`), basculé par le bouton de la tablette. Il porte les éléments 3D vus à travers les vitres
   de la cupola : l'anneau de l'orbite visée (`GhostTrack`), les cibles posées sur la carte du poste (`TargetMarker`) et
-  le cône de tir (`FiringConeMarker`, voir « Cône de tir »).
+  le cône de tir (`FiringConeMarker`, seulement la tablette sur l'onglet « Tir de missile », voir « Cône de tir »).
   Le réticule de tir et la barre du temps n'en dépendent pas.
 
 **Écran « Bilan des explosions »** (nœud `NukeReport` de `scenes/orbit_view.tscn`, script
