@@ -37,6 +37,9 @@ const YELLOW := Color(1.0, 1.0, 0.333)
 const LIGHT_CYAN := Color(0.333, 1.0, 1.0)
 const LIGHT_GREEN := Color(0.333, 1.0, 0.333)
 const LIGHT_RED := Color(1.0, 0.333, 0.333)
+## Fond transparent des cases d'une image : l'image est dessinée sous la grille de texte, les fenêtres (aide, canaux)
+## la recouvrent donc comme le reste de l'écran.
+const IMAGE_BG := Color(0.0, 0.0, 0.0, 0.0)
 
 enum Overlay { NONE, HELP, CHANNEL, PHOTO }
 enum Mode { MESSAGES, GALLERY }
@@ -74,6 +77,7 @@ var _photo_status_color := WHITE
 var _photo_status_id := 0
 var _image: Texture2D
 var _image_rect := Rect2()
+var _image_frame := Rect2()
 var _photos: PhotoArchive
 var _director: CampaignDirector
 
@@ -112,6 +116,11 @@ func _draw() -> void:
 	if radio == null:
 		return
 	_compose()
+	# Image (fond noir, photo) sous la grille : ses cases sont transparentes (IMAGE_BG).
+	if _image_frame.has_area():
+		draw_rect(_image_frame, BLACK)
+	if _image and _image_rect.has_area():
+		draw_texture_rect(_image, _image_rect, false)
 	# Fonds : bandes de cases de même couleur sur chaque ligne.
 	for row in ROWS:
 		var start := 0
@@ -124,8 +133,6 @@ func _draw() -> void:
 		if c != " " and c != "":
 			var at := Vector2(i % COLS, floori(float(i) / COLS)) * _cell + Vector2(0.0, _ascent)
 			draw_char(_font, at, c, _font_size, _fg[i])
-	if _image and _image_rect.has_area():
-		draw_texture_rect(_image, _image_rect, false)
 
 
 # --- Entrées --------------------------------------------------------------------------------------------------------
@@ -370,6 +377,7 @@ func _compose() -> void:
 		_put(SPLIT, row, "│", LIGHT_CYAN, BLUE)
 	_image = null
 	_image_rect = Rect2()
+	_image_frame = Rect2()
 	if _mode == Mode.GALLERY:
 		_gallery_list()
 		_gallery_view()
@@ -662,10 +670,11 @@ func _photo_window() -> void:
 
 ## Image dans un cadre de cases (fond noir), à ses proportions, centrée ; dessinée par _draw. Rend les cases couvertes.
 func _place_image(texture: Texture2D, cells: Rect2i) -> Rect2i:
-	_fill(cells, " ", BLACK, BLACK)
+	_fill(cells, " ", BLACK, IMAGE_BG)
+	var frame := Rect2(Vector2(cells.position) * _cell, Vector2(cells.size) * _cell)
+	_image_frame = frame
 	if texture == null:
 		return cells
-	var frame := Rect2(Vector2(cells.position) * _cell, Vector2(cells.size) * _cell)
 	var image_size := texture.get_size()
 	var fit := minf(frame.size.x / image_size.x, frame.size.y / image_size.y)
 	var shown := image_size * fit
