@@ -99,6 +99,7 @@ func _ready() -> void:
 	_check_bearing(view)
 	await _check_tablet(view)
 	await _check_station(view)
+	await _check_reticle(view)
 	await _check_equipment(view)
 	print("=== %d échec(s)" % _failures)
 	view.queue_free()
@@ -520,3 +521,22 @@ func _check_equipment(view: Node) -> void:
 	observer.global_position = home
 	station.set_suit_worn(false)
 	await _wait(0.1)
+
+
+## Réticule de tir : dans la cupola, seulement la tablette sur l'onglet « Tir de missile ».
+func _check_reticle(view: Node) -> void:
+	print("- réticule de tir")
+	var reticle := view.get_node("Hud/AimReticle") as Control
+	var tablet := get_tree().get_first_node_in_group(Tablet.GROUP) as Tablet
+	var display := tablet.get("_display") as TabletDisplay
+	var station := view.get_node("Station/StationSpatiale") as Station
+	_check(station.is_in_cupola(get_viewport().get_camera_3d().global_position), "observateur dans la cupola")
+	var before := tablet.current_tab()
+	display.show_tab(TabletDisplay.Tab.PILOT)
+	await _wait(0.8)
+	_check(not reticle.visible, "onglet Pilotage : pas de réticule")
+	display.show_tab(TabletDisplay.Tab.MISSILE)
+	await _wait(0.8)
+	_check(reticle.visible and reticle.modulate.a > 0.99, "onglet Tir de missile : réticule")
+	display.show_tab(before)
+	await _wait(0.8)

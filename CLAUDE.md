@@ -25,7 +25,7 @@ Tablette (touche Tab) : `Observer/Camera/Tablet` (`scripts/player/tablet.gd`, in
 carte réduite, BURN, silos et tir), modèle `assets/tablet/tablet.glb` produit par `tools/blender/build_tablet.py`
 (Blender en arrière-plan, `E:\Blender\tablette.blend` ; main MakeHuman via l'extension MPFB2, textures CC0 dans
 `assets/makehuman/`, `.gdignore` ; main gantée quand la combinaison du sas est portée ; mettre au point dans Blender et faire valider avant d'exporter). Interface à l'écran : `Hud` (`scripts/ui/hud.gd` : barre de
-vitesse du temps toujours visible, réticule dans la cupola). Date, heure et redémarrage : panneau de debug F4. README, « Tablette ».
+vitesse du temps toujours visible, réticule dans la cupola en mode « Tir de missile »). Date, heure et redémarrage : panneau de debug F4. README, « Tablette ».
 Règle : **tous les textes du jeu sont dans les fichiers de langue** `locale/strings.csv` (interface) et `locale/countries.csv`
 (noms de pays, `tools/build_country_names.gd`) et `locale/credits.csv` (écran Crédits : références et licences), 5 langues (en, fr, es, de, it ; anglais par défaut). Jamais de texte
 affiché en dur : une clé (traduction automatique des contrôles) ou `tr("CLE").format({...})` ; toute nouvelle clé reçoit

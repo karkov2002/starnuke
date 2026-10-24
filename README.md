@@ -385,9 +385,10 @@ puis la vitesse est lissée vers la commande lissée, ce qui donne une courbe en
 (constantes de temps : 0,25 s en translation, 0,2 s en roulis). La souris garde un léger lissage (0,08 s) pour rester
 précise à la visée.
 
-**Le réticule de tir n'apparaît que dans la cupola** (sphère de 1,6 m autour du repère `Point_Vue_Cupola`,
-`Station.is_in_cupola`) : en sortant de la cupola il disparaît en fondu (0,5 s), et réapparaît en fondu en y
-revenant. **Hors de la cupola, on ne peut pas tirer** : le bouton rouge de la tablette est grisé, avec « Actif uniquement dans la coupole »
+**Le réticule de tir (croix rouge et coordonnées du point visé) n'apparaît que dans la cupola** (sphère de 1,6 m
+autour du repère `Point_Vue_Cupola`, `Station.is_in_cupola`) **et en mode « Tir de missile »** (tablette sur cet
+onglet, même rangée) : en sortant de la cupola ou en changeant d'onglet il disparaît en fondu (0,5 s), et réapparaît
+en fondu quand les deux conditions sont de nouveau réunies. **Hors de la cupola, on ne peut pas tirer** : le bouton rouge de la tablette est grisé, avec « Actif uniquement dans la coupole »
 écrit dessus (`LaunchControl`, `BigRedButton.disabled_message`), et se réactive en revenant dans la cupola.
 
 **Cône de tir** (règle de jeu, mode libre et campagne ; `nuke/firing_cone.gd`, `FiringCone`) : on ne vise **que vers

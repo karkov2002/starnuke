@@ -2,8 +2,8 @@ class_name Hud
 extends CanvasLayer
 ## Interface à l'écran de la partie (nœud Hud de scenes/orbit_view.tscn, construite en code) :
 ## - barre de vitesse du temps (TimeBar), toujours visible, en haut au centre ;
-## - réticule de tir (nuke/aim_reticle.gd) au centre, seulement dans la cupola (Station.is_in_cupola), avec un fondu
-##   de FADE_S : hors de la cupola, on ne peut pas tirer ;
+## - réticule de tir (nuke/aim_reticle.gd) au centre, seulement dans la cupola (Station.is_in_cupola) et la tablette
+##   sur l'onglet « Tir de missile » (même rangée), avec un fondu de FADE_S : hors de la cupola, on ne peut pas tirer ;
 ## - chronomètres des missiles (ImpactTimers, ajoutés par LaunchControl), en bas à droite.
 ## Affichage en surimpression dans la cupola (overlay_enabled, bouton « HUD : On / Off » de la tablette, désactivé au
 ## départ) : éléments 3D vus à travers les vitres, comme l'anneau de l'orbite visée (GhostTrack), et les cibles au sol
@@ -32,6 +32,7 @@ var _cone_marker: FiringConeMarker
 var _tablet: Tablet
 var _time_bar: TimeBar
 var _in_cupola := true
+var _reticle_shown := true
 var _fade: Tween
 ## Surimpression dans la cupola (voir en tête).
 var overlay_enabled := false
@@ -65,18 +66,22 @@ func _process(_delta: float) -> void:
 	if _station == null or camera == null:
 		return
 	var inside := _station.is_in_cupola(camera.global_position)
-	_cone_marker.shown = overlay_enabled and inside and _missile_mode()
-	if inside == _in_cupola:
+	var missile := _missile_mode()
+	_cone_marker.shown = overlay_enabled and inside and missile
+	if inside != _in_cupola:
+		_in_cupola = inside
+		_target_marker.shown = overlay_enabled and inside
+	var show := inside and missile
+	if show == _reticle_shown:
 		return
-	_in_cupola = inside
-	_target_marker.shown = overlay_enabled and inside
+	_reticle_shown = show
 	if _fade:
 		_fade.kill()
-	if inside:
+	if show:
 		_reticle.visible = true
 	_fade = create_tween()
-	_fade.tween_property(_reticle, "modulate:a", 1.0 if inside else 0.0, FADE_S)
-	if not inside:
+	_fade.tween_property(_reticle, "modulate:a", 1.0 if show else 0.0, FADE_S)
+	if not show:
 		_fade.tween_callback(func() -> void: _reticle.visible = false)
 
 
