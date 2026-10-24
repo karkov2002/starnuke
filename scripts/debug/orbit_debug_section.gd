@@ -2,7 +2,8 @@ class_name OrbitDebugSection
 extends VBoxContainer
 ## Section « orbite et temps » du panneau de debug (scripts/debug/debug_panel.gd), partie en cours seulement :
 ## - altitude (200–800 km) et inclinaison (0–80°) appliquées directement au nœud Orbit, au point courant, sans
-##   manœuvre (outil de développement : en jeu, l'orbite se pilote au poste de pilotage). L'inclinaison est bornée par
+##   manœuvre (outil de développement : en jeu, l'orbite se pilote au poste de pilotage) ; sans manœuvre prévue, la
+##   cible de l'ordinateur de vol suit (pas d'orbite fantôme affichée). L'inclinaison est bornée par
 ##   la latitude courante ;
 ## - date et heure UTC (champ date AAAA-MM-JJ validé par Entrée, −1 j / +1 j, curseur de l'heure du jour : la station
 ##   reste au-dessus du même point, Orbit.set_utc_unix_s) et redémarrage au-dessus de l'Europe de jour / de nuit
@@ -22,10 +23,10 @@ func _ready() -> void:
 	_orbit_label = Label.new()
 	add_child(_orbit_label)
 	_altitude = DebugUi.slider(OrbitSimulation.MIN_ALTITUDE_KM, OrbitSimulation.MAX_ALTITUDE_KM, 1.0,
-			func(value: float) -> void: _get_orbit().altitude_km = value)
+			func(value: float) -> void: _set_orbit(func(orbit: OrbitSimulation) -> void: orbit.altitude_km = value))
 	add_child(_altitude)
 	_inclination = DebugUi.slider(0.0, OrbitSimulation.MAX_INCLINATION_DEG, 0.1,
-			func(value: float) -> void: _get_orbit().inclination_deg = value)
+			func(value: float) -> void: _set_orbit(func(orbit: OrbitSimulation) -> void: orbit.inclination_deg = value))
 	add_child(_inclination)
 
 	var row := DebugUi.row(self, 4)
@@ -93,3 +94,16 @@ func _on_date_submitted(text: String) -> void:
 
 func _get_orbit() -> OrbitSimulation:
 	return get_tree().get_first_node_in_group(OrbitSimulation.GROUP) as OrbitSimulation
+
+
+## Change l'orbite réelle (change : Callable(orbit)) ; sans manœuvre prévue, la cible de l'ordinateur de vol suit
+## (sinon l'écart passait pour une manœuvre : orbite fantôme affichée).
+func _set_orbit(change: Callable) -> void:
+	var orbit := _get_orbit()
+	if orbit == null:
+		return
+	var computer := get_tree().get_first_node_in_group(FlightComputer.GROUP) as FlightComputer
+	var planned := computer != null and computer.has_plan()
+	change.call(orbit)
+	if computer and not planned:
+		computer.reset_target()

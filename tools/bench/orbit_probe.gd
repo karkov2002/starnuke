@@ -92,6 +92,7 @@ func _ready() -> void:
 			_record["planner/timeline"].size(), _record["planner/earliest"].time, cost_ms])
 
 	_check_firing_cone(orbit)
+	_check_debug_orbit(computer)
 
 	print("- Référence")
 	var result := ProbeCompare.check(_record, REFERENCE, write_reference)
@@ -105,6 +106,19 @@ func _ready() -> void:
 		_check(result.diffs.is_empty(), "identique à la référence (%d écart(s))" % result.diffs.size())
 	print("=== %d échec(s) au total" % _failures)
 	get_tree().quit(0 if _failures == 0 else 1)
+
+
+## Debug : changer l'altitude ou l'inclinaison au curseur ne crée pas de manœuvre (pas d'orbite fantôme affichée).
+func _check_debug_orbit(computer: FlightComputer) -> void:
+	print("- Debug de l'orbite")
+	computer.reset_target()
+	var section := OrbitDebugSection.new()
+	add_child(section)
+	(section.get("_altitude") as HSlider).value = 520.0
+	(section.get("_inclination") as HSlider).value = 45.0
+	_check(is_equal_approx(computer.get_orbit().altitude_km, 520.0) and not computer.has_plan(),
+			"altitude et inclinaison changées sans manœuvre")
+	section.queue_free()
 
 
 ## Cône de tir (FiringCone, hors référence) : ouverture et portée selon l'altitude, cibles devant, sur le côté, derrière,
