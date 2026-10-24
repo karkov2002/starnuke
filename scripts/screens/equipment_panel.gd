@@ -15,6 +15,14 @@ var screen_node := ""
 var _display: EquipmentDisplay
 
 
+## Pose face à l'écran, à distance mètres de son centre (panneau de debug : aller à l'équipement) : {eye, look}
+## (base globale de la vue, comme StationScreen.seat_pose).
+func front_pose(distance: float) -> Dictionary:
+	var pose := _screen.seat_pose(_camera, 1.0, 1.0)
+	var center := _screen.center_global()
+	return {"eye": center + ((pose.eye as Vector3) - center).normalized() * distance, "look": pose.look}
+
+
 func _screen_node() -> String:
 	return screen_node
 

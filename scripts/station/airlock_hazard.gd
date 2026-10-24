@@ -13,6 +13,8 @@ extends Node
 ## jusqu'à ce qu'on rentre par le sas (les boîtes des volumes dépassent un peu de la coque) ; Station
 ## .observer_outside (flashs et exposition). Mort : scripts/death_sequence.gd.
 
+const GROUP := &"airlock_hazard"
+
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
 @export var atmosphere_path: NodePath = ^"../StationAir"
 @export var observer_path: NodePath = ^"../Observer"
@@ -37,6 +39,7 @@ var _dead := false
 
 
 func _ready() -> void:
+	add_to_group(GROUP)
 	_station = get_node_or_null(station_path) as Station
 	_atmosphere = get_node_or_null(atmosphere_path) as StationAtmosphere
 	_observer = get_node_or_null(observer_path) as Observer
@@ -68,6 +71,15 @@ func _process(_delta: float) -> void:
 		_observer.set_air_flow(flow, flow_response_s if flow != Vector3.ZERO else still_air_response_s)
 	if not _dead and not suit and (outside or _atmosphere.pressure_of(_zone) < death_pressure):
 		_die()
+
+
+## Outil de développement (panneau de debug : aller à un équipement extérieur) : l'observateur, qu'on vient de
+## poser dehors sans passer par le sas, compte comme sorti par le sas.
+func place_outside() -> void:
+	_zone = StationAtmosphere.SAS
+	_outside = true
+	if _station:
+		_station.observer_outside = true
 
 
 func _die() -> void:

@@ -1390,7 +1390,9 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	et le panneau ; il reste à brancher l'effet (`StationEquipments.find(tree, id).is_operational()`).
 	- **Règle** : un équipement ne fonctionne que **allumé** (bouton ON / OFF de son panneau) **et pas en panne**.
 	  Une panne (événement : section « Pannes » du panneau de debug F4 ; plus tard la campagne) ne se répare **qu'au
-	  panneau** ; pour l'instant d'un clic (« RÉPARER »), plus tard par des mini-jeux.
+	  panneau** ; pour l'instant d'un clic (« RÉPARER »), plus tard par des mini-jeux. Pour le debug, « Y aller » de
+	  la même section pose l'observateur dehors, combinaison enfilée, face au panneau de l'équipement, à 1,4 m
+	  (`AirlockHazard.place_outside` : compté comme sorti par le sas).
 	- **Panneau de maintenance** (`scripts/screens/equipment_panel.gd`, `EquipmentPanel`, un par équipement ; interface
 	  `scripts/ui/equipment_display.gd`, `EquipmentDisplay`) : **utilisable seulement en sortie extravéhiculaire**
 	  (`Station.observer_outside` : sorti par le sas ; crochet `ScreenSeatConsole._can_use`). Comme la radio : survol

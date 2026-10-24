@@ -22,6 +22,7 @@ const EQUIPMENT := {
 @export var observer_path: NodePath = ^"../Observer"
 
 var _equipment := {}
+var _panels := {}
 
 
 func _ready() -> void:
@@ -43,6 +44,7 @@ func _ready() -> void:
 		panel.station_path = NodePath("../" + String(station_path))
 		panel.observer_path = NodePath("../" + String(observer_path))
 		add_child(panel)
+		_panels[id] = panel
 
 
 ## Équipement id de la scène (null si absent : menu, bancs d'essai).
@@ -53,6 +55,11 @@ static func find(tree: SceneTree, id: StringName) -> StationEquipment:
 
 func get_equipment(id: StringName) -> StationEquipment:
 	return _equipment.get(id)
+
+
+## Panneau de maintenance de l'équipement id.
+func get_panel(id: StringName) -> EquipmentPanel:
+	return _panels.get(id)
 
 
 func all() -> Array:
