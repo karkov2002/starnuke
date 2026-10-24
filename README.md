@@ -96,9 +96,16 @@ permet de piloter le jeu exporté.
 	nom** : l'éditeur les réimporte, et le fichier entier est joué en boucle (`loop` réglé par le code ; durée
 	libre, prévoir un raccord propre entre la fin et le début). Le script n'écrase jamais un son présent, sauf avec
 	`-Force`.
-  - **Objectifs** : une **photo** satellite (point sous la station à la prise de vue) ou un **impact** de missile à
-	moins de la tolérance d'une cible remplit l'objectif correspondant (le premier encore ouvert de ce type, dont
-	l'objectif préalable `after` est rempli) ; plus loin, il ne compte pas.
+  - **Objectifs** : un **impact** de missile à moins de la tolérance d'une cible, ou une **photo** satellite **envoyée
+	au sol** (point sous la station à la prise de vue), remplit l'objectif correspondant (le premier encore ouvert de
+	ce type, dont l'objectif préalable `after` est rempli) ; plus loin, il ne compte pas. **Photo** (règle de jeu) :
+	prendre la photo ne suffit pas, il faut l'envoyer depuis la **Galerie de COMM.EXE** (bouton « Envoyer au sol »,
+	liaison radio exigée ; `CampaignDirector.send_photo`). « Photo bien reçue… évaluation en cours… », puis, 4 s
+	plus tard (`PHOTO_EVALUATION_S`, temps réel), sa note (précision de l'objectif, sur 20) : **valide si ≥ 10**
+	(`success_score`) et l'objectif est rempli (mission accomplie s'il était le dernier : mission suivante ou fin de
+	journée) ; sinon **invalide**, l'objectif reste ouvert : envoyer une autre photo (prises en rafale) ou la reprendre
+	à une orbite suivante. Une seule évaluation à la fois. Les photos ne montrent jamais les cibles ni les autres
+	surimpressions du HUD (`Hud.OVERLAY_LAYER`, voir « Tablette »).
   - **Note sur 20** (`scripts/campaign/mission_scoring.gd`) : précision d'un objectif = 20 jusqu'à tolérance / 4, puis
 	décroissance linéaire jusqu'à 0 à la tolérance (non rempli : 0) ; précision de la mission = moyenne pondérée
 	(`weight`) ; **facteur temps** = 1 jusqu'au temps de référence, puis décroissance linéaire jusqu'à
@@ -115,7 +122,9 @@ permet de piloter le jeu exporté.
 	l'ordre de `after`, sinon le plus tôt possible d'abord, chacun depuis l'orbite laissée par le précédent.
 	Recherche par pas (point de poussée tous les 5 min, passage tous les 2 min affiné par dichotomie) : quelques
 	millisecondes à moins de 0,1 s.
-  - **Fin de mission** : tous les objectifs remplis, ou échéance (`deadline_hours` heures après la réception du briefing) ;
+  - **Fin de mission** : tous les objectifs remplis, ou échéance (`deadline_hours` heures après la réception du briefing) :
+	**mission incomplète à l'échéance = échouée, note 0/20** (message « Délai dépassé : mission échouée ! »), quels
+	que soient les objectifs déjà remplis ;
 	résultat retenu (`CampaignSession.results` : note, réussite, précision, facteur temps, journée ; **moyenne globale**
 	`CampaignSession.global_score()`, toutes missions jouées, échecs compris) et message de résultat (message `result` de
 	la mission choisi selon la note, sinon « Objectif atteint » / « Objectif non atteint », avec la note, RÉUSSITE
@@ -220,18 +229,20 @@ permet de piloter le jeu exporté.
 	`deadline_s`, `par_s`, `time_jump_s`, `night_s`), retard tiré au hasard après le
 	passage le plus tôt possible (expert 0 à 0,3 orbite, moyen 0,3 à 1,2, débutant 1 à 2,5), passage manqué
 	(5 %, 20 %, 35 %), écart au sol demi-normal (écart type photo 5, 12, 20 km ; tir 3, 6, 10 km) ; chaque
-	passage manqué ou raté (écart ≥ tolérance) coûte une orbite ; au-delà de l'échéance, les objectifs restants
-	valent 0. Ces profils sont des **estimations à recaler** avec les journaux de vraies parties. Rapport Markdown
+	passage manqué ou raté (écart ≥ tolérance, ou photo de précision < 10 : invalide) coûte une orbite ; mission
+	incomplète à l'échéance : note 0. Ces profils sont des **estimations à recaler** avec les journaux de vraies parties. Rapport Markdown
 	dans `tools/bench/results/balance_<campagne>_<date>.md` (part de réussites, note moyenne ± écart type). Il
 	sert à régler les missions (échéance, tolérance, `par_hours`) pour que chaque profil tombe dans sa cible.
-	La campagne officielle contient pour l'instant deux journées d'essai : photo de Kourou (briefing à 06 h 30),
+	La campagne officielle contient pour l'instant deux journées d'essai (faciles à recetter) : photo de Rivne
+	(Ukraine), briefing **30 s après le départ** (`briefing_utc` « 06:00:30 » : les heures acceptent les secondes,
+	« HH:MM[:SS] »), survol environ 6 min plus tard depuis l'orbite de départ (à ~15 km de la ville),
 	puis, trois jours plus tard (saut au 18 juillet 2035, 11 h 15 UTC), photo de Toulouse (briefing 30 min après le
 	réveil).
   - **Sonde de la campagne** : `godot --headless --path . res://tools/bench/campaign_probe.tscn` (ou
 	`tools/bench/run_probe.ps1 campaign_probe`, qui lance aussi les scripts `-Script tools/balance_campaign.gd`)
 	joue la campagne officielle de bout en bout par l'API du jeu (départ, briefing reçu avec la liaison, appel
-	prioritaire, tir hors objectif, photo sur l'objectif, réussite, coucher et sauvegarde, « Continuer » avec le
-	monde recréé, échéance dépassée, message de fin, écran de fin) et vérifie les journaux de partie ; code 0 si
+	prioritaire, tir hors objectif, photo prise sans effet, photo envoyée invalide puis valide, réussite, coucher et sauvegarde, « Continuer » avec le
+	monde recréé, photo envoyée manquée, échéance dépassée (0/20), message de fin, écran de fin) et vérifie les journaux de partie ; code 0 si
 	tout passe. Elle écrit sa sauvegarde à part (`CampaignSession.save_path`) : la vraie n'est pas touchée.
 
 - **Écran de démarrage** (`scenes/ui/main_menu.tscn`, script `scripts/ui/main_menu.gd`, construit en code) : titre
@@ -469,13 +480,15 @@ des phalanges puis gonflée de 4,5 mm : tissu épais, gonflement et lissage nuls
 	**Photos satellites** (`NadirCamera.capture_photo`, relayée par `Tablet._take_photo` vers l'archive
 	`scripts/player/photo_archive.gd`, nœud `Photos`, groupe
 	`photo_archive`) : flash, puis la vue au nadir est rendue une fois en **1 600 × 1 253** avec le rendu final du
-	jeu (environnement d'origine : ACES, halo) et enregistrée en **PNG dans `user://photos/`** (nom : date et heure
+	jeu (environnement d'origine : ACES, halo), **sans les surimpressions du HUD** (cibles, cône de tir,
+	orbite visée : couche de rendu `Hud.OVERLAY_LAYER`, retirée du `cull_mask` le temps de la prise de vue ; on ne
+	les voit qu'en direct, dans la cupola et sur la tablette) et enregistrée en **PNG dans `user://photos/`** (nom : date et heure
 	du jeu, latitude, longitude ; le joueur garde ses photos ; l'encodage PNG de la photo et de sa vignette se fait
 	dans un thread (`WorkerThreadPool`, attendu à la sortie) : la prise de vue ne fige plus l'image) ; deux images
 	plus tard, une seconde capture au rendu de
 	la vue en direct sert à la galerie (sans quoi elle serait délavée sur l'écran). Chaque photo garde le **point
-	survolé** à la prise de vue (point sous la station : c'est lui qui comptera pour la précision d'une photo de
-	mission, signal `PhotoArchive.photo_taken`), l'heure UTC du jeu, l'altitude et l'**emprise au sol**
+	survolé** à la prise de vue (point sous la station : c'est lui qui compte pour la précision d'une photo de
+	mission, une fois envoyée au sol depuis la Galerie de COMM.EXE), l'heure UTC du jeu, l'altitude et l'**emprise au sol**
 	(2 h tan 11° de haut × proportions de l'image : ~199 × 156 km à 400 km). **Galerie** : bouton « Galerie (n) »
 	(dernière photo), ◀ ▶ (précédente, suivante), légende sur fond sombre (numéro, date, point survolé, altitude,
 	emprise), « Vue en direct » pour revenir ; le bouton Photo revient aussi à la vue en direct. Photos gardées le
@@ -736,13 +749,22 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   barre des touches de fonction en bas, curseur clignotant), lignes de balayage du shader des écrans.
   - **Vue radio** : comme la télévision (survol à 2,5 m → bulle « Communications radio » ; clic → la vue se cadre
 	face à l'écran ; clic droit ou F10 → on quitte ; `ScreenSeatConsole`). En vue radio, souris **et clavier** vont à
-	l'écran : F1 aide, F2 choix du canal, F10 quitter, flèches (message ou canal précédent / suivant), chiffres
+	l'écran : F1 aide, F2 choix du canal, F5 Galerie / Messages, F10 quitter, flèches (message ou canal précédent / suivant), chiffres
 	(envoyer la réponse correspondante), Entrée (valider le canal), Échap (fermer une fenêtre) ; tout se fait aussi à
 	la souris.
   - Écran : ligne d'état (canal, fréquence, bande ; liaison en barre de signal avec la station au sol, ou « PAS DE
 	LIAISON » clignotant) ; à gauche les messages reçus (heure, expéditeur ; non lus en jaune, lus quand on s'installe
 	devant l'écran ou qu'on les choisit), à droite le message choisi (expéditeur, objet, réception et fréquence, texte)
 	et ses réponses `[1]`, `[2]`… ; une réponse envoyée s'affiche en vert.
+  - **Galerie** (onglet « Galerie » de la barre de menu, ou F5 ; « Messages » pour revenir) : à gauche les photos
+	satellites de la partie (`PhotoArchive`) classées par date (en-tête par jour UTC, plus récentes d'abord ; heure et
+	point survolé), choisies à la souris ou aux flèches ; à droite la photo choisie (numéro, date et heure UTC, point
+	survolé, altitude, emprise au sol) ; un clic (ou Entrée) l'agrandit sur tout l'écran, un clic ou Échap la referme.
+	En mission photo de campagne (`CampaignDirector.can_send_photo` : objectif photo ouvert, aucune évaluation en
+	cours), bouton vert **« Envoyer au sol »** ; sans liaison : « Pas de liaison : photo non envoyée ». Sous la photo,
+	l'état de l'envoi : « Photo bien reçue… évaluation en cours… », puis « Score photo : x/20. Photo valide. Mission
+	accomplie ! » ou « … Photo invalide. Envoyez une autre photo pour accomplir la mission. », ou « Délai dépassé :
+	mission échouée ! Score : 0/20. » (règles : « Campagne », « Objectifs »).
   - **Règles de jeu** (`RadioComms`) : **liaison** seulement avec une station au sol en vue (16 stations du réseau de
 	suivi, de Houston à Canberra ; élévation de la station d'au moins 5° au-dessus de leur horizon) : qualité de
 	15 % au ras de l'horizon à 100 % dès 25° d'élévation, nulle hors de vue (coupures sur les océans). **Canaux** :

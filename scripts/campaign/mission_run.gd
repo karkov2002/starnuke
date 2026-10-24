@@ -5,11 +5,14 @@ extends RefCounted
 ## - le chrono part à started_unix (arrivée du briefing) ; échéance deadline_s après (CampaignData.deadline_s) ;
 ## - temps de référence (plan) : par_hours, sinon le passage le plus tôt possible pour tous les objectifs,
 ##   manœuvres comprises (MissionPlanner), plus une orbite ; au plus l'échéance (CampaignData.par_s) ;
-## - une photo ou un impact (record) à moins de la tolérance d'une cible remplit le premier objectif encore ouvert de
-##   ce type dont l'objectif préalable « after » est rempli, avec la précision obtenue (MissionScoring.precision) ;
-##   plus loin, il ne compte pas ;
-## - note (result) : précision pondérée × facteur temps (MissionScoring), réussite si ≥ success_score ; un objectif
-##   non rempli vaut 0.
+## - un impact (record) à moins de la tolérance d'une cible remplit le premier objectif « strike » encore ouvert dont
+##   l'objectif préalable « after » est rempli, avec la précision obtenue (MissionScoring.precision) ; plus loin, il
+##   ne compte pas ;
+## - une photo envoyée au sol (record avec min_precision = success_score, CampaignDirector.send_photo) est notée
+##   comme un impact (précision sur 20 selon la distance du point photographié à la cible) mais ne remplit l'objectif
+##   « photo » que si sa note atteint success_score (photo valide) ; sinon on peut en envoyer une autre ;
+## - note (result) : mission complète : précision pondérée × facteur temps (MissionScoring), réussite si
+##   ≥ success_score ; échéance atteinte avant la fin : mission échouée, note 0 (expired).
 
 var id := ""
 var mission := {}
@@ -63,12 +66,15 @@ func is_complete() -> bool:
 	return not precisions.any(func(p: float) -> bool: return is_nan(p))
 
 
-## Photo ou impact (type) en (lat, lon) : remplit au plus un objectif. Rend {nearest_km : distance à la cible de ce
-## type la plus proche (−1 : aucune), objective : indice de l'objectif rempli (−1 : aucun), precision}.
-func record(type: String, lat: float, lon: float) -> Dictionary:
+## Photo ou impact (type) en (lat, lon) : remplit au plus un objectif, si sa précision atteint min_precision. Rend
+## {nearest_km : distance à la cible de ce type la plus proche (−1 : aucune), objective : indice de l'objectif rempli
+## (−1 : aucun), precision : celle de l'objectif rempli, sinon la meilleure obtenue sur un objectif ouvert (0 : hors
+## tolérance de tous)}.
+func record(type: String, lat: float, lon: float, min_precision := 0.0) -> Dictionary:
 	var objectives: Array = mission.objectives
 	var nearest := INF
 	var filled := -1
+	var best := 0.0
 	for k in objectives.size():
 		var objective: Dictionary = objectives[k]
 		if objective.type != type:
@@ -80,23 +86,40 @@ func record(type: String, lat: float, lon: float) -> Dictionary:
 		if objective.has("after") and is_nan(precisions[int(objective.after)]):
 			continue
 		var tolerance := MissionScoring.tolerance_km(objective, _defaults)
-		if d < tolerance:
-			precisions[k] = MissionScoring.precision(d, tolerance)
+		if d >= tolerance:
+			continue
+		var precision := MissionScoring.precision(d, tolerance)
+		best = maxf(best, precision)
+		if precision >= min_precision:
+			precisions[k] = precision
 			filled = k
 	return {"nearest_km": nearest if nearest < INF else -1.0, "objective": filled,
-			"precision": precisions[filled] if filled >= 0 else 0.0}
+			"precision": precisions[filled] if filled >= 0 else best}
 
 
-## Note de la mission à now_unix : {score, success, precision, time_factor, day : day_id} (forme retenue dans
-## CampaignSession.results et la sauvegarde).
+## Un objectif de ce type est-il encore ouvert (son objectif préalable « after » rempli) ?
+func has_open(type: String) -> bool:
+	var objectives: Array = mission.objectives
+	for k in objectives.size():
+		var objective: Dictionary = objectives[k]
+		if objective.type == type and is_nan(precisions[k]) \
+				and not (objective.has("after") and is_nan(precisions[int(objective.after)])):
+			return true
+	return false
+
+
+## Note de la mission à now_unix : {score, success, precision, time_factor, expired, day : day_id} (forme retenue dans
+## CampaignSession.results et la sauvegarde) ; incomplète (échéance atteinte) : échouée, note 0.
 func result(now_unix: float, day_id: String) -> Dictionary:
+	if not is_complete():
+		return {"score": 0.0, "success": false, "precision": 0.0, "time_factor": 0.0, "expired": true, "day": day_id}
 	var weights: Array = mission.objectives.map(func(o: Dictionary) -> float: return float(o.get("weight", 1.0)))
 	var precision := MissionScoring.mission_precision(precisions, weights)
 	var factor := MissionScoring.time_factor(elapsed_s(now_unix), par_s, deadline_s,
 			float(_defaults.get("time_floor", 0.6)))
 	var score := precision * factor
 	return {"score": score, "success": score >= float(_defaults.get("success_score", 10.0)),
-			"precision": precision, "time_factor": factor, "day": day_id}
+			"precision": precision, "time_factor": factor, "expired": false, "day": day_id}
 
 
 ## Détail pour le journal de partie : temps écoulé, référence, échéance, mission complète, précisions (−1 : objectif

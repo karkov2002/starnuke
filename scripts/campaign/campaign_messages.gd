@@ -38,14 +38,17 @@ static func sender(mission: Dictionary, defaults: Dictionary) -> String:
 	return Campaigns.text_of(mission if mission.has("from") else defaults, "from", DEFAULT_FROM)
 
 
-## Résultat d'une mission (result : score, success, precision, time_factor, voir MissionRun) : message « result »
-## de la mission choisi selon les notes (scores, CampaignData.pick_message), sinon RESULT_DEFAULT_*, avec la note,
-## le verdict, la précision et le facteur temps.
+## Résultat d'une mission (result : score, success, precision, time_factor, expired, voir MissionRun) : échéance
+## dépassée, RESULT_EXPIRED (mission échouée, 0/20) ; sinon message « result » de la mission choisi selon les notes
+## (scores, CampaignData.pick_message), sinon RESULT_DEFAULT_*, avec la note, le verdict, la précision et le facteur
+## temps.
 static func result(mission: Dictionary, defaults: Dictionary, scores: Dictionary, result: Dictionary) -> Dictionary:
 	var success := bool(result.success)
 	var message := CampaignData.pick_message(mission.get("result", []), scores)
 	var text := Campaigns.text_of(message, "body") if not message.is_empty() \
 			else _tr("RESULT_DEFAULT_SUCCESS" if success else "RESULT_DEFAULT_FAILURE")
+	if result.get("expired", false):
+		text = _tr("RESULT_EXPIRED")
 	var body := _tr("RESULT_BODY").format({"message": text, "score": "%.1f" % float(result.score),
 			"verdict": _tr("RESULT_SUCCESS" if success else "RESULT_FAILURE"),
 			"precision": "%.1f" % float(result.precision), "time": "%.2f" % float(result.time_factor)})

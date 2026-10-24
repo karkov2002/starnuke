@@ -43,6 +43,7 @@ func _ready() -> void:
 	if earth:
 		_mesh = MeshInstance3D.new()
 		_mesh.name = "GroundTargetMarker"
+		_mesh.layers = Hud.OVERLAY_LAYER
 		_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_mesh.visible = false
 		# Tri des objets transparents : après les nuages et l'atmosphère (qui sinon la recouvrent).

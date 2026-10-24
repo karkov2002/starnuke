@@ -16,12 +16,17 @@ extends Node
 ## - temps de référence (par_hours, sinon calculé à l'arrivée du briefing, MissionPlanner) : passage le plus tôt
 ##   possible pour tous les objectifs, manœuvres comprises, plus une orbite ; au plus l'échéance (mission impossible
 ##   à temps : pas de pénalité de temps) ;
-## - objectifs : une photo (PhotoArchive.photo_taken : point sous la station) ou un impact (NukeLauncher.detonated)
-##   à moins de la tolérance d'une cible de la mission remplit son objectif (le premier objectif encore ouvert de ce
-##   type, dont l'objectif préalable « after » est rempli), avec la précision obtenue (MissionScoring) ; plus loin, il
-##   ne compte pas ;
-## - fin de mission : tous les objectifs remplis, ou échéance (deadline_hours après l'arrivée du briefing) : note =
-##   précision pondérée × facteur temps (MissionScoring), réussite si ≥ success_score ; résultat retenu (CampaignSession.results,
+## - objectifs : un impact (NukeLauncher.detonated) à moins de la tolérance d'une cible de la mission remplit son
+##   objectif (le premier objectif encore ouvert de ce type, dont l'objectif préalable « after » est rempli), avec la
+##   précision obtenue (MissionScoring) ; plus loin, il ne compte pas. Une photo ne compte pas quand on la prend :
+##   il faut l'envoyer au sol depuis la galerie de l'écran de communication (send_photo, liaison radio requise) ;
+##   « Photo bien reçue… évaluation en cours… » (photo_received), puis PHOTO_EVALUATION_S secondes plus tard sa note
+##   sur 20 (précision au point sous la station à la prise de vue, photo_evaluated) : photo valide si elle atteint
+##   success_score (l'objectif est rempli), sinon invalide : on peut en envoyer une autre, ou attendre un autre
+##   passage pour la reprendre ;
+## - fin de mission : tous les objectifs remplis : note = précision pondérée × facteur temps (MissionScoring),
+##   réussite si ≥ success_score ; échéance (deadline_hours après l'arrivée du briefing) avant : mission échouée,
+##   note 0 ; résultat retenu (CampaignSession.results,
 ##   moyenne globale) et message radio de résultat (message « result » de la mission choisi selon la note, sinon
 ##   RESULT_DEFAULT_*), puis la mission suivante de la journée dont la condition est vraie est programmée ;
 ## - fin de journée (plus de mission) : note de la journée retenue, message « debrief » de la journée (selon les
@@ -50,6 +55,10 @@ signal briefing_sent(mission_id: String)
 signal mission_started(mission_id: String)
 signal briefing_read(mission_id: String, elapsed_s: float)
 signal shot_recorded(shot: Dictionary)
+## Photo envoyée au sol (send_photo), puis sa note PHOTO_EVALUATION_S secondes plus tard : {photo_id, score (sur 20),
+## valid (objectif rempli), complete (mission finie), expired (mission finie ou changée entre-temps : pas de note)}.
+signal photo_received(photo_id: int)
+signal photo_evaluated(evaluation: Dictionary)
 signal mission_finished(mission_id: String, result: Dictionary)
 signal day_finished(day_index: int)
 signal fell_asleep(next_day_index: int)
@@ -57,6 +66,8 @@ signal campaign_finished
 
 const GROUP := &"campaign_director"
 const END_SCENE := "res://scenes/ui/campaign_end_screen.tscn"
+## Délai (s, temps réel) entre la réception d'une photo par le sol et sa note.
+const PHOTO_EVALUATION_S := 4.0
 
 @export var orbit_path: NodePath = ^"../Orbit"
 @export var flight_computer_path: NodePath = ^"../FlightComputer"
@@ -88,6 +99,10 @@ var _next_entry := 0
 ## Journée terminée (couchette cliquable) ; sommeil en cours (fondu).
 var _day_over := false
 var _sleeping := false
+## Photo envoyée en cours d'évaluation (id, 0 : aucune).
+var _evaluating := 0
+## Délai de la note d'une photo envoyée (s ; PHOTO_EVALUATION_S, raccourci par les sondes).
+var photo_evaluation_s := PHOTO_EVALUATION_S
 
 
 func _ready() -> void:
@@ -107,10 +122,6 @@ func _ready() -> void:
 	if _radio:
 		_radio.message_read.connect(_on_message_read)
 		_radio.message_received.connect(_on_message_received)
-	var photos := get_node_or_null(photos_path) as PhotoArchive
-	if photos:
-		photos.photo_taken.connect(func(photo: Dictionary) -> void:
-			_record("photo", float(photo.lat), float(photo.lon)))
 	var launcher := get_node_or_null(launcher_path) as NukeLauncher
 	if launcher:
 		launcher.detonated.connect(func(effect: NukeEffect) -> void:
@@ -260,16 +271,44 @@ func _on_message_read(message_id: String) -> void:
 	briefing_read.emit(current_mission(), _run.elapsed_s(_now()) if _run else 0.0)
 
 
-## Photo ou impact en (lat, lon) : remplit le premier objectif ouvert de ce type à portée (MissionRun.record) ;
-## mission finie quand tous le sont.
-func _record(type: String, lat: float, lon: float) -> void:
+## Photo ou impact en (lat, lon) : remplit le premier objectif ouvert de ce type à portée, de précision au moins
+## min_precision (MissionRun.record) ; mission finie quand tous le sont. Rend le relevé (vide sans mission), avec
+## complete : mission finie par lui.
+func _record(type: String, lat: float, lon: float, min_precision := 0.0) -> Dictionary:
 	if _run == null:
-		return
-	var shot := _run.record(type, lat, lon)
-	shot.merge({"mission": _run.id, "type": type, "lat": lat, "lon": lon, "elapsed_s": _run.elapsed_s(_now())})
+		return {}
+	var shot := _run.record(type, lat, lon, min_precision)
+	shot.merge({"mission": _run.id, "type": type, "lat": lat, "lon": lon, "elapsed_s": _run.elapsed_s(_now()),
+			"complete": _run.is_complete()})
 	shot_recorded.emit(shot)
-	if _run.is_complete():
+	if shot.complete:
 		_finish_mission()
+	return shot
+
+
+## Peut-on envoyer une photo au sol ? Mission en cours avec un objectif photo ouvert, pas d'évaluation en cours.
+func can_send_photo() -> bool:
+	return is_active() and _run != null and _run.has_open("photo") and _evaluating == 0
+
+
+## Photo de la galerie (PhotoArchive.photos) envoyée au sol : reçue tout de suite, notée PHOTO_EVALUATION_S
+## secondes plus tard (temps réel) ; valide si sa note atteint success_score. Faux si elle ne peut pas l'être.
+func send_photo(photo: Dictionary) -> bool:
+	if not can_send_photo():
+		return false
+	var mission := _run.id
+	_evaluating = int(photo.id)
+	photo_received.emit(_evaluating)
+	await get_tree().create_timer(photo_evaluation_s, true, false, true).timeout
+	var evaluation := {"photo_id": _evaluating, "score": 0.0, "valid": false, "complete": false, "expired": true}
+	_evaluating = 0
+	if _run != null and _run.id == mission:
+		var shot := _record("photo", float(photo.lat), float(photo.lon),
+				float(_defaults().get("success_score", 10.0)))
+		evaluation.merge({"score": float(shot.precision), "valid": int(shot.objective) >= 0,
+				"complete": bool(shot.complete), "expired": false}, true)
+	photo_evaluated.emit(evaluation)
+	return true
 
 
 ## Fin de mission (objectifs remplis ou échéance) : note retenue (CampaignSession.results), message de résultat, mission

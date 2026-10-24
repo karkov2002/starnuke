@@ -9,7 +9,8 @@ extends SubViewport
 ## une copie de l'environnement en mappage linéaire, sans halo.
 ## capture_photo() : photo satellite, rendue une fois en PHOTO_SIZE avec le rendu final du jeu (environnement
 ## d'origine), puis une seconde image au rendu de la vue en direct pour la galerie (sur l'écran, le rendu final
-## serait délavé) ; la vue revient ensuite en l'état.
+## serait délavé) ; la vue revient ensuite en l'état. Ni l'une ni l'autre n'a la surimpression du HUD (calque
+## Hud.OVERLAY_LAYER : cibles, cône de tir, orbite visée), visible seulement dans la vue en direct.
 ## Anticrénelage : celui des paramètres (GameSettings.apply_anti_aliasing), suivi à chaque changement.
 
 const LIVE_SIZE := Vector2i(600, 470)
@@ -89,6 +90,9 @@ func capture_photo() -> Dictionary:
 		return {}
 	_capturing = true
 	var live_environment := _camera.environment
+	var live_mask := _camera.cull_mask
+	# Pas de surimpression (cibles, cône de tir, orbite visée) sur une photo : seulement dans la vue en direct.
+	_camera.cull_mask = live_mask & ~Hud.OVERLAY_LAYER
 	if _world_environment:
 		_camera.environment = _world_environment.environment
 	size = PHOTO_SIZE
@@ -102,6 +106,7 @@ func capture_photo() -> Dictionary:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var screen_image := get_texture().get_image()
+	_camera.cull_mask = live_mask
 	_capturing = false
 	active = active
 	return {"image": image, "screen_image": screen_image}

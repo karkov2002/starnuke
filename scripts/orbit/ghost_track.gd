@@ -32,6 +32,7 @@ func _ready() -> void:
 	_earth = get_node(earth_path) as Node3D
 	mesh = _immediate
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	layers = Hud.OVERLAY_LAYER
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.albedo_color = Color(color.r * energy, color.g * energy, color.b * energy)

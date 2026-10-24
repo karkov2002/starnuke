@@ -18,7 +18,7 @@
 			"id": "d1",
 			"wake_up_utc": "06:00",
 			"missions": [
-				{ "mission": "test_kourou", "briefing_utc": "06:30" }
+				{ "mission": "test_rivne", "briefing_utc": "06:00:30" }
 			],
 			"debrief": [
 				{ "subject": "CAMPAIGN_STARNUKE_END_SUBJECT", "body": "CAMPAIGN_STARNUKE_D1_DEBRIEF" }
@@ -36,14 +36,14 @@
 		}
 	],
 	"missions": {
-		"test_kourou": {
+		"test_rivne": {
 			"title": "CAMPAIGN_STARNUKE_M_TEST_TITLE",
 			"objective": "CAMPAIGN_STARNUKE_M_TEST_OBJECTIVE",
 			"description": "CAMPAIGN_STARNUKE_M_TEST_DESC",
 			"deadline_hours": 6,
 			"par_hours": null,
 			"objectives": [
-				{ "type": "photo", "target": { "lat": 5.24, "lon": -52.77 }, "weight": 1 }
+				{ "type": "photo", "target": { "lat": 50.62, "lon": 26.25 }, "weight": 1 }
 			]
 		},
 		"test_toulouse": {

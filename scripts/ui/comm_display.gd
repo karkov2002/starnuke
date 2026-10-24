@@ -8,6 +8,11 @@ extends Control
 ##   clignotant hors de vue du sol) ;
 ## - à gauche, les messages reçus (heure de jeu, expéditeur ; non lus en jaune) ; à droite, le message choisi
 ##   (expéditeur, objet, réception, texte) et ses réponses ([1], [2]…) ;
+## - galerie (F5, ou « Galerie » dans la barre de menu ; F5 encore : retour aux messages) : photos de la partie
+##   (PhotoArchive) groupées par date, plus récentes en haut ; la photo choisie à droite (date, point survolé, altitude,
+##   emprise), agrandie au clic (ou Entrée). Pendant une mission photo de campagne (CampaignDirector.can_send_photo),
+##   bouton « Envoyer au sol » (liaison radio requise) : « Photo bien reçue… évaluation en cours… », puis la note de
+##   la photo et son verdict (CampaignDirector.photo_evaluated) ; échéance dépassée : mission échouée, 0/20 ;
 ## - F1 : aide ; F2 : choix du canal (fenêtre) ; F10 : quitter la vue (quit_requested). Flèches : message (ou canal)
 ##   précédent / suivant ; chiffres : envoyer la réponse correspondante ; Entrée : valider le canal ; Échap : fermer
 ##   une fenêtre. Tout se fait aussi à la souris (clic sur un message, une réponse, une touche de la barre).
@@ -33,7 +38,8 @@ const LIGHT_CYAN := Color(0.333, 1.0, 1.0)
 const LIGHT_GREEN := Color(0.333, 1.0, 0.333)
 const LIGHT_RED := Color(1.0, 0.333, 0.333)
 
-enum Overlay { NONE, HELP, CHANNEL }
+enum Overlay { NONE, HELP, CHANNEL, PHOTO }
+enum Mode { MESSAGES, GALLERY }
 
 var radio: RadioComms
 
@@ -58,6 +64,17 @@ var _status_color := WHITE
 var _status_until := 0.0
 var _clock := 0.0
 var _blink := true
+var _mode := Mode.MESSAGES
+## Galerie : photo choisie (id, 0 : aucune), défilement de la liste, état de l'envoi (texte, couleur ; affiché sous la
+## photo jusqu'au suivant), image affichée et sa place à l'écran (pixels ; dessinée après le texte).
+var _photo_id := 0
+var _gallery_scroll := 0
+var _photo_status := ""
+var _photo_status_color := WHITE
+var _image: Texture2D
+var _image_rect := Rect2()
+var _photos: PhotoArchive
+var _director: CampaignDirector
 
 
 func _ready() -> void:
@@ -106,6 +123,8 @@ func _draw() -> void:
 		if c != " " and c != "":
 			var at := Vector2(i % COLS, floori(float(i) / COLS)) * _cell + Vector2(0.0, _ascent)
 			draw_char(_font, at, c, _font_size, _fg[i])
+	if _image and _image_rect.has_area():
+		draw_texture_rect(_image, _image_rect, false)
 
 
 # --- Entrées --------------------------------------------------------------------------------------------------------
@@ -139,6 +158,8 @@ func handle_key(key: InputEventKey) -> bool:
 			_overlay = Overlay.NONE if _overlay == Overlay.HELP else Overlay.HELP
 		KEY_F2:
 			_toggle_channels()
+		KEY_F5:
+			_toggle_gallery()
 		KEY_F10:
 			quit_requested.emit()
 		KEY_ESCAPE:
@@ -148,17 +169,21 @@ func handle_key(key: InputEventKey) -> bool:
 			var step := -1 if key.keycode == KEY_UP else 1
 			if _overlay == Overlay.CHANNEL:
 				_channel_cursor = wrapi(_channel_cursor + step, 0, RadioComms.CHANNELS.size())
+			elif _mode == Mode.GALLERY:
+				_move_photo(step)
 			else:
 				_move_selection(step)
 		KEY_ENTER, KEY_KP_ENTER:
 			if _overlay == Overlay.CHANNEL:
 				_choose_channel(_channel_cursor)
+			elif _mode == Mode.GALLERY and _overlay == Overlay.NONE and _photo_id > 0:
+				_overlay = Overlay.PHOTO
 			else:
 				used = false
 		_:
 			var digit := key.keycode - KEY_1 if key.keycode >= KEY_1 and key.keycode <= KEY_9 else \
 					(key.keycode - KEY_KP_1 if key.keycode >= KEY_KP_1 and key.keycode <= KEY_KP_9 else -1)
-			if digit >= 0 and _overlay == Overlay.NONE:
+			if digit >= 0 and _overlay == Overlay.NONE and _mode == Mode.MESSAGES:
 				_send_reply(digit)
 			else:
 				used = false
@@ -220,6 +245,101 @@ func _set_status(text: String, color: Color) -> void:
 	_status_until = _clock + 4.0
 
 
+# --- Galerie --------------------------------------------------------------------------------------------------------
+
+func _set_mode(mode: Mode) -> void:
+	_mode = mode
+	_overlay = Overlay.NONE
+	if mode == Mode.GALLERY and _photo_id == 0:
+		var photos := _sorted_photos()
+		if not photos.is_empty():
+			_photo_id = int(photos[0].id)
+
+
+func _toggle_gallery() -> void:
+	_set_mode(Mode.MESSAGES if _mode == Mode.GALLERY else Mode.GALLERY)
+
+
+## Photos de la partie, plus récentes en premier (vide sans archive).
+func _sorted_photos() -> Array[Dictionary]:
+	if _photos == null:
+		_photos = get_tree().get_first_node_in_group(PhotoArchive.GROUP) as PhotoArchive
+		if _photos:
+			_photos.photo_taken.connect(func(_photo: Dictionary) -> void: queue_redraw())
+			_photos.restored.connect(func() -> void:
+				_photo_id = 0
+				queue_redraw())
+	var photos: Array[Dictionary] = []
+	if _photos:
+		photos.assign(_photos.photos)
+	photos.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.utc_unix) > float(b.utc_unix))
+	return photos
+
+
+func _find_photo(photo_id: int) -> Dictionary:
+	for photo in _sorted_photos():
+		if int(photo.id) == photo_id:
+			return photo
+	return {}
+
+
+func _move_photo(step: int) -> void:
+	var photos := _sorted_photos()
+	if photos.is_empty():
+		return
+	var index := photos.find(_find_photo(_photo_id))
+	index = clampi(0 if index < 0 else index + step, 0, photos.size() - 1)
+	_photo_id = int(photos[index].id)
+
+
+## Directeur de campagne (mode campagne seulement : null sinon), abonné une fois à l'envoi des photos.
+func _get_director() -> CampaignDirector:
+	if _director == null:
+		var director := get_tree().get_first_node_in_group(CampaignDirector.GROUP) as CampaignDirector
+		if director == null or not director.is_active():
+			return null
+		_director = director
+		_director.photo_received.connect(func(_sent_id: int) -> void:
+			_set_photo_status(tr("COMM_PHOTO_RECEIVED"), YELLOW))
+		_director.photo_evaluated.connect(_on_photo_evaluated)
+		_director.mission_finished.connect(func(_mission: String, result: Dictionary) -> void:
+			if result.get("expired", false):
+				_set_photo_status(tr("COMM_PHOTO_EXPIRED"), LIGHT_RED))
+	return _director
+
+
+func _can_send_photo() -> bool:
+	var director := _get_director()
+	return director != null and director.can_send_photo() and _photo_id > 0
+
+
+## « Envoyer au sol » : il faut la liaison radio ; la suite vient du directeur (photo_received, photo_evaluated).
+func _send_photo() -> void:
+	if not _can_send_photo():
+		return
+	if radio.link <= 0.0:
+		_set_photo_status(tr("COMM_PHOTO_NO_LINK"), LIGHT_RED)
+		return
+	_director.send_photo(_find_photo(_photo_id))
+
+
+func _on_photo_evaluated(evaluation: Dictionary) -> void:
+	if evaluation.expired:
+		_set_photo_status(tr("COMM_PHOTO_EXPIRED"), LIGHT_RED)
+		return
+	var key := "COMM_PHOTO_INVALID"
+	if evaluation.valid:
+		key = "COMM_PHOTO_VALID" if evaluation.complete else "COMM_PHOTO_VALID_MORE"
+	_set_photo_status(tr(key).format({"score": "%.1f" % float(evaluation.score)}),
+			LIGHT_GREEN if evaluation.valid else LIGHT_RED)
+
+
+func _set_photo_status(text: String, color: Color) -> void:
+	_photo_status = text
+	_photo_status_color = color
+	queue_redraw()
+
+
 # --- Composition de l'écran -----------------------------------------------------------------------------------------
 
 func _compose() -> void:
@@ -232,8 +352,14 @@ func _compose() -> void:
 	_put(SPLIT, 22, "╧", LIGHT_CYAN, BLUE)
 	for row in range(3, 22):
 		_put(SPLIT, row, "│", LIGHT_CYAN, BLUE)
-	_message_list()
-	_message_view()
+	_image = null
+	_image_rect = Rect2()
+	if _mode == Mode.GALLERY:
+		_gallery_list()
+		_gallery_view()
+	else:
+		_message_list()
+		_message_view()
 	if _clock < _status_until:
 		_put(1, 23, _fit(_status, COLS - 2), _status_color, BLUE)
 	_key_bar()
@@ -243,11 +369,22 @@ func _compose() -> void:
 			_help_window()
 		Overlay.CHANNEL:
 			_channel_window()
+		Overlay.PHOTO:
+			_photo_window()
 
 
 func _menu_bar() -> void:
 	_fill(Rect2i(0, 0, COLS, 1), " ", BLACK, CYAN)
 	_put(1, 0, "COMM.EXE  v1.2", BLACK, CYAN)
+	# Menus : Messages, Galerie (le menu ouvert en surbrillance).
+	var x := 17
+	for entry: Array in [[Mode.MESSAGES, "COMM_MENU_MESSAGES"], [Mode.GALLERY, "COMM_MENU_GALLERY"]]:
+		var label := " %s " % tr(entry[1])
+		var open: bool = _mode == entry[0]
+		_put(x, 0, label, WHITE if open else BLACK, BLACK if open else CYAN)
+		var mode: Mode = entry[0]
+		_zones.append([Rect2i(x, 0, label.length(), 1), func() -> void: _set_mode(mode)])
+		x += label.length() + 1
 	var clock := Time.get_datetime_string_from_unix_time(int(radio.now_unix()), true) + " UTC"
 	_put(COLS - 1 - clock.length(), 0, clock, BLACK, CYAN)
 
@@ -353,10 +490,12 @@ func _message_view() -> void:
 
 func _key_bar() -> void:
 	# Libellés de 6 caractères au plus (9 premières touches), 6 pour F10.
-	var keys := {1: "COMM_KEY_HELP", 2: "COMM_KEY_CHANNEL", 10: "COMM_KEY_QUIT"}
+	var keys := {1: "COMM_KEY_HELP", 2: "COMM_KEY_CHANNEL",
+			5: "COMM_KEY_INBOX" if _mode == Mode.GALLERY else "COMM_KEY_GALLERY", 10: "COMM_KEY_QUIT"}
 	var actions := {
 		1: func() -> void: _overlay = Overlay.NONE if _overlay == Overlay.HELP else Overlay.HELP,
 		2: _toggle_channels,
+		5: _toggle_gallery,
 		10: func() -> void: quit_requested.emit(),
 	}
 	_fill(Rect2i(0, 24, COLS, 1), " ", BLACK, BLACK)
@@ -375,7 +514,7 @@ func _key_bar() -> void:
 
 
 func _help_window() -> void:
-	var box := Rect2i(14, 5, 52, 15)
+	var box := Rect2i(10, 3, 60, 19)
 	_window(box, tr("COMM_KEY_HELP"))
 	var row := box.position.y + 2
 	for line in _wrap(tr("COMM_HELP_TEXT"), box.size.x - 4):
@@ -406,6 +545,106 @@ func _channel_window() -> void:
 		_put(box.position.x + 2, row, text, fg, bg)
 		var index := k
 		_zones.append([Rect2i(box.position.x + 1, row, box.size.x - 2, 1), func() -> void: _choose_channel(index)])
+
+
+func _gallery_list() -> void:
+	var photos := _sorted_photos()
+	_put(2, 3, _fit("%s (%d)" % [tr("COMM_MENU_GALLERY").to_upper(), photos.size()], SPLIT - 3), YELLOW, BLUE)
+	if photos.is_empty():
+		var empty_row := 5
+		for line in _wrap(tr("COMM_GALLERY_EMPTY"), SPLIT - 3):
+			_put(2, empty_row, line, GREY, BLUE)
+			empty_row += 1
+		return
+	# Lignes : date (en-tête), puis ses photos ; la liste suit la photo choisie.
+	var lines: Array[Dictionary] = []
+	var date := ""
+	var selected_line := 0
+	for photo in photos:
+		var day := Time.get_date_string_from_unix_time(int(photo.utc_unix))
+		if day != date:
+			date = day
+			lines.append({"date": day})
+		if int(photo.id) == _photo_id:
+			selected_line = lines.size()
+		lines.append({"photo": photo})
+	var rows := 17
+	_gallery_scroll = clampi(_gallery_scroll, maxi(0, selected_line - rows + 1), selected_line)
+	for line in range(_gallery_scroll, mini(lines.size(), _gallery_scroll + rows)):
+		var row := 5 + line - _gallery_scroll
+		var entry := lines[line]
+		if entry.has("date"):
+			var header := "─ %s " % entry.date
+			_put(1, row, header + "─".repeat(SPLIT - 1 - header.length()), LIGHT_CYAN, BLUE)
+			continue
+		var photo: Dictionary = entry.photo
+		var chosen := int(photo.id) == _photo_id
+		var fg := BLACK if chosen else WHITE
+		var bg := CYAN if chosen else BLUE
+		var hour := Time.get_time_string_from_unix_time(int(photo.utc_unix)).substr(0, 5)
+		var text := "%s%s %s" % ["►" if chosen else " ", hour, GeoMath.format_lat_lon(photo.lat, photo.lon)]
+		_fill(Rect2i(1, row, SPLIT - 1, 1), " ", fg, bg)
+		_put(1, row, _fit(text, SPLIT - 1), fg, bg)
+		var id := int(photo.id)
+		_zones.append([Rect2i(1, row, SPLIT - 1, 1), func() -> void: _photo_id = id])
+
+
+func _gallery_view() -> void:
+	var left := SPLIT + 2
+	var width := COLS - 2 - left
+	var photo := _find_photo(_photo_id)
+	if photo.is_empty():
+		return
+	var stamp := Time.get_datetime_string_from_unix_time(int(photo.utc_unix), true) + " UTC"
+	_put(left, 3, tr("COMM_PHOTO_TITLE").format({"n": photo.id}).to_upper(), YELLOW, BLUE)
+	_put(COLS - 2 - stamp.length(), 3, stamp, WHITE, BLUE)
+	var footprint: Vector2 = photo.footprint_km
+	_put(left, 4, _fit(tr("COMM_PHOTO_DETAILS").format({"position": GeoMath.format_lat_lon(photo.lat, photo.lon),
+			"altitude": roundi(float(photo.altitude_km)), "width": roundi(footprint.x),
+			"height": roundi(footprint.y)}), width), WHITE, BLUE)
+	_put(left, 5, "─".repeat(width), LIGHT_CYAN, BLUE)
+	# Photo : rangées 6 à 17, centrée ; un clic l'agrandit.
+	var area := _place_image(photo.texture, Rect2i(left, 6, width, 12))
+	_zones.append([area, func() -> void: _overlay = Overlay.PHOTO])
+	if _can_send_photo():
+		var label := "[ %s ]" % tr("COMM_PHOTO_SEND").to_upper()
+		var x := left + floori((width - label.length()) * 0.5)
+		_put(x, 18, label, BLACK, LIGHT_GREEN)
+		_zones.append([Rect2i(x, 18, label.length(), 1), _send_photo])
+	else:
+		_put(left, 18, _fit(tr("COMM_PHOTO_ENLARGE"), width), GREY, BLUE)
+	var row := 19
+	for line in _wrap(_photo_status, width):
+		if row > 21:
+			break
+		_put(left, row, line, _photo_status_color, BLUE)
+		row += 1
+
+
+## Photo choisie agrandie, sur presque tout l'écran ; un clic ou Échap la ferme.
+func _photo_window() -> void:
+	var photo := _find_photo(_photo_id)
+	if photo.is_empty():
+		_overlay = Overlay.NONE
+		return
+	var box := Rect2i(1, 1, COLS - 2, ROWS - 2)
+	_window(box, tr("COMM_PHOTO_TITLE").format({"n": photo.id}))
+	_place_image(photo.texture, Rect2i(box.position.x + 1, box.position.y + 1, box.size.x - 2, box.size.y - 2))
+	_zones.append([Rect2i(0, 0, COLS, ROWS), func() -> void: _overlay = Overlay.NONE])
+
+
+## Image dans un cadre de cases (fond noir), à ses proportions, centrée ; dessinée par _draw. Rend les cases couvertes.
+func _place_image(texture: Texture2D, cells: Rect2i) -> Rect2i:
+	_fill(cells, " ", BLACK, BLACK)
+	if texture == null:
+		return cells
+	var frame := Rect2(Vector2(cells.position) * _cell, Vector2(cells.size) * _cell)
+	var image_size := texture.get_size()
+	var fit := minf(frame.size.x / image_size.x, frame.size.y / image_size.y)
+	var shown := image_size * fit
+	_image = texture
+	_image_rect = Rect2(frame.position + (frame.size - shown) * 0.5, shown)
+	return cells
 
 
 ## Fenêtre grise à cadre double blanc, titre centré, ombre noire.

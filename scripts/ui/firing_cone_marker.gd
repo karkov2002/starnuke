@@ -56,6 +56,7 @@ func _ready() -> void:
 		return
 	_mesh = MeshInstance3D.new()
 	_mesh.name = "FiringConeMarker"
+	_mesh.layers = Hud.OVERLAY_LAYER
 	_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_mesh.visible = shown
 	# Tri des objets transparents : après les nuages et l'atmosphère (qui sinon le recouvrent).

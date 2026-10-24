@@ -84,7 +84,7 @@ func _ready() -> void:
 	var campaign := CampaignData.parse(Campaigns.read(Campaigns.OFFICIAL))
 	_record["planner/timeline"] = MissionPlanner.timeline(campaign)
 	var state := MissionPlanner.state_of(orbit)
-	var objectives: Array = campaign.mission("test_kourou").objectives
+	var objectives: Array = campaign.mission("test_rivne").objectives
 	var started := Time.get_ticks_usec()
 	_record["planner/earliest"] = MissionPlanner.earliest(state, objectives, 0.0, 6.0 * 3600.0)
 	var cost_ms := (Time.get_ticks_usec() - started) / 1000.0

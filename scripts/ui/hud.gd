@@ -15,6 +15,9 @@ extends CanvasLayer
 signal overlay_changed(enabled: bool)
 
 const GROUP := &"hud"
+## Calque de rendu de la surimpression 3D (cibles, cône de tir, orbite visée) : vue par la caméra et par la vue au
+## nadir en direct de la tablette, jamais par une photo (NadirCamera.capture_photo l'exclut).
+const OVERLAY_LAYER := 1 << 17
 const FADE_S := 0.5
 const AimReticleScript := preload("res://nuke/aim_reticle.gd")
 

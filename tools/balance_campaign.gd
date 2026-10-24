@@ -11,8 +11,9 @@ extends SceneTree
 ##   delay_orbits (en orbites) ;
 ## - pour chaque objectif : à chaque passage, il le manque avec la probabilité miss (pas prêt) ; sinon, son écart au
 ##   sol suit une loi demi-normale d'écart type sigma_km (photo : point sous la station ; tir : impact) ; un écart au
-##   moins égal à la tolérance ne compte pas. Chaque passage manqué ou raté coûte une orbite ;
-## - au-delà de l'échéance, les objectifs restants valent 0 ; note = précision pondérée × facteur temps
+##   moins égal à la tolérance ne compte pas, ni une photo de précision inférieure à success_score (photo invalide :
+##   il la reprend au passage suivant). Chaque passage manqué ou raté coûte une orbite ;
+## - mission incomplète à l'échéance : échouée, note 0 ; sinon note = précision pondérée × facteur temps
 ##   (MissionScoring), réussite si ≥ success_score.
 ## Note de la campagne d'un tirage : moyenne de ses missions (comme CampaignSession.global_score). Les profils sont des
 ## estimations à recaler avec les journaux de vraies parties (user://logs, scripts/campaign_journal.gd) : retards
@@ -124,6 +125,7 @@ func _simulate(mission: Dictionary, row: Dictionary, profile: Dictionary, defaul
 		return 0.0
 	var limit: float = row.deadline_s
 	var t: float = row.earliest_s + _rng.randf_range(profile.delay_orbits[0], profile.delay_orbits[1]) * row.period_s
+	var success := float(defaults.get("success_score", 10.0))
 	var precisions := []
 	for objective: Dictionary in objectives:
 		var tolerance := MissionScoring.tolerance_km(objective, defaults)
@@ -131,11 +133,14 @@ func _simulate(mission: Dictionary, row: Dictionary, profile: Dictionary, defaul
 		while t <= limit:
 			if _rng.randf() >= profile.miss:
 				var d := absf(_rng.randfn(0.0, profile.sigma_km[objective.type]))
-				if d < tolerance:
-					precision = MissionScoring.precision(d, tolerance)
+				var candidate := MissionScoring.precision(d, tolerance) if d < tolerance else 0.0
+				if d < tolerance and (objective.type != "photo" or candidate >= success):
+					precision = candidate
 					break
 			t += row.period_s
 		precisions.append(precision)
+		if is_nan(precision):
+			return 0.0
 	var weights: Array = objectives.map(func(o: Dictionary) -> float: return float(o.get("weight", 1.0)))
 	var factor := MissionScoring.time_factor(minf(t, limit), row.par_s, row.deadline_s,
 			float(defaults.get("time_floor", 0.6)))

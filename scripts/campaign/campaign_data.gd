@@ -13,7 +13,7 @@ extends RefCounted
 ##                "tolerance_km": {"photo": 40, "strike": 15}, "time_floor": 0.6, "briefing_delay_minutes": 30},
 ##   "days": [ {"id": "d1", "start": DÉPART (facultatif ; orbit facultatif : saut dans le temps),
 ##              "wake_up_utc": "06:00" (facultatif, sans start),
-##              "missions": [ {"mission": ID, "when": CONDITION (facultatif), "briefing_utc": "07:30" (facultatif)} … ],
+##              "missions": [ {"mission": ID, "when": CONDITION (facultatif), "briefing_utc": "07:30" (facultatif ; ou "07:30:15")} … ],
 ##              "debrief": [ MESSAGE … ] (facultatif) } … ],
 ##   "missions": { ID: {"title", "objective", "description": TEXTE, "from": TEXTE (facultatif),
 ##                      "channel": entier (facultatif), "deadline_hours": >= 0, "deadline_minutes": 0–59 (facultatif ; total > 0),
@@ -109,16 +109,17 @@ static func next_clock_unix(clock: String, now_unix: float) -> float:
 	return time + (86400.0 if time <= now_unix else 0.0)
 
 
-## Secondes depuis minuit d'une heure « HH:MM » ; NAN si illisible (_is_clock).
+## Secondes depuis minuit d'une heure « HH:MM » ou « HH:MM:SS » ; NAN si illisible (_is_clock).
 static func clock_s(text: String) -> float:
 	var parts := text.split(":")
-	if parts.size() != 2 or not parts[0].is_valid_int() or not parts[1].is_valid_int():
+	if parts.size() < 2 or parts.size() > 3 or not Array(parts).all(func(p: String) -> bool: return p.is_valid_int()):
 		return NAN
 	var hours := int(parts[0])
 	var minutes := int(parts[1])
-	if hours < 0 or hours >= 24 or minutes < 0 or minutes >= 60:
+	var seconds := int(parts[2]) if parts.size() == 3 else 0
+	if hours < 0 or hours >= 24 or minutes < 0 or minutes >= 60 or seconds < 0 or seconds >= 60:
 		return NAN
-	return hours * 3600.0 + minutes * 60.0
+	return hours * 3600.0 + minutes * 60.0 + seconds
 
 
 # --- Règles de temps d'une mission (CampaignDirector en partie, MissionPlanner.timeline pour les outils : une seule
@@ -249,7 +250,7 @@ func _validate() -> void:
 					if entry.has("when"):
 						_check_condition(entry.when, "%s.missions[%d].when" % [where, m])
 					if entry.has("briefing_utc") and not _is_clock(str(entry.briefing_utc)):
-						_error("%s.missions[%d].briefing_utc : heure « HH:MM » attendue" % [where, m])
+						_error("%s.missions[%d].briefing_utc : heure « HH:MM » ou « HH:MM:SS » attendue" % [where, m])
 		_check_messages(day.get("debrief", []), where + ".debrief")
 	_check_messages(data.get("ending", []), "ending")
 
