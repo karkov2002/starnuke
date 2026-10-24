@@ -24,7 +24,7 @@ l'intersection des plans), précession J2 de Ω ; l'orbite reste circulaire. Rap
 Tablette (touche Tab) : `Observer/Camera/Tablet` (`scripts/player/tablet.gd`, interface `scripts/ui/tablet_display.gd` : onglets Pilotage, Photographie (`scripts/ui/photo_page.gd` : vue au nadir `NadirCamera` `scripts/player/nadir_camera.gd`, photos satellites `scripts/player/photo_archive.gd` nœud `Photos`, PNG dans `user://photos/`, galerie), Tir de missile, Alertes (`scripts/ui/alerts_page.gd` : récepteur de l'appel prioritaire, niveau d'alerte de la station), bouton HUD On/Off (`Hud.overlay_enabled`) ; date,
 carte réduite, BURN, silos et tir), modèle `assets/tablet/tablet.glb` produit par `tools/blender/build_tablet.py`
 (Blender en arrière-plan, `E:\Blender\tablette.blend` ; main MakeHuman via l'extension MPFB2, textures CC0 dans
-`assets/makehuman/`, `.gdignore` ; mettre au point dans Blender et faire valider avant d'exporter). Interface à l'écran : `Hud` (`scripts/ui/hud.gd` : barre de
+`assets/makehuman/`, `.gdignore` ; main gantée quand la combinaison du sas est portée ; mettre au point dans Blender et faire valider avant d'exporter). Interface à l'écran : `Hud` (`scripts/ui/hud.gd` : barre de
 vitesse du temps toujours visible, réticule dans la cupola). Date, heure et redémarrage : panneau de debug F4. README, « Tablette ».
 Règle : **tous les textes du jeu sont dans les fichiers de langue** `locale/strings.csv` (interface) et `locale/countries.csv`
 (noms de pays, `tools/build_country_names.gd`) et `locale/credits.csv` (écran Crédits : références et licences), 5 langues (en, fr, es, de, it ; anglais par défaut). Jamais de texte

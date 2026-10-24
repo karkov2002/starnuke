@@ -402,7 +402,12 @@ axe pour laisser voir l'ongle (sinon le pouce paraissait coupé) ; la tablette (
 tenir dans l'ouverture de la main) est centrée entre le pouce et les doigts (contact à 0,3 mm près). `Manche` :
 avant-bras dans la manche bleu marine d'une combinaison de vol, dans l'axe de l'avant-bras, hors du champ. La main arrive et repart
 avec la tablette ; sortie, **seul le pouce reste visible** (la paume est derrière, le poignet et le bras sous le bas
-de la vue).
+de la vue). **Combinaison du sas portée** (règle de jeu ; `Tablet._set_gloved`, `Station.suit_changed`) : la main
+nue et sa manche sont remplacées par la **main gantée** — `Gant_Droit` (la même main, lissée pour effacer le relief
+des phalanges puis gonflée de 4,5 mm : tissu épais, gonflement et lissage nuls au contact de la tablette, entiers à
+8 mm de sa surface, pour que la paume ne traverse pas l'écran et que le pouce reste sur la bordure), `Gant_Bague`
+(bague de poignet métallique) et `Manche_Combinaison` (manche blanche) ; aperçus de la variante gantée (`_gant_joueur`,
+`_gant_pouce`, `_gant_dos`). Sonde : `tools/bench/console_probe.tscn`.
 
 - **Nœud `Observer/Camera/Tablet`** (`scripts/player/tablet.gd`) : enfant de la caméra, il suit la vue. Sortie, elle est
   **en bas à droite** de la vue (pas centrée) : 42 % de la hauteur de la vue (`view_fill` ; cadrage calculé d'après

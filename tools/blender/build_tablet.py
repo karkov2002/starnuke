@@ -312,6 +312,46 @@ sleeve_points = [(wrist_at + arm_dir * d, (r, r * 0.85)) for d, r in [(0.035, 0.
                                                                      (0.32, 0.043)]]
 sleeve = skin_object("Manche", sleeve_points, [(0, 1), (1, 2), (2, 3)], sleeve_mat, levels=2)
 
+# Variante « combinaison » (montrée par Godot à la place de la main nue quand la combinaison du sas est portée :
+# Tablet) : gant blanc de la combinaison (la même main, lissée pour effacer le relief des phalanges et des
+# articulations, puis gonflée de GLOVE_THICK le long des normales : tissu épais, doigts boudinés), bague de poignet
+# métallique (raccord gant-manche) et manche blanche, plus large que celle de la combinaison de vol.
+GLOVE_THICK = 0.0045
+GLOVE_SMOOTH = (6, 0.8)    # lissage laplacien (itérations, facteur), volume conservé
+# Au contact de la tablette, le tissu est comprimé : gonflement et lissage nuls contre elle, entiers à GLOVE_FREE (m)
+# de sa surface (sinon la paume traversait l'écran près de la tranche et le pouce se décollait de la bordure).
+GLOVE_FREE = 0.008
+glove_mat = material("Gant_Tissu", (0.80, 0.82, 0.86), 0.0, 0.78)
+ring_mat = material("Gant_Bague", (0.62, 0.64, 0.67), 1.0, 0.28)
+suit_sleeve_mat = material("Gant_Manche", (0.86, 0.86, 0.85), 0.0, 0.85)
+glove = bpy.data.objects.new("Gant_Droit", hand_mesh.copy())
+bpy.context.collection.objects.link(glove)
+glove.data.materials.clear()
+glove.data.materials.append(glove_mat)
+free = glove.vertex_groups.new(name="Gant_Libre")
+for v in glove.data.vertices:
+    outside = Vector((max(abs(v.co.x) - WIDTH / 2, 0.0), max(abs(v.co.y) - BACK, 0.0), max(abs(v.co.z) - HEIGHT / 2, 0.0)))
+    t = min(outside.length / GLOVE_FREE, 1.0)
+    free.add([v.index], t * t * (3 - 2 * t), 'REPLACE')
+smooth = glove.modifiers.new("Gant_Lisse", 'LAPLACIANSMOOTH')
+smooth.iterations, smooth.lambda_factor = GLOVE_SMOOTH
+smooth.use_volume_preserve = True
+smooth.use_normalized = True
+smooth.vertex_group = "Gant_Libre"
+puff = glove.modifiers.new("Epaisseur", 'DISPLACE')
+puff.strength = GLOVE_THICK
+puff.mid_level = 0.0
+puff.vertex_group = "Gant_Libre"
+glove.modifiers.new("Lissage", 'SUBSURF').levels = 1
+ring_points = [(wrist_at + arm_dir * d, (r, r)) for d, r in [(0.028, 0.041), (0.046, 0.041)]]
+ring = skin_object("Gant_Bague", ring_points, [(0, 1)], ring_mat, levels=1)
+suit_sleeve_points = [(wrist_at + arm_dir * d, (r, r * 0.9)) for d, r in [(0.044, 0.044), (0.1, 0.05), (0.2, 0.054),
+                                                                           (0.32, 0.056)]]
+suit_sleeve = skin_object("Manche_Combinaison", suit_sleeve_points, [(0, 1), (1, 2), (2, 3)], suit_sleeve_mat,
+                          levels=2)
+BARE = (hand, sleeve)
+SUITED = (glove, ring, suit_sleeve)
+
 bpy.ops.wm.save_as_mainfile(filepath=BLEND)
 if GLB != "-":  # « - » : fichier .blend et aperçus seulement (mise au point dans Blender)
     bpy.ops.export_scene.gltf(filepath=GLB, export_format='GLB', export_apply=True, export_yup=True,
@@ -319,6 +359,8 @@ if GLB != "-":  # « - » : fichier .blend et aperçus seulement (mise au point 
                               export_materials='EXPORT', export_draco_mesh_compression_enable=False)
 
 if PREVIEW:
+    for o in SUITED:  # aperçus de la main nue d'abord
+        o.hide_render = True
     scene = bpy.context.scene
     world = bpy.data.worlds.new("Apercu")
     world.use_nodes = True
@@ -358,6 +400,19 @@ if PREVIEW:
     for suffix, location, target in [("_joueur", (-0.12, -0.42, 0.12), (0.03, 0.0, -0.02)),
                                      ("_cote", (0.40, -0.06, -0.03), (0.13, 0.0, -0.05)),
                                      ("_pouce", (0.03, -0.16, 0.06), (0.135, 0.0, -0.05))]:
+        camera.location = location
+        direction = Vector(target) - camera.location
+        camera.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
+        scene.render.filepath = PREVIEW.replace(".png", suffix + ".png")
+        bpy.ops.render.render(write_still=True)
+    # Variante combinaison (gant, bague, manche blanche) : vues du joueur, du pouce et de dos.
+    for o in BARE:
+        o.hide_render = True
+    for o in SUITED:
+        o.hide_render = False
+    for suffix, location, target in [("_gant_joueur", (-0.12, -0.42, 0.12), (0.03, 0.0, -0.02)),
+                                     ("_gant_pouce", (0.03, -0.16, 0.06), (0.135, 0.0, -0.05)),
+                                     ("_gant_dos", (0.42, 0.38, -0.22), (0.06, 0.0, -0.05))]:
         camera.location = location
         direction = Vector(target) - camera.location
         camera.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()

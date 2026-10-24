@@ -262,6 +262,16 @@ func _check_tablet(view: Node) -> void:
 	var on_tablet := view_camera.unproject_position(body.global_transform * body.get_aabb().get_center())
 	_check(Tablet.covers_pointer(get_tree(), on_tablet) and not Tablet.covers_pointer(get_tree(), Vector2(10, 10)),
 			"tablette sous le pointeur détectée (coque), pas ailleurs")
+	# Combinaison du sas portée : main gantée (gant, bague, manche blanche) à la place de la main nue.
+	var model: Node3D = tablet.get("_model")
+	var hand_shown := func() -> Array[bool]:
+		return [(model.find_child("Main_Droite", true, false) as Node3D).is_visible_in_tree(),
+				(model.find_child("Gant_Droit", true, false) as Node3D).is_visible_in_tree()]
+	_check(hand_shown.call() == [true, false], "main nue sans la combinaison")
+	station.set_suit_worn(true)
+	_check(hand_shown.call() == [false, true], "main gantée avec la combinaison")
+	station.set_suit_worn(false)
+	_check(hand_shown.call() == [true, false], "main nue, combinaison ôtée")
 	display.show_tab(TabletDisplay.Tab.PHOTO)
 	# Deux images : la tablette active la vue au nadir dans son _process, après le signal process_frame.
 	await get_tree().process_frame

@@ -25,6 +25,10 @@ const GROUP := &"tablet"
 const MODEL := preload("res://assets/tablet/tablet.glb")
 const SCREEN_NODE := "Ecran_Tablette"
 const BODY_NODE := "Tablette_Coque"
+## Main qui tient la tablette : nue (combinaison de vol) ou gantée quand la combinaison du sas est portée
+## (Station.suit_changed) : gant blanc, bague de poignet et manche de la combinaison (tools/blender/build_tablet.py).
+const BARE_HAND_NODES: Array[String] = ["Main_Droite", "Manche"]
+const GLOVED_HAND_NODES: Array[String] = ["Gant_Droit", "Gant_Bague", "Manche_Combinaison"]
 ## Hauteur de l'image de l'interface (pixels) : proche de la taille affichée, pour garder un texte lisible.
 const VIEWPORT_HEIGHT := 560
 ## Échelle de la tablette (et de sa distance à l'œil) : voir _update_pose.
@@ -103,11 +107,13 @@ func _ready() -> void:
 		_previous_view = _camera.global_basis.orthonormalized()
 	_console = get_node_or_null(pilot_console_path) as PilotConsole
 	_connect_seats.call_deferred()
+	_connect_suit.call_deferred()
 	_model = MODEL.instantiate()
 	add_child(_model)
 	for mesh_instance: MeshInstance3D in _model.find_children("*", "MeshInstance3D", true, false):
 		mesh_instance.layers |= Station.INTERIOR_LAYER
 		mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_set_gloved(false)
 	var body := _model.find_child(BODY_NODE, true, false) as MeshInstance3D
 	_body = body
 	if body:
@@ -197,6 +203,24 @@ func covers(screen_pos: Vector2) -> bool:
 static func covers_pointer(tree: SceneTree, screen_pos: Vector2) -> bool:
 	var tablet := tree.get_first_node_in_group(GROUP) as Tablet
 	return tablet != null and tablet.covers(screen_pos)
+
+
+## Combinaison du sas portée : main gantée.
+func _connect_suit() -> void:
+	var station := get_tree().get_first_node_in_group(Station.GROUP) as Station
+	if station:
+		station.suit_changed.connect(_set_gloved)
+		_set_gloved(station.is_suit_worn())
+
+
+## Main nue ou gantée (un modèle sans gant, ancien tablet.glb, garde la main nue).
+func _set_gloved(gloved: bool) -> void:
+	gloved = gloved and _model.find_child(GLOVED_HAND_NODES[0], true, false) != null
+	for names: Array[String] in [BARE_HAND_NODES, GLOVED_HAND_NODES]:
+		for node_name in names:
+			var part := _model.find_child(node_name, true, false) as Node3D
+			if part:
+				part.visible = gloved == (names == GLOVED_HAND_NODES)
 
 
 # Tablette sortie : la souris sur son écran est pour l'interface.
