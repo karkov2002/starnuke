@@ -36,16 +36,20 @@ HULL_Z = -2.10            # dessous de la coque du module Commande (rayon 2,10 m
 CAMERA_X = 14.70          # entre la cupola (x 10,4–13,2) et l'anneau avant (x 16)
 ANTENNA_X = 8.40          # de l'autre côté de la cupola, après la jonction avec l'Habitation (x 7,1)
 PANEL_DX = 0.95           # écart appareil – panneau le long du module
-PANEL_FACING = Vector((-0.55, 0.0, -0.835)).normalized()   # vers le sas et vers le bas
+# Orientation de l'affichage des panneaux : vers le bas et vers le sas (−X) ou vers l'avant du module (+X).
+FACING_AFT = Vector((-0.55, 0.0, -0.835)).normalized()
+FACING_FORE = Vector((0.55, 0.0, -0.835)).normalized()
 SCREEN_MATERIAL = "Ecran_Panneau_EVA"
 
-# objet -> (sorte, origine monde)
+# objet -> (sorte, origine monde[, orientation de l'affichage d'un panneau])
 TARGETS = {
     "Equipement_Camera": ("camera", (CAMERA_X, 0.0, HULL_Z)),
-    "Interactif_Panneau_Camera": ("panneau_camera", (CAMERA_X + PANEL_DX, 0.0, HULL_Z)),
+    # Tourné vers l'avant du module (24/10/2026, demande de l'utilisateur) : vers le sas, il regardait la caméra et
+    # restait inaccessible.
+    "Interactif_Panneau_Camera": ("panneau_camera", (CAMERA_X + PANEL_DX, 0.0, HULL_Z), FACING_FORE),
     "Equipement_Antenne": ("antenne", (ANTENNA_X, 0.0, HULL_Z)),
     # Côté sas : de l'autre côté, il serait collé contre la cupola.
-    "Interactif_Panneau_Antenne": ("panneau_antenne", (ANTENNA_X - PANEL_DX, 0.0, HULL_Z)),
+    "Interactif_Panneau_Antenne": ("panneau_antenne", (ANTENNA_X - PANEL_DX, 0.0, HULL_Z), FACING_AFT),
 }
 COLLECTION = "Module_Commande"
 
@@ -320,13 +324,13 @@ def make_collider(name, parent, size, center):
     return obj
 
 
-# Panneau : centre du dos à 0,22 m sous la coque, affichage tourné vers PANEL_FACING.
+# Panneau : dos au bout de la jambe de force (PANEL_DROP sous la coque), affichage tourné vers facing.
 PANEL_DROP = 0.30
 
 
-def panel_matrix_local():
+def panel_matrix_local(facing):
     """Pose du panneau dans le repère de son objet (origine sur la coque)."""
-    n = PANEL_FACING
+    n = facing
     up = Vector((0, 0, 1))
     up = (up - n * up.dot(n)).normalized()
     m = frame_screen((0, 0, 0), n, up)
@@ -335,8 +339,8 @@ def panel_matrix_local():
     return m
 
 
-def build_panel_with_strut(b, screen_mat):
-    pm = panel_matrix_local()
+def build_panel_with_strut(b, screen_mat, facing):
+    pm = panel_matrix_local(facing)
     sub = Builder(b.mats)
     build_panel(sub, screen_mat)
     # Fusion : pièces du panneau transformées dans le repère de l'objet.
@@ -359,7 +363,8 @@ def apply():
     assert bpy.data.filepath.lower().endswith("nuke_station.blend"), "ouvrir E:\\Blender\\nuke_station.blend"
     screen = screen_material(demo=False)
     done = {}
-    for name, (kind, origin) in TARGETS.items():
+    for name, (kind, origin, *facing) in TARGETS.items():
+        facing = facing[0] if facing else FACING_AFT
         if kind == "camera":
             obj = make_object(name, build_camera)
             make_collider(name, obj, (0.76, 0.76, 0.95), (0, 0, -0.48))
@@ -367,7 +372,7 @@ def apply():
             obj = make_object(name, build_antenna)
             make_collider(name, obj, (0.30, 0.30, 0.62), (0, 0, -0.31))
         else:
-            obj = make_object(name, build_panel_with_strut, screen)
+            obj = make_object(name, build_panel_with_strut, screen, facing)
             obj["interactif"] = True
             obj["type"] = "panneau_eva"
             obj["materiau_ecran"] = SCREEN_MATERIAL
@@ -485,7 +490,7 @@ def render_views():
             "situation": ((8.0, -7.5, -6.5), (12.0, 0.0, -2.8), 22),
             "camera_34": ((13.0, -2.2, -3.6), (14.75, 0.0, -2.65), 35),
             "camera_dessous": ((14.4, -0.6, -4.6), (14.7, 0.0, -2.7), 30),
-            "panneau_camera": ((13.6, -0.6, -3.4), (15.65, 0.0, -2.45), 35),
+            "panneau_camera": ((17.6, -0.6, -3.6), (15.65, 0.0, -2.45), 35),
             "antenne_34": ((5.2, -3.2, -3.9), (8.4, 0.0, -2.9), 30),
             "panneau_antenne": ((5.6, -0.9, -3.5), (7.45, 0.0, -2.45), 35),
         }

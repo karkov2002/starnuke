@@ -1206,8 +1206,9 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	objectif visible, petit objectif, télémètre à deux pupilles) ;
   - `Equipement_Antenne` (x 8,4, de l'autre côté de la cupola) : antenne log-périodique (deux tubes, dix brins de
 	longueur décroissante) sous un rotateur d'azimut blanc ;
-  - panneaux de maintenance `Interactif_Panneau_Camera` (derrière la caméra) et `Interactif_Panneau_Antenne` (côté
-	sas) : boîtier blanc durci à poignées EVA jaunes sur une jambe de force, écran tourné vers le bas et vers le sas,
+  - panneaux de maintenance `Interactif_Panneau_Camera` (derrière la caméra, écran tourné vers le bas et vers l'avant
+	du module : vers le sas, il regardait la caméra et restait inaccessible) et `Interactif_Panneau_Antenne` (côté sas,
+	écran tourné vers le bas et vers le sas) : boîtier blanc durci à poignées EVA jaunes sur une jambe de force,
 	dalle `Ecran_Panneau_EVA` (extras `type` « panneau_eva », `equipement`, `materiau_ecran`) ;
   - volumes de collision `-convcolonly` (boîtes, exclues des rendus Blender).
 - **Import** (`station_spatiale.glb.import`) : échelle 1 (mètres), racine `StationSpatiale`, collisions par
@@ -1340,7 +1341,9 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	l'espace et le courant s'arrête (il garde la pression qui lui reste). La poussée rejoint le courant en 0,3 s
 	(`flow_response_s`) et retombe en 0,8 s dans l'air calme (`still_air_response_s`) ; contre une paroi, elle glisse
 	le long d'elle (`Observer.set_air_flow`). Dehors (sorti par la porte extérieure : hors de tous les volumes, le
-	dernier étant le sas ; `Station.observer_outside`, flashs et exposition), plus d'air : l'élan est gardé ;
+	dernier étant le sas ; `Station.observer_outside`, flashs et exposition ; **on reste dehors jusqu'au retour par le
+	sas** : les boîtes des volumes dépassent un peu de la coque, autour de la cupola et des jonctions, et les frôler
+	ne fait pas « rentrer » dans un module), plus d'air : l'élan est gardé ;
 	combinaison enfilée, son propulseur dorsal (SAFER) l'amortit en 3 s (`safer_s`) et le joueur peut revenir.
 	Cupola : recoin du module Commande, le courant y vise d'abord l'ouverture vers le module (point de passage de la
 	boîte secondaire). Tests depuis n'importe quel module : boutons « Ouverture totale » / « Fermeture totale » du

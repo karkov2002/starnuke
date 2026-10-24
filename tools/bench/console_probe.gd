@@ -486,3 +486,28 @@ func _check_equipment(view: Node) -> void:
 	antenna.set_powered(true)
 	radio.call("_update_link")
 	_check(radio.antenna_ok, "antenne remise en service")
+	# Dehors jusqu'au retour par le sas : frôler la coque (coin de la boîte d'un volume qui en dépasse) ne fait pas
+	# « rentrer » dans un module (sinon, plus jamais dehors : panneaux inutilisables).
+	var observer := view.get_node("Observer") as CharacterBody3D
+	var eye := observer.get_node("Camera") as Node3D
+	var air := view.get_node("StationAir") as StationAtmosphere
+	var home := observer.global_position
+	var to_eye := eye.global_position - observer.global_position
+	var at := func(blender: Vector3) -> Vector3:
+		return station.to_global(StationLayout.to_godot(blender)) - to_eye
+	station.set_suit_worn(true)
+	observer.global_position = air.zone_center(StationAtmosphere.SAS) - to_eye
+	await _wait(0.1)
+	observer.global_position = at.call(Vector3(-10.1, 0.0, -7.0))
+	await _wait(0.1)
+	_check(station.observer_outside, "sorti par le sas : dehors")
+	observer.global_position = at.call(Vector3(5.8, 1.6, -1.95))
+	await _wait(0.1)
+	_check(air.zone_at(eye.global_position) != "" and station.observer_outside,
+			"coin d'un volume hors de la coque : toujours dehors")
+	observer.global_position = air.zone_center(StationAtmosphere.SAS) - to_eye
+	await _wait(0.1)
+	_check(not station.observer_outside, "rentré par le sas : dedans")
+	observer.global_position = home
+	station.set_suit_worn(false)
+	await _wait(0.1)

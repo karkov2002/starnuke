@@ -9,7 +9,8 @@ extends Node
 ## - **mort** : seulement sans combinaison, dans le vide ou presque (pression du volume sous death_pressure, ou dehors).
 ##   Avec la combinaison, on ne meurt jamais : dehors, son propulseur dorsal amortit l'élan (safer_s) et le joueur peut
 ##   revenir par la porte extérieure.
-## Dehors : sorti du sas par la porte extérieure (hors de tous les volumes, dernier volume : le sas) ; Station
+## Dehors : sorti du sas par la porte extérieure (hors de tous les volumes, dernier volume : le sas), et dehors
+## jusqu'à ce qu'on rentre par le sas (les boîtes des volumes dépassent un peu de la coque) ; Station
 ## .observer_outside (flashs et exposition). Mort : scripts/death_sequence.gd.
 
 @export var station_path: NodePath = ^"../Station/StationSpatiale"
@@ -30,6 +31,8 @@ var _atmosphere: StationAtmosphere
 var _observer: Observer
 ## Dernier volume où était l'observateur (les interstices entre volumes ne comptent pas).
 var _zone := ""
+## Dehors (sorti par la porte extérieure du sas) à l'image précédente.
+var _outside := false
 var _dead := false
 
 
@@ -44,7 +47,13 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	var eye := _eye()
 	var zone := _atmosphere.zone_at(eye)
+	# Dehors, on ne rentre que par le sas : les coins des boîtes des volumes (StationLayout.ZONES) qui dépassent de la
+	# coque (cupola, jonctions) ne comptent pas. Sans cela, frôler la coque faisait « rentrer » l'observateur dans un
+	# module : il n'était plus jamais dehors (panneaux de maintenance inutilisables, flashs, exposition).
+	if _outside and zone != StationAtmosphere.SAS:
+		zone = ""
 	var outside := zone == "" and _zone == StationAtmosphere.SAS
+	_outside = outside
 	if zone != "":
 		_zone = zone
 	elif _zone == "":
