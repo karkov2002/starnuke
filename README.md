@@ -359,6 +359,7 @@ permet de piloter le jeu exporté.
 | Silos | **48 voyants ronds numérotés de 1 à 48** en bas de la tablette, un par tube de lancement, en 2 blocs de 3 × 8 placés comme les deux silos sur la station (vue de dessus, l'avant en haut ; silo 1 à gauche). **Orange** : missile prêt ; clic → **vert** : tube choisi pour le prochain tir (un seul à la fois, nouveau clic pour annuler) ; **gris** : tube vide. **48 missiles en tout**, sans rechargement. Choisir un tube **ouvre sa trappe** (animation Blender) et allume à côté un **gyrophare rouge** à éclats, qui éclaire la trappe et le dessous de la coque ; le tube choisi auparavant referme sa trappe et éteint son gyrophare (de même si on annule le choix). Après le tir, quand le missile a quitté la station, la trappe se referme et le gyrophare s'éteint |
 | Tir nucléaire | **Gros bouton rouge** à droite des silos (tablette), **depuis la cupola seulement** (ailleurs, il est grisé avec « Actif uniquement dans la coupole ») : lance le missile du **tube choisi (vert)** sur le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie sous les silos (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Le point visé et la puissance sont figés à l'appui. Le missile sort de son tube (animation de lancement, 5 s : trappe, descente, allumage), le tube passe au gris, puis le missile tourne vers la cible en accélérant pendant que son moteur brûle (9 s) et part vers la zone d'impact ; moteur éteint, on le perd de vue ; dans les dernières secondes, sa **rentrée atmosphérique** apparaît au-dessus de la cible, comme une étoile filante, puis l'explosion a lieu. **Durée du vol : de 20 s (cible au nadir) à 2 min (cible à l'horizon)**, proportionnelle à la distance (temps de jeu : le vol se fige en pause et s'accélère avec le temps). Un **chronomètre** par missile, en bas à droite de l'écran (« Silo 7 · impact dans 0:43 », toujours visible, même hors de la cupola), décompte jusqu'à l'impact, passe au rouge et clignote dans les 10 dernières secondes. Sans tube choisi, ou si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien et le missile reste dans son tube. Voir « Explosions nucléaires » |
 | Bilan des explosions | Sur l'écran mural à droite en face de la télévision (module Commande) : pays touchés et pertes, cumulées sur toutes les explosions ; la liste défile seule quand elle déborde |
+| Console radar | Paroi −Y du module Commande, à droite de l'écran radio, près de la cupola : **clic gauche** sur la dalle pour s'installer, **clic droit** pour quitter. Les trois boutons sous l'écran (azimut, fréquence, bande VHF / UHF) : **maintenir le clic gauche et glisser à gauche ou à droite** ; **Maj** pour un réglage fin. Voir « Console radar » dans « Organisation de la scène » |
 | Compteur de performances et panneau de debug | **F4** ouvre ou masque le **panneau de debug des explosions** dans la partie en cours (outil de développement, en français : puissance, coordonnées, scrubber du temps, alerte de la station, case **Combinaison** (enfilée ou rangée, `Station.set_suit_worn`, suit aussi l'enfilage au clic), bouton **Radio** (message radio d'essai), altitude et inclinaison directes de l'orbite, date et heure UTC, redémarrage ; voir « Scène de debug » dans « Explosions nucléaires »). **F3** affiche ou masque la ligne en haut à droite (visible par défaut, outil de développement, non traduite) : images par seconde, temps CPU et GPU moyens par image, appels de dessin, mémoire vidéo (moyennes sur 0,5 s). Nœud `FpsOverlay` de `scenes/orbit_view.tscn`, script `scripts/ui/fps_overlay.gd` ; voir « Performances » |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
@@ -709,6 +710,34 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   - API pour la campagne : `RadioComms.post({from, subject, body, channel, replies})` (textes : clé des fichiers de
 	langue, texte, ou dictionnaire par langue comme `campaign.json`), signaux `message_received`, `replied`. Panneau
 	de debug : bouton « Radio » (message d'essai du contrôle sol, deux réponses).
+- **Console radar** (`scripts/screens/radar_console.gd`, nœud `RadarConsole` ; interface `scripts/ui/radar_display.gd` ;
+  modèle et règles `scripts/screens/radar_receiver.gd`, `RadarReceiver`) : récepteur goniométrique posé à la place de
+  l'écran 07 du module Commande (retiré des écrans d'ambiance `TechScreens` ; modèle : « Station spatiale », « Console
+  radar »). Écran à phosphore vert : bande, **azimut de l'antenne** en grands chiffres en haut, fréquence accordée à
+  droite ; oscilloscope au centre, avec la position de la station (pour la triangulation) et l'état « RECHERCHE » ou
+  « ACCROCHÉ » ; barre de signal en dB ; en bas, le nom des trois boutons, au-dessus de chacun.
+  - **Utilisation** : comme la télévision et la radio (`ScreenSeatConsole`) : clic sur la dalle → la vue se cadre
+	face à la console, agrandie vers le bas pour montrer les boutons ; clic droit → on quitte. Les trois boutons 3D
+	se manipulent en **maintenant le clic et en glissant la souris à gauche ou à droite** (curseur « glisser » au
+	survol, **Maj** : réglage dix fois plus fin), et tournent avec le réglage : **azimut** (0,25° par pixel, sur
+	360°), **fréquence** (1/2000 de la bande par pixel : 0,135 MHz en VHF, 1,35 MHz en UHF ; douze tours d'un bout à
+	l'autre de la bande), **bande** (sélecteur : glisser à gauche → VHF 30–300 MHz, à droite → UHF 300 MHz – 3 GHz ;
+	chaque bande garde sa fréquence).
+  - **Règles de jeu** (`RadarReceiver`) : l'écran montre plusieurs **sinusoïdes « chaotiques »** (fréquences, phases
+	et amplitudes qui dérivent chacune à son rythme, bruit). Une source n'est captée que dans sa bande et **au-dessus
+	de l'horizon** de la station (environ 2 200 km autour du point survolé à 400 km d'altitude). En approchant sa
+	**fréquence**, les courbes se rapprochent (cohérence : courbe de résonance, 1/2 à 0,4 % de la bande de la bonne
+	fréquence, soit ± 1,1 MHz en VHF et ± 11 MHz en UHF) puis **fusionnent en une seule sinusoïde stable** (« ACCROCHÉ »
+	à partir de 0,9). Son **amplitude** dépend de l'**azimut** : maximale quand l'antenne pointe le cap du grand cercle
+	vers la source (lobe en cloche de 12° de large à mi-puissance, 6 % ailleurs), et elle baisse avec la distance (45 %
+	à l'horizon). Antenne stabilisée : azimut vrai, 0° = nord, sens horaire. Source à moins de 0,8° du point survolé :
+	gain plein dans toutes les directions. **Triangulation** : relever le cap du maximum à deux endroits de l'orbite
+	(position affichée à l'écran), puis croiser les deux grands cercles sur une carte ; la précision dépend du soin
+	des relevés (quelques degrés) et de l'écart entre les deux points.
+  - **Sources** : en **mode libre**, pour essai, `RadarReceiver.FREE_MODE_SOURCES` : **Oslo en VHF à 100 MHz** et
+	**Los Angeles en UHF à 800 MHz** (hôtels de ville). Les missions de la campagne donneront les fréquences et
+	ajouteront leurs sources par `RadarConsole.add_source(id, lat, lon, bande, MHz)` (`remove_source` pour les
+	retirer). Sonde : `tools/bench/console_probe.tscn` (accord, lobe, horizon, boutons, cadrage).
 - **Télévision** (`scripts/screens/tv_console.gd`, nœud `TvConsole` ; interface `scripts/ui/tv_display.gd` ; chaînes et
   règles de jeu `scripts/screens/tv_channels.gd`, classe `TvChannels`, tenue par la console et lue par l'interface) : l'écran
   `Interactif_Ecran_03` du module Commande (retiré des écrans d'ambiance) diffuse les chaînes d'information du monde.
@@ -818,8 +847,8 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 - **Portables et écrans plats** (`tools/blender/build_station_devices.py`, envoyé au Blender ouvert avec
   `MODE = "preview"` sur un fichier vide : modèles seuls, aperçus dans `E:\Blender\apercus_equipements\`, fichier
   `E:\Blender\equipements_station.blend` ; `MODE = "apply"` sur `nuke_station.blend` : remplacement en place) :
-  modèles procéduraux détaillés qui remplacent les maillages des 5 `Interactif_Ordinateur_*` et de 10
-  `Interactif_Ecran_*` (01–08, 13, 14). **`Interactif_Ecran_Principal` (poste de pilotage) et les consoles
+  modèles procéduraux détaillés qui remplacent les maillages des 5 `Interactif_Ordinateur_*` et de 9
+  `Interactif_Ecran_*` (01–06, 08, 13, 14 ; le 07 est devenu la console radar, voir plus bas). **`Interactif_Ecran_Principal` (poste de pilotage) et les consoles
   de tir des silos n'y sont pas touchés** ; les petits écrans 16 et 17 qui l'encadraient sont supprimés du `.blend`.
   Portable 14" 16:10 noir mat (84 touches en relief, légendes
   `E:\Blender\textures\clavier_legendes.png` rendues par le script, TrackPoint, pavé, connectique, charnières à fûts,
@@ -832,6 +861,20 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   créé par le script s'il manque (table `NEW_DEVICES`) ; `ONLY = [...]` limite le mode « apply » à quelques appareils.
   Penser à **enregistrer le `.blend`** après chaque modification exportée : un export depuis un fichier non
   enregistré se perd à la réouverture.
+- **Console radar** (`tools/blender/build_radar_console.py`, envoyé au Blender ouvert : `RADAR_MODE = "preview"`
+  construit la console devant une paroi dans une scène temporaire, aperçus dans `E:\Blender\apercus_radar\`, puis
+  retire tout ; `RADAR_MODE = "apply"` sur `nuke_station.blend` remplace le maillage d'`Interactif_Ecran_07`,
+  rejouable) : récepteur goniométrique en rack de **90 × 70 cm**, à 7,5 cm de la paroi −Y du module Commande
+  (centre de la dalle à (13,70 ; −1,175 ; 0,02), haut de la façade aligné sur l'écran radio 08, entre l'hiloire de
+  la cupola et l'écran 08, au-dessus de la main courante). Façade gris acier percée d'une fenêtre, poignées de rack,
+  vis, ouïes, voyant ; dalle de 76 × 43 cm en haut (matériau `Ecran_07` gardé, UV 0–1, derrière une lèvre noire) ;
+  en bas, une bande d'aluminium brossé avec **trois boutons, objets enfants de la console** (repère : axe de
+  rotation = Z local vers l'observateur, repère blanc vers +Y, rotation positive antihoraire vue de face) :
+  `Radar_Bouton_Azimut` (gauche, 36 graduations en relief), `Radar_Bouton_Frequence` (centre, 20 graduations) et
+  `Radar_Bouton_Bande` (droite, sélecteur à manette deux positions à ± 40°, VHF à gauche et UHF à droite, posé sur
+  VHF). Aucun texte sur le modèle : les noms des boutons sont écrits par le jeu en bas de la dalle. 3 447 faces, plus
+  978 par bouton rond et 190 pour le sélecteur. Extras gardés (`type` passe à « radar »). Le script des écrans plats
+  (`build_station_devices.py`) ne touche plus à l'écran 07.
 - **Afficheurs muraux LCD** (`tools/blender/build_station_clock.py`, envoyé au Blender ouvert : `CLOCK_MODE =
   "preview"` construit une horloge et un afficheur de position sur une paroi dans une scène temporaire du fichier
   ouvert, aperçus dans `E:\Blender\apercus_horloge\`, puis retire tout ; `CLOCK_MODE = "apply"` sur

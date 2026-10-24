@@ -157,6 +157,15 @@ func base_emission() -> float:
 ## Point de l'écran (0–1, origine en haut à gauche) sous la position screen_pos de la vue de camera, NONE hors de la
 ## dalle ou au-delà de max_distance (m) de la caméra.
 func uv_at(camera: Camera3D, screen_pos: Vector2, max_distance := INF) -> Vector2:
+	var uv := plane_uv_at(camera, screen_pos, max_distance)
+	if uv.x < 0.0 or uv.x > 1.0 or uv.y < 0.0 or uv.y > 1.0:
+		return NONE
+	return uv
+
+
+## Comme uv_at, mais sur tout le plan de la dalle (coordonnées hors de 0–1 autour d'elle : boutons d'une console sous
+## la dalle) ; NONE seulement si le rayon manque le plan ou s'il est au-delà de max_distance.
+func plane_uv_at(camera: Camera3D, screen_pos: Vector2, max_distance := INF) -> Vector2:
 	var origin := camera.project_ray_origin(screen_pos)
 	var direction := camera.project_ray_normal(screen_pos)
 	var to_world := mesh_instance.global_transform
@@ -170,11 +179,28 @@ func uv_at(camera: Camera3D, screen_pos: Vector2, max_distance := INF) -> Vector
 	var distance := (corner - origin).dot(normal) / facing
 	if distance <= 0.0 or distance > max_distance:
 		return NONE
-	var offset := origin + direction * distance - corner
-	var uv := Vector2(offset.dot(u) / u.length_squared(), offset.dot(v) / v.length_squared())
-	if uv.x < 0.0 or uv.x > 1.0 or uv.y < 0.0 or uv.y > 1.0:
-		return NONE
-	return uv
+	return uv_of(origin + direction * distance)
+
+
+## Coordonnées (u, v) d'un point global projeté sur le plan de la dalle (0–1 sur la dalle).
+func uv_of(point: Vector3) -> Vector2:
+	var to_world := mesh_instance.global_transform
+	var offset := point - to_world * top_left
+	var u := to_world.basis * axis_u
+	var v := to_world.basis * axis_v
+	return Vector2(offset.dot(u) / u.length_squared(), offset.dot(v) / v.length_squared())
+
+
+## Dimensions (m) de la dalle : largeur, hauteur.
+func size_m() -> Vector2:
+	var basis := mesh_instance.global_transform.basis
+	return Vector2((basis * axis_u).length(), (basis * axis_v).length())
+
+
+## Direction (globale, unitaire) vers l'observateur, perpendiculaire à la dalle.
+func toward_viewer() -> Vector3:
+	var basis := mesh_instance.global_transform.basis
+	return (basis * axis_v).cross(basis * axis_u).normalized()
 
 
 ## Centre de la dalle (coordonnées globales).
@@ -190,12 +216,15 @@ func distance_to(point: Vector3) -> float:
 
 ## Cadrage « assis » : œil face au centre de la dalle, à la distance où elle occupe fill de la vue de camera (en
 ## hauteur ou en largeur selon les proportions de la vue, view_aspect), regard vers la dalle, haut de l'image en
-## haut. Rend {eye : position globale, look : Basis globale de la caméra}.
-func seat_pose(camera: Camera3D, view_aspect: float, fill: float) -> Dictionary:
+## haut. extend_down (part de la hauteur de la dalle) agrandit le cadre vers le bas : boutons d'une console sous la
+## dalle. Rend {eye : position globale, look : Basis globale de la caméra}.
+func seat_pose(camera: Camera3D, view_aspect: float, fill: float, extend_down := 0.0) -> Dictionary:
 	var to_world := mesh_instance.global_transform
 	var u := to_world.basis * axis_u
 	var v := to_world.basis * axis_v
-	var toward_viewer := v.cross(u).normalized()
+	var normal := v.cross(u).normalized()
 	var half_tan := tan(deg_to_rad(camera.fov) * 0.5)
-	var distance := maxf(v.length() / (2.0 * half_tan * fill), u.length() / (2.0 * half_tan * view_aspect * fill))
-	return {"eye": center_global() + toward_viewer * distance, "look": Basis.looking_at(-toward_viewer, -v.normalized())}
+	var height := v.length() * (1.0 + extend_down)
+	var distance := maxf(height / (2.0 * half_tan * fill), u.length() / (2.0 * half_tan * view_aspect * fill))
+	var center := center_global() + v * (extend_down * 0.5)
+	return {"eye": center + normal * distance, "look": Basis.looking_at(-normal, -v.normalized())}

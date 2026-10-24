@@ -12,7 +12,8 @@ extends ScreenConsole
 ## - Clic droit (ou stand_up() depuis l'interface) : retour à la position et à l'orientation d'avant.
 ## Groupe GROUP : la tablette se range (seated_changed) et les écoutilles ne se cliquent plus tant qu'un poste est
 ## occupé (any_seated). Pendant la transition (_moving), ni survol ni clic : la souris reste prise par l'écran.
-## Crochets, en plus de ceux de ScreenConsole : _hover_key, _exit_key, _on_seated, _on_stood_up, _handle_key.
+## Crochets, en plus de ceux de ScreenConsole : _hover_key, _exit_key, _on_seated, _on_stood_up, _handle_key,
+## _handle_mouse (souris au poste, avant l'interface : boutons 3D de la console radar), _seat_pose (cadrage).
 
 signal seated_changed(seated: bool)
 
@@ -118,7 +119,8 @@ func _input(event: InputEvent) -> void:
 	if button and button.pressed and button.button_index == MOUSE_BUTTON_RIGHT:
 		stand_up()
 		return
-	_input_forwarder.forward(mouse, _screen.uv_at(_camera, mouse.position))
+	if not _handle_mouse(mouse):
+		_input_forwarder.forward(mouse, _screen.uv_at(_camera, mouse.position))
 
 
 ## Quitter le poste (clic droit, ou commande de l'interface : F10 de COMM.EXE) ; sans effet en transition.
@@ -139,7 +141,7 @@ func _sit() -> void:
 	_return_position = _observer.global_position
 	_return_rotation = _camera.quaternion
 	# Œil face au centre de la dalle, à la distance où elle remplit screen_fill de la vue (hauteur et largeur).
-	var pose := _screen.seat_pose(_camera, get_viewport().get_visible_rect().size.aspect(), screen_fill)
+	var pose := _seat_pose()
 	var local_rotation := (_observer.global_basis.inverse() * (pose.look as Basis)).get_rotation_quaternion()
 	_set_observer_active(false)
 	_seated = true
@@ -191,3 +193,14 @@ func _on_stood_up() -> void:
 ## Touche reçue en vue assise ; vrai si l'interface l'a utilisée (l'événement est alors consommé).
 func _handle_key(_key: InputEventKey) -> bool:
 	return false
+
+
+## Souris reçue en vue assise (hors clic droit et barre du temps), avant l'interface ; vrai si la console l'a
+## utilisée (elle n'est alors pas transmise à l'interface).
+func _handle_mouse(_mouse: InputEventMouse) -> bool:
+	return false
+
+
+## Cadrage de la vue assise (StationScreen.seat_pose) : {eye, look}.
+func _seat_pose() -> Dictionary:
+	return _screen.seat_pose(_camera, get_viewport().get_visible_rect().size.aspect(), screen_fill)

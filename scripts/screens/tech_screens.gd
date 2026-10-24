@@ -18,14 +18,13 @@ extends Node
 
 enum Program { CODE, WIREFRAME, TELEMETRY, ORBIT, STRIP }
 
-## Écran (nom de l'objet du modèle) -> programme. Les écrans 02 (bilan des explosions), 03 (télévision) et 08
-## (communication radio, CommConsole) ont leur propre affichage.
+## Écran (nom de l'objet du modèle) -> programme. Les écrans 02 (bilan des explosions), 03 (télévision), 07 (console
+## radar, RadarConsole) et 08 (communication radio, CommConsole) ont leur propre affichage.
 const ASSIGNMENT := {
 	"Interactif_Ecran_01": Program.WIREFRAME,
 	"Interactif_Ecran_04": Program.ORBIT,
 	"Interactif_Ecran_05": Program.CODE,
 	"Interactif_Ecran_06": Program.WIREFRAME,
-	"Interactif_Ecran_07": Program.ORBIT,
 	"Interactif_Ecran_13": Program.STRIP,
 	"Interactif_Ecran_14": Program.STRIP,
 	"Interactif_Ordinateur_01": Program.CODE,

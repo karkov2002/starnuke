@@ -77,14 +77,13 @@ SCREENS = {
     "Interactif_Ecran_04": ((9.4, -1.195, 0.0), (0, 1, 0), (0, 0, 1), (0.80, 0.50)),
     "Interactif_Ecran_05": ((13.5, 0.0, 1.195), (0, 0, -1), (-1, 0, 0), (0.80, 0.50)),
     "Interactif_Ecran_06": ((14.7, 0.0, 1.195), (0, 0, -1), (-1, 0, 0), (0.80, 0.50)),
-    # 07 : décalé de 13,5 à 13,65 pour dégager l'hiloire de la cupola (x 12,97–13,23, section_coamings.py).
-    "Interactif_Ecran_07": ((13.65, -1.195, 0.0), (0, 1, 0), (0, 0, 1), (0.80, 0.50)),
     "Interactif_Ecran_08": ((14.7, -1.195, 0.0), (0, 1, 0), (0, 0, 1), (0.80, 0.50)),
     # 13 : décalé de 9,0 à 9,39 pour libérer la lampe du panneau (x 8,08–8,82, slim_lamps.py).
     "Interactif_Ecran_13": ((9.39, 0.847, 0.847), (0, -S2, -S2), (0, -S2, S2), (1.00, 0.296)),
     "Interactif_Ecran_14": ((14.1, 0.845, -0.845), (0, -S2, S2), (0, S2, S2), (1.00, 0.296)),
 }
 # Interactif_Ecran_16 et _17 (de part et d'autre de l'écran du poste de pilotage) ont été supprimés de la station.
+# Interactif_Ecran_07 est devenu la console radar (build_radar_console.py) : ne plus le remplacer ici.
 
 
 # ------------------------------------------------------------------------------------------------ matériaux

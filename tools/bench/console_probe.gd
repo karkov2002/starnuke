@@ -30,8 +30,8 @@ func _ready() -> void:
 	_check(report.get("_screen") != null and report.get("_viewport") != null, "NukeReport : dalle et viewport")
 	_check(report.is_processing(), "NukeReport actif")
 	var seats := get_tree().get_nodes_in_group(ScreenSeatConsole.GROUP)
-	_check(seats.size() == 3, "3 postes dans le groupe (%d)" % seats.size())
-	for name in ["PilotConsole", "CommConsole", "TvConsole"]:
+	_check(seats.size() == 4, "4 postes dans le groupe (%d)" % seats.size())
+	for name in ["PilotConsole", "CommConsole", "TvConsole", "RadarConsole"]:
 		var console := view.get_node(name) as ScreenSeatConsole
 		print("- " + name)
 		_check(console != null and console.is_processing(), "actif")
@@ -80,7 +80,7 @@ func _ready() -> void:
 	observer.global_position = home + Vector3(100, 0, 0)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	for name in ["PilotConsole", "CommConsole", "TvConsole", "NukeReport"]:
+	for name in ["PilotConsole", "CommConsole", "TvConsole", "RadarConsole", "NukeReport"]:
 		var console := view.get_node(name) as ScreenConsole
 		var viewport: SubViewport = console.get("_viewport")
 		_check(not console.is_near() and viewport.render_target_update_mode == SubViewport.UPDATE_DISABLED, name + " : loin, rendu coupé")
@@ -90,11 +90,12 @@ func _ready() -> void:
 	observer.global_position = home
 	await get_tree().process_frame
 	await get_tree().process_frame
-	for name in ["PilotConsole", "CommConsole", "TvConsole", "NukeReport"]:
+	for name in ["PilotConsole", "CommConsole", "TvConsole", "RadarConsole", "NukeReport"]:
 		var console := view.get_node(name) as ScreenConsole
 		var viewport: SubViewport = console.get("_viewport")
 		_check(console.is_near() and viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS, name + " : de retour, rendu repris")
 	await _check_tv(view)
+	await _check_radar(view)
 	await _check_tablet(view)
 	await _check_station(view)
 	print("=== %d échec(s)" % _failures)
@@ -127,6 +128,71 @@ func _check_tv(view: Node) -> void:
 	_check(not channels.is_off_air("DEU"), "Berlin à l'antenne")
 	_check(display.is_off_air(), "mire sur la chaîne française")
 	launcher.clear_effects()
+	orbit.time_scale = 1.0
+
+
+## Console radar : modèle du récepteur (sources du mode libre, horizon, accord, lobe de l'antenne), boutons et cadrage.
+func _check_radar(view: Node) -> void:
+	print("- Radar")
+	var radar := view.get_node("RadarConsole") as RadarConsole
+	var orbit := view.get_node("Orbit") as OrbitSimulation
+	var receiver := radar.receiver
+	orbit.time_scale = 0.0
+	_check(receiver.sources.size() == 2, "2 sources du mode libre")
+	var knobs: Dictionary = radar.get("_knobs")
+	_check(knobs.size() == 3, "3 boutons trouvés dans le modèle (%d)" % knobs.size())
+	# Au-dessus de l'Allemagne : Oslo (VHF 100 MHz) à portée, au nord.
+	orbit.pass_over(51.0, 10.0, false)
+	receiver.set_band(RadarReceiver.Band.VHF)
+	receiver.set_frequency_mhz(100.0)
+	var m := radar.current_measure()
+	_check(m.id == "oslo" and m.coherence > 0.99, "Oslo accroché à 100 MHz (%.3f)" % m.coherence)
+	var bearing: float = m.bearing
+	_check(bearing < 15.0 or bearing > 345.0, "cap d'Oslo au nord (%.1f°)" % bearing)
+	receiver.set_azimuth_deg(bearing)
+	var peak: float = radar.current_measure().amplitude
+	receiver.set_azimuth_deg(bearing + 30.0)
+	var off: float = radar.current_measure().amplitude
+	_check(off < 0.25 * peak, "amplitude maximale dans l'axe (%.2f), faible à 30° (%.2f)" % [peak, off])
+	receiver.set_azimuth_deg(bearing + 3.0)
+	var near: float = radar.current_measure().amplitude
+	_check(near < peak and near > off, "amplitude décroissante autour du cap")
+	receiver.set_frequency_mhz(105.0)
+	_check(radar.current_measure().coherence < 0.1, "désaccordé de 5 MHz : chaos")
+	receiver.set_frequency_mhz(100.0)
+	receiver.set_band(RadarReceiver.Band.UHF)
+	_check(radar.current_measure().id == "", "Oslo absent en UHF")
+	_check(is_equal_approx(receiver.get_frequency_mhz(), RadarReceiver.DEFAULT_MHZ[RadarReceiver.Band.UHF]),
+			"chaque bande garde sa fréquence")
+	# Au-dessus de Los Angeles : UHF 800 MHz, source sous la station (gain plein).
+	orbit.pass_over(34.0, -118.2, true)
+	receiver.set_frequency_mhz(800.0)
+	m = radar.current_measure()
+	_check(m.id == "los_angeles" and m.coherence > 0.99 and m.amplitude > 0.95, "Los Angeles accroché à la verticale")
+	# Au-dessus de l'Australie : aucune source au-dessus de l'horizon.
+	orbit.pass_over(-30.0, 140.0, true)
+	_check(radar.current_measure().coherence == 0.0, "aucune source hors de l'horizon")
+	# Boutons : glissements de la souris.
+	receiver.set_azimuth_deg(0.0)
+	radar.turn(RadarConsole.Knob.AZIMUTH, 40.0)
+	_check(is_equal_approx(receiver.azimuth_deg, 10.0), "bouton d'azimut : 40 px = 10°")
+	radar.turn(RadarConsole.Knob.AZIMUTH, -80.0)
+	_check(is_equal_approx(receiver.azimuth_deg, 350.0), "azimut sur 360° (350°)")
+	radar.turn(RadarConsole.Knob.BAND, -30.0)
+	_check(receiver.band == RadarReceiver.Band.VHF, "sélecteur glissé à gauche : VHF")
+	radar.turn(RadarConsole.Knob.BAND, 30.0)
+	_check(receiver.band == RadarReceiver.Band.UHF, "sélecteur glissé à droite : UHF")
+	var f0 := receiver.get_frequency_mhz()
+	radar.turn(RadarConsole.Knob.FREQUENCY, 100.0)
+	_check(is_equal_approx(receiver.get_frequency_mhz() - f0, 135.0), "bouton de fréquence : 100 px = 5 % de la bande")
+	receiver.set_band(RadarReceiver.Band.VHF)
+	# Vue assise : cadre agrandi vers le bas (bande des boutons).
+	var screen: StationScreen = radar.get("_screen")
+	var camera := view.get_node("Observer/Camera") as Camera3D
+	var plain := screen.seat_pose(camera, 16.0 / 9.0, 0.9)
+	var radar_pose: Dictionary = radar.call("_seat_pose")
+	var down := (screen.mesh_instance.global_transform.basis * screen.axis_v).normalized()
+	_check((radar_pose.eye - plain.eye).dot(down) > 0.05, "vue assise abaissée vers les boutons")
 	orbit.time_scale = 1.0
 
 
@@ -192,7 +258,7 @@ func _check_menu() -> void:
 	_check(backdrop != null, "décor construit")
 	if backdrop:
 		_check(backdrop.get_node_or_null("NukeLauncher") == null, "sans lanceur")
-		for name in ["TvConsole", "CommConsole"]:
+		for name in ["TvConsole", "CommConsole", "RadarConsole"]:
 			var console := backdrop.get_node_or_null(name) as ScreenConsole
 			_check(console != null and console.is_processing() and console.get("_viewport") != null, name + " construit dans le décor")
 	menu.queue_free()

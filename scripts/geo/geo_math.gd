@@ -65,3 +65,18 @@ static func format_angle(value: float, positive_key: String, negative_key: Strin
 ## « 48.86° N  2.35° E » (directions traduites).
 static func format_lat_lon(lat_deg: float, lon_deg: float, decimals := 2) -> String:
 	return format_angle(lat_deg, "DIR_N", "DIR_S", decimals) + "  " + format_angle(lon_deg, "DIR_E", "DIR_W", decimals)
+
+
+## Cap initial (degrés, 0 = nord, sens horaire, 0–360) du grand cercle qui va du point 1 au point 2 (degrés).
+static func initial_bearing_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+	var a := deg_to_rad(lat1)
+	var b := deg_to_rad(lat2)
+	var dl := deg_to_rad(lon2 - lon1)
+	var bearing := rad_to_deg(atan2(sin(dl) * cos(b), cos(a) * sin(b) - sin(a) * cos(b) * cos(dl)))
+	return fposmod(bearing, 360.0)
+
+
+## Angle au centre (rad) entre le point survolé et l'horizon vu d'une altitude (km) : au-delà, un point au sol est
+## caché par la Terre.
+static func horizon_angle_rad(altitude_km: float) -> float:
+	return acos(EARTH_RADIUS_KM / (EARTH_RADIUS_KM + maxf(altitude_km, 0.0)))

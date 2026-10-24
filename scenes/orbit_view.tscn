@@ -40,6 +40,7 @@
 [ext_resource type="Script" uid="uid://wd5pqymx5yg7" path="res://scripts/station/alert_sirens.gd" id="37_2urrc"]
 [ext_resource type="Script" uid="uid://dq2exvqy1ujig" path="res://scripts/screens/station_clocks.gd" id="39_nn0rq"]
 [ext_resource type="Script" uid="uid://chwoo57o5ordl" path="res://scripts/screens/station_position.gd" id="40_m8b5w"]
+[ext_resource type="Script" uid="uid://d3yd6on0baulb" path="res://scripts/screens/radar_console.gd" id="41_y0nhr"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -221,3 +222,6 @@ script = ExtResource("39_nn0rq")
 
 [node name="StationPosition" type="Node" parent="." unique_id=104511902]
 script = ExtResource("40_m8b5w")
+
+[node name="RadarConsole" type="Node" parent="." unique_id=28514710]
+script = ExtResource("41_y0nhr")
