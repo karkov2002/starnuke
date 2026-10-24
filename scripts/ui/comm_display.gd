@@ -65,12 +65,13 @@ var _status_until := 0.0
 var _clock := 0.0
 var _blink := true
 var _mode := Mode.MESSAGES
-## Galerie : photo choisie (id, 0 : aucune), défilement de la liste, état de l'envoi (texte, couleur ; affiché sous la
-## photo jusqu'au suivant), image affichée et sa place à l'écran (pixels ; dessinée après le texte).
+## Galerie : photo choisie (id, 0 : aucune), défilement de la liste, état de l'envoi (texte, couleur, photo concernée,
+## 0 : toutes ; affiché sous cette photo seulement, jusqu'au suivant), image affichée et sa place à l'écran (pixels ; dessinée après le texte).
 var _photo_id := 0
 var _gallery_scroll := 0
 var _photo_status := ""
 var _photo_status_color := WHITE
+var _photo_status_id := 0
 var _image: Texture2D
 var _image_rect := Rect2()
 var _photos: PhotoArchive
@@ -299,18 +300,24 @@ func _get_director() -> CampaignDirector:
 		if director == null or not director.is_active():
 			return null
 		_director = director
-		_director.photo_received.connect(func(_sent_id: int) -> void:
-			_set_photo_status(tr("COMM_PHOTO_RECEIVED"), YELLOW))
+		_director.photo_received.connect(func(sent_id: int) -> void:
+			_set_photo_status(tr("COMM_PHOTO_RECEIVED"), YELLOW, sent_id))
 		_director.photo_evaluated.connect(_on_photo_evaluated)
 		_director.mission_finished.connect(func(_mission: String, result: Dictionary) -> void:
 			if result.get("expired", false):
-				_set_photo_status(tr("COMM_PHOTO_EXPIRED"), LIGHT_RED))
+				_set_photo_status(tr("COMM_PHOTO_EXPIRED"), LIGHT_RED, 0))
 	return _director
 
 
 func _can_send_photo() -> bool:
 	var director := _get_director()
-	return director != null and director.can_send_photo() and _photo_id > 0
+	return director != null and director.can_send_photo() and _photo_id > 0 and not director.sent_photos.has(_photo_id)
+
+
+## Évaluation d'une photo déjà envoyée au sol ({} : jamais envoyée ; CampaignDirector.sent_photos).
+func _sent_evaluation(photo_id: int) -> Dictionary:
+	var director := _get_director()
+	return director.sent_photos.get(photo_id, {}) if director else {}
 
 
 ## « Envoyer au sol » : il faut la liaison radio ; la suite vient du directeur (photo_received, photo_evaluated).
@@ -318,25 +325,34 @@ func _send_photo() -> void:
 	if not _can_send_photo():
 		return
 	if radio.link <= 0.0:
-		_set_photo_status(tr("COMM_PHOTO_NO_LINK"), LIGHT_RED)
+		_set_photo_status(tr("COMM_PHOTO_NO_LINK"), LIGHT_RED, _photo_id)
 		return
 	_director.send_photo(_find_photo(_photo_id))
 
 
 func _on_photo_evaluated(evaluation: Dictionary) -> void:
+	var photo_id := int(evaluation.photo_id)
 	if evaluation.expired:
-		_set_photo_status(tr("COMM_PHOTO_EXPIRED"), LIGHT_RED)
+		_set_photo_status(tr("COMM_PHOTO_EXPIRED"), LIGHT_RED, photo_id)
 		return
 	var key := "COMM_PHOTO_INVALID"
 	if evaluation.valid:
 		key = "COMM_PHOTO_VALID" if evaluation.complete else "COMM_PHOTO_VALID_MORE"
-	_set_photo_status(tr(key).format({"score": "%.1f" % float(evaluation.score)}),
-			LIGHT_GREEN if evaluation.valid else LIGHT_RED)
+	_set_photo_status(_score_text(key, evaluation), LIGHT_GREEN if evaluation.valid else LIGHT_RED, photo_id)
 
 
-func _set_photo_status(text: String, color: Color) -> void:
+## Texte de la clé key avec la note et la distance à la cible d'une évaluation (CampaignDirector.send_photo).
+func _score_text(key: String, evaluation: Dictionary) -> String:
+	var distance := float(evaluation.get("distance_km", -1.0))
+	var shown := "%.1f" % distance if distance < 100.0 else NumberFormat.group(roundi(distance), " ")
+	return tr(key).format({"score": "%.1f" % float(evaluation.score), "distance": shown if distance >= 0.0 else "?"})
+
+
+## État de l'envoi, affiché sous la photo photo_id (0 : sous toutes).
+func _set_photo_status(text: String, color: Color, photo_id: int) -> void:
 	_photo_status = text
 	_photo_status_color = color
+	_photo_status_id = photo_id
 	queue_redraw()
 
 
@@ -606,19 +622,30 @@ func _gallery_view() -> void:
 	# Photo : rangées 6 à 17, centrée ; un clic l'agrandit.
 	var area := _place_image(photo.texture, Rect2i(left, 6, width, 12))
 	_zones.append([area, func() -> void: _overlay = Overlay.PHOTO])
+	# Rangées 18 à 21 : bouton d'envoi, ou note d'une photo déjà envoyée, ou aide ; puis l'état de l'envoi de cette photo.
+	var row := 18
+	var lines: Array[Array] = []
+	var sent := _sent_evaluation(int(photo.id))
 	if _can_send_photo():
 		var label := "[ %s ]" % tr("COMM_PHOTO_SEND").to_upper()
 		var x := left + floori((width - label.length()) * 0.5)
-		_put(x, 18, label, BLACK, LIGHT_GREEN)
-		_zones.append([Rect2i(x, 18, label.length(), 1), _send_photo])
-	else:
-		_put(left, 18, _fit(tr("COMM_PHOTO_ENLARGE"), width), GREY, BLUE)
-	var row := 19
-	for line in _wrap(_photo_status, width):
-		if row > 21:
-			break
-		_put(left, row, line, _photo_status_color, BLUE)
+		_put(x, row, label, BLACK, LIGHT_GREEN)
+		_zones.append([Rect2i(x, row, label.length(), 1), _send_photo])
 		row += 1
+	elif not sent.is_empty() and not sent.expired:
+		# Son message d'évaluation, s'il est encore affiché, dit déjà la note.
+		if _photo_status_id != int(photo.id):
+			lines.append([_score_text("COMM_PHOTO_SENT", sent), LIGHT_CYAN])
+	else:
+		lines.append([tr("COMM_PHOTO_ENLARGE"), GREY])
+	if _photo_status_id == 0 or _photo_status_id == int(photo.id):
+		lines.append([_photo_status, _photo_status_color])
+	for entry in lines:
+		for line in _wrap(entry[0], width):
+			if row > 21:
+				break
+			_put(left, row, line, entry[1], BLUE)
+			row += 1
 
 
 ## Photo choisie agrandie, sur presque tout l'écran ; un clic ou Échap la ferme.

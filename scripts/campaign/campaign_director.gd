@@ -103,6 +103,8 @@ var _sleeping := false
 var _evaluating := 0
 ## Délai de la note d'une photo envoyée (s ; PHOTO_EVALUATION_S, raccourci par les sondes).
 var photo_evaluation_s := PHOTO_EVALUATION_S
+## Photos déjà envoyées au sol : id → évaluation (photo_evaluated) ; une photo ne s'envoie qu'une fois. Pas sauvegardé.
+var sent_photos := {}
 
 
 func _ready() -> void:
@@ -292,21 +294,26 @@ func can_send_photo() -> bool:
 
 
 ## Photo de la galerie (PhotoArchive.photos) envoyée au sol : reçue tout de suite, notée PHOTO_EVALUATION_S
-## secondes plus tard (temps réel) ; valide si sa note atteint success_score. Faux si elle ne peut pas l'être.
+## secondes plus tard (temps réel) ; valide si sa note atteint success_score. Évaluation : {photo_id, score,
+## distance_km (centre de la photo, point survolé, à la cible la plus proche ; -1 : échéance passée), valid, complete,
+## expired}. Faux si elle ne peut pas l'être (pas de mission photo, évaluation en cours, photo déjà envoyée).
 func send_photo(photo: Dictionary) -> bool:
-	if not can_send_photo():
+	if not can_send_photo() or sent_photos.has(int(photo.id)):
 		return false
 	var mission := _run.id
 	_evaluating = int(photo.id)
 	photo_received.emit(_evaluating)
 	await get_tree().create_timer(photo_evaluation_s, true, false, true).timeout
-	var evaluation := {"photo_id": _evaluating, "score": 0.0, "valid": false, "complete": false, "expired": true}
+	var evaluation := {"photo_id": _evaluating, "score": 0.0, "distance_km": -1.0, "valid": false, "complete": false,
+			"expired": true}
 	_evaluating = 0
 	if _run != null and _run.id == mission:
 		var shot := _record("photo", float(photo.lat), float(photo.lon),
 				float(_defaults().get("success_score", 10.0)))
-		evaluation.merge({"score": float(shot.precision), "valid": int(shot.objective) >= 0,
+		evaluation.merge({"score": float(shot.precision), "distance_km": float(shot.nearest_km),
+				"valid": int(shot.objective) >= 0,
 				"complete": bool(shot.complete), "expired": false}, true)
+	sent_photos[int(evaluation.photo_id)] = evaluation
 	photo_evaluated.emit(evaluation)
 	return true
 

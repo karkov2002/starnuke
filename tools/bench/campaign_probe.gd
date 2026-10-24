@@ -144,6 +144,10 @@ func _play_day_1(view: Node) -> void:
 	_check(ok and not evaluations[0].valid and float(evaluations[0].score) > 0.0 and float(evaluations[0].score) < 10.0,
 			"photo invalide (%.1f/20)" % float(evaluations[0].get("score", -1.0)) if ok else "photo invalide")
 	_check(director.current_mission() == "test_rivne" and director.can_send_photo(), "mission en cours, nouvel envoi possible")
+	var distance := float(evaluations[0].get("distance_km", -1.0)) if ok else -1.0
+	_check(absf(distance - 30.0) < 1.0, "distance à la cible dans l'évaluation (%.1f km)" % distance)
+	_check(director.sent_photos.has(2) and not await director.send_photo({"id": 2, "lat": RIVNE.x, "lon": RIVNE.y}),
+			"photo déjà envoyée : pas de second envoi")
 	# Photo envoyée à 1 km : valide, mission accomplie.
 	director.send_photo({"id": 3, "lat": RIVNE.x + 0.009, "lon": RIVNE.y})
 	ok = await _until(func() -> bool: return evaluations.size() == 2, 3.0)

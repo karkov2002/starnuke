@@ -101,10 +101,12 @@ permet de piloter le jeu exporté.
 	ce type, dont l'objectif préalable `after` est rempli) ; plus loin, il ne compte pas. **Photo** (règle de jeu) :
 	prendre la photo ne suffit pas, il faut l'envoyer depuis la **Galerie de COMM.EXE** (bouton « Envoyer au sol »,
 	liaison radio exigée ; `CampaignDirector.send_photo`). « Photo bien reçue… évaluation en cours… », puis, 4 s
-	plus tard (`PHOTO_EVALUATION_S`, temps réel), sa note (précision de l'objectif, sur 20) : **valide si ≥ 10**
+	plus tard (`PHOTO_EVALUATION_S`, temps réel), sa note (précision de l'objectif, sur 20) et la **distance** entre le
+	centre de la photo (point survolé) et la cible : **valide si ≥ 10**
 	(`success_score`) et l'objectif est rempli (mission accomplie s'il était le dernier : mission suivante ou fin de
 	journée) ; sinon **invalide**, l'objectif reste ouvert : envoyer une autre photo (prises en rafale) ou la reprendre
-	à une orbite suivante. Une seule évaluation à la fois. Les photos ne montrent jamais les cibles ni les autres
+	à une orbite suivante. Une seule évaluation à la fois ; **une photo ne s'envoie qu'une fois**
+	(`CampaignDirector.sent_photos`, non sauvegardé). Les photos ne montrent jamais les cibles ni les autres
 	surimpressions du HUD (`Hud.OVERLAY_LAYER`, voir « Tablette »).
   - **Note sur 20** (`scripts/campaign/mission_scoring.gd`) : précision d'un objectif = 20 jusqu'à tolérance / 4, puis
 	décroissance linéaire jusqu'à 0 à la tolérance (non rempli : 0) ; précision de la mission = moyenne pondérée
@@ -483,12 +485,14 @@ des phalanges puis gonflée de 4,5 mm : tissu épais, gonflement et lissage nuls
 	jeu (environnement d'origine : ACES, halo), **sans les surimpressions du HUD** (cibles, cône de tir,
 	orbite visée : couche de rendu `Hud.OVERLAY_LAYER`, retirée du `cull_mask` le temps de la prise de vue ; on ne
 	les voit qu'en direct, dans la cupola et sur la tablette) et enregistrée en **PNG dans `user://photos/`** (nom : date et heure
-	du jeu, latitude, longitude ; le joueur garde ses photos ; l'encodage PNG de la photo et de sa vignette se fait
+	du jeu, latitude, longitude ; le joueur garde ses photos) ; l'encodage PNG de la photo et de sa vignette se fait
 	dans un thread (`WorkerThreadPool`, attendu à la sortie) : la prise de vue ne fige plus l'image) ; deux images
 	plus tard, une seconde capture au rendu de
 	la vue en direct sert à la galerie (sans quoi elle serait délavée sur l'écran). Chaque photo garde le **point
 	survolé** à la prise de vue (point sous la station : c'est lui qui compte pour la précision d'une photo de
-	mission, une fois envoyée au sol depuis la Galerie de COMM.EXE), l'heure UTC du jeu, l'altitude et l'**emprise au sol**
+	mission, une fois envoyée au sol depuis la Galerie de COMM.EXE) ; c'est aussi le **centre de l'image** : la caméra nadir est
+	placée sous la caméra de la vue, sous laquelle `EarthSceneDriver` pose la Terre (depuis l'origine de la station,
+	à ~10 m, la visée était décalée d'environ 100 km au sol ; contrôlé par `console_probe`), l'heure UTC du jeu, l'altitude et l'**emprise au sol**
 	(2 h tan 11° de haut × proportions de l'image : ~199 × 156 km à 400 km). **Galerie** : bouton « Galerie (n) »
 	(dernière photo), ◀ ▶ (précédente, suivante), légende sur fond sombre (numéro, date, point survolé, altitude,
 	emprise), « Vue en direct » pour revenir ; le bouton Photo revient aussi à la vue en direct. Photos gardées le
@@ -762,9 +766,10 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	survolé, altitude, emprise au sol) ; un clic (ou Entrée) l'agrandit sur tout l'écran, un clic ou Échap la referme.
 	En mission photo de campagne (`CampaignDirector.can_send_photo` : objectif photo ouvert, aucune évaluation en
 	cours), bouton vert **« Envoyer au sol »** ; sans liaison : « Pas de liaison : photo non envoyée ». Sous la photo,
-	l'état de l'envoi : « Photo bien reçue… évaluation en cours… », puis « Score photo : x/20. Photo valide. Mission
-	accomplie ! » ou « … Photo invalide. Envoyez une autre photo pour accomplir la mission. », ou « Délai dépassé :
-	mission échouée ! Score : 0/20. » (règles : « Campagne », « Objectifs »).
+	l'état de l'envoi, affiché sous la photo concernée seulement : « Photo bien reçue… évaluation en cours… », puis
+	« Score photo : x/20 (à y km de la cible). Photo valide. Mission accomplie ! » ou « … Photo invalide. Envoyez une autre photo pour accomplir la mission. », ou « Délai dépassé :
+	mission échouée ! Score : 0/20. » (règles : « Campagne », « Objectifs »). Une photo déjà envoyée n'a plus de bouton
+	d'envoi mais sa note : « Déjà envoyée : score x/20 (à y km de la cible) ».
   - **Règles de jeu** (`RadioComms`) : **liaison** seulement avec une station au sol en vue (16 stations du réseau de
 	suivi, de Houston à Canberra ; élévation de la station d'au moins 5° au-dessus de leur horizon) : qualité de
 	15 % au ras de l'horizon à 100 % dès 25° d'élévation, nulle hors de vue (coupures sur les océans). **Canaux** :

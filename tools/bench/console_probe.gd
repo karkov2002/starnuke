@@ -281,6 +281,14 @@ func _check_tablet(view: Node) -> void:
 	var camera: Camera3D = nadir.get_child(0)
 	var toward_earth: Vector3 = ((view.get_node("Earth") as Node3D).global_position - station.global_position).normalized()
 	_check(camera.global_basis.z.dot(-toward_earth) > 0.999, "caméra nadir visée vers la Terre")
+	# Centre de l'image = point survolé de l'orbite (point des photos de mission) : la Terre est posée sous la caméra
+	# de la vue, pas sous l'origine de la station (10 m d'écart : ~100 km au sol).
+	var earth := view.get_node("Earth") as Node3D
+	var center := GeoMath.mesh_to_lat_lon((earth.global_transform.affine_inverse() * (camera.global_position
+			- camera.global_basis.z * 10.0)).normalized())
+	var under: Vector2 = (view.get_node("Orbit") as OrbitSimulation).get_subsatellite_point()
+	var off_km := GeoMath.distance_km(center.x, center.y, under.x, under.y)
+	_check(off_km < 1.0, "centre de la vue au nadir sur le point survolé (%.2f km)" % off_km)
 	_check(nadir.footprint_km(400.0).y > 150.0 and nadir.footprint_km(400.0).y < 160.0, "emprise à 400 km : %.0f km" % nadir.footprint_km(400.0).y)
 	# Photo : RenderingServer.frame_post_draw ne vient jamais sans fenêtre (headless) : vérifié seulement avec rendu.
 	if DisplayServer.get_name() != "headless":

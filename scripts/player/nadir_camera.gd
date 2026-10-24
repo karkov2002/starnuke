@@ -1,8 +1,9 @@
 class_name NadirCamera
 extends SubViewport
 ## Vue au nadir de la station (onglet Photographie de la tablette, scripts/tablet.gd, qui la crée) : SubViewport qui
-## partage le monde de la scène (Terre, nuages, atmosphère), caméra à offset_m sous la station, visée vers le centre
-## de la Terre, haut de l'image dans le sens du vol ; même réglage d'exposition que la vue (attributs de la caméra
+## partage le monde de la scène (Terre, nuages, atmosphère), caméra à offset_m sous la caméra de la vue (la Terre est
+## posée sous elle : centre de l'image = point survolé, Orbit.get_subsatellite_point), visée vers le centre de la Terre,
+## haut de l'image dans le sens du vol ; même réglage d'exposition que la vue (attributs de la caméra
 ## principale). Rendue seulement quand active (tablette sortie sur l'onglet Photographie), en LIVE_SIZE.
 ## L'image est affichée par l'écran de la tablette, puis vue par la caméra principale, qui applique déjà le mappage
 ## tonal (ACES) et le halo : avec ceux de l'environnement, ils l'étaient deux fois (image délavée). La caméra a donc
@@ -30,6 +31,10 @@ var _camera: Camera3D
 var _earth: Node3D
 var _world_environment: WorldEnvironment
 var _station: Node3D
+## Caméra de la vue : la Terre est posée sous elle (EarthSceneDriver), c'est donc d'elle que part la verticale du
+## point survolé (Orbit.get_subsatellite_point) ; depuis l'origine de la station, la visée serait décalée de
+## ~100 km au sol (10 m de station × 10 000).
+var _reference: Node3D
 var _capturing := false
 
 
@@ -46,6 +51,7 @@ func _init(main_camera: Camera3D, earth: Node3D, world_environment: WorldEnviron
 	_camera.fov = fov
 	_camera.near = 0.5
 	_camera.far = 3000.0
+	_reference = main_camera
 	if main_camera:
 		_camera.attributes = main_camera.attributes
 		_camera.cull_mask = main_camera.cull_mask
@@ -68,7 +74,7 @@ func _process(_delta: float) -> void:
 		return
 	if _station == null:
 		_station = get_tree().get_first_node_in_group(Station.GROUP) as Node3D
-	var origin := _station.global_position if _station else Vector3.ZERO
+	var origin := _reference.global_position if _reference else (_station.global_position if _station else Vector3.ZERO)
 	var down := (_earth.global_position - origin).normalized()
 	# Haut de l'image : sens du vol (−Z de la station), rendu perpendiculaire à la visée.
 	var ahead := -_station.global_basis.z if _station else Vector3.FORWARD
