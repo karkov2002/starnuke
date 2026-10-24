@@ -392,13 +392,14 @@ func _wake_up() -> WakeUp:
 	return get_tree().get_first_node_in_group(WakeUp.GROUP) as WakeUp
 
 
-## Monde à sauvegarder et à recréer (orbite, explosions, photos, cibles, relevés : WorldSnapshot).
+## Monde à sauvegarder et à recréer (orbite, explosions, photos, cibles, relevés, équipements : WorldSnapshot).
 func _snapshot() -> WorldSnapshot:
 	if _world == null:
 		_world = WorldSnapshot.new(_orbit, get_node_or_null(launcher_path) as NukeLauncher,
 				get_node_or_null(photos_path) as PhotoArchive,
 				get_tree().get_first_node_in_group(GroundTarget.GROUP) as GroundTarget,
-				get_tree().get_first_node_in_group(BearingLog.GROUP) as BearingLog)
+				get_tree().get_first_node_in_group(BearingLog.GROUP) as BearingLog,
+				get_tree().get_first_node_in_group(StationEquipments.GROUP) as StationEquipments)
 	return _world
 
 

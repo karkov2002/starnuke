@@ -10,6 +10,8 @@ extends Node
 ##   sur les océans.
 ## - **Canal** : un message posté sur un canal (indice de CHANNELS) n'arrive que si la radio est réglée sur ce canal ;
 ##   canal −1 : sur tous. Un message posté attend (au sol) que la liaison existe et que le bon canal soit choisi.
+## - **Antenne** : la radio passe par l'antenne extérieure (StationEquipments.ANTENNA) ; arrêtée ou en panne, ni réception
+##   ni émission (liaison nulle, antenna_ok faux : « PANNE RÉCEPTION » ou « ANTENNE ARRÊTÉE » sur COMM.EXE), jusqu'à sa remise en marche.
 ## - **Réponses** : un message peut proposer des réponses ; en envoyer une demande la liaison (sinon, échec) et le
 ##   message est alors répondu (une seule réponse).
 ## Textes des messages (from, subject, body, réponses) : clé des fichiers de langue, texte, ou dictionnaire par langue
@@ -64,6 +66,11 @@ var channel := 0
 ## Qualité de la liaison (0 à 1) et station au sol qui la porte ("" sans liaison).
 var link := 0.0
 var link_station := ""
+## Antenne extérieure en état de marche (sans équipements dans la scène : toujours).
+var antenna_ok := true
+## Antenne en panne (sinon, hors service : arrêtée à son panneau).
+var antenna_failed := false
+var _antenna: StationEquipment
 ## Messages reçus (les plus récents en dernier) : {id, from, subject, body, channel, replies, received_unix,
 ## received_channel, read, answer} ; messages postés pas encore reçus.
 var inbox: Array[Dictionary] = []
@@ -84,10 +91,10 @@ func _process(delta: float) -> void:
 	if _since < update_s:
 		return
 	_since = 0.0
-	var before := [link, link_station]
+	var before := [link, link_station, antenna_ok, antenna_failed]
 	_update_link()
 	_deliver()
-	if before != [link, link_station]:
+	if before != [link, link_station, antenna_ok, antenna_failed]:
 		changed.emit()
 
 
@@ -173,8 +180,17 @@ func _deliver() -> void:
 		changed.emit()
 
 
-## Meilleure élévation de la station vue des stations au sol (horizon local), en degrés.
+## Liaison : nulle sans antenne ; sinon d'après la meilleure élévation de la station vue des stations au sol
+## (horizon local, degrés).
 func _update_link() -> void:
+	if _antenna == null:
+		_antenna = StationEquipments.find(get_tree(), StationEquipments.ANTENNA)
+	antenna_ok = _antenna == null or _antenna.is_operational()
+	antenna_failed = _antenna != null and _antenna.failed
+	if not antenna_ok:
+		link = 0.0
+		link_station = ""
+		return
 	if _orbit == null:
 		link = 1.0
 		link_station = ""

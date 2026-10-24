@@ -8,6 +8,8 @@ extends HBoxContainer
 ## « Caméra » : cases IR / Normal (choix manuel, l'une exclut l'autre) : infrared_changed, la tablette règle
 ## NadirCamera.infrared ;
 ## les photos infrarouges sont marquées « IR » dans leur légende.
+## Caméra extérieure arrêtée ou en panne (camera_online faux, StationEquipments) : « HORS LIGNE » à la place de la vue
+## en direct, bouton Photo désactivé ; la galerie reste consultable.
 
 ## Bouton Photo pressé : la tablette prend la photo (scripts/tablet.gd).
 signal photo_requested
@@ -38,6 +40,17 @@ var _next_button: Button
 var _infrared := false
 ## Photo affichée dans la galerie (−1 : vue en direct).
 var _photo_index := -1
+var _shutter_button: BigRedButton
+var _offline_label: Label
+
+## Caméra extérieure en état de marche (réglé par la tablette).
+var camera_online := true:
+	set(value):
+		if value == camera_online:
+			return
+		camera_online = value
+		if _gallery_button:
+			_show_photo(_photo_index)
 
 
 ## page_size : taille de la page (pixels) ; side_width : largeur de la colonne du bouton Photo, à droite.
@@ -71,18 +84,27 @@ func _ready() -> void:
 	_photo_caption.add_theme_stylebox_override("normal", caption_style)
 	_photo_caption.position = Vector2(8, 6)
 	_photo_view.add_child(_photo_caption)
+	_offline_label = Label.new()
+	_offline_label.text = "TABLET_OFFLINE"
+	_offline_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_offline_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_offline_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_offline_label.add_theme_font_size_override("font_size", 40)
+	_offline_label.add_theme_color_override("font_color", PilotDisplay.COLOR_TEXT)
+	_offline_label.visible = false
+	_photo_view.add_child(_offline_label)
 	var side := VBoxContainer.new()
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
 	side.add_theme_constant_override("separation", 10)
 	add_child(side)
-	var shutter := BigRedButton.new()
-	shutter.cap_color = Color(0.82, 0.84, 0.86)
-	shutter.custom_minimum_size = Vector2(120.0, 112.0)
-	shutter.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	shutter.tooltip_text = "TABLET_PHOTO"
-	shutter.pressed.connect(_take_photo)
-	side.add_child(shutter)
+	_shutter_button = BigRedButton.new()
+	_shutter_button.cap_color = Color(0.82, 0.84, 0.86)
+	_shutter_button.custom_minimum_size = Vector2(120.0, 112.0)
+	_shutter_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_shutter_button.tooltip_text = "TABLET_PHOTO"
+	_shutter_button.pressed.connect(_take_photo)
+	side.add_child(_shutter_button)
 	var label := Label.new()
 	label.text = "TABLET_PHOTO"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -146,7 +168,7 @@ func _show_photo(index: int) -> void:
 	_photo_index = index if index >= 0 and index < _photo_count() else -1
 	var count := _photo_count()
 	if _photo_index < 0:
-		_photo_view.texture = nadir_texture
+		_photo_view.texture = nadir_texture if camera_online else null
 		_photo_caption.text = tr("TABLET_NADIR_IR" if _infrared else "TABLET_NADIR")
 	else:
 		var photo: Dictionary = archive.photos[_photo_index]
@@ -160,6 +182,8 @@ func _show_photo(index: int) -> void:
 			_photo_caption.text = tr("PHOTO_IR_TAG") + " · " + _photo_caption.text
 	_gallery_button.text = tr("TABLET_LIVE") if _photo_index >= 0 else tr("TABLET_GALLERY").format({"count": count})
 	_gallery_button.disabled = count == 0 and _photo_index < 0
+	_offline_label.visible = _photo_index < 0 and not camera_online
+	_shutter_button.disabled = not camera_online
 	_previous_button.disabled = _photo_index <= 0
 	_next_button.disabled = _photo_index < 0 or _photo_index >= count - 1
 
@@ -173,6 +197,8 @@ func _set_infrared(infrared: bool) -> void:
 
 ## Bouton Photo : retour à la vue en direct, obturateur, et prise de vue par la tablette (photo_requested).
 func _take_photo() -> void:
+	if not camera_online:
+		return
 	_show_photo(-1)
 	_shutter.trigger()
 	photo_requested.emit()

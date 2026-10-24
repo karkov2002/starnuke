@@ -5,7 +5,8 @@ extends Control
 ## palette CGA (fond bleu, cadres doubles cyan clair, barre de menu cyan, barre des touches de fonction en bas,
 ## curseur clignotant). Façade de la radio (RadioComms) :
 ## - ligne d'état : canal, fréquence et bande, liaison (barre de signal, station au sol ; « PAS DE LIAISON »
-##   clignotant hors de vue du sol) ;
+##   clignotant hors de vue du sol ; « PANNE RÉCEPTION » si l'antenne extérieure est en panne,
+##   « ANTENNE ARRÊTÉE » si elle est éteinte) ;
 ## - à gauche, les messages reçus (heure de jeu, expéditeur ; non lus en jaune) ; à droite, le message choisi
 ##   (expéditeur, objet, réception, texte) et ses réponses ([1], [2]…) ;
 ## - galerie (F5, ou « Galerie » dans la barre de menu ; F5 encore : retour aux messages) : photos de la partie
@@ -421,6 +422,12 @@ func _status_line() -> void:
 	var x := 1 + tuned.length() + 4
 	_put(x, 1, tr("COMM_LINK").to_upper() + " ", WHITE, BLUE)
 	x += tr("COMM_LINK").length() + 1
+	# Antenne en panne (« PANNE RÉCEPTION ») ou arrêtée (« ANTENNE ARRÊTÉE ») : vidéo inverse rouge, clignotant.
+	if not radio.antenna_ok:
+		if _blink:
+			var fault := tr("COMM_RECEPTION_FAILURE" if radio.antenna_failed else "COMM_ANTENNA_OFF")
+			_put(x, 1, " %s " % fault, WHITE, LIGHT_RED)
+		return
 	if radio.link <= 0.0:
 		if _blink:
 			_put(x, 1, tr("COMM_NO_LINK"), YELLOW, BLUE)

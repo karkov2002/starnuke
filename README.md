@@ -511,6 +511,8 @@ des phalanges puis gonflée de 4,5 mm : tissu épais, gonflement et lissage nuls
 	par le soleil le jour (sols nus sombres plus chauds, végétation plus fraîche), contraste local du relief (vallées,
 	rivières), **villes** en îlots de chaleur (lumières de nuit floutées ; atténués par le black-out), plus froid vers
 	les pôles, **sommets des nuages froids** (sombres), fumée tiède, **incendies et flashs des explosions en blanc**.
+	Caméra extérieure arrêtée ou en panne : **« HORS LIGNE »** à la place de la vue, pas de photo (voir « Équipements
+	extérieurs réparables »).
 	Les photos IR sont marquées « IR » (légende de la tablette, liste et titre de la Galerie de COMM.EXE, fichier
 	`…_IR.png`, sauvegarde) ; la note d'une photo de mission est la même qu'en visible.
   - **Tir de missile** : la commande de tir (`LaunchControl` : 48 silos, **petits boutons de puissance** — à terme,
@@ -773,7 +775,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	(envoyer la réponse correspondante), Entrée (valider le canal), Échap (fermer une fenêtre) ; tout se fait aussi à
 	la souris.
   - Écran : ligne d'état (canal, fréquence, bande ; liaison en barre de signal avec la station au sol, ou « PAS DE
-	LIAISON » clignotant) ; à gauche les messages reçus (heure, expéditeur ; non lus en jaune, lus quand on s'installe
+	LIAISON » clignotant ; antenne extérieure hors service : « PANNE RÉCEPTION » ou « ANTENNE ARRÊTÉE », voir
+	« Équipements extérieurs réparables ») ; à gauche les messages reçus (heure, expéditeur ; non lus en jaune, lus quand on s'installe
 	devant l'écran ou qu'on les choisit), à droite le message choisi (expéditeur, objet, réception et fréquence, texte)
 	et ses réponses `[1]`, `[2]`… ; une réponse envoyée s'affiche en vert.
   - **Galerie** (onglet « Galerie » de la barre de menu, ou F5 ; « Messages » pour revenir) : à gauche les photos
@@ -1195,6 +1198,18 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   - Contrôle : rendus EEVEE et Workbench avec élimination des faces arrière (comme Godot). Dans EEVEE, la face
 	extérieure de la porte du bas paraît blanche et dentelée sous un soleil rasant : artefact de rendu, la géométrie
 	et les normales sont saines.
+- **Équipements extérieurs** (`tools/blender/build_eva_equipment.py`, envoyé au Blender ouvert : `EVA_MODE = "apply"`
+  crée ou remplace les objets, `"render"` rend des aperçus en situation dans `E:\Blender\apercus_eva`, `"remove"` les
+  retire) : sous le module Commande, optiques et antenne vers le nadir.
+  - `Equipement_Camera` (x 14,7, entre la cupola et l'anneau avant) : tourelle optronique d'environ 1 m (couronne
+	crantée vissée sur la coque, fourche à grilles d'aération, boule noire à grand objectif infrarouge bleuté,
+	objectif visible, petit objectif, télémètre à deux pupilles) ;
+  - `Equipement_Antenne` (x 8,4, de l'autre côté de la cupola) : antenne log-périodique (deux tubes, dix brins de
+	longueur décroissante) sous un rotateur d'azimut blanc ;
+  - panneaux de maintenance `Interactif_Panneau_Camera` (derrière la caméra) et `Interactif_Panneau_Antenne` (côté
+	sas) : boîtier blanc durci à poignées EVA jaunes sur une jambe de force, écran tourné vers le bas et vers le sas,
+	dalle `Ecran_Panneau_EVA` (extras `type` « panneau_eva », `equipement`, `materiau_ecran`) ;
+  - volumes de collision `-convcolonly` (boîtes, exclues des rendus Blender).
 - **Import** (`station_spatiale.glb.import`) : échelle 1 (mètres), racine `StationSpatiale`, collisions par
   suffixes de noms (`-col` : collision statique concave + maillage ; `-convcolonly` : collision convexe seule),
   LOD générés, animations à 24 i/s, **Rotation_Panneaux** (plus jouée : suivi du soleil, voir plus bas) et **Balayage_Antennes** en boucle (les autres jouées
@@ -1363,6 +1378,29 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	Comme pour les trappes, une demande inverse en cours de mouvement repart de la position actuelle. Écoutille à
 	volant (extras `volant`, `volant_tours`) : à l'ouverture, le volant tourne d'abord (déverrouillage, `volant_tours`
 	tours en `hatch_wheel_s` = 0,9 s) puis la porte pivote ; à la fermeture, la porte puis le verrouillage.
+  - **Équipements extérieurs réparables** (règles de jeu ; `scripts/station/station_equipments.gd`, nœud `Equipment`
+	de `orbit_view.tscn`, classe `StationEquipments` ; état d'un équipement `StationEquipment`,
+	`scripts/station/station_equipment.gd`) : éléments de la station, à l'extérieur, qui peuvent **tomber en panne**
+	et qu'on vient **réparer sur place**, en interagissant avec leur écran. Pour l'instant : la **caméra de
+	photographie** (`CAMERA.EXE`) et l'**antenne radio** (`ANTENNA.EXE`). Architecture commune, prévue pour d'autres
+	éléments : une entrée de `StationEquipments.EQUIPMENT` (identifiant, nom, programme, objet du panneau) crée l'état
+	et le panneau ; il reste à brancher l'effet (`StationEquipments.find(tree, id).is_operational()`).
+	- **Règle** : un équipement ne fonctionne que **allumé** (bouton ON / OFF de son panneau) **et pas en panne**.
+	  Une panne (événement : section « Pannes » du panneau de debug F4 ; plus tard la campagne) ne se répare **qu'au
+	  panneau** ; pour l'instant d'un clic (« RÉPARER »), plus tard par des mini-jeux.
+	- **Panneau de maintenance** (`scripts/screens/equipment_panel.gd`, `EquipmentPanel`, un par équipement ; interface
+	  `scripts/ui/equipment_display.gd`, `EquipmentDisplay`) : **utilisable seulement en sortie extravéhiculaire**
+	  (`Station.observer_outside` : sorti par le sas ; crochet `ScreenSeatConsole._can_use`). Comme la radio : survol
+	  à 2,5 m → bulle « Panneau de maintenance », clic → vue face à l'écran, clic droit ou F10 → on quitte. Programme
+	  « MS-DOS » **monochrome noir et blanc** (40 × 15 caractères, barres en vidéo inverse) : équipement, état (EN
+	  SERVICE, ARRÊTÉ, EN PANNE clignotant), `[ ON ] [ OFF ]` (position actuelle en vidéo inverse), en panne « Défaut
+	  détecté » et `[ RÉPARER ]` ; clavier : Entrée allume / éteint, R répare.
+	- **Caméra hors service** (arrêtée ou en panne) : la page Photographie de la tablette affiche **« HORS LIGNE »** à
+	  la place de la vue au nadir (qui n'est plus rendue), le bouton Photo est désactivé ; la galerie reste consultable.
+	- **Antenne hors service** : **ni réception ni émission** (liaison radio nulle : pas de message reçu, pas de réponse,
+	  pas de photo envoyée au sol) ; ligne d'état de COMM.EXE : **« PANNE RÉCEPTION »** (en panne) ou **« ANTENNE
+	  ARRÊTÉE »** (éteinte), en rouge clignotant.
+	- État sauvegardé avec le monde de la campagne (`WorldSnapshot`, clé `equipment`).
   - **Écoutilles à la souris** (`scripts/station/hatch_interaction.gd`, nœud `HatchInteraction` de `orbit_view.tscn`) :
 	rayon de la caméra contre les collisions, à 2,5 m au plus (`reach_m`) ; survol d'une écoutille ouvrable : bulle
 	« Ouvrir l'écoutille » / « Fermer l'écoutille » (`HATCH_OPEN`, `HATCH_CLOSE`) ; clic gauche : ouverture ou

@@ -13,7 +13,8 @@ extends ScreenConsole
 ## Groupe GROUP : la tablette se range (seated_changed) et les écoutilles ne se cliquent plus tant qu'un poste est
 ## occupé (any_seated). Pendant la transition (_moving), ni survol ni clic : la souris reste prise par l'écran.
 ## Crochets, en plus de ceux de ScreenConsole : _hover_key, _exit_key, _on_seated, _on_stood_up, _handle_key,
-## _handle_mouse (souris au poste, avant l'interface : boutons 3D de la console radar), _seat_pose (cadrage).
+## _handle_mouse (souris au poste, avant l'interface : boutons 3D de la console radar), _seat_pose (cadrage),
+## _can_use (poste utilisable maintenant : panneaux de maintenance extérieurs, seulement dehors).
 
 signal seated_changed(seated: bool)
 
@@ -78,7 +79,7 @@ func _exit_tree() -> void:
 
 func _process(delta: float) -> void:
 	super(delta)
-	var hovering := not _seated and not _moving and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE \
+	var hovering := not _seated and not _moving and _can_use() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE \
 			and _screen.uv_at(_camera, _mouse_position, reach_m) != StationScreen.NONE and not any_seated(get_tree()) \
 			and not Tablet.covers_pointer(get_tree(), _mouse_position)
 	_bubble.set_hover(hovering, _mouse_position)
@@ -87,7 +88,8 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	var click := event as InputEventMouseButton
-	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT or _seated or _moving:
+	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT or _seated or _moving \
+			or not _can_use():
 		return
 	if _screen.uv_at(_camera, click.position, reach_m) != StationScreen.NONE and not any_seated(get_tree()) \
 			and not Tablet.covers_pointer(get_tree(), click.position):
@@ -171,6 +173,11 @@ func _set_observer_active(active: bool) -> void:
 
 
 # --- Crochets ---------------------------------------------------------------------------------------------------------
+
+## Le poste peut-il être utilisé maintenant (survol, clic) ? Panneaux extérieurs : seulement dehors.
+func _can_use() -> bool:
+	return true
+
 
 ## Clé de langue de la bulle de survol.
 func _hover_key() -> String:

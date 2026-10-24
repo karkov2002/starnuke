@@ -127,6 +127,12 @@ func _ready() -> void:
 	show_tab(current_tab)
 
 
+## Caméra extérieure en état de marche (StationEquipments) : sinon « HORS LIGNE » sur la page Photographie.
+func set_camera_online(online: bool) -> void:
+	if _photo_page:
+		_photo_page.camera_online = online
+
+
 func show_tab(tab: int) -> void:
 	current_tab = tab as Tab
 	for i in _pages.size():

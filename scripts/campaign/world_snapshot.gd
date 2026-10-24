@@ -2,27 +2,31 @@ class_name WorldSnapshot
 extends RefCounted
 ## Monde d'une partie de campagne, capturé pour la sauvegarde au coucher et recréé au « Continuer »
 ## (CampaignDirector) : orbite au moment de la capture (heure UTC, altitude, inclinaison, point survolé, sens de
-## passage), explosions (point, puissance, âge sur l'horloge des explosions, heure UTC), photos, cibles au sol et
-## relevés du rapporteur. Seule classe à connaître la forme de sauvegarde de ces nœuds (OrbitSimulation, NukeLauncher,
-## PhotoArchive, GroundTarget, BearingLog) ; un nœud absent (null) est ignoré à la capture comme à la restauration.
+## passage), explosions (point, puissance, âge sur l'horloge des explosions, heure UTC), photos, cibles au sol,
+## relevés du rapporteur et état des équipements extérieurs (allumés, en panne). Seule classe à connaître la forme de
+## sauvegarde de ces nœuds (OrbitSimulation, NukeLauncher, PhotoArchive, GroundTarget, BearingLog, StationEquipments) ;
+## un nœud absent (null) est ignoré à la capture comme à la restauration.
 
 var _orbit: OrbitSimulation
 var _launcher: NukeLauncher
 var _photos: PhotoArchive
 var _targets: GroundTarget
 var _bearings: BearingLog
+var _equipments: StationEquipments
 
 
 func _init(orbit: OrbitSimulation, launcher: NukeLauncher, photos: PhotoArchive, targets: GroundTarget,
-		bearings: BearingLog = null) -> void:
+		bearings: BearingLog = null, equipments: StationEquipments = null) -> void:
 	_orbit = orbit
 	_launcher = launcher
 	_photos = photos
 	_targets = targets
 	_bearings = bearings
+	_equipments = equipments
 
 
-## Monde à sauvegarder : {orbit, detonations, photos, targets, bearings} (clés absentes pour les nœuds manquants).
+## Monde à sauvegarder : {orbit, detonations, photos, targets, bearings, equipment} (clés absentes pour les nœuds
+## manquants).
 func capture() -> Dictionary:
 	var world := {}
 	if _orbit:
@@ -43,11 +47,13 @@ func capture() -> Dictionary:
 		world.targets = _targets.to_save()
 	if _bearings:
 		world.bearings = _bearings.to_save()
+	if _equipments:
+		world.equipment = _equipments.to_save()
 	return world
 
 
 ## Recrée le monde d'une sauvegarde (capture) : orbite, explosions avec leur âge (marquées restored : pas un tir),
-## photos, cibles, relevés.
+## photos, cibles, relevés, équipements.
 func restore(world: Dictionary) -> void:
 	var orbit: Dictionary = world.get("orbit", {})
 	if _orbit and not orbit.is_empty():
@@ -62,3 +68,5 @@ func restore(world: Dictionary) -> void:
 		_targets.restore(world.targets)
 	if _bearings and world.has("bearings"):
 		_bearings.restore(world.bearings)
+	if _equipments and world.has("equipment"):
+		_equipments.restore(world.equipment)

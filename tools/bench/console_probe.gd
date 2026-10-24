@@ -30,7 +30,7 @@ func _ready() -> void:
 	_check(report.get("_screen") != null and report.get("_viewport") != null, "NukeReport : dalle et viewport")
 	_check(report.is_processing(), "NukeReport actif")
 	var seats := get_tree().get_nodes_in_group(ScreenSeatConsole.GROUP)
-	_check(seats.size() == 4, "4 postes dans le groupe (%d)" % seats.size())
+	_check(seats.size() == 6, "6 postes dans le groupe, dont 2 panneaux extérieurs (%d)" % seats.size())
 	for name in ["PilotConsole", "CommConsole", "TvConsole", "RadarConsole"]:
 		var console := view.get_node(name) as ScreenSeatConsole
 		print("- " + name)
@@ -99,6 +99,7 @@ func _ready() -> void:
 	_check_bearing(view)
 	await _check_tablet(view)
 	await _check_station(view)
+	await _check_equipment(view)
 	print("=== %d échec(s)" % _failures)
 	view.queue_free()
 	await get_tree().process_frame
@@ -413,3 +414,75 @@ func _check_station(view: Node) -> void:
 	_check(station.launch_handoff_s() > 1.0 and station.launch_missile(2, 5), "lancement 2_05 (%.1f s)" % station.launch_handoff_s())
 	_check(await _until(func() -> bool: return not released.is_empty(), station.launch_handoff_s() + 3.0), "missile relâché : %s" % str(released))
 	_check(ignited[0] and station.is_silo_door_open(2, 5) and not station.can_launch(2, 5) and station.available_tubes().size() == 47, "tuyère allumée, trappe ouverte, tube vidé")
+
+
+## Équipements extérieurs (StationEquipments) : panneaux de maintenance utilisables seulement dehors, ON / OFF,
+## panne et réparation au panneau, effets sur la tablette (caméra hors ligne) et la radio (liaison coupée),
+## sauvegarde avec le monde.
+func _check_equipment(view: Node) -> void:
+	print("- équipements extérieurs")
+	var equipments := view.get_node("Equipment") as StationEquipments
+	var camera := StationEquipments.find(get_tree(), StationEquipments.CAMERA)
+	var antenna := StationEquipments.find(get_tree(), StationEquipments.ANTENNA)
+	_check(camera != null and antenna != null and camera.is_operational() and antenna.is_operational(),
+			"caméra et antenne en service au départ")
+	var station := view.get_node("Station/StationSpatiale") as Station
+	for panel_name in ["CameraPanel", "AntennaPanel"]:
+		var panel := equipments.get_node(panel_name) as EquipmentPanel
+		var viewport: SubViewport = panel.get("_viewport") if panel else null
+		_check(panel != null and panel.is_processing() and viewport != null and viewport.get_child_count() == 1,
+				"%s : dalle, viewport et interface" % panel_name)
+		station.observer_outside = false
+		_check(not panel.call("_can_use"), "%s : inutilisable depuis l'intérieur" % panel_name)
+		station.observer_outside = true
+		_check(panel.call("_can_use"), "%s : utilisable dehors" % panel_name)
+	station.observer_outside = false
+	# Interface du panneau de la caméra : Entrée éteint / rallume, R répare.
+	var display := equipments.get_node("CameraPanel").get("_display") as EquipmentDisplay
+	var enter := InputEventKey.new()
+	enter.keycode = KEY_ENTER
+	enter.pressed = true
+	display.handle_key(enter)
+	_check(not camera.powered and not camera.is_operational(), "Entrée : caméra éteinte")
+	# Caméra hors service : tablette « hors ligne », vue au nadir coupée, pas de photo.
+	var tablet := view.get_node("Observer/Camera/Tablet") as Tablet
+	var tablet_display := tablet.get_node("Screen/Display") as TabletDisplay
+	tablet_display.show_tab(TabletDisplay.Tab.PHOTO)
+	tablet.call("_set_wanted", true)
+	await _wait(0.6)
+	var nadir: NadirCamera = tablet.get("_nadir")
+	var page: PhotoPage = tablet_display.get("_photo_page")
+	_check(not nadir.active and not page.camera_online and (page.get("_offline_label") as Label).visible
+			and (page.get("_shutter_button") as BigRedButton).disabled, "caméra éteinte : tablette hors ligne")
+	display.handle_key(enter)
+	camera.fail()
+	await _wait(0.3)
+	_check(camera.powered and camera.failed and not page.camera_online, "caméra en panne : hors ligne")
+	var r := InputEventKey.new()
+	r.keycode = KEY_R
+	r.pressed = true
+	display.handle_key(r)
+	await _wait(0.3)
+	_check(camera.is_operational() and page.camera_online and nadir.active, "R : réparée, vue au nadir revenue")
+	tablet.call("_set_wanted", false)
+	# Antenne : panne -> ni liaison ni réponse (PANNE RÉCEPTION), arrêt -> idem (ANTENNE ARRÊTÉE).
+	var radio := view.get_node("Radio") as RadioComms
+	antenna.fail()
+	radio.call("_update_link")
+	_check(radio.link == 0.0 and not radio.antenna_ok and radio.antenna_failed, "antenne en panne : liaison coupée")
+	antenna.repair()
+	antenna.set_powered(false)
+	radio.call("_update_link")
+	_check(radio.link == 0.0 and not radio.antenna_ok and not radio.antenna_failed, "antenne arrêtée : liaison coupée")
+	# Sauvegarde : état gardé avec le monde, puis restauré.
+	camera.fail()
+	var snapshot := WorldSnapshot.new(null, null, null, null, null, equipments)
+	var world := snapshot.capture()
+	camera.repair()
+	antenna.set_powered(true)
+	snapshot.restore(world)
+	_check(camera.failed and not antenna.powered, "état des équipements sauvegardé et restauré")
+	camera.repair()
+	antenna.set_powered(true)
+	radio.call("_update_link")
+	_check(radio.antenna_ok, "antenne remise en service")

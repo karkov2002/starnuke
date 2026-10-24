@@ -83,6 +83,7 @@ var _input_forwarder: ScreenInputForwarder
 var _display: TabletDisplay
 ## Vue au nadir : rendue seulement quand la tablette est sortie sur l'onglet Photographie.
 var _nadir: NadirCamera
+var _camera_equipment: StationEquipment
 var _console: PilotConsole
 ## Dimensions de la coque (m), pour le cadrage.
 var _height := 0.19
@@ -163,7 +164,16 @@ func _process(delta: float) -> void:
 	if _viewport:
 		_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if visible else SubViewport.UPDATE_DISABLED
 	if _nadir:
-		_nadir.active = visible and _display.current_tab == TabletDisplay.Tab.PHOTO
+		var online := _camera_online()
+		_display.set_camera_online(online)
+		_nadir.active = visible and _display.current_tab == TabletDisplay.Tab.PHOTO and online
+
+
+## Caméra extérieure de photographie allumée et pas en panne (sans équipements dans la scène : toujours).
+func _camera_online() -> bool:
+	if _camera_equipment == null:
+		_camera_equipment = StationEquipments.find(get_tree(), StationEquipments.CAMERA)
+	return _camera_equipment == null or _camera_equipment.is_operational()
 
 
 ## Onglet affiché par l'interface (TabletDisplay.Tab), même tablette rangée ; -1 avant sa construction.
@@ -319,6 +329,8 @@ func _connect_archive() -> void:
 ## Photo satellite (bouton Photo) : capture de la vue au nadir (NadirCamera.capture_photo), enregistrée avec le point
 ## survolé, l'heure, l'altitude et son emprise au sol au moment du déclenchement (PhotoArchive).
 func _take_photo() -> void:
+	if not _camera_online():
+		return
 	var archive := get_tree().get_first_node_in_group(PhotoArchive.GROUP) as PhotoArchive
 	var orbit := get_node_or_null(orbit_path) as OrbitSimulation
 	if archive == null or orbit == null or _nadir == null:
