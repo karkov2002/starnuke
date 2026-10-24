@@ -91,6 +91,8 @@ func _ready() -> void:
 	print("  %d ligne(s) de chronologie, passage au plus tôt %.0f s (calcul : %.1f ms)" % [
 			_record["planner/timeline"].size(), _record["planner/earliest"].time, cost_ms])
 
+	_check_firing_cone(orbit)
+
 	print("- Référence")
 	var result := ProbeCompare.check(_record, REFERENCE, write_reference)
 	if result.written:
@@ -103,6 +105,29 @@ func _ready() -> void:
 		_check(result.diffs.is_empty(), "identique à la référence (%d écart(s))" % result.diffs.size())
 	print("=== %d échec(s) au total" % _failures)
 	get_tree().quit(0 if _failures == 0 else 1)
+
+
+## Cône de tir (FiringCone, hors référence) : ouverture et portée selon l'altitude, cibles devant, sur le côté, derrière,
+## trop loin ; maillage du HUD (FiringConeMarker).
+func _check_firing_cone(orbit: OrbitSimulation) -> void:
+	print("- Cône de tir")
+	_check(is_equal_approx(FiringCone.aperture_deg(400.0), 70.0) and is_equal_approx(FiringCone.aperture_deg(800.0), 100.0)
+			and is_equal_approx(FiringCone.aperture_deg(600.0), 85.0), "ouverture 70° à 400 km, 100° à 800 km")
+	var range_km := FiringCone.range_km(400.0)
+	_check(range_km > 1700.0 and range_km < 1800.0, "portée à 400 km : %.0f km (80 %% de l'horizon)" % range_km)
+	orbit.place(CampaignData.parse_utc("2035-07-15T06:00:00Z"), 400.0, 51.6, 40.4, -3.7, true)
+	var here := orbit.get_subsatellite_point()
+	var later := orbit.get_subsatellite_point(orbit.sim_time_s + FiringCone.HEADING_STEP_S)
+	var heading := GeoMath.initial_bearing_deg(here.x, here.y, later.x, later.y)
+	var cases := [[0.0, 1000.0, FiringCone.Status.OK, "devant"], [30.0, 1000.0, FiringCone.Status.OK, "à 30° de la trace"],
+			[-40.0, 1000.0, FiringCone.Status.OUT_OF_CONE, "à 40° de la trace"],
+			[180.0, 500.0, FiringCone.Status.OUT_OF_CONE, "derrière"],
+			[0.0, range_km + 50.0, FiringCone.Status.OUT_OF_RANGE, "au-delà de la portée"]]
+	for c: Array in cases:
+		var target := GeoMath.destination(here.x, here.y, heading + c[0], c[1])
+		_check(FiringCone.status(orbit, target.x, target.y) == c[2], "cible %s" % c[3])
+	var mesh := FiringConeMarker.build(400.0)
+	_check(mesh.get_surface_count() == 1 and mesh.surface_get_array_len(0) > 0, "maillage du cône (HUD)")
 
 
 ## Modèle et pose de la scène à l'instant courant.

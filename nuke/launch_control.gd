@@ -25,6 +25,8 @@ var _sequencer: LaunchSequencer
 var _armed := SiloPanel.NONE
 var _timers: ImpactTimers
 var _button: BigRedButton
+## Raison du refus affichée sur le bouton (clé de langue ; "" : tir permis).
+var _refusal := "-"
 
 
 func _ready() -> void:
@@ -77,15 +79,25 @@ func _ready() -> void:
 	_connect_station.call_deferred()
 
 
-## Bouton rouge actif seulement dans la cupola ; ailleurs grisé, avec « Actif uniquement dans la coupole » dessus.
+## Bouton rouge actif seulement dans la cupola et quand le point visé est dans le cône de tir (FiringCone) ; sinon
+## grisé, avec la raison écrite dessus : « Actif uniquement dans la coupole », cible hors du cône, hors de portée.
 func _process(_delta: float) -> void:
-	var camera := get_tree().root.get_camera_3d()
-	var inside := _station == null or camera == null or _station.is_in_cupola(camera.global_position)
-	if inside != _button.disabled:
+	var key := _refusal_key()
+	if key == _refusal:
 		return
-	_button.disabled = not inside
-	_button.disabled_message = "" if inside else tr("LAUNCH_CUPOLA_ONLY")
-	_button.tooltip_text = "HUD_LAUNCH_TOOLTIP" if inside else "LAUNCH_CUPOLA_ONLY"
+	_refusal = key
+	_button.disabled = not key.is_empty()
+	_button.disabled_message = tr(key) if not key.is_empty() else ""
+	_button.tooltip_text = key if not key.is_empty() else "HUD_LAUNCH_TOOLTIP"
+
+
+## Raison du refus de tir (clé de langue ; "" : tir permis).
+func _refusal_key() -> String:
+	var camera := get_tree().root.get_camera_3d()
+	if _station and camera and not _station.is_in_cupola(camera.global_position):
+		return "LAUNCH_CUPOLA_ONLY"
+	var launcher := get_tree().get_first_node_in_group(NukeLauncher.GROUP) as NukeLauncher
+	return FiringCone.refusal_key(FiringCone.aim_status(launcher.get_aim())) if launcher else ""
 
 
 ## Chronomètres en bas à droite de l'écran, dans l'interface à l'écran (Hud ; à défaut, la couche d'interface du
@@ -129,8 +141,7 @@ func _on_selection_changed(key: Vector2i) -> void:
 
 
 func _on_fire() -> void:
-	var camera := get_tree().root.get_camera_3d()
-	if _station and camera and not _station.is_in_cupola(camera.global_position):
+	if not _refusal_key().is_empty():
 		return
 	var launcher := get_tree().get_first_node_in_group(NukeLauncher.GROUP) as NukeLauncher
 	if launcher:

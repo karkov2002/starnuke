@@ -196,6 +196,8 @@ AUDIO_PLAYLIST_NOTE,"The playlist starts with the game and loops. Each playlist 
 AUDIO_MUTE,"Mute","Muet","Silenciar","Stumm","Muto"
 REPORT_NONE,"No explosion","Aucune explosion","Ninguna explosión","Keine Explosion","Nessuna esplosione"
 LAUNCH_CUPOLA_ONLY,"Active only in the cupola","Actif uniquement dans la coupole","Activo solo en la cúpula","Nur in der Kuppel aktiv","Attivo solo nella cupola"
+LAUNCH_OUT_OF_CONE,"Outside the firing cone","Hors du cône de tir","Fuera del cono de tiro","Außerhalb des Feuerkegels","Fuori dal cono di tiro"
+LAUNCH_OUT_OF_RANGE,"Out of range","Hors de portée","Fuera de alcance","Außer Reichweite","Fuori portata"
 CONTROLS_MOVE,"Move forward / back","Avancer / reculer","Avanzar / retroceder","Vorwärts / rückwärts","Avanti / indietro"
 CONTROLS_STRAFE,"Move left / right","Se déplacer à gauche / à droite","Desplazarse a la izquierda / derecha","Nach links / rechts","Spostarsi a sinistra / destra"
 CONTROLS_VERTICAL,"Move up / down","Se déplacer vers le haut / le bas","Desplazarse hacia arriba / abajo","Nach oben / unten","Spostarsi in alto / in basso"
