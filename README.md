@@ -655,6 +655,15 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	l'échelle. Les points de trace sont **en cache** sur une grille de 20 s (une trace recalculée à chaque image
 	coûtait ~3,5 ms par carte à 4 orbites) ; un point témoin recalculé par image (premier point de grille après le début de la trace) vide le cache si l'orbite ou l'orbite visée change
 	(manœuvre, date, altitude). Une carte non affichée (onglet caché, tablette rangée) n'est pas redessinée.
+- **Horloges murales** (`scripts/screens/station_clocks.gd`, nœud `StationClocks` de `orbit_view.tscn`) : les quatre
+  horloges LCD du modèle (`Interactif_Horloge_*` : couchette, cuisine, poste de pilotage, sas ; voir « Station
+  spatiale », « Horloges murales LCD ») affichent la **date ISO 8601 et l'heure UTC du jeu** (`Orbit.get_utc_unix_s`) :
+  date en petit en haut à gauche, « UTC » en haut à droite, heure en grands chiffres à sept segments légèrement
+  penchés (segments éteints à peine visibles, comme un vrai afficheur), deux points du séparateur. Un seul
+  `SubViewport` (1024 × 368, MSAA 4×) dessiné en 2D et **partagé par les quatre dalles** (matériau `Ecran_Horloge`,
+  shader des écrans d'ambiance sans balayage de lignes), **redessiné seulement quand la seconde affichée change**
+  (une fois par seconde à ×1, au plus une fois par image en accéléré) ; éteintes avec « plus de lumière ». Textes :
+  chiffres et « UTC » seulement (aucune langue) : hors fichiers de langue.
 - **Écrans d'ambiance des modules Commande et Arrimage** (`scripts/screens/tech_screens.gd`, nœud `TechScreens` de
   `orbit_view.tscn`, shader `shaders/tech_screen.gdshader`) : sur les écrans plats et les portables du module Commande
   (pas sur le grand écran du poste) et sur le portable `Interactif_Ordinateur_05` de l'Arrimage (télémétrie), des programmes « techno-thriller » dessinés en 2D dans cinq `SubViewport` partagés : listage de code et
@@ -815,6 +824,22 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
   créé par le script s'il manque (table `NEW_DEVICES`) ; `ONLY = [...]` limite le mode « apply » à quelques appareils.
   Penser à **enregistrer le `.blend`** après chaque modification exportée : un export depuis un fichier non
   enregistré se perd à la réouverture.
+- **Horloges murales LCD** (`tools/blender/build_station_clock.py`, envoyé au Blender ouvert : `CLOCK_MODE = "preview"`
+  construit une horloge sur une paroi dans une scène temporaire du fichier ouvert, aperçus dans
+  `E:\Blender\apercus_horloge\`, puis retire tout ; `CLOCK_MODE = "apply"` sur `nuke_station.blend` crée ou remplace
+  les objets de la table `TARGETS`, rejouable) : quatre horloges `Interactif_Horloge_<id>` de 20 × 8,2 × 2,3 cm
+  (boîtier anthracite mat aux coins arrondis sur une platine murale aluminium de 3 mm, vitre noire brillante
+  affleurante dont la face avant est la dalle, matériau `Ecran_Horloge` partagé, UV 0–1 ; deux boutons de réglage sur
+  la tranche supérieure, voyant vert, câble qui rentre dans la paroi ; 917 faces chacune ; extras `type` « horloge »,
+  `id`, `materiau_ecran`). Emplacements relevés par lancer de rayons sur les parois (coordonnées Blender) :
+  **Couchette** (1,80 ; 1,43 ; −0,15), fond de la niche côté pieds, lisible par le dormeur allongé la tête vers
+  l'écoutille (haut de l'affichage vers −Y) ; **Cuisine** (−2,95 ; 1,25 ; 0,42), au-dessus de la jonction
+  réchauffeur / distributeur d'eau, entre les deux sachets repas de la rangée haute et sous le faisceau de câbles ;
+  **Pilotage** (16,07 ; 0 ; 0,72), cloison avant, centrée au-dessus du grand écran ; **Sas** (−8,98 ; 0 ; −3,25),
+  paroi de la chambre basse au-dessus du manomètre et de la valve. Affichage en jeu : nœud `StationClocks`, voir
+  « Organisation de la scène » ; pour l'aperçu Blender, une texture de démonstration à chiffres à sept segments
+  (`E:\Blender\textures\horloge_demo.png`, rendue par le script) imite l'affichage, sans jamais rester dans le
+  matériau exporté (dalle noire).
 - **Écoutilles des modules de missiles** (`tools/blender/add_missile_hatches.py`, envoyé au Blender ouvert sur
   `nuke_station.blend`, rejouable) : le tunnel Habitation → silo (Ø 2,88 m) est rétréci au passage standard
   (Ø 1,32 m) par une cloison `Missile_<s>_Cloison_Ecoutille-col` (couronne grise, anneaux métal et jaune aux

@@ -10,7 +10,7 @@
 [ext_resource type="PackedScene" path="res://scenes/station_spatiale.tscn" id="7_0pmab"]
 [ext_resource type="Script" uid="uid://v2ujlnu50ch3" path="res://scripts/player/suit_helmet.gd" id="7_5e3xn"]
 [ext_resource type="Script" uid="uid://nmhxi1tug17e" path="res://scripts/orbit/orbit.gd" id="8_3kqp2"]
-[ext_resource type="Script" path="res://scripts/orbit/earth_scene_driver.gd" id="8_earthscene"]
+[ext_resource type="Script" uid="uid://wjb6i0ceq5xo" path="res://scripts/orbit/earth_scene_driver.gd" id="8_earthscene"]
 [ext_resource type="Material" path="res://materials/atmosphere_ground.tres" id="8_pecem"]
 [ext_resource type="Script" uid="uid://dq6gx0b0wpihd" path="res://scripts/ui/hud.gd" id="10_hud"]
 [ext_resource type="CameraAttributesPractical" path="res://materials/camera_attributes.tres" id="11_cam"]
@@ -38,6 +38,7 @@
 [ext_resource type="Script" uid="uid://c5ppfc2stod21" path="res://scripts/campaign/campaign_director.gd" id="35_vnf77"]
 [ext_resource type="Script" uid="uid://dg8apa0r08bm5" path="res://scripts/core/wake_up.gd" id="36_4hs2m"]
 [ext_resource type="Script" uid="uid://wd5pqymx5yg7" path="res://scripts/station/alert_sirens.gd" id="37_2urrc"]
+[ext_resource type="Script" uid="uid://dq2exvqy1ujig" path="res://scripts/screens/station_clocks.gd" id="39_nn0rq"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -142,7 +143,7 @@ mesh = SubResource("SphereMesh_pecem")
 [node name="Orbit" type="Node" parent="." unique_id=219774249]
 script = ExtResource("8_3kqp2")
 
-[node name="EarthScene" type="Node" parent="."]
+[node name="EarthScene" type="Node" parent="." unique_id=533059238]
 script = ExtResource("8_earthscene")
 
 [node name="Hud" type="CanvasLayer" parent="." unique_id=1118273847]
@@ -213,3 +214,6 @@ script = ExtResource("36_4hs2m")
 
 [node name="AlertSirens" type="Node" parent="." unique_id=323897164]
 script = ExtResource("37_2urrc")
+
+[node name="StationClocks" type="Node" parent="." unique_id=682144399]
+script = ExtResource("39_nn0rq")
