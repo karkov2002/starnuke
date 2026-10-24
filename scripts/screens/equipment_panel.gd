@@ -4,7 +4,7 @@ extends ScreenSeatConsole
 ## l'objet screen_node du modèle (Interactif_Panneau_*) affiche son programme (EquipmentDisplay : état, ON / OFF,
 ## réparation). Règle de jeu : **utilisable seulement en sortie extravéhiculaire** (Station.observer_outside) ;
 ## survol, vue assise, souris transmise, clic droit pour quitter : ScreenSeatConsole ; le clavier va aussi à
-## l'interface (Entrée, R, F10).
+## l'interface (Entrée, R, F10 ; flèches pendant le mini-jeu de réparation, que quitter le panneau abandonne).
 
 const VIEWPORT_HEIGHT := 480
 
@@ -62,6 +62,11 @@ func _hover_key() -> String:
 
 func _exit_key() -> String:
 	return "EQUIP_EXIT_HINT"
+
+
+## Quitter le panneau pendant le mini-jeu de réparation l'abandonne (échec : délai avant un nouvel essai).
+func _on_stood_up() -> void:
+	_display.abort()
 
 
 func _handle_key(key: InputEventKey) -> bool:

@@ -463,8 +463,28 @@ func _check_equipment(view: Node) -> void:
 	r.keycode = KEY_R
 	r.pressed = true
 	display.handle_key(r)
+	_check(display.is_playing() and camera.failed, "R : mini-jeu de réparation lancé, toujours en panne")
+	# Victoire : la troisième baie remplie répare.
+	var game: RepairFrogger = display.get("_game")
+	game.bays_filled = [true, true, false]
+	game.frog = Vector2(RepairFrogger.BAYS[2], 1)
+	game.move(0, -1)
 	await _wait(0.3)
-	_check(camera.is_operational() and page.camera_online and nadir.active, "R : réparée, vue au nadir revenue")
+	_check(not display.is_playing() and camera.is_operational() and page.camera_online and nadir.active,
+			"mini-jeu gagné : réparée, vue au nadir revenue")
+	# Chrono à 0 : échec, délai avant un nouvel essai.
+	camera.fail(2)
+	display.handle_key(r)
+	game = display.get("_game")
+	_check(game != null and game.level == 2, "panne de niveau 2 : mini-jeu de niveau 2")
+	game.time_left = 0.01
+	await _wait(0.3)
+	_check(not display.is_playing() and camera.failed and camera.retry_in_s > 25.0, "chrono à 0 : échec, délai de 30 s")
+	display.handle_key(r)
+	_check(not display.is_playing(), "pendant le délai : pas de nouvel essai")
+	camera.repair()
+	_check(camera.retry_in_s == 0.0 and camera.is_operational(), "réparation directe (debug) : délai effacé")
+	_check_frogger()
 	tablet.call("_set_wanted", false)
 	# Antenne : panne -> ni liaison ni réponse (PANNE RÉCEPTION), arrêt -> idem (ANTENNE ARRÊTÉE).
 	var radio := view.get_node("Radio") as RadioComms
@@ -540,3 +560,52 @@ func _check_reticle(view: Node) -> void:
 	_check(reticle.visible and reticle.modulate.a > 0.99, "onglet Tir de missile : réticule")
 	display.show_tab(before)
 	await _wait(0.8)
+
+
+## Mini-jeu de réparation (modèle seul) : voitures, troncs, eau, baies, chrono, niveaux.
+func _check_frogger() -> void:
+	print("- mini-jeu de réparation")
+	var easy := RepairFrogger.new(1)
+	var hard := RepairFrogger.new(3)
+	var road := easy.lane_at(6)
+	_check(absf(hard.lane_speed(road)) > absf(easy.lane_speed(road)) and hard.time_left < easy.time_left,
+			"niveau 3 : voies plus rapides, chrono plus court")
+	# Voiture : posée sur elle, la grenouille meurt, puis revient au départ.
+	var g := RepairFrogger.new(1)
+	var car: Vector2 = g.lane_objects(road)[0]
+	for o in g.lane_objects(road):
+		if o.x > 1.0 and o.x < RepairFrogger.COLS - 3.0:
+			car = o
+	g.frog = Vector2(car.x, 6)
+	g.update(0.01)
+	_check(g.dead_s > 0.0 and g.deaths == 1, "voiture : grenouille écrasée")
+	g.update(RepairFrogger.RESPAWN_S + 0.1)
+	_check(g.dead_s == 0.0 and int(g.frog.y) == RepairFrogger.START_ROW, "retour au départ")
+	# Tronc : il porte la grenouille ; à l'eau, elle se noie.
+	var river := g.lane_at(3)
+	var log_object: Vector2 = g.lane_objects(river)[0]
+	for o in g.lane_objects(river):
+		if o.x > 2.0 and o.x + o.y < RepairFrogger.COLS - 2.0:
+			log_object = o
+	g.frog = Vector2(log_object.x + log_object.y * 0.5 - 0.5, 3)
+	var x0 := g.frog.x
+	g.update(0.2)
+	_check(g.dead_s == 0.0 and g.frog.x > x0, "tronc : grenouille portée")
+	g.frog = Vector2(log_object.x + log_object.y + 1.0, 3)
+	if g.call("_on_log", river):
+		g.frog.x = log_object.x - 2.0
+	g.update(0.01)
+	_check(g.dead_s > 0.0, "eau : grenouille noyée")
+	# Baies : contre le mur, mort ; dans une baie, remplie ; trois baies, gagné.
+	var h := RepairFrogger.new(1)
+	h.frog = Vector2(0, 1)
+	h.move(0, -1)
+	_check(h.dead_s > 0.0 and not h.bays_filled.has(true), "mur de l'arrivée : mort")
+	h = RepairFrogger.new(1)
+	for i in RepairFrogger.BAYS.size():
+		h.frog = Vector2(RepairFrogger.BAYS[i], 1)
+		h.move(0, -1)
+	_check(h.state == RepairFrogger.State.WON, "trois baies remplies : gagné")
+	h = RepairFrogger.new(3)
+	h.update(RepairFrogger.LEVELS[3].time + 1.0)
+	_check(h.state == RepairFrogger.State.LOST and h.time_left == 0.0, "chrono à 0 : perdu")

@@ -3,9 +3,11 @@ extends Control
 ## Programme de maintenance d'un équipement extérieur (EquipmentPanel, dans un SubViewport) : interface « MS-DOS »
 ## en mode texte, monochrome noir et blanc (grille COLS × ROWS d'une police à chasse fixe, barres en vidéo inverse,
 ## curseur clignotant). Affiche le nom de l'équipement (StationEquipment), son état (EN SERVICE, ARRÊTÉ, EN PANNE
-## clignotant), les boutons [ ON ] [ OFF ] (celui de l'état actuel en vidéo inverse) et, en panne, [ RÉPARER ] (pour
-## l'instant une réparation directe ; plus tard des mini-jeux). Clavier : Entrée allume / éteint, R répare, F10
-## quitte la vue (quit_requested). Tous les libellés sont des clés des fichiers de langue.
+## clignotant), les boutons [ ON ] [ OFF ] (celui de l'état actuel en vidéo inverse) et, en panne, [ RÉPARER ] : lance le
+## mini-jeu de réparation (RepairFrogger au niveau de la panne, dessiné par FroggerView par-dessus) ; gagné, l'équipement
+## est réparé ; chrono à 0 ou abandon (F10, clic droit : abort), retour à l'accueil et nouvel essai seulement après
+## StationEquipment.RETRY_COOLDOWN_S (décompte à la place du bouton). Clavier : Entrée allume / éteint, R lance la
+## réparation, F10 quitte la vue (quit_requested) ; pendant le jeu, flèches (ou ZQSD / WASD) pour sauter. Tous les libellés sont des clés des fichiers de langue.
 
 signal quit_requested
 
@@ -34,6 +36,9 @@ var _clock := 0.0
 var _blink := true
 ## Message après la dernière action (réparation) ; vide sinon.
 var _notice := ""
+## Partie de réparation en cours (null : accueil), et son dessin.
+var _game: RepairFrogger
+var _view: FroggerView
 
 
 func _ready() -> void:
@@ -49,9 +54,24 @@ func _ready() -> void:
 	_ink.resize(COLS * ROWS)
 	if equipment:
 		equipment.changed.connect(queue_redraw)
+	_view = FroggerView.new()
+	_view.name = "Frogger"
+	_view.visible = false
+	add_child(_view)
+	_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 
 func _process(delta: float) -> void:
+	if _game and not equipment.failed:
+		# Réparé entre-temps (panneau de debug) : fin de partie sans suite.
+		_end_game("EQUIP_REPAIRED", false)
+	if _game:
+		_game.update(delta)
+		if _game.state == RepairFrogger.State.WON:
+			equipment.repair()
+			_end_game("EQUIP_REPAIRED", false)
+		elif _game.state == RepairFrogger.State.LOST:
+			_end_game("EQUIP_TIMEOUT", true)
 	_clock += delta
 	var blink := fmod(_clock, BLINK_S * 2.0) < BLINK_S
 	if blink != _blink:
@@ -76,7 +96,7 @@ func _draw() -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	var click := event as InputEventMouseButton
-	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
+	if click == null or _game or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
 		return
 	var cell := Vector2i((click.position / _cell).floor())
 	for k in range(_zones.size() - 1, -1, -1):
@@ -92,6 +112,8 @@ func _gui_input(event: InputEvent) -> void:
 func handle_key(key: InputEventKey) -> bool:
 	if not key.pressed or equipment == null:
 		return false
+	if _game:
+		return _game_key(key)
 	match key.keycode:
 		KEY_ENTER, KEY_KP_ENTER:
 			_set_power(not equipment.powered)
@@ -111,9 +133,66 @@ func _set_power(on: bool) -> void:
 
 
 func _repair() -> void:
-	if equipment.failed:
-		equipment.repair()
-		_notice = tr("EQUIP_REPAIRED")
+	if not equipment.failed or equipment.retry_in_s > 0.0 or _game:
+		return
+	_notice = ""
+	_game = RepairFrogger.new(equipment.repair_level)
+	_view.game = _game
+	_view.visible = true
+
+
+## Touche pendant la partie : sauts (flèches, ou touches physiques WASD : ZQSD en AZERTY), F10 abandonne et quitte.
+func _game_key(key: InputEventKey) -> bool:
+	if key.echo:
+		return true
+	var step := Vector2i.ZERO
+	match key.keycode:
+		KEY_UP:
+			step = Vector2i.UP
+		KEY_DOWN:
+			step = Vector2i.DOWN
+		KEY_LEFT:
+			step = Vector2i.LEFT
+		KEY_RIGHT:
+			step = Vector2i.RIGHT
+		KEY_F10:
+			quit_requested.emit()
+			return true
+	if step == Vector2i.ZERO:
+		match key.physical_keycode:
+			KEY_W:
+				step = Vector2i.UP
+			KEY_S:
+				step = Vector2i.DOWN
+			KEY_A:
+				step = Vector2i.LEFT
+			KEY_D:
+				step = Vector2i.RIGHT
+			_:
+				return false
+	_game.move(step.x, step.y)
+	return true
+
+
+## Partie en cours ?
+func is_playing() -> bool:
+	return _game != null
+
+
+## Abandon (on quitte le panneau pendant la partie) : compte comme un échec.
+func abort() -> void:
+	if _game:
+		_end_game("EQUIP_ABORTED", true)
+
+
+func _end_game(notice_key: String, failed: bool) -> void:
+	_game = null
+	_view.game = null
+	_view.visible = false
+	_notice = tr(notice_key)
+	if failed:
+		equipment.start_cooldown()
+	queue_redraw()
 
 
 # --- Composition ----------------------------------------------------------------------------------------------------
@@ -153,10 +232,16 @@ func _compose() -> void:
 		for line in _wrap(tr("EQUIP_FAULT"), COLS - 2):
 			_put(1, row, line, BRIGHT)
 			row += 1
-		var repair := "[ %s ]" % tr("EQUIP_REPAIR").to_upper()
-		var rx := floori((COLS - repair.length()) * 0.5)
-		_put(rx, 11, repair, BRIGHT, true)
-		_zones.append([Rect2i(rx, 11, repair.length(), 1), _repair])
+		if equipment.retry_in_s > 0.0:
+			var wait := _fit(tr("EQUIP_RETRY_IN").format({"s": ceili(equipment.retry_in_s)}), COLS - 2)
+			_put(floori((COLS - wait.length()) * 0.5), 11, wait, DIM)
+		else:
+			var repair := "[ %s ]" % tr("EQUIP_REPAIR").to_upper()
+			var rx := floori((COLS - repair.length()) * 0.5)
+			_put(rx, 11, repair, BRIGHT, true)
+			_zones.append([Rect2i(rx, 11, repair.length(), 1), _repair])
+		if _notice != "":
+			_put(1, 12, _fit(_notice, COLS - 2), INK)
 	elif _notice != "":
 		_put(1, 9, _fit(_notice, COLS - 2), INK)
 	_put(0, 13, "═".repeat(COLS), DIM)

@@ -2,7 +2,8 @@ class_name EquipmentDebugSection
 extends VBoxContainer
 ## Section « Pannes » du panneau de debug (scripts/debug/debug_panel.gd), seulement si la scène a des équipements
 ## extérieurs (StationEquipments) : une ligne par équipement, son état (en service, arrêté, en panne) et les
-## boutons « Panne » (StationEquipment.fail : il faut alors sortir le réparer à son panneau), « Réparer » et « Y aller »
+## boutons « Panne 1 » à « Panne 3 » (StationEquipment.fail au niveau choisi : il faut alors sortir le réparer à son
+## panneau, mini-jeu de cette difficulté), « Réparer » (directement, délai d'essai remis à zéro) et « Y aller »
 ## (combinaison enfilée, observateur posé dehors face au panneau de maintenance, à VISIT_DISTANCE_M : comme sorti
 ## par le sas, AirlockHazard.place_outside).
 
@@ -23,7 +24,8 @@ func _ready() -> void:
 		var state := Label.new()
 		state.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(state)
-		row.add_child(DebugUi.button("Panne", equipment.fail))
+		for level in range(1, RepairFrogger.LEVELS.size() + 1):
+			row.add_child(DebugUi.button("Panne %d" % level, equipment.fail.bind(level)))
 		row.add_child(DebugUi.button("Réparer", equipment.repair))
 		row.add_child(DebugUi.button("Y aller", _visit.bind(equipments.get_panel(equipment.equipment_id))))
 		_states[equipment] = state
@@ -32,7 +34,8 @@ func _ready() -> void:
 
 
 func _show(equipment: StationEquipment) -> void:
-	var state := "en panne" if equipment.failed else ("en service" if equipment.powered else "arrêté")
+	var state := ("en panne (niveau %d)" % equipment.repair_level) if equipment.failed \
+			else ("en service" if equipment.powered else "arrêté")
 	(_states[equipment] as Label).text = "%s : %s" % [equipment.program, state]
 
 

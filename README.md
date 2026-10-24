@@ -1399,8 +1399,10 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	éléments : une entrée de `StationEquipments.EQUIPMENT` (identifiant, nom, programme, objet du panneau) crée l'état
 	et le panneau ; il reste à brancher l'effet (`StationEquipments.find(tree, id).is_operational()`).
 	- **Règle** : un équipement ne fonctionne que **allumé** (bouton ON / OFF de son panneau) **et pas en panne**.
-	  Une panne (événement : section « Pannes » du panneau de debug F4 ; plus tard la campagne) ne se répare **qu'au
-	  panneau** ; pour l'instant d'un clic (« RÉPARER »), plus tard par des mini-jeux. Pour le debug, « Y aller » de
+	  Une panne a un **niveau de 1 à 3** (événement : boutons « Panne 1 » à « Panne 3 » de la section « Pannes » du
+	  panneau de debug F4 ; plus tard la campagne ; `StationEquipment.fail(level)`, `repair_level`, sauvegardé) et ne se
+	  répare **qu'au panneau, en gagnant le mini-jeu de réparation** (ci-dessous) à ce niveau. « Réparer » (debug)
+	  répare directement. Pour le debug, « Y aller » de
 	  la même section pose l'observateur dehors, combinaison enfilée, face au panneau de l'équipement, à 1,4 m
 	  (`AirlockHazard.place_outside` : compté comme sorti par le sas).
 	- **Panneau de maintenance** (`scripts/screens/equipment_panel.gd`, `EquipmentPanel`, un par équipement ; interface
@@ -1409,7 +1411,22 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	  à 2,5 m → bulle « Panneau de maintenance », clic → vue face à l'écran, clic droit ou F10 → on quitte. Programme
 	  « MS-DOS » **monochrome noir et blanc** (40 × 15 caractères, barres en vidéo inverse) : équipement, état (EN
 	  SERVICE, ARRÊTÉ, EN PANNE clignotant), `[ ON ] [ OFF ]` (position actuelle en vidéo inverse), en panne « Défaut
-	  détecté » et `[ RÉPARER ]` ; clavier : Entrée allume / éteint, R répare.
+	  détecté » et `[ RÉPARER ]` ; clavier : Entrée allume / éteint, R lance la réparation.
+	- **Mini-jeu de réparation** (`scripts/ui/repair_frogger.gd`, `RepairFrogger` : modèle pur ; dessin
+	  `scripts/ui/frogger_view.gd`, `FroggerView`, par-dessus le programme du panneau) : un **« Frogger »** en basse
+	  résolution, très schématique, monochrome noir et blanc. Grille de 20 × 12 cases : départ en bas, **route** (cinq
+	  voies de voitures : rectangles blancs pleins), talus, **rivière** (quatre voies de troncs : rectangles blancs
+	  sur l'eau en pointillés, qui portent la grenouille), arrivée en haut (mur gris percé de **trois baies**).
+	  Grenouille : gros carré creux à point central. Flèches (ou ZQSD / WASD, touches physiques) : un saut d'une case.
+	  Écrasée par une voiture, tombée à l'eau, emportée hors de l'écran par un tronc, contre le mur ou dans une baie
+	  déjà prise : elle clignote et revient au départ (0,7 s, seul le temps est perdu). **Remplir les trois baies
+	  répare l'appareil.** En haut : niveau, baies remplies, chrono (clignotant dans les 10 dernières secondes).
+	  **Difficulté** (niveau de la panne, `RepairFrogger.LEVELS`, à régler) : vitesse des voitures et des troncs
+	  ×1 / ×1,45 / ×2, chrono 90 s / 70 s / 55 s. **Chrono à 0** (ou abandon : F10, clic droit) : retour à la page
+	  d'accueil (« Temps écoulé : réparation ratée. »), et **nouvel essai seulement après 30 s**
+	  (`StationEquipment.RETRY_COOLDOWN_S`, décompte « NOUVEL ESSAI DANS 27 S » à la place de `[ RÉPARER ]`).
+	  Faisabilité (robot simple qui ne fait que monter, corriger la dérive et viser une baie) : 18/20 parties gagnées
+	  au niveau 1 en 43 s en moyenne, 15/20 au niveau 3 en 38 s.
 	- **Caméra hors service** (arrêtée ou en panne) : la page Photographie de la tablette affiche **« HORS LIGNE »** à
 	  la place de la vue au nadir (qui n'est plus rendue), le bouton Photo est désactivé ; la galerie reste consultable.
 	- **Antenne hors service** : **ni réception ni émission** (liaison radio nulle : pas de message reçu, pas de réponse,
