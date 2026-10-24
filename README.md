@@ -9,10 +9,28 @@ Ouvrir le projet dans Godot 4.7 puis F5 (scène principale : l'écran de démarr
 la vue orbitale `res://scenes/orbit_view.tscn` se lance aussi seule, F6).
 Les tuiles haute résolution (`assets/earth_tiles/`, `assets/earth_night_tiles/`) doivent avoir été générées (voir plus bas).
 
+**Vérifications avant commit** : `powershell -ExecutionPolicy Bypass -File tools/bench/run_all_probes.ps1` enchaîne,
+en headless (éditeur ouvert ou fermé, partie en cours ou non), les contrôles qui rendent un code de retour et
+s'arrête au premier échec (~75 s en tout, de la plus rapide à la plus longue) : `tools/check_campaign.gd` (campagnes du
+dossier `campaign/`), `orbit_probe` et `nuke_probe` (orbite et explosions contre leurs références), `campaign_probe`
+(campagne officielle jouée de bout en bout) et `console_probe` (écrans à vue assise). La sortie d'une étape n'est
+affichée qu'en cas d'échec (`-ShowOutput` pour tout voir) ; `-KeepGoing` enchaîne malgré un échec, `-Only a,b` choisit
+les étapes. Code de retour 0 si tout passe. Les bancs de mesure et les sondes à captures (voir « Performances ») ne sont
+pas enchaînés : ils demandent une fenêtre, l'éditeur fermé ou un œil humain.
+
 ## Version distribuable (Windows)
 
+**Numéro de version** : `application/config/version` de `project.godot`, convention **x.y.z** : **x** version majeure,
+`0` tant que le jeu est en alpha, passera à `1` à la *release candidate*, **sur décision explicite de l'auteur
+seulement** ; **y** version mineure, incrémentée à chaque ajout fonctionnel dans le jeu (z repart à 0) ; **z** sous-version,
+incrémentée à **chaque commit** qui ne change pas y. Le numéro est affiché en bas à droite de l'écran de démarrage
+(clé `MENU_VERSION`, dès l'écran de chargement), donne son nom au zip (`StarNuke_<version>.zip`) et se retrouve dans les
+métadonnées de `Star Nuke.exe` (champs de version du preset laissés vides : Godot y met celle du projet). Première
+version numérotée : 0.1.0 (24/10/2026).
+
 `powershell -ExecutionPolicy Bypass -File tools/package_game.ps1` (modèles d'export Godot 4.7.2 installés ; l'éditeur
-peut rester ouvert) construit `../exe/starnuke/` et `../exe/StarNuke.zip` (~1 Go) :
+peut rester ouvert) construit `../exe/starnuke/` et `../exe/StarNuke_<version>.zip` (~1 Go ; `-Zip` pour un autre
+nom) :
 - export « release » du preset « Windows Desktop » (`export_presets.cfg`) : `Star Nuke.exe` et `Star Nuke.pck`
   (~450 Mo : toutes les ressources, plus `assets/population_2030.bin`, fichier brut ajouté par `include_filter` ;
   `tools/` et le cache du MCP, `addons/godot_mcp/cache/`, ~500 Mo de captures, exclus par `exclude_filter`) ;
@@ -232,7 +250,9 @@ permet de piloter le jeu exporté.
   pour placer station et Terre à gauche). **Écran de chargement dès le démarrage** : jusqu'à ce que le décor soit
   en place, fond noir et « Loading in progress… » (clé `MENU_LOADING`, points animés et pourcentage), puis les
   boutons apparaissent en fondu (0,5 s). Le même chargement sert à **Start Game** : le message de chargement
-  revient pendant la mise en place de la partie. Mesure hors éditeur (18/10/2026) : fenêtre à 0,5 s, menu à
+  revient pendant la mise en place de la partie. **Numéro de version** du jeu en petit en bas à droite, dès l'écran
+  de chargement (`MENU_VERSION`, « Version 0.1.0 », retraduit au changement de langue ; convention x.y.z dans
+  « Version distribuable »). Mesure hors éditeur (18/10/2026) : fenêtre à 0,5 s, menu à
   1,5 s ; la mise en place du décor (70 ms) figeait l'écran 4,7 s tant que les collisions des objets interactifs
   étaient calculées au démarrage (elles le sont maintenant à l'import, voir « Post-import »).
 - **Écran des paramètres** (`scenes/ui/settings_menu.tscn`, script `scripts/ui/settings_menu.gd`) : onglets

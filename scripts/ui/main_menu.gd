@@ -18,6 +18,8 @@ extends Control
 ## s'il n'est pas terminé.
 ## Écran de chargement dès le démarrage du jeu : « Chargement en cours… » (points animés, pourcentage) sur le fond noir
 ## jusqu'à ce que le décor soit en place ; le décor et les boutons apparaissent ensuite en fondu.
+## Version du jeu (application/config/version de project.godot, convention x.y.z : README, « Version distribuable »)
+## en petit en bas à droite, dès l'écran de chargement : elle identifie la version qu'un joueur a entre les mains.
 
 const GAME_SCENE := "res://scenes/orbit_view.tscn"
 const SETTINGS_SCENE := preload("res://scenes/ui/settings_menu.tscn")
@@ -54,6 +56,7 @@ var _campaign_list: ItemList
 var _campaign_index := 0
 var _veil: ColorRect
 var _loading: Label
+var _version_label: Label
 var _loading_dots := 0
 var _game_scene: PackedScene
 var _load_failed := false
@@ -119,8 +122,37 @@ func _ready() -> void:
 	_loading.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_loading)
 	_show_loading(0.0)
+	_add_version_label()
 	if _load_failed:
 		_show_menu()
+
+
+## Version du jeu en bas à droite (project.godot : application/config/version), visible pendant le chargement et sur
+## toutes les pages du menu ; rien si le projet n'en déclare pas.
+func _add_version_label() -> void:
+	var version := str(ProjectSettings.get_setting("application/config/version", ""))
+	if version.is_empty():
+		return
+	_version_label = UiKit.label("", 16, Color(0.6, 0.63, 0.68), false, HORIZONTAL_ALIGNMENT_RIGHT)
+	_version_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_version_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	_version_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_version_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_version_label.position -= Vector2(16.0, 12.0)
+	add_child(_version_label)
+	_refresh_version_label()
+
+
+## Texte traduit (changement de langue dans les paramètres compris : NOTIFICATION_TRANSLATION_CHANGED).
+func _refresh_version_label() -> void:
+	if _version_label:
+		_version_label.text = tr("MENU_VERSION").format(
+				{"version": str(ProjectSettings.get_setting("application/config/version", ""))})
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED:
+		_refresh_version_label()
 
 
 func _process(_delta: float) -> void:

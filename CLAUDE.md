@@ -84,11 +84,17 @@ le même identifiant d'`ext_resource`) : pour une deuxième instance, écrire le
   une piste NLA = une animation, extras, suffixes `-col`/`-convcolonly`, sans Draco), rescan Godot, capture en jeu.
   **Règle : pas de réexport vers le projet Godot sans le feu vert explicite de l'utilisateur** (modifier et rendre
   dans Blender reste libre). Chaque réexport est commité, en précisant ce qui a changé dans le `.blend`.
-- Aucun outil de build, lint ou test n'est configuré. Le jeu se lance depuis l'éditeur Godot (ou via le MCP).
+- Pas de build ni de lint. Vérifications avant tout commit qui touche au code du jeu :
+  `powershell -ExecutionPolicy Bypass -File tools/bench/run_all_probes.ps1` (headless, ~75 s, éditeur et partie en cours
+  tolérés ; s'arrête au premier échec ; README, « Lancer »). Le jeu se lance depuis l'éditeur Godot (ou via le MCP).
 
 ## Conventions
 
 - `project.godot` est généré par l'éditeur : préférer les modifications via l'éditeur/MCP (`update_project_settings`) plutôt qu'à la main.
+- **Version du jeu** (`application/config/version`, convention x.y.z, README « Version distribuable ») : **z est incrémenté à
+  chaque commit** (dans le commit lui-même) ; **y** à chaque ajout fonctionnel dans le jeu (z repart à 0) ; **x reste à 0**
+  (alpha) et ne change que sur demande explicite de l'utilisateur (passage en RC). Affichée en bas à droite de l'écran de
+  démarrage, nom du zip (`StarNuke_<version>.zip`), métadonnées de l'exe.
 - Encodage UTF-8 pour tous les fichiers (`.editorconfig`).
 - Non versionnés (`.gitignore`) : `.godot/` (cache d'import, shader cache, régénéré par l'éditeur ; ne pas modifier
   son contenu manuellement) et `addons/godot_mcp/cache/` (captures d'écran et instantanés d'annulation du MCP).
