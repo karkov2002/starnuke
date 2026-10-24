@@ -558,14 +558,14 @@ func _build_controls() -> void:
 	var orbit_bar := HBoxContainer.new()
 	orbit_bar.add_theme_constant_override("separation", 4)
 	add_child(orbit_bar)
-	var label := Label.new()
-	label.text = "MAP_ORBITS_AHEAD"
-	label.add_theme_font_size_override("font_size", font)
-	label.add_theme_color_override("font_color", COLOR_PANEL_TEXT)
-	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
-	label.add_theme_constant_override("shadow_outline_size", 4)
-	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	orbit_bar.add_child(label)
+	# Icône « orbites à venir » (planète, orbite inclinée et flèche du sens de parcours) ; nom en info-bulle.
+	var orbit_icon := Control.new()
+	orbit_icon.custom_minimum_size = Vector2(height * 1.5, height)
+	orbit_icon.mouse_filter = Control.MOUSE_FILTER_PASS
+	orbit_icon.tooltip_text = tr("MAP_ORBITS_AHEAD")
+	orbit_icon.draw.connect(func() -> void:
+		_draw_orbits_icon(orbit_icon, orbit_icon.size * 0.5, orbit_icon.size.y * 0.62))
+	orbit_bar.add_child(orbit_icon)
 	for count in MAX_ORBITS_AHEAD + 1:
 		var orbit_button := _make_button(str(count), height, font)
 		orbit_button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
@@ -589,14 +589,6 @@ func _build_target_menu(height: float, font: int, margin: float) -> void:
 	bar.add_theme_constant_override("separation", 4)
 	bar.position = Vector2(margin, margin)
 	add_child(bar)
-	var label := Label.new()
-	label.text = "MAP_TARGETS"
-	label.add_theme_font_size_override("font_size", font)
-	label.add_theme_color_override("font_color", COLOR_PANEL_TEXT)
-	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
-	label.add_theme_constant_override("shadow_outline_size", 4)
-	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	bar.add_child(label)
 	for slot in GroundTarget.MAX_TARGETS:
 		# Icône de la cible dans sa couleur (pâle tant qu'elle n'est pas posée), dessinée sur le bouton.
 		var slot_button := _make_button("", height, font)
@@ -621,13 +613,41 @@ func _build_target_menu(height: float, font: int, margin: float) -> void:
 	_get_target()
 
 
-## Rapporteur (en haut à droite, sur la ligne du menu des cibles) : « Rapporteur » (démarrer ou annuler un relevé,
+## Icône des orbites à venir : planète, orbite inclinée (ellipse) et flèche du sens de parcours ;
+## sous-couche sombre pour rester lisible sur la carte.
+func _draw_orbits_icon(canvas: CanvasItem, center: Vector2, radius: float) -> void:
+	var orbit := PackedVector2Array()
+	var tilt := deg_to_rad(-22.0)
+	for k in 41:
+		var a := TAU * k / 40.0
+		orbit.append(center + Vector2(cos(a) * radius, sin(a) * radius * 0.36).rotated(tilt))
+	var tip := center + Vector2(cos(0.5) * radius, sin(0.5) * radius * 0.36).rotated(tilt)
+	var ahead := (center + Vector2(cos(0.75) * radius, sin(0.75) * radius * 0.36).rotated(tilt) - tip).normalized()
+	var side := ahead.orthogonal() * radius * 0.2
+	var head := PackedVector2Array([tip + ahead * radius * 0.38, tip + side, tip - side])
+	for pass_index in 2:
+		var shadow := pass_index == 0
+		var color := Color(0, 0, 0, 0.85) if shadow else COLOR_PANEL_TEXT
+		var extra := 3.0 if shadow else 0.0
+		canvas.draw_arc(center, radius * 0.36, 0.0, TAU, 32, color, 2.5 + extra, true)
+		canvas.draw_polyline(orbit, color, 2.5 + extra, true)
+		canvas.draw_polyline(head + PackedVector2Array([head[0]]), color, 1.0 + extra, true)
+		canvas.draw_colored_polygon(head, color)
+
+
+## Rapporteur (en haut à droite, sur la ligne du menu des cibles) : icône du rapporteur (démarrer ou annuler un relevé,
 ## en surbrillance pendant le relevé), « Effacer le relevé » (le relevé choisi ; pâle sans relevé choisi).
 func _build_bearing_menu(height: float, font: int, margin: float) -> void:
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 4)
 	add_child(bar)
-	_bearing_button = _make_button("MAP_BEARING_TOOL", height, font)
+	# Icône du rapporteur (dessinée), nom de l'outil en info-bulle.
+	_bearing_button = _make_button("", height, font)
+	_bearing_button.custom_minimum_size.x = height * 1.3
+	_bearing_button.tooltip_text = tr("MAP_BEARING_TOOL")
+	_bearing_button.draw.connect(func() -> void:
+		BearingTool.draw_icon(_bearing_button, _bearing_button.size * 0.5, _bearing_button.size.y * 0.36,
+				COLOR_PANEL_TEXT, 2.0))
 	_bearing_button.pressed.connect(func() -> void: _bearing_tool.toggle())
 	bar.add_child(_bearing_button)
 	_bearing_erase = _make_button("MAP_BEARING_CLEAR", height, font)

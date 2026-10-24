@@ -360,7 +360,7 @@ permet de piloter le jeu exporté.
 | Tir nucléaire | **Gros bouton rouge** à droite des silos (tablette), **depuis la cupola seulement** (ailleurs, il est grisé avec « Actif uniquement dans la coupole ») : lance le missile du **tube choisi (vert)** sur le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie sous les silos (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Le point visé et la puissance sont figés à l'appui. Le missile sort de son tube (animation de lancement, 5 s : trappe, descente, allumage), le tube passe au gris, puis le missile tourne vers la cible en accélérant pendant que son moteur brûle (9 s) et part vers la zone d'impact ; moteur éteint, on le perd de vue ; dans les dernières secondes, sa **rentrée atmosphérique** apparaît au-dessus de la cible, comme une étoile filante, puis l'explosion a lieu. **Durée du vol : de 20 s (cible au nadir) à 2 min (cible à l'horizon)**, proportionnelle à la distance (temps de jeu : le vol se fige en pause et s'accélère avec le temps). Un **chronomètre** par missile, en bas à droite de l'écran (« Silo 7 · impact dans 0:43 », toujours visible, même hors de la cupola), décompte jusqu'à l'impact, passe au rouge et clignote dans les 10 dernières secondes. Sans tube choisi, ou si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien et le missile reste dans son tube. Voir « Explosions nucléaires » |
 | Bilan des explosions | Sur l'écran mural à droite en face de la télévision (module Commande) : pays touchés et pertes, cumulées sur toutes les explosions ; la liste défile seule quand elle déborde |
 | Console radar | Paroi −Y du module Commande, à droite de l'écran radio, près de la cupola : **clic gauche** sur la dalle pour s'installer, **clic droit** pour quitter. Les trois boutons sous l'écran (azimut, fréquence, bande VHF / UHF) : **maintenir le clic gauche et glisser à gauche ou à droite** ; **Maj** pour un réglage fin. Voir « Console radar » dans « Organisation de la scène » |
-| Rapporteur (relevés de cap) | Carte du poste de pilotage : bouton **« Rapporteur »**, **clic** pour poser le centre, déplacer la souris (azimut et distance en temps réel), **clic** pour valider ; clic sur un relevé pour le choisir, **« Effacer le relevé »** pour l'effacer. Voir « Rapporteur » dans « Poste de pilotage » |
+| Rapporteur (relevés de cap) | Carte du poste de pilotage : bouton à **l'icône du rapporteur** (en haut à droite), **clic** pour poser le centre, déplacer la souris (azimut et distance en temps réel), **clic** pour valider ; clic sur un relevé pour le choisir, **« Effacer le relevé »** pour l'effacer. Voir « Rapporteur » dans « Poste de pilotage » |
 | Compteur de performances et panneau de debug | **F4** ouvre ou masque le **panneau de debug des explosions** dans la partie en cours (outil de développement, en français : puissance, coordonnées, scrubber du temps, alerte de la station, case **Combinaison** (enfilée ou rangée, `Station.set_suit_worn`, suit aussi l'enfilage au clic), bouton **Radio** (message radio d'essai), altitude et inclinaison directes de l'orbite, date et heure UTC, redémarrage ; voir « Scène de debug » dans « Explosions nucléaires »). **F3** affiche ou masque la ligne en haut à droite (visible par défaut, outil de développement, non traduite) : images par seconde, temps CPU et GPU moyens par image, appels de dessin, mémoire vidéo (moyennes sur 0,5 s). Nœud `FpsOverlay` de `scenes/orbit_view.tscn`, script `scripts/ui/fps_overlay.gd` ; voir « Performances » |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
@@ -610,7 +610,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	poste et celle de la tablette) : **jusqu'à 5 cibles, chacune de sa couleur** (jaune doré, rouge, magenta, violet,
 	orange : distinctes du jaune pâle de la station, du vert des traces et du cyan de l'orbite visée), dont une
 	**cible choisie**. **Elles ne se placent que sur la carte du poste de pilotage** (`OrbitalMap.targets_editable`),
-	**à la main** (pas de saisie de coordonnées) : menu des cibles en haut à gauche de la carte — « Cibles », **un
+	**à la main** (pas de saisie de coordonnées) : menu des cibles en haut à gauche de la carte (sans libellé) — **un
 	bouton par cible portant son icône** (cercle, point, croix) dans sa couleur, pâle tant qu'elle n'est pas posée,
 	le bouton de la cible choisie en surbrillance, et **« Effacer »** (la cible choisie) ; un **clic** sur la carte
 	(sans la glisser : moins de 5 px de déplacement) place la cible choisie au point cliqué, un clic sur une cible la
@@ -629,9 +629,10 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   - **Rapporteur** (règle de jeu ; outil `scripts/ui/bearing_tool.gd`, `BearingTool` ; relevés
 	`scripts/orbit/bearing_log.gd`, nœud `BearingLog`, groupe `bearing_log`) : relevés de cap pour situer une source
 	radar par **triangulation** (voir « Console radar »). En haut à droite de la carte du poste, sur la ligne du menu
-	des cibles, deux boutons :
-	**« Rapporteur »** (en surbrillance pendant un relevé ; un nouveau clic l'annule) et **« Effacer le relevé »**
-	(efface le relevé choisi ; pâle sans relevé choisi). Après « Rapporteur », un **clic** sur la carte pose le
+	des cibles, deux boutons : le bouton à **l'icône du rapporteur** (demi-cercle gradué et sa règle bleue,
+	dessinés par `BearingTool.draw_icon` ; nom « Rapporteur » en info-bulle ; en surbrillance pendant un relevé ; un
+	nouveau clic l'annule) et **« Effacer le relevé »** (efface le relevé choisi ; pâle sans relevé choisi). Après un
+	clic sur le rapporteur, un **clic** sur la carte pose le
 	**centre** (là où était la station quand le radar a donné le cap ; curseur en croix) ; en déplaçant la souris, un
 	trait part du centre vers le pointeur, en temps réel, avec **l'azimut et la distance** écrits à côté
 	(« AZ 045.3° · 1 234 km ») ; un **dernier clic** valide et garde le relevé. Le trait suit le **grand cercle**,
@@ -665,8 +666,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	écrans verts `ScreenPalette` (`scripts/ui/screen_palette.gd`), référencées par les écrans plutôt que recopiées.
   - **Navigation, comme une carte en ligne** (même carte au poste et sur la tablette, chacune sa vue) : **molette** =
 	zoom centré sur le curseur ; **glisser** (bouton gauche) = déplacer la carte dans le sens de la souris ; boutons
-	en bas à gauche **« − » / « + »** = zoom centré sur le centre de la carte ; en bas à droite **« Orbites à
-	venir » 0 1 2 3 4** (clés `MAP_ORBITS_AHEAD`, `MAP_ZOOM_IN`, `MAP_ZOOM_OUT`). Zoom de ×1 (monde entier) à ×32 (limite des contours Natural Earth au 1:50 M) ; le
+	en bas à gauche **« − » / « + »** = zoom centré sur le centre de la carte ; en bas à droite **l'icône des
+	orbites à venir** (planète, orbite inclinée et flèche ; nom en info-bulle) **puis 0 1 2 3 4** (clés `MAP_ORBITS_AHEAD`, `MAP_ZOOM_IN`, `MAP_ZOOM_OUT`). Zoom de ×1 (monde entier) à ×32 (limite des contours Natural Earth au 1:50 M) ; le
 	monde se répète d'est en ouest (on en fait le tour sans fin), la carte ne dépasse pas ±max_lat en latitude.
   - **Performances** : le fond (≈ 85 000 segments) est rendu dans la texture d'un `SubViewport` (`UPDATE_ONCE`,
 	MSAA 4×) seulement quand la vue a changé et ne bouge plus depuis 0,15 s (redessiner autant de lignes lissées à

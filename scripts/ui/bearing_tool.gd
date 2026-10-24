@@ -123,6 +123,22 @@ func draw(canvas: CanvasItem, copies: Array[int], font: Font, font_size: int) ->
 		_map._draw_label(pointer + Vector2(18.0, -14.0), tr_text("MAP_BEARING_PLACE"), font, font_size, COLOR_LIVE)
 
 
+## Icône du bouton « Rapporteur » : rapporteur demi-cercle évidé (base, arc gradué tous les 15°, traits longs tous
+## les 45°) et sa règle, en bleu des relevés, tendue depuis le centre au-delà de l'arc. center : milieu de l'icône ; radius : demi-largeur.
+static func draw_icon(canvas: CanvasItem, center: Vector2, radius: float, color: Color, width: float) -> void:
+	var origin := center + Vector2(0.0, radius * 0.45)
+	canvas.draw_line(origin - Vector2(radius, 0.0), origin + Vector2(radius, 0.0), color, width, true)
+	canvas.draw_arc(origin, radius, PI, TAU, 32, color, width, true)
+	canvas.draw_arc(origin, radius * 0.42, PI, TAU, 16, color, maxf(1.0, width * 0.7), true)
+	for k in range(1, 12):
+		var dir := Vector2.from_angle(PI + PI * k / 12.0)
+		var inner := 0.62 if k % 3 == 0 else 0.82
+		canvas.draw_line(origin + dir * radius * inner, origin + dir * radius, color, maxf(1.0, width * 0.5), true)
+	var arm := Vector2.from_angle(deg_to_rad(-58.0))
+	canvas.draw_line(origin, origin + arm * radius * 1.5, COLOR_BEARING, width * 1.2, true)
+	canvas.draw_circle(origin, width * 1.1, COLOR_BEARING)
+
+
 func tr_text(key: String) -> String:
 	return _map.tr(key)
 
