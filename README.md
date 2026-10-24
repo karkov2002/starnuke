@@ -1106,7 +1106,11 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	transparente (`shaders/helmet_visor.gdshader` : voile gris-bleu vers les bords et en incidence rasante) et ses
 	reflets en arc (passe additive `shaders/helmet_visor_glint.gdshader`, en haut à gauche et plus faible en bas à
 	droite : nets sur fond sombre, discrets sur fond clair, jamais d'assombrissement). Maillage généré par le script
-	(pas de modèle Blender), sans ombre portée ni collision, sur le calque `Station.INTERIOR_LAYER`.
+	(pas de modèle Blender), sans ombre portée ni collision, sur le calque `Station.INTERIOR_LAYER`. Casque porté, le
+	plan de coupure proche de la caméra passe de 5 à 1,5 cm (`helmet_near_m`, rétabli quand on l'ôte) : la coque
+	passe à ~4 cm de l'œil vers 70° de l'axe du regard, où tombe le bord de l'image d'un écran 32:9 (champ vertical
+	de 75°) ; elle y était coupée et la station apparaissait sur les côtés. Entière jusqu'à ~80° (profondeur inversée
+	de Godot : pas de perte de précision au loin).
 	**Règle de jeu** (`station.gd`) : un clic sur la combinaison la fait disparaître
 	(on l'enfile) ; un clic sur le porte-combinaison la remet en place.
   - `Interactif_Valve_Sas` (paroi +X, extras `type` « valve_sas », `animation`, `voyant_plein`, `voyant_vide`) :

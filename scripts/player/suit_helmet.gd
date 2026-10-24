@@ -27,12 +27,23 @@ const GLINT_SHADER := preload("res://shaders/helmet_visor_glint.gdshader")
 @export var window_bottom_deg := 46.0
 ## Largeur du joint (part du rayon de la fenêtre).
 @export var seal_width := 0.045
+## Plan de coupure proche de la caméra (m) tant que le casque est porté. La coque passe à ~4 cm devant l'œil vers 70°
+## de l'axe du regard : avec le plan par défaut (5 cm), elle était coupée sur les côtés d'un écran ultra-large (32:9,
+## bord de l'image à 70° pour un champ vertical de 75°) et la station apparaissait au bord. À 1,5 cm, la coque reste
+## entière jusqu'à ~80° (profondeur inversée de Godot : sans perte de précision au loin).
+@export var helmet_near_m := 0.015
 
 var _station: Station
+var _camera: Camera3D
+## Plan proche de la caméra sans le casque (rétabli quand on l'ôte).
+var _default_near := 0.05
 
 
 func _ready() -> void:
 	visible = false
+	_camera = get_parent() as Camera3D
+	if _camera:
+		_default_near = _camera.near
 	_build()
 	_connect_station.call_deferred()
 
@@ -42,11 +53,13 @@ func _connect_station() -> void:
 	if _station == null:
 		return
 	_station.suit_changed.connect(_on_suit_changed)
-	visible = _station.is_suit_worn()
+	_on_suit_changed(_station.is_suit_worn())
 
 
 func _on_suit_changed(worn: bool) -> void:
 	visible = worn
+	if _camera:
+		_camera.near = minf(helmet_near_m, _default_near) if worn else _default_near
 
 
 func _build() -> void:
