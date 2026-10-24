@@ -79,7 +79,8 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	super(delta)
 	var hovering := not _seated and not _moving and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE \
-			and _screen.uv_at(_camera, _mouse_position, reach_m) != StationScreen.NONE and not any_seated(get_tree())
+			and _screen.uv_at(_camera, _mouse_position, reach_m) != StationScreen.NONE and not any_seated(get_tree()) \
+			and not Tablet.covers_pointer(get_tree(), _mouse_position)
 	_bubble.set_hover(hovering, _mouse_position)
 	_bubble.set_exit_visible(_seated and not _moving)
 
@@ -88,7 +89,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	var click := event as InputEventMouseButton
 	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT or _seated or _moving:
 		return
-	if _screen.uv_at(_camera, click.position, reach_m) != StationScreen.NONE and not any_seated(get_tree()):
+	if _screen.uv_at(_camera, click.position, reach_m) != StationScreen.NONE and not any_seated(get_tree()) \
+			and not Tablet.covers_pointer(get_tree(), click.position):
 		get_viewport().set_input_as_handled()
 		_sit()
 

@@ -11,7 +11,8 @@ extends Node3D
 ##   sur le côté, dépasse un peu sa place puis s'y pose), en se redressant (inclinée, tournée vers la droite au
 ##   départ) ; rangée par le chemin inverse. Sortie, elle respire légèrement (balancement lent de quelques
 ##   millimètres) et suit la tête avec un temps de retard (elle traîne un peu quand on tourne la vue, puis rattrape).
-## - Sortie, les clics et mouvements de la souris sur son écran sont transmis à l'interface (rayon de la caméra par le
+## - Sortie, elle est prioritaire et exclusive sur la souris : sous sa coque (covers), rien derrière elle n'a de bulle ni
+##   de clic. Les clics et mouvements de la souris sur son écran sont transmis à l'interface (rayon de la caméra par le
 ##   curseur, intersecté avec la dalle : StationScreen, ScreenInputForwarder) ; ailleurs, la souris garde son rôle
 ##   (clic droit : tourner la tête).
 ## - Vue au nadir et photos satellites : NadirCamera (scripts/nadir_camera.gd), créée ici ; la tablette ne fait que
@@ -20,6 +21,7 @@ extends Node3D
 ## right_margin du bord droit de la vue, son bord bas à bottom_margin du bas, tourné vers l'œil. Éclairée par les
 ## lampes intérieures (calque Station.INTERIOR_LAYER) comme le reste de l'habitacle.
 
+const GROUP := &"tablet"
 const MODEL := preload("res://assets/tablet/tablet.glb")
 const SCREEN_NODE := "Ecran_Tablette"
 const BODY_NODE := "Tablette_Coque"
@@ -70,6 +72,8 @@ var _camera: Camera3D
 var _model: Node3D
 ## Dalle de l'écran (StationScreen : point sous le curseur, matériau d'affichage) et transfert de la souris.
 var _screen: StationScreen
+## Coque (son contour couvre ce qui est derrière elle : voir covers).
+var _body: MeshInstance3D
 var _viewport: SubViewport
 var _input_forwarder: ScreenInputForwarder
 var _display: TabletDisplay
@@ -93,6 +97,7 @@ func _ready() -> void:
 	# Indépendante de l'observateur (désactivé au poste de pilotage) : sinon son rangement s'y figeait, tablette
 	# restée sortie devant l'écran du poste ; elle s'arrête toujours avec la pause du jeu.
 	process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_to_group(GROUP)
 	_camera = get_parent() as Camera3D
 	if _camera:
 		_previous_view = _camera.global_basis.orthonormalized()
@@ -104,6 +109,7 @@ func _ready() -> void:
 		mesh_instance.layers |= Station.INTERIOR_LAYER
 		mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var body := _model.find_child(BODY_NODE, true, false) as MeshInstance3D
+	_body = body
 	if body:
 		_height = body.get_aabb().size.y
 		_width = body.get_aabb().size.x
@@ -172,6 +178,27 @@ func is_out() -> bool:
 	return _wanted
 
 
+## Vrai si la tablette (affichée, en mouvement compris) est sous le point screen_pos de la vue : coque entière, pas
+## seulement l'écran. Elle est alors seule à recevoir la souris : pas de bulle ni de clic pour ce qui est derrière.
+func covers(screen_pos: Vector2) -> bool:
+	if not visible or _screen == null or _body == null or _camera == null:
+		return false
+	var uv := _screen.plane_uv_at(_camera, screen_pos)
+	if uv == StationScreen.NONE:
+		return false
+	var aabb := _body.get_aabb()
+	var rect := Rect2(_screen.uv_of(_body.global_transform * aabb.get_endpoint(0)), Vector2.ZERO)
+	for i in range(1, 8):
+		rect = rect.expand(_screen.uv_of(_body.global_transform * aabb.get_endpoint(i)))
+	return rect.has_point(uv)
+
+
+## Tablette de la scène sous le point screen_pos de la vue (voir covers) ; faux sans tablette.
+static func covers_pointer(tree: SceneTree, screen_pos: Vector2) -> bool:
+	var tablet := tree.get_first_node_in_group(GROUP) as Tablet
+	return tablet != null and tablet.covers(screen_pos)
+
+
 # Tablette sortie : la souris sur son écran est pour l'interface.
 func _input(event: InputEvent) -> void:
 	var mouse := event as InputEventMouse
@@ -181,6 +208,9 @@ func _input(event: InputEvent) -> void:
 	if button and button.button_index == MOUSE_BUTTON_RIGHT:
 		return
 	if _input_forwarder.forward(mouse, _screen.uv_at(_camera, mouse.position)):
+		get_viewport().set_input_as_handled()
+	elif button and covers(mouse.position):
+		# Clic sur la coque : rien derrière la tablette ne le reçoit.
 		get_viewport().set_input_as_handled()
 
 

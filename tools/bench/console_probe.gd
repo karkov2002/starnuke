@@ -256,6 +256,12 @@ func _check_tablet(view: Node) -> void:
 	tablet.call("_set_wanted", true)
 	await _wait(0.8)
 	_check(tablet.visible and tablet.is_out() and is_equal_approx(tablet.get("_out"), 1.0), "tablette sortie")
+	# Tablette prioritaire sur la souris : ce qui est derrière elle (écrans, écoutilles) n'a ni bulle ni clic.
+	var body: MeshInstance3D = tablet.get("_body")
+	var view_camera := tablet.get_parent() as Camera3D
+	var on_tablet := view_camera.unproject_position(body.global_transform * body.get_aabb().get_center())
+	_check(Tablet.covers_pointer(get_tree(), on_tablet) and not Tablet.covers_pointer(get_tree(), Vector2(10, 10)),
+			"tablette sous le pointeur détectée (coque), pas ailleurs")
 	display.show_tab(TabletDisplay.Tab.PHOTO)
 	# Deux images : la tablette active la vue au nadir dans son _process, après le signal process_frame.
 	await get_tree().process_frame

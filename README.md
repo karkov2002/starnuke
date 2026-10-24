@@ -429,6 +429,10 @@ de la vue).
   Les clics et mouvements de la souris sur l'écran (rayon de la caméra intersecté avec la dalle, repérée par ses UV)
   sont transmis à l'interface ; un relâchement hors de l'écran aussi (bouton maintenu) ; le clic droit reste à la
   caméra (tourner la tête).
+  **Sortie, la tablette est prioritaire et exclusive sur la souris** (règle de jeu) : sous sa coque entière (pas
+  seulement l'écran ; `Tablet.covers`, `Tablet.covers_pointer`), ce qui est derrière elle (écrans interactifs,
+  écoutilles, rideaux, sas, couchette) n'affiche pas sa bulle et ne reçoit pas les clics ; un clic sur la bordure
+  est absorbé. Sonde : `tools/bench/console_probe.tscn`.
 - **Interface** (`scripts/ui/tablet_display.gd` : ossature, onglets, horloge, pages Pilotage et Tir de missile ;
   pages Photographie et Alertes dans leurs propres contrôles, `scripts/ui/photo_page.gd` et
   `scripts/ui/alerts_page.gd`) : en haut, **quatre onglets cliquables** — **Pilotage**, **Photographie**, **Tir de

@@ -40,7 +40,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _process(_delta: float) -> void:
-	var target := _target_under(_mouse_position) if _active() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE else {}
+	var target := _target_under(_mouse_position) if _active() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE \
+			and not Tablet.covers_pointer(get_tree(), _mouse_position) else {}
 	if not target.is_empty():
 		_bubble.set_hover_text(_hover_key(target))
 	_bubble.set_hover(not target.is_empty(), _mouse_position)
@@ -65,6 +66,8 @@ func _hover_key(target: Dictionary) -> String:
 func _unhandled_input(event: InputEvent) -> void:
 	var click := event as InputEventMouseButton
 	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT or not _active():
+		return
+	if Tablet.covers_pointer(get_tree(), click.position):
 		return
 	var target := _target_under(click.position)
 	if target.is_empty():
