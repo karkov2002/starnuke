@@ -170,6 +170,7 @@ func _build_pilot_page(page_size: Vector2) -> Control:
 	var aspect := OrbitalMap.aspect_for(MAP_MAX_LAT_DEG)
 	var map_height := minf(page_size.y, (page_size.x - SIDE_WIDTH - 16.0) / aspect)
 	var map := OrbitalMap.new()
+	map.show_hover_coordinates = false
 	map.orbit = orbit
 	map.flight_computer = flight_computer
 	map.max_lat_deg = MAP_MAX_LAT_DEG

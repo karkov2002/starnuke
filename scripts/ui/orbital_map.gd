@@ -83,6 +83,8 @@ var orbits_ahead := 1
 ## Cibles modifiables (menu des cibles, clic qui les place) : carte du poste de pilotage seulement. Fixé avant l'ajout
 ## à l'arbre.
 var targets_editable := false
+## Latitude et longitude sous le pointeur au survol (désactivé sur la tablette, où elles masqueraient la petite carte).
+var show_hover_coordinates := true
 
 ## Vue : centre (coordonnées du monde u = longitude, v = Mercator, de 0 à 1 ; u croît vers l'est, v vers le sud) et
 ## zoom (1 : le monde entier à la largeur de la carte).
@@ -425,7 +427,7 @@ func _draw_target(copies: Array[int]) -> void:
 
 ## Coordonnées sous le pointeur (au survol de la carte, hors glisser).
 func _draw_hover() -> void:
-	if _hover == Vector2.INF or (_dragging and _drag_distance >= CLICK_SLOP) \
+	if not show_hover_coordinates or _hover == Vector2.INF or (_dragging and _drag_distance >= CLICK_SLOP) \
 			or not Rect2(Vector2.ZERO, size).has_point(_hover):
 		return
 	var point := lat_lon_at(_hover)

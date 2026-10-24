@@ -621,7 +621,7 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	choisit. La carte de la tablette les affiche seulement (un clic n'y fait rien). Sur les cartes : la même icône
 	dans la couleur de la cible, coordonnées à côté (« 48.86° N  2.35° E ») ; la cible choisie en trait épais, les
 	autres plus fines et un peu transparentes. Au **survol**, la latitude et la longitude du point sous le pointeur le
-	suivent. Dans la **cupola en mode « HUD : On »**, chaque cible apparaît dans sa couleur **posée à l'horizontale
+	suivent, sur la carte du poste seulement (pas sur la tablette : `OrbitalMap.show_hover_coordinates`). Dans la **cupola en mode « HUD : On »**, chaque cible apparaît dans sa couleur **posée à l'horizontale
 	sur la Terre**, dont elle épouse la courbure
 	(`scripts/ui/target_marker.gd`, calque du `Hud`) : trois anneaux (40, 80 et 120 km) et une croix tracés sur la
 	sphère, le long du sol, dans un maillage enfant de `Earth` (il tourne avec la planète ; la cible choisie pleine,
