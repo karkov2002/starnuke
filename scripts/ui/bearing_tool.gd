@@ -8,14 +8,15 @@ extends RefCounted
 ##   l'azimut et la distance écrits en temps réel, et le cercle de portée du radar autour du centre (horizon de la
 ##   station à son altitude actuelle, comme RadarReceiver) : le trait s'y arrête. Un dernier clic valide le relevé.
 ##   Glisser déplace toujours la carte ; un nouveau clic sur « Rapporteur » annule.
-## - Sans outil en cours : un clic sur le centre ou l'extrémité d'un relevé le choisit (trait blanc épais et son
+## - Sans outil en cours : un clic sur le centre ou l'extrémité d'un relevé le choisit (trait bleu clair épais et son
 ##   cercle de portée) ; « Effacer le relevé » l'efface.
 
 enum Mode { OFF, PLACE, AIM }
 
-const COLOR_BEARING := Color(1.0, 0.82, 0.5)
-const COLOR_SELECTED := Color(1.0, 1.0, 1.0)
-const COLOR_LIVE := Color(1.0, 1.0, 1.0)
+## Bleu franc, distinct du cyan de l'orbite visée (ScreenPalette.GHOST), du vert des traces et des couleurs des cibles.
+const COLOR_BEARING := Color(0.36, 0.58, 1.0)
+const COLOR_SELECTED := Color(0.62, 0.78, 1.0)
+const COLOR_LIVE := Color(0.5, 0.7, 1.0)
 ## Rayon (px) autour du centre ou de l'extrémité d'un relevé où un clic le choisit.
 const PICK := 14.0
 ## Pas (km) des points d'un trait de grand cercle et nombre de points du cercle de portée.
@@ -99,7 +100,7 @@ func draw(canvas: CanvasItem, copies: Array[int], font: Font, font_size: int) ->
 			var color := COLOR_SELECTED if chosen else COLOR_BEARING
 			if chosen:
 				_stroke(canvas, _circle(b.lat, b.lon, b.range_km), Color(color, 0.35), 1.5, copies)
-			_stroke(canvas, _geodesic(b.lat, b.lon, b.azimuth, b.length_km), color, 3.0 if chosen else 2.0, copies)
+			_stroke(canvas, _geodesic(b.lat, b.lon, b.azimuth, b.length_km), color, 3.5 if chosen else 2.5, copies)
 			var end := BearingLog.end_of(b)
 			for copy in copies:
 				var origin := _map.project(b.lat, b.lon, copy)

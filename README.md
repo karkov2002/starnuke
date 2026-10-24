@@ -628,7 +628,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	réticule (centre de la vue).
   - **Rapporteur** (règle de jeu ; outil `scripts/ui/bearing_tool.gd`, `BearingTool` ; relevés
 	`scripts/orbit/bearing_log.gd`, nœud `BearingLog`, groupe `bearing_log`) : relevés de cap pour situer une source
-	radar par **triangulation** (voir « Console radar »). Sous le menu des cibles de la carte du poste, deux boutons :
+	radar par **triangulation** (voir « Console radar »). En haut à droite de la carte du poste, sur la ligne du menu
+	des cibles, deux boutons :
 	**« Rapporteur »** (en surbrillance pendant un relevé ; un nouveau clic l'annule) et **« Effacer le relevé »**
 	(efface le relevé choisi ; pâle sans relevé choisi). Après « Rapporteur », un **clic** sur la carte pose le
 	**centre** (là où était la station quand le radar a donné le cap ; curseur en croix) ; en déplaçant la souris, un
@@ -638,7 +639,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	Mercator), et le **cercle de portée du radar** est tracé autour du centre : **horizon de la station à son
 	altitude** (environ 2 200 km à 400 km), même règle que le radar ; **le trait s'y arrête**, la source étant
 	forcément plus près. Glisser déplace toujours la carte et la molette zoome. Un **clic sur le centre ou
-	l'extrémité d'un relevé** le choisit (trait blanc épais, cercle de portée). Relevés en ambre clair avec leur
+	l'extrémité d'un relevé** le choisit (trait bleu clair épais, cercle de portée). Relevés **en bleu** (distinct du
+	cyan de l'orbite visée), trait en cours bleu clair, avec leur
 	azimut au bout, **affichés aussi sur la carte de la tablette** (sans les modifier), 24 au plus (le plus ancien part),
 	**sauvegardés avec le monde d'une campagne** (`WorldSnapshot`). Sonde : `tools/bench/console_probe.tscn`.
   - **Écrans en SubViewport** (poste, radio, télévision, bilan, écrans d'ambiance, tablette) : composants partagés

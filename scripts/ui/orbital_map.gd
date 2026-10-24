@@ -20,7 +20,7 @@ extends Control
 ## survol, les coordonnées du point sous le pointeur le suivent.
 ##
 ## Rapporteur (BearingTool) : relevés de cap pour trianguler une source radar, en traits de grand cercle (BearingLog).
-## Carte modifiable : boutons « Rapporteur » et « Effacer le relevé » sous le menu des cibles, clic pour poser le
+## Carte modifiable : boutons « Rapporteur » et « Effacer le relevé » en haut à droite, clic pour poser le
 ## centre puis pour valider, clic sur un relevé pour le choisir. Toutes les cartes affichent les relevés.
 ##
 ## Navigation, à la manière d'une carte en ligne : molette = zoom centré sur le curseur ; glisser (bouton gauche
@@ -621,12 +621,11 @@ func _build_target_menu(height: float, font: int, margin: float) -> void:
 	_get_target()
 
 
-## Rapporteur (sous le menu des cibles) : « Rapporteur » (démarrer ou annuler un relevé, en surbrillance pendant le
-## relevé), « Effacer le relevé » (le relevé choisi ; pâle sans relevé choisi).
+## Rapporteur (en haut à droite, sur la ligne du menu des cibles) : « Rapporteur » (démarrer ou annuler un relevé,
+## en surbrillance pendant le relevé), « Effacer le relevé » (le relevé choisi ; pâle sans relevé choisi).
 func _build_bearing_menu(height: float, font: int, margin: float) -> void:
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 4)
-	bar.position = Vector2(margin, margin * 2.0 + height)
 	add_child(bar)
 	_bearing_button = _make_button("MAP_BEARING_TOOL", height, font)
 	_bearing_button.pressed.connect(func() -> void: _bearing_tool.toggle())
@@ -637,6 +636,10 @@ func _build_bearing_menu(height: float, font: int, margin: float) -> void:
 		if bearing_log:
 			bearing_log.remove(bearing_log.selected))
 	bar.add_child(_bearing_erase)
+	var place := func() -> void:
+		bar.position = Vector2(size.x - bar.size.x - margin, margin)
+	bar.resized.connect(place)
+	place.call_deferred()
 
 
 ## Style des boutons du rapporteur d'après l'état de l'outil (appliqué seulement quand il change).
