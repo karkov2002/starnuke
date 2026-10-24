@@ -360,6 +360,7 @@ permet de piloter le jeu exporté.
 | Tir nucléaire | **Gros bouton rouge** à droite des silos (tablette), **depuis la cupola seulement** (ailleurs, il est grisé avec « Actif uniquement dans la coupole ») : lance le missile du **tube choisi (vert)** sur le point de la Terre visé par le **centre de la vue** (réticule), avec la puissance choisie sous les silos (**10 kt, 100 kt, 500 kt, 1 Mt, 10 Mt, 50 Mt** ; 1 Mt par défaut). Le point visé et la puissance sont figés à l'appui. Le missile sort de son tube (animation de lancement, 5 s : trappe, descente, allumage), le tube passe au gris, puis le missile tourne vers la cible en accélérant pendant que son moteur brûle (9 s) et part vers la zone d'impact ; moteur éteint, on le perd de vue ; dans les dernières secondes, sa **rentrée atmosphérique** apparaît au-dessus de la cible, comme une étoile filante, puis l'explosion a lieu. **Durée du vol : de 20 s (cible au nadir) à 2 min (cible à l'horizon)**, proportionnelle à la distance (temps de jeu : le vol se fige en pause et s'accélère avec le temps). Un **chronomètre** par missile, en bas à droite de l'écran (« Silo 7 · impact dans 0:43 », toujours visible, même hors de la cupola), décompte jusqu'à l'impact, passe au rouge et clignote dans les 10 dernières secondes. Sans tube choisi, ou si le centre de la vue ne vise pas la Terre (ciel, au-delà du limbe), il ne se passe rien et le missile reste dans son tube. Voir « Explosions nucléaires » |
 | Bilan des explosions | Sur l'écran mural à droite en face de la télévision (module Commande) : pays touchés et pertes, cumulées sur toutes les explosions ; la liste défile seule quand elle déborde |
 | Console radar | Paroi −Y du module Commande, à droite de l'écran radio, près de la cupola : **clic gauche** sur la dalle pour s'installer, **clic droit** pour quitter. Les trois boutons sous l'écran (azimut, fréquence, bande VHF / UHF) : **maintenir le clic gauche et glisser à gauche ou à droite** ; **Maj** pour un réglage fin. Voir « Console radar » dans « Organisation de la scène » |
+| Rapporteur (relevés de cap) | Carte du poste de pilotage : bouton **« Rapporteur »**, **clic** pour poser le centre, déplacer la souris (azimut et distance en temps réel), **clic** pour valider ; clic sur un relevé pour le choisir, **« Effacer le relevé »** pour l'effacer. Voir « Rapporteur » dans « Poste de pilotage » |
 | Compteur de performances et panneau de debug | **F4** ouvre ou masque le **panneau de debug des explosions** dans la partie en cours (outil de développement, en français : puissance, coordonnées, scrubber du temps, alerte de la station, case **Combinaison** (enfilée ou rangée, `Station.set_suit_worn`, suit aussi l'enfilage au clic), bouton **Radio** (message radio d'essai), altitude et inclinaison directes de l'orbite, date et heure UTC, redémarrage ; voir « Scène de debug » dans « Explosions nucléaires »). **F3** affiche ou masque la ligne en haut à droite (visible par défaut, outil de développement, non traduite) : images par seconde, temps CPU et GPU moyens par image, appels de dessin, mémoire vidéo (moyennes sur 0,5 s). Nœud `FpsOverlay` de `scenes/orbit_view.tscn`, script `scripts/ui/fps_overlay.gd` ; voir « Performances » |
 
 Pendant la rotation le curseur est masqué, puis replacé là où le clic droit a commencé.
@@ -625,6 +626,21 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	l'horizon, sans coordonnées (elles masqueraient la vue : elles sont sur les cartes) ; flèche au bord de l'écran,
 	dans sa couleur, quand la cible choisie est hors champ. Le tir de missile reste visé au
 	réticule (centre de la vue).
+  - **Rapporteur** (règle de jeu ; outil `scripts/ui/bearing_tool.gd`, `BearingTool` ; relevés
+	`scripts/orbit/bearing_log.gd`, nœud `BearingLog`, groupe `bearing_log`) : relevés de cap pour situer une source
+	radar par **triangulation** (voir « Console radar »). Sous le menu des cibles de la carte du poste, deux boutons :
+	**« Rapporteur »** (en surbrillance pendant un relevé ; un nouveau clic l'annule) et **« Effacer le relevé »**
+	(efface le relevé choisi ; pâle sans relevé choisi). Après « Rapporteur », un **clic** sur la carte pose le
+	**centre** (là où était la station quand le radar a donné le cap ; curseur en croix) ; en déplaçant la souris, un
+	trait part du centre vers le pointeur, en temps réel, avec **l'azimut et la distance** écrits à côté
+	(« AZ 045.3° · 1 234 km ») ; un **dernier clic** valide et garde le relevé. Le trait suit le **grand cercle**,
+	comme le cap donné par le radar (cap initial, `GeoMath.initial_bearing_deg` ; il paraît courbe sur la carte de
+	Mercator), et le **cercle de portée du radar** est tracé autour du centre : **horizon de la station à son
+	altitude** (environ 2 200 km à 400 km), même règle que le radar ; **le trait s'y arrête**, la source étant
+	forcément plus près. Glisser déplace toujours la carte et la molette zoome. Un **clic sur le centre ou
+	l'extrémité d'un relevé** le choisit (trait blanc épais, cercle de portée). Relevés en ambre clair avec leur
+	azimut au bout, **affichés aussi sur la carte de la tablette** (sans les modifier), 24 au plus (le plus ancien part),
+	**sauvegardés avec le monde d'une campagne** (`WorldSnapshot`). Sonde : `tools/bench/console_probe.tscn`.
   - **Écrans en SubViewport** (poste, radio, télévision, bilan, écrans d'ambiance, tablette) : composants partagés
 	de `scripts/screens/`. `StationScreen` : la dalle (surface du matériau `extras.materiau_ecran`, mesurée par ses
 	UV ; par la normale −X pour l'écran du poste), le SubViewport à ses proportions, le matériau d'affichage, le
@@ -732,7 +748,8 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
 	vers la source (lobe en cloche de 12° de large à mi-puissance, 6 % ailleurs), et elle baisse avec la distance (45 %
 	à l'horizon). Antenne stabilisée : azimut vrai, 0° = nord, sens horaire. Source à moins de 0,8° du point survolé :
 	gain plein dans toutes les directions. **Triangulation** : relever le cap du maximum à deux endroits de l'orbite
-	(position affichée à l'écran), puis croiser les deux grands cercles sur une carte ; la précision dépend du soin
+	(position affichée à l'écran), puis croiser les deux grands cercles au **rapporteur** de la carte du poste de
+	pilotage (« Poste de pilotage », « Rapporteur ») ; la précision dépend du soin
 	des relevés (quelques degrés) et de l'écart entre les deux points.
   - **Sources** : en **mode libre**, pour essai, `RadarReceiver.FREE_MODE_SOURCES` : **Oslo en VHF à 100 MHz** et
 	**Los Angeles en UHF à 800 MHz** (hôtels de ville). Les missions de la campagne donneront les fréquences et

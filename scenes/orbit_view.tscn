@@ -41,6 +41,7 @@
 [ext_resource type="Script" uid="uid://dq2exvqy1ujig" path="res://scripts/screens/station_clocks.gd" id="39_nn0rq"]
 [ext_resource type="Script" uid="uid://chwoo57o5ordl" path="res://scripts/screens/station_position.gd" id="40_m8b5w"]
 [ext_resource type="Script" uid="uid://d3yd6on0baulb" path="res://scripts/screens/radar_console.gd" id="41_y0nhr"]
+[ext_resource type="Script" uid="uid://cklul1442uptf" path="res://scripts/orbit/bearing_log.gd" id="42_3bkr8"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -225,3 +226,6 @@ script = ExtResource("40_m8b5w")
 
 [node name="RadarConsole" type="Node" parent="." unique_id=28514710]
 script = ExtResource("41_y0nhr")
+
+[node name="BearingLog" type="Node" parent="." unique_id=1650860960]
+script = ExtResource("42_3bkr8")

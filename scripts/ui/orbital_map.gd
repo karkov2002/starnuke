@@ -19,6 +19,10 @@ extends Control
 ## point cliqué, un clic sur une cible la choisit. Ailleurs (tablette), les cibles sont seulement affichées. Au
 ## survol, les coordonnées du point sous le pointeur le suivent.
 ##
+## Rapporteur (BearingTool) : relevés de cap pour trianguler une source radar, en traits de grand cercle (BearingLog).
+## Carte modifiable : boutons « Rapporteur » et « Effacer le relevé » sous le menu des cibles, clic pour poser le
+## centre puis pour valider, clic sur un relevé pour le choisir. Toutes les cartes affichent les relevés.
+##
 ## Navigation, à la manière d'une carte en ligne : molette = zoom centré sur le curseur ; glisser (bouton gauche
 ## maintenu, au-delà de CLICK_SLOP px) = déplacer la carte dans le sens de la souris ; boutons en bas : « − » / « + » (zoom centré sur le
 ## centre de la carte) et le nombre d'orbites à venir (0 à 4). Zoom de 1 (monde entier) à MAX_ZOOM ; le monde se
@@ -103,6 +107,10 @@ var _overlay: Control
 var _orbit_buttons: Array[Button] = []
 ## Menu des cibles (carte modifiable) : un bouton par cible.
 var _slot_buttons: Array[Button] = []
+## Rapporteur (relevés de cap, BearingTool) et ses boutons (carte modifiable) : « Rapporteur », « Effacer le relevé ».
+var _bearing_tool: BearingTool
+var _bearing_button: Button
+var _bearing_erase: Button
 
 
 func _ready() -> void:
@@ -129,6 +137,7 @@ func _ready() -> void:
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_overlay)
 	_overlay.draw.connect(_draw_overlay)
+	_bearing_tool = BearingTool.new(self)
 	_build_controls()
 
 
@@ -138,6 +147,7 @@ func _process(delta: float) -> void:
 	if not is_visible_in_tree() or (viewport and viewport.render_target_update_mode == SubViewport.UPDATE_DISABLED):
 		return
 	_overlay.queue_redraw()
+	_refresh_bearing_menu()
 	if _base_dirty:
 		_idle += delta
 		if _idle >= REDRAW_IDLE_S and not _dragging:
@@ -246,12 +256,13 @@ func _gui_input(event: InputEvent) -> void:
 				_click(button.position)
 			_dragging = button.pressed
 			mouse_default_cursor_shape = Control.CURSOR_DRAG if _dragging and _drag_distance >= CLICK_SLOP \
-					else Control.CURSOR_ARROW
+					else _idle_cursor()
 			accept_event()
 		return
 	var motion := event as InputEventMouseMotion
 	if motion:
 		_hover = motion.position
+		_bearing_tool.pointer = motion.position
 		if _dragging:
 			_drag_distance = maxf(_drag_distance, motion.position.distance_to(_press_position))
 			if _drag_distance >= CLICK_SLOP:
@@ -263,10 +274,14 @@ func _gui_input(event: InputEvent) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_MOUSE_EXIT:
 		_hover = Vector2.INF
+		if _bearing_tool:
+			_bearing_tool.pointer = Vector2.INF
 
 
 ## Clic (sans glisser) sur la carte modifiable : choisit la cible cliquée, sinon place la cible choisie au point cliqué.
 func _click(at: Vector2) -> void:
+	if targets_editable and _bearing_tool.click(at):
+		return
 	var target := _get_target()
 	if target == null or not targets_editable:
 		return
@@ -380,6 +395,7 @@ func _draw_overlay() -> void:
 			var r := 11.0
 			_overlay.draw_colored_polygon(PackedVector2Array([at + Vector2(0, -r), at + Vector2(r, 0),
 					at + Vector2(0, r), at + Vector2(-r, 0)]), COLOR_GHOST)
+	_bearing_tool.draw(_overlay, copies, get_theme_default_font(), _label_size())
 	for copy in copies:
 		_draw_station(_overlay, copy)
 	_draw_target(copies)
@@ -564,6 +580,7 @@ func _build_controls() -> void:
 	place.call_deferred()
 	if targets_editable:
 		_build_target_menu(height, font, margin)
+		_build_bearing_menu(height, font, margin)
 
 
 ## Menu des cibles (en haut à gauche) : un bouton par cible (la choisir), « Effacer » (la cible choisie).
@@ -604,6 +621,41 @@ func _build_target_menu(height: float, font: int, margin: float) -> void:
 	_get_target()
 
 
+## Rapporteur (sous le menu des cibles) : « Rapporteur » (démarrer ou annuler un relevé, en surbrillance pendant le
+## relevé), « Effacer le relevé » (le relevé choisi ; pâle sans relevé choisi).
+func _build_bearing_menu(height: float, font: int, margin: float) -> void:
+	var bar := HBoxContainer.new()
+	bar.add_theme_constant_override("separation", 4)
+	bar.position = Vector2(margin, margin * 2.0 + height)
+	add_child(bar)
+	_bearing_button = _make_button("MAP_BEARING_TOOL", height, font)
+	_bearing_button.pressed.connect(func() -> void: _bearing_tool.toggle())
+	bar.add_child(_bearing_button)
+	_bearing_erase = _make_button("MAP_BEARING_CLEAR", height, font)
+	_bearing_erase.pressed.connect(func() -> void:
+		var bearing_log := _bearing_tool.get_log()
+		if bearing_log:
+			bearing_log.remove(bearing_log.selected))
+	bar.add_child(_bearing_erase)
+
+
+## Style des boutons du rapporteur d'après l'état de l'outil (appliqué seulement quand il change).
+var _bearing_menu_state := -1
+
+func _refresh_bearing_menu() -> void:
+	if _bearing_button == null:
+		return
+	var bearing_log := _bearing_tool.get_log()
+	var has_selection := bearing_log != null and bearing_log.selected >= 0
+	var state := int(_bearing_tool.mode != BearingTool.Mode.OFF) + 2 * int(has_selection)
+	if state == _bearing_menu_state:
+		return
+	_bearing_menu_state = state
+	_style_button(_bearing_button, _bearing_tool.mode != BearingTool.Mode.OFF)
+	mouse_default_cursor_shape = _idle_cursor()
+	_bearing_erase.modulate.a = 1.0 if has_selection else 0.5
+
+
 ## Menu des cibles : bouton de la cible choisie en surbrillance ; icônes redessinées (posées : couleur vive).
 func _refresh_target_menu() -> void:
 	var target := _target
@@ -636,3 +688,9 @@ func _style_button(button: Button, active: bool) -> void:
 	button.add_theme_stylebox_override("hover", hover)
 	for state in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color"]:
 		button.add_theme_color_override(state, COLOR_PANEL_TEXT if active else COLOR_PANEL_DIM)
+
+
+## Curseur hors glisser : en croix pendant un relevé au rapporteur.
+func _idle_cursor() -> Control.CursorShape:
+	return Control.CURSOR_CROSS if _bearing_tool and _bearing_tool.mode != BearingTool.Mode.OFF \
+			else Control.CURSOR_ARROW

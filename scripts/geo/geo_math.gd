@@ -80,3 +80,14 @@ static func initial_bearing_deg(lat1: float, lon1: float, lat2: float, lon2: flo
 ## caché par la Terre.
 static func horizon_angle_rad(altitude_km: float) -> float:
 	return acos(EARTH_RADIUS_KM / (EARTH_RADIUS_KM + maxf(altitude_km, 0.0)))
+
+
+## Point (latitude, longitude en degrés) atteint en partant de (lat, lon) au cap initial bearing_deg (0 = nord, sens
+## horaire), après distance_km le long du grand cercle.
+static func destination(lat_deg: float, lon_deg: float, bearing_deg: float, distance_km: float) -> Vector2:
+	var a := deg_to_rad(lat_deg)
+	var b := deg_to_rad(bearing_deg)
+	var d := distance_km / EARTH_RADIUS_KM
+	var lat := asin(clampf(sin(a) * cos(d) + cos(a) * sin(d) * cos(b), -1.0, 1.0))
+	var lon := deg_to_rad(lon_deg) + atan2(sin(b) * sin(d) * cos(a), cos(d) - sin(a) * sin(lat))
+	return Vector2(rad_to_deg(lat), wrapf(rad_to_deg(lon), -180.0, 180.0))

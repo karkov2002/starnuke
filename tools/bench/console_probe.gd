@@ -96,6 +96,7 @@ func _ready() -> void:
 		_check(console.is_near() and viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS, name + " : de retour, rendu repris")
 	await _check_tv(view)
 	await _check_radar(view)
+	_check_bearing(view)
 	await _check_tablet(view)
 	await _check_station(view)
 	print("=== %d échec(s)" % _failures)
@@ -194,6 +195,51 @@ func _check_radar(view: Node) -> void:
 	var down := (screen.mesh_instance.global_transform.basis * screen.axis_v).normalized()
 	_check((radar_pose.eye - plain.eye).dot(down) > 0.05, "vue assise abaissée vers les boutons")
 	orbit.time_scale = 1.0
+
+
+## Rapporteur de la carte du poste (BearingTool, BearingLog) : relevé posé et validé au clic, cap de grand cercle,
+## trait borné à la portée du radar, choix, effacement, sauvegarde avec le monde.
+func _check_bearing(view: Node) -> void:
+	print("- Rapporteur")
+	var display: PilotDisplay = view.get_node("PilotConsole").get("_display")
+	var map: OrbitalMap = display.get("_map")
+	var tool: BearingTool = map.get("_bearing_tool")
+	var bearing_log := view.get_node("BearingLog") as BearingLog
+	_check(tool != null and bearing_log != null, "outil et journal des relevés")
+	bearing_log.clear()
+	var start := Vector2(51.0, 10.0)
+	var oslo := Vector2(59.91, 10.73)
+	tool.toggle()
+	_check(tool.mode == BearingTool.Mode.PLACE, "outil démarré")
+	_check(tool.click(map.project(start.x, start.y)) and tool.mode == BearingTool.Mode.AIM, "centre posé")
+	tool.click(map.project(oslo.x, oslo.y))
+	_check(tool.mode == BearingTool.Mode.OFF and bearing_log.bearings.size() == 1, "relevé validé au second clic")
+	var b: Dictionary = bearing_log.bearings[0] if bearing_log.bearings.size() > 0 else {}
+	var expected := GeoMath.initial_bearing_deg(start.x, start.y, oslo.x, oslo.y)
+	_check(not b.is_empty() and absf(angle_difference(deg_to_rad(b.azimuth), deg_to_rad(expected))) < deg_to_rad(1.0),
+			"cap du grand cercle vers Oslo (%.1f°, attendu %.1f°)" % [b.get("azimuth", -1.0), expected])
+	var end := BearingLog.end_of(b) if not b.is_empty() else Vector2.ZERO
+	_check(GeoMath.distance_km(end.x, end.y, oslo.x, oslo.y) < 60.0, "extrémité du trait sur le point visé")
+	# Trait borné à la portée du radar (horizon de la station).
+	tool.toggle()
+	tool.click(map.project(start.x, start.y))
+	tool.click(map.project(-30.0, 10.0))
+	var far: Dictionary = bearing_log.bearings[-1]
+	_check(is_equal_approx(far.length_km, tool.range_km()) and far.range_km > 2000.0 and far.range_km < 2400.0,
+			"trait borné à la portée (%.0f km)" % far.range_km)
+	# Choix par le centre, effacement.
+	bearing_log.select(-1)
+	_check(tool.click(map.project(oslo.x, oslo.y)) and bearing_log.selected == 0, "clic sur l'extrémité : relevé choisi")
+	bearing_log.remove(bearing_log.selected)
+	_check(bearing_log.bearings.size() == 1 and bearing_log.selected == -1, "relevé effacé")
+	# Sauvegarde avec le monde.
+	var snapshot := WorldSnapshot.new(null, null, null, null, bearing_log)
+	var world := snapshot.capture()
+	bearing_log.clear()
+	snapshot.restore(world)
+	_check(bearing_log.bearings.size() == 1 and is_equal_approx(bearing_log.bearings[0].azimuth, 180.0),
+			"relevés sauvegardés et recréés")
+	bearing_log.clear()
 
 
 ## Tablette : NadirCamera, PhotoPage et AlertsPage (lot 2, étape 3).
