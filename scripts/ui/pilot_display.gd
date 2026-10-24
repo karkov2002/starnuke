@@ -214,9 +214,12 @@ static func make_theme(font_size: int) -> Theme:
 	var grabber := _disc_texture(30, COLOR_GHOST)
 	result.set_icon("grabber", "HSlider", grabber)
 	result.set_icon("grabber_highlight", "HSlider", _disc_texture(30, Color.WHITE))
-	for state: String in ["normal", "hover", "pressed", "disabled"]:
+	# Tous les états (hover_pressed compris : sinon, survol d'une case cochée = style par défaut, autres marges, le
+	# texte bouge).
+	for state: String in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
 		var fill: Color = {"normal": Color(0.08, 0.16, 0.1), "hover": Color(0.12, 0.26, 0.16),
-				"pressed": Color(0.2, 0.4, 0.25), "disabled": Color(0.06, 0.06, 0.06)}[state]
+				"pressed": Color(0.2, 0.4, 0.25), "hover_pressed": Color(0.24, 0.46, 0.3),
+				"disabled": Color(0.06, 0.06, 0.06)}[state]
 		result.set_stylebox(state, "Button", UiKit.flat_box(fill, COLOR_FRAME, 2, 6, 10.0))
 	result.set_color("font_color", "Button", COLOR_TEXT)
 	result.set_color("font_hover_color", "Button", Color.WHITE)
