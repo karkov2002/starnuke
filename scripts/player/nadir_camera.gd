@@ -13,9 +13,13 @@ extends SubViewport
 ## serait délavé) ; la vue revient ensuite en l'état. Ni l'une ni l'autre n'a la surimpression du HUD (calque
 ## Hud.OVERLAY_LAYER : cibles, cône de tir, orbite visée), visible seulement dans la vue en direct.
 ## Anticrénelage : celui des paramètres (GameSettings.apply_anti_aliasing), suivi à chaque changement.
+## Mode infrarouge (infrared, choisi sur la tablette) : la caméra ne voit que la Terre thermique (ThermalSurface,
+## shaders/earth_thermal.gdshader, cachée hors de ce mode), sur fond noir, sans exposition automatique ; capteur en
+## résolution réduite (IR_SCALE : image plus douce), la photo est agrandie en PHOTO_SIZE.
 
 const LIVE_SIZE := Vector2i(600, 470)
 const PHOTO_SIZE := Vector2i(1600, 1253)
+const IR_SCALE := 0.5
 
 ## Champ vertical de la caméra (degrés) et distance sous la station (m, sous la coque).
 var fov_deg := 22.0
@@ -26,6 +30,13 @@ var active := false:
 		active = value
 		if not _capturing:
 			render_target_update_mode = SubViewport.UPDATE_ALWAYS if value else SubViewport.UPDATE_DISABLED
+		_update_thermal()
+## Infrarouge thermique (voir l'en-tête) ; visible sinon.
+var infrared := false:
+	set(value):
+		infrared = value
+		if not _capturing:
+			_apply_mode()
 
 var _camera: Camera3D
 var _earth: Node3D
@@ -36,6 +47,13 @@ var _station: Node3D
 ## ~100 km au sol (10 m de station × 10 000).
 var _reference: Node3D
 var _capturing := false
+## Réglages du mode visible (calques, environnement de la vue en direct, exposition) et du mode infrarouge.
+var _visible_mask := 0xFFFFF
+var _visible_environment: Environment
+var _visible_attributes: CameraAttributes
+var _ir_environment: Environment
+var _ir_attributes: CameraAttributesPractical
+var _thermal: ThermalSurface
 
 
 ## main_camera : caméra de la vue (exposition, calques) ; earth, world_environment : nœuds de la scène.
@@ -53,15 +71,23 @@ func _init(main_camera: Camera3D, earth: Node3D, world_environment: WorldEnviron
 	_camera.far = 3000.0
 	_reference = main_camera
 	if main_camera:
-		_camera.attributes = main_camera.attributes
-		_camera.cull_mask = main_camera.cull_mask
+		_visible_attributes = main_camera.attributes
+		_visible_mask = main_camera.cull_mask
+	_visible_mask &= ~ThermalSurface.LAYER
 	if world_environment and world_environment.environment:
-		var environment := world_environment.environment.duplicate() as Environment
-		environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-		environment.glow_enabled = false
-		_camera.environment = environment
+		_visible_environment = world_environment.environment.duplicate() as Environment
+		_visible_environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+		_visible_environment.glow_enabled = false
+	_ir_environment = Environment.new()
+	_ir_environment.background_mode = Environment.BG_COLOR
+	_ir_environment.background_color = Color.BLACK
+	_ir_environment.ambient_light_source = Environment.AMBIENT_SOURCE_DISABLED
+	_ir_environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	_ir_attributes = CameraAttributesPractical.new()
+	_ir_attributes.auto_exposure_enabled = false
 	_camera.current = true
 	add_child(_camera)
+	_apply_mode()
 
 
 func _ready() -> void:
@@ -82,6 +108,27 @@ func _process(_delta: float) -> void:
 	_camera.global_transform = Transform3D(Basis.looking_at(down, ahead), origin + down * offset_m)
 
 
+## Calques, environnement, exposition et taille de la vue en direct selon le mode (visible ou infrarouge).
+func _apply_mode() -> void:
+	_camera.cull_mask = ThermalSurface.LAYER if infrared else _visible_mask
+	_camera.environment = _ir_environment if infrared else _visible_environment
+	_camera.attributes = _ir_attributes if infrared else _visible_attributes
+	size = _live_size()
+	_update_thermal()
+
+
+func _live_size() -> Vector2i:
+	return Vector2i(Vector2(LIVE_SIZE) * IR_SCALE) if infrared else LIVE_SIZE
+
+
+## Terre thermique dessinée seulement quand la vue infrarouge est rendue (ou en cours de photo).
+func _update_thermal() -> void:
+	if _thermal == null and _earth:
+		_thermal = _earth.get_node_or_null(^"ThermalSurface") as ThermalSurface
+	if _thermal:
+		_thermal.visible = infrared and (active or _capturing)
+
+
 ## Emprise au sol (km, largeur × hauteur) d'une photo prise à altitude_km : hauteur = 2 h tan(champ / 2), largeur
 ## selon les proportions de l'image.
 func footprint_km(altitude_km: float) -> Vector2:
@@ -90,29 +137,35 @@ func footprint_km(altitude_km: float) -> Vector2:
 
 
 ## Photo satellite : {image : rendu final en PHOTO_SIZE, screen_image : rendu de la vue en direct, deux images plus
-## tard (~250 m de vol)} ; vide si une capture est déjà en cours.
+## tard (~250 m de vol), infrared : mode de la prise de vue} ; vide si une capture est déjà en cours. En infrarouge,
+## l'image est rendue en PHOTO_SIZE × IR_SCALE (capteur) puis agrandie.
 func capture_photo() -> Dictionary:
 	if _capturing:
 		return {}
 	_capturing = true
-	var live_environment := _camera.environment
+	var shot_infrared := infrared
+	_update_thermal()
 	var live_mask := _camera.cull_mask
 	# Pas de surimpression (cibles, cône de tir, orbite visée) sur une photo : seulement dans la vue en direct.
 	_camera.cull_mask = live_mask & ~Hud.OVERLAY_LAYER
-	if _world_environment:
+	if _world_environment and not shot_infrared:
 		_camera.environment = _world_environment.environment
-	size = PHOTO_SIZE
+	size = Vector2i(Vector2(PHOTO_SIZE) * IR_SCALE) if shot_infrared else PHOTO_SIZE
 	render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	# Deux images : la première au nouveau format, la seconde lue une fois le rendu terminé.
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var image := get_texture().get_image()
-	_camera.environment = live_environment
-	size = LIVE_SIZE
+	if shot_infrared:
+		image.resize(PHOTO_SIZE.x, PHOTO_SIZE.y, Image.INTERPOLATE_BILINEAR)
+	_camera.environment = _ir_environment if shot_infrared else _visible_environment
+	size = _live_size()
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var screen_image := get_texture().get_image()
 	_camera.cull_mask = live_mask
 	_capturing = false
+	# Mode changé pendant la prise de vue : appliqué maintenant.
+	_apply_mode()
 	active = active
-	return {"image": image, "screen_image": screen_image}
+	return {"image": image, "screen_image": screen_image, "infrared": shot_infrared}

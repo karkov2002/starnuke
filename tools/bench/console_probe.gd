@@ -289,6 +289,19 @@ func _check_tablet(view: Node) -> void:
 	var under: Vector2 = (view.get_node("Orbit") as OrbitSimulation).get_subsatellite_point()
 	var off_km := GeoMath.distance_km(center.x, center.y, under.x, under.y)
 	_check(off_km < 1.0, "centre de la vue au nadir sur le point survolé (%.2f km)" % off_km)
+	# Mode infrarouge : Terre thermique seule, dessinée seulement dans ce mode, capteur en résolution réduite.
+	var thermal := earth.get_node("ThermalSurface") as ThermalSurface
+	var surface_material := (earth.get_node("Surface") as MeshInstance3D).material_override as ShaderMaterial
+	var thermal_material := thermal.material_override as ShaderMaterial
+	_check(thermal_material.shader == ThermalSurface.SHADER and thermal_material.get_shader_parameter("day_texture")
+			== surface_material.get_shader_parameter("day_texture") and not thermal.visible
+			and camera.cull_mask & ThermalSurface.LAYER == 0, "Terre thermique : matériau copié, cachée en visible")
+	nadir.infrared = true
+	_check(camera.cull_mask == ThermalSurface.LAYER and thermal.visible
+			and nadir.size == Vector2i(Vector2(NadirCamera.LIVE_SIZE) * NadirCamera.IR_SCALE), "nadir en infrarouge")
+	nadir.infrared = false
+	_check(camera.cull_mask & ThermalSurface.LAYER == 0 and not thermal.visible and nadir.size == NadirCamera.LIVE_SIZE,
+			"nadir revenue en visible")
 	_check(nadir.footprint_km(400.0).y > 150.0 and nadir.footprint_km(400.0).y < 160.0, "emprise à 400 km : %.0f km" % nadir.footprint_km(400.0).y)
 	# Photo : RenderingServer.frame_post_draw ne vient jamais sans fenêtre (headless) : vérifié seulement avec rendu.
 	if DisplayServer.get_name() != "headless":

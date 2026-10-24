@@ -24,7 +24,7 @@ const TILE_SETS := [
 ## Point de vue autour duquel charger les tuiles ; par défaut la caméra active.
 @export var observer_path: NodePath
 ## Autres maillages dont le ShaderMaterial utilise les tuiles (couche nuageuse).
-@export var extra_material_paths: Array[NodePath] = [^"../CloudLayer"]
+@export var extra_material_paths: Array[NodePath] = [^"../CloudLayer", ^"../ThermalSurface"]
 ## Compresse les tuiles couleur en BC1 (VRAM / 8) : nettement plus lent à charger (compression CPU), et le
 ## compresseur n'existe que dans l'éditeur. Sans compression, les fenêtres occupent ~430 Mo de VRAM.
 @export var compress_tiles := false

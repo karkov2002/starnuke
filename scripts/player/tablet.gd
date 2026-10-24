@@ -137,6 +137,7 @@ func _ready() -> void:
 	display.orbit = get_node(orbit_path) as OrbitSimulation
 	display.flight_computer = get_node(flight_computer_path) as FlightComputer
 	display.photo_requested.connect(_take_photo)
+	display.infrared_changed.connect(func(infrared: bool) -> void: _nadir.infrared = infrared)
 	_viewport.add_child(display)
 	_connect_archive.call_deferred()
 	# Même shader que l'écran du poste de pilotage : émission brute (un StandardMaterial3D émet en nits avec les
@@ -328,4 +329,5 @@ func _take_photo() -> void:
 	var shot: Dictionary = await _nadir.capture_photo()
 	if shot.is_empty():
 		return
-	archive.add(shot.image, shot.screen_image, point.x, point.y, utc, altitude, _nadir.footprint_km(altitude))
+	archive.add(shot.image, shot.screen_image, point.x, point.y, utc, altitude, _nadir.footprint_km(altitude),
+			shot.infrared)

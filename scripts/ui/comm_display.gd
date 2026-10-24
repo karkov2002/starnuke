@@ -606,7 +606,8 @@ func _gallery_list() -> void:
 		var fg := BLACK if chosen else WHITE
 		var bg := CYAN if chosen else BLUE
 		var hour := Time.get_time_string_from_unix_time(int(photo.utc_unix)).substr(0, 5)
-		var text := "%s%s %s" % ["►" if chosen else " ", hour, GeoMath.format_lat_lon(photo.lat, photo.lon)]
+		var tag := " %s" % tr("PHOTO_IR_TAG") if photo.get("infrared", false) else ""
+		var text := "%s%s%s %s" % ["►" if chosen else " ", hour, tag, GeoMath.format_lat_lon(photo.lat, photo.lon)]
 		_fill(Rect2i(1, row, SPLIT - 1, 1), " ", fg, bg)
 		_put(1, row, _fit(text, SPLIT - 1), fg, bg)
 		var id := int(photo.id)
@@ -620,7 +621,7 @@ func _gallery_view() -> void:
 	if photo.is_empty():
 		return
 	var stamp := Time.get_datetime_string_from_unix_time(int(photo.utc_unix), true) + " UTC"
-	_put(left, 3, tr("COMM_PHOTO_TITLE").format({"n": photo.id}).to_upper(), YELLOW, BLUE)
+	_put(left, 3, _photo_title(photo).to_upper(), YELLOW, BLUE)
 	_put(COLS - 2 - stamp.length(), 3, stamp, WHITE, BLUE)
 	var footprint: Vector2 = photo.footprint_km
 	_put(left, 4, _fit(tr("COMM_PHOTO_DETAILS").format({"position": GeoMath.format_lat_lon(photo.lat, photo.lon),
@@ -656,6 +657,12 @@ func _gallery_view() -> void:
 			row += 1
 
 
+## Titre d'une photo : numéro, et « IR » pour une photo infrarouge.
+func _photo_title(photo: Dictionary) -> String:
+	var title := tr("COMM_PHOTO_TITLE").format({"n": photo.id})
+	return title + " · " + tr("PHOTO_IR_TAG") if photo.get("infrared", false) else title
+
+
 ## Photo choisie agrandie, sur presque tout l'écran ; un clic ou Échap la ferme.
 func _photo_window() -> void:
 	var photo := _find_photo(_photo_id)
@@ -663,7 +670,7 @@ func _photo_window() -> void:
 		_overlay = Overlay.NONE
 		return
 	var box := Rect2i(1, 1, COLS - 2, ROWS - 2)
-	_window(box, tr("COMM_PHOTO_TITLE").format({"n": photo.id}))
+	_window(box, _photo_title(photo))
 	_place_image(photo.texture, Rect2i(box.position.x + 1, box.position.y + 1, box.size.x - 2, box.size.y - 2))
 	_zones.append([Rect2i(0, 0, COLS, ROWS), func() -> void: _overlay = Overlay.NONE])
 

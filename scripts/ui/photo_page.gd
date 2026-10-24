@@ -5,9 +5,13 @@ extends HBoxContainer
 ## ShutterOverlay, puis photo_requested : la tablette prend la photo, PhotoArchive) et la galerie des photos prises : « Galerie (n) »
 ## remplace la vue en direct par la dernière photo (◀ ▶ : précédente, suivante ; légende : numéro, date, point
 ## survolé, altitude, emprise), « Vue en direct » y revient ; le bouton Photo revient aussi à la vue en direct.
+## Bouton « Capteur : visible / infrarouge » (choix manuel) : infrared_changed, la tablette règle NadirCamera.infrared ;
+## les photos infrarouges sont marquées « IR » dans leur légende.
 
 ## Bouton Photo pressé : la tablette prend la photo (scripts/tablet.gd).
 signal photo_requested
+## Capteur choisi : infrarouge (vrai) ou visible.
+signal infrared_changed(infrared: bool)
 
 ## Image de la vue au nadir (NadirCamera), fixée avant l'ajout à l'arbre.
 var nadir_texture: Texture2D
@@ -29,6 +33,9 @@ var _photo_caption: Label
 var _gallery_button: Button
 var _previous_button: Button
 var _next_button: Button
+var _sensor_button: Button
+## Capteur infrarouge choisi (bouton « Capteur »).
+var _infrared := false
 ## Photo affichée dans la galerie (−1 : vue en direct).
 var _photo_index := -1
 
@@ -82,6 +89,12 @@ func _ready() -> void:
 	label.add_theme_font_size_override("font_size", 26)
 	label.add_theme_color_override("font_color", PilotDisplay.COLOR_TEXT)
 	side.add_child(label)
+	_sensor_button = Button.new()
+	_sensor_button.focus_mode = Control.FOCUS_NONE
+	_sensor_button.toggle_mode = true
+	_sensor_button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_sensor_button.toggled.connect(_set_infrared)
+	side.add_child(_sensor_button)
 	side.add_child(HSeparator.new())
 	_gallery_button = Button.new()
 	_gallery_button.focus_mode = Control.FOCUS_NONE
@@ -119,7 +132,7 @@ func _show_photo(index: int) -> void:
 	var count := _photo_count()
 	if _photo_index < 0:
 		_photo_view.texture = nadir_texture
-		_photo_caption.text = tr("TABLET_NADIR")
+		_photo_caption.text = tr("TABLET_NADIR_IR" if _infrared else "TABLET_NADIR")
 	else:
 		var photo: Dictionary = archive.photos[_photo_index]
 		var footprint: Vector2 = photo.footprint_km
@@ -128,10 +141,20 @@ func _show_photo(index: int) -> void:
 				"date": Time.get_datetime_string_from_unix_time(int(photo.utc_unix), true).substr(0, 16),
 				"place": GeoMath.format_lat_lon(photo.lat, photo.lon), "altitude": roundi(photo.altitude_km),
 				"width": roundi(footprint.x), "height": roundi(footprint.y)})
+		if photo.get("infrared", false):
+			_photo_caption.text = tr("PHOTO_IR_TAG") + " · " + _photo_caption.text
+	_sensor_button.text = tr("TABLET_SENSOR_IR" if _infrared else "TABLET_SENSOR_VISIBLE")
 	_gallery_button.text = tr("TABLET_LIVE") if _photo_index >= 0 else tr("TABLET_GALLERY").format({"count": count})
 	_gallery_button.disabled = count == 0 and _photo_index < 0
 	_previous_button.disabled = _photo_index <= 0
 	_next_button.disabled = _photo_index < 0 or _photo_index >= count - 1
+
+
+## Bouton « Capteur » : visible ou infrarouge ; retour à la vue en direct.
+func _set_infrared(infrared: bool) -> void:
+	_infrared = infrared
+	_show_photo(-1)
+	infrared_changed.emit(infrared)
 
 
 ## Bouton Photo : retour à la vue en direct, obturateur, et prise de vue par la tablette (photo_requested).

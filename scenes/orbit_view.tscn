@@ -42,6 +42,7 @@
 [ext_resource type="Script" uid="uid://chwoo57o5ordl" path="res://scripts/screens/station_position.gd" id="40_m8b5w"]
 [ext_resource type="Script" uid="uid://d3yd6on0baulb" path="res://scripts/screens/radar_console.gd" id="41_y0nhr"]
 [ext_resource type="Script" uid="uid://cklul1442uptf" path="res://scripts/orbit/bearing_log.gd" id="42_3bkr8"]
+[ext_resource type="Script" path="res://scripts/orbit/thermal_surface.gd" id="50_thermal"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_obs"]
 radius = 0.3
@@ -127,6 +128,9 @@ material_override = ExtResource("2_h5pva")
 cast_shadow = 0
 mesh = SubResource("SphereMesh_dokek")
 script = ExtResource("4_3kqp2")
+
+[node name="ThermalSurface" type="MeshInstance3D" parent="Earth" unique_id=1702938461]
+script = ExtResource("50_thermal")
 
 [node name="CloudLayer" type="MeshInstance3D" parent="Earth" unique_id=1416907069]
 material_override = ExtResource("6_0pmab")

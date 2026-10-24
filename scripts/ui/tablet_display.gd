@@ -17,6 +17,8 @@ extends Control
 signal tab_changed(tab: int)
 ## Bouton Photo pressé : la tablette prend la photo (scripts/tablet.gd).
 signal photo_requested
+## Capteur de la page Photographie : infrarouge (vrai) ou visible (PhotoPage.infrared_changed).
+signal infrared_changed(infrared: bool)
 
 enum Tab { PILOT, PHOTO, MISSILE, ALERTS }
 
@@ -112,6 +114,7 @@ func _ready() -> void:
 	_photo_page.nadir_texture = nadir_texture
 	_photo_page.archive = archive
 	_photo_page.photo_requested.connect(photo_requested.emit)
+	_photo_page.infrared_changed.connect(infrared_changed.emit)
 	var alerts := AlertsPage.new()
 	alerts.call_started.connect(func() -> void: show_tab(Tab.ALERTS))
 	_pages.append(_build_pilot_page(page_size))

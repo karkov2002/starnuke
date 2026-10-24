@@ -499,6 +499,20 @@ des phalanges puis gonflée de 4,5 mm : tissu épais, gonflement et lissage nuls
 	(dernière photo), ◀ ▶ (précédente, suivante), légende sur fond sombre (numéro, date, point survolé, altitude,
 	emprise), « Vue en direct » pour revenir ; le bouton Photo revient aussi à la vue en direct. Photos gardées le
 	temps de la partie (elles entreront dans la sauvegarde de campagne) ;
+	**Capteur infrarouge** (bouton « Capteur : visible / infrarouge » sous le bouton Photo, choix manuel ;
+	`NadirCamera.infrared`) : vue et photos en **infrarouge thermique**, niveaux de gris « blanc = chaud » (style
+	militaire), pour photographier aussi de nuit. La caméra ne voit alors que la Terre thermique (`ThermalSurface`,
+	`scripts/orbit/thermal_surface.gd`, enfant de `Earth` à côté de `Surface` : maillage et copie de son matériau avec
+	le shader `shaders/earth_thermal.gdshader`, sur le calque `ThermalSurface.LAYER` retiré de la caméra de la vue et
+	cachée hors du mode IR : rien n'est dessiné en temps normal ; tuiles HD, soleil et explosions l'alimentent comme
+	les autres matériaux), sur fond noir, sans exposition automatique, capteur en **demi-résolution** (`IR_SCALE`,
+	photo agrandie en 1 600 × 1 253 : image plus douce) et grain. Modèle de température : **mers tièdes** presque sans
+	cycle jour / nuit (la nuit, plus claires que les terres : côtes lisibles), **terres** fraîches la nuit et chauffées
+	par le soleil le jour (sols nus sombres plus chauds, végétation plus fraîche), contraste local du relief (vallées,
+	rivières), **villes** en îlots de chaleur (lumières de nuit floutées ; atténués par le black-out), plus froid vers
+	les pôles, **sommets des nuages froids** (sombres), fumée tiède, **incendies et flashs des explosions en blanc**.
+	Les photos IR sont marquées « IR » (légende de la tablette, liste et titre de la Galerie de COMM.EXE, fichier
+	`…_IR.png`, sauvegarde) ; la note d'une photo de mission est la même qu'en visible.
   - **Tir de missile** : la commande de tir (`LaunchControl` : 48 silos, **petits boutons de puissance** — à terme,
 	chaque silo aura sa bombe et sa puissance —, gros bouton rouge), mise à l'échelle pour occuper la page ;
   - **Alertes** (`AlertsPage` ; règle de jeu : la tablette est le récepteur des alertes, comme un téléphone) :

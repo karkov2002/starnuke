@@ -18,7 +18,8 @@ const FOLDER := "user://photos"
 const THUMBS := "user://photos/thumbs"
 const THUMB_WIDTH := 600
 
-## Photos, dans l'ordre de prise : {id, texture, lat, lon, utc_unix, altitude_km, footprint_km (Vector2), path}.
+## Photos, dans l'ordre de prise : {id, texture, lat, lon, utc_unix, altitude_km, footprint_km (Vector2), path,
+## thumb_path, infrared}.
 var photos: Array[Dictionary] = []
 ## Enregistrements PNG en cours (WorkerThreadPool) : attendus à la sortie, comme ceux de NukeImpact.
 var _tasks: Array[int] = []
@@ -37,9 +38,10 @@ func _exit_tree() -> void:
 ## Ajoute une photo prise au-dessus de (lat, lon) : image pleine résolution (rendu final, enregistrée en PNG) et image
 ## pour l'écran de la tablette (rendu de la vue en direct, cf. Tablet._take_photo) ; rend sa description. Les PNG
 ## (photo et vignette) sont écrits dans un thread : l'encodage d'une image pleine résolution figeait l'image ; les
-## images ne doivent plus être modifiées après l'appel.
+## images ne doivent plus être modifiées après l'appel. infrared : photo infrarouge (NadirCamera.infrared ; « _IR »
+## dans le nom du fichier).
 func add(image: Image, screen_image: Image, lat_deg: float, lon_deg: float, utc_unix: float, altitude_km: float,
-		footprint_km: Vector2) -> Dictionary:
+		footprint_km: Vector2, infrared := false) -> Dictionary:
 	var thumb := screen_image.duplicate() as Image
 	if thumb.get_width() > THUMB_WIDTH:
 		thumb.resize(THUMB_WIDTH, roundi(THUMB_WIDTH * float(thumb.get_height()) / thumb.get_width()),
@@ -48,7 +50,7 @@ func add(image: Image, screen_image: Image, lat_deg: float, lon_deg: float, utc_
 	var thumb_path := ""
 	if DirAccess.make_dir_recursive_absolute(FOLDER) == OK and DirAccess.make_dir_recursive_absolute(THUMBS) == OK:
 		var stamp := Time.get_datetime_string_from_unix_time(int(utc_unix)).replace(":", "-")
-		path = FOLDER.path_join("%s_%+.2f_%+.2f.png" % [stamp, lat_deg, lon_deg])
+		path = FOLDER.path_join("%s_%+.2f_%+.2f%s.png" % [stamp, lat_deg, lon_deg, "_IR" if infrared else ""])
 		thumb_path = THUMBS.path_join(path.get_file())
 		for i in range(_tasks.size() - 1, -1, -1):
 			if WorkerThreadPool.is_task_completed(_tasks[i]):
@@ -57,7 +59,7 @@ func add(image: Image, screen_image: Image, lat_deg: float, lon_deg: float, utc_
 		_tasks.append(WorkerThreadPool.add_task(_write_files.bind(image, path, thumb, thumb_path)))
 	var photo := {"id": photos.size() + 1, "texture": ImageTexture.create_from_image(thumb), "lat": lat_deg,
 			"lon": lon_deg, "utc_unix": utc_unix, "altitude_km": altitude_km, "footprint_km": footprint_km,
-			"path": path, "thumb_path": thumb_path}
+			"path": path, "thumb_path": thumb_path, "infrared": infrared}
 	photos.append(photo)
 	photo_taken.emit(photo)
 	return photo
@@ -75,7 +77,8 @@ static func _write_files(image: Image, path: String, thumb: Image, thumb_path: S
 func to_save() -> Array:
 	return photos.map(func(p: Dictionary) -> Dictionary:
 		return {"lat": p.lat, "lon": p.lon, "utc_unix": p.utc_unix, "altitude_km": p.altitude_km,
-				"footprint_km": [p.footprint_km.x, p.footprint_km.y], "path": p.path, "thumb_path": p.thumb_path})
+				"footprint_km": [p.footprint_km.x, p.footprint_km.y], "path": p.path, "thumb_path": p.thumb_path,
+				"infrared": p.get("infrared", false)})
 
 
 ## Photos d'une sauvegarde (to_save) : vignette relue (sinon la photo pleine résolution) ; une photo dont les
@@ -91,7 +94,7 @@ func restore(saved: Array) -> void:
 		photos.append({"id": photos.size() + 1, "texture": ImageTexture.create_from_image(image), "lat": entry.lat,
 				"lon": entry.lon, "utc_unix": entry.utc_unix, "altitude_km": entry.altitude_km,
 				"footprint_km": Vector2(footprint[0], footprint[1]), "path": entry.path,
-				"thumb_path": entry.thumb_path})
+				"thumb_path": entry.thumb_path, "infrared": bool(entry.get("infrared", false))})
 	restored.emit()
 
 
