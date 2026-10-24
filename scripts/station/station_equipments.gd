@@ -5,16 +5,19 @@ extends Node
 ## (EquipmentPanel, objet Interactif_Panneau_* du modèle, accessible seulement dehors). Ajouter un équipement : son
 ## modèle et son panneau dans Blender (tools/blender/build_eva_equipment.py), une ligne ici, puis brancher son effet
 ## sur ce qu'il alimente (StationEquipments.find(tree, id).is_operational()).
-## Effets actuels : caméra -> vue au nadir et photos de la tablette (Tablet) ; antenne -> liaison radio (RadioComms).
+## Effets actuels : caméra -> vue au nadir et photos de la tablette (Tablet) ; antenne -> liaison radio (RadioComms) ;
+## radar -> réception de la console radar (RadarConsole).
 ## Sauvegardé avec le monde de la campagne (WorldSnapshot : to_save, restore).
 
 const GROUP := &"station_equipments"
 const CAMERA := &"camera"
 const ANTENNA := &"antenna"
+const RADAR := &"radar"
 ## id -> nom (clé de langue), programme du panneau, objet du panneau dans le modèle.
 const EQUIPMENT := {
 	CAMERA: {"name": "EQUIP_CAMERA", "program": "CAMERA.EXE", "panel": "Interactif_Panneau_Camera"},
 	ANTENNA: {"name": "EQUIP_ANTENNA", "program": "ANTENNA.EXE", "panel": "Interactif_Panneau_Antenne"},
+	RADAR: {"name": "EQUIP_RADAR", "program": "RADAR.EXE", "panel": "Interactif_Panneau_Radar"},
 }
 
 ## Chemins des nœuds de la vue orbitale, vus depuis ce nœud (transmis aux panneaux).

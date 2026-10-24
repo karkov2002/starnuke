@@ -1,12 +1,14 @@
 # Outil hors-jeu : modélise les équipements extérieurs réparables de la station et leurs écrans de maintenance, et
-# les pose sous le module Commande dans E:\Blender\nuke_station.blend (Blender ouvert, extension MCP de Blender Lab,
-# port 9876) :
+# les pose sous le module Commande (le radar sous l'Habitation) dans E:\Blender\nuke_station.blend (Blender
+# ouvert, extension MCP de Blender Lab, port 9876) :
 # - caméra de photographie (Equipement_Camera) : tourelle gyrostabilisée façon boule optronique (couronne crantée,
 #   fourche, boule à quatre optiques : grand objectif infrarouge, objectif visible, petit objectif, télémètre), ~1 m,
 #   pendue sous la coque, optiques vers le nadir ;
 # - antenne radio (Equipement_Antenne) : antenne log-périodique (deux tubes, dix brins de longueur décroissante)
 #   pointée vers le nadir, sous un rotateur d'azimut ;
-# - pour chacun, un panneau de maintenance (Interactif_Panneau_Camera, Interactif_Panneau_Antenne) : boîtier blanc
+# - radar de réception (Equipement_Radar), sous l'Habitation : parabole d'environ 1,1 m tournée vers le nadir sur une
+#   monture azimut-élévation, source au foyer sur trois bras ;
+# - pour chacun, un panneau de maintenance (Interactif_Panneau_Camera, _Antenne, _Radar) : boîtier blanc
 #   durci à poignées EVA, sur une jambe de force, écran monochrome (dalle, matériau Ecran_Panneau_EVA, partagé)
 #   tourné vers l'arrivée depuis le sas et vers le bas : accessible seulement en sortie extravéhiculaire.
 # EVA_MODE choisit l'action :
@@ -35,13 +37,15 @@ exec(open(r"E:\Projects\starnuke\tools\blender\build_station_devices.py", encodi
 HULL_Z = -2.10            # dessous de la coque du module Commande (rayon 2,10 m, relevé par lancer de rayons)
 CAMERA_X = 14.70          # entre la cupola (x 10,4–13,2) et l'anneau avant (x 16)
 ANTENNA_X = 8.40          # de l'autre côté de la cupola, après la jonction avec l'Habitation (x 7,1)
+RADAR_X = 1.00            # sous l'Habitation (coque x −4,3 à 4,3, à z −2,10 ; dessous dégagé)
+RADAR_PANEL_DX = 1.45     # la parabole déborde de 0,62 m (fourche) : panneau plus écarté
 PANEL_DX = 0.95           # écart appareil – panneau le long du module
 # Orientation de l'affichage des panneaux : vers le bas et vers le sas (−X) ou vers l'avant du module (+X).
 FACING_AFT = Vector((-0.55, 0.0, -0.835)).normalized()
 FACING_FORE = Vector((0.55, 0.0, -0.835)).normalized()
 SCREEN_MATERIAL = "Ecran_Panneau_EVA"
 
-# objet -> (sorte, origine monde[, orientation de l'affichage d'un panneau])
+# objet -> (sorte, origine monde[, orientation de l'affichage d'un panneau[, collection]])
 TARGETS = {
     "Equipement_Camera": ("camera", (CAMERA_X, 0.0, HULL_Z)),
     # Tourné vers l'avant du module (24/10/2026, demande de l'utilisateur) : vers le sas, il regardait la caméra et
@@ -50,6 +54,8 @@ TARGETS = {
     "Equipement_Antenne": ("antenne", (ANTENNA_X, 0.0, HULL_Z)),
     # Côté sas : de l'autre côté, il serait collé contre la cupola.
     "Interactif_Panneau_Antenne": ("panneau_antenne", (ANTENNA_X - PANEL_DX, 0.0, HULL_Z), FACING_AFT),
+    "Equipement_Radar": ("radar", (RADAR_X, 0.0, HULL_Z), None, "Module_Habitation"),
+    "Interactif_Panneau_Radar": ("panneau_radar", (RADAR_X - RADAR_PANEL_DX, 0.0, HULL_Z), FACING_AFT, "Module_Habitation"),
 }
 COLLECTION = "Module_Commande"
 
@@ -228,6 +234,75 @@ def build_antenna(b):
                      0.010, 10), "cable")
 
 
+def lathe(profile, seg=64):
+    """Solide de révolution autour de Z : profile, liste fermée de (rayon, z) parcourue une fois."""
+    bm = bmesh.new()
+    rings = []
+    for k in range(seg):
+        a = 2 * math.pi * k / seg
+        c, s = math.cos(a), math.sin(a)
+        rings.append([bm.verts.new((r * c, r * s, z)) for r, z in profile])
+    n = len(profile)
+    for k in range(seg):
+        r0, r1 = rings[k], rings[(k + 1) % seg]
+        for i in range(n):
+            j = (i + 1) % n
+            bm.faces.new((r0[i], r1[i], r1[j], r0[j]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return bm
+
+
+def build_radar(b):
+    """Radar de réception : parabole (Ø 1,1 m) tournée vers le nadir sur une monture azimut-élévation, source au
+    foyer sur trois bras (origine sur la coque), ~1,05 m."""
+    b.add(cyl(0.30, 0.03, 48, bevel=0.006), "gris", Matrix.Translation((0, 0, -0.015)))
+    screws(b, [Vector((0.26 * math.cos(a), 0.26 * math.sin(a), -0.03))
+               for a in (2 * math.pi * k / 10 for k in range(10))],
+           Matrix.Rotation(math.pi, 4, 'X'), r=0.009, head=0.006)
+    # Socle d'azimut : carter blanc, couronne grise.
+    b.add(cyl(0.17, 0.26, 48, bevel=0.012), "blanc", Matrix.Translation((0, 0, -0.16)))
+    b.add(cyl(0.20, 0.035, 48, bevel=0.006), "gris", Matrix.Translation((0, 0, -0.305)))
+    # Fourche d'élévation : traverse, deux bras jusqu'aux pivots, de part et d'autre de la parabole.
+    pivot_z = -0.66
+    b.add(box(1.30, 0.14, 0.06, r=0.02, bevel=0.008), "gris", Matrix.Translation((0, 0, -0.35)))
+    for side in (-1, 1):
+        x = side * 0.62
+        b.add(box(0.06, 0.12, abs(pivot_z + 0.35) + 0.06, r=0.015, bevel=0.006), "gris",
+              Matrix.Translation((x, 0, (pivot_z - 0.35) / 2)))
+        b.add(cyl(0.065, 0.06, 32, bevel=0.006), "couronne",
+              Matrix.Translation((x + side * 0.02, 0, pivot_z)) @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
+        # Tourillon de la parabole jusqu'au pivot.
+        b.add(box(0.07, 0.07, 0.07, bevel=0.006), "alu", Matrix.Translation((side * 0.575, 0, pivot_z)))
+    # Réflecteur : paraboloïde (rayon R, profondeur d), coque de 2 cm, sommet en haut (vers la coque), creux vers le
+    # nadir ; nervures au dos ; moyeu central.
+    R, depth, top = 0.55, 0.16, -0.50
+    f = R * R / (4 * depth)
+    n = 14
+    front = [(0.07 + (R - 0.07) * i / n, top - 0.02 - (0.07 + (R - 0.07) * i / n) ** 2 / (4 * f)) for i in range(n + 1)]
+    back = [(r, z + 0.02) for r, z in reversed(front)]
+    b.add(lathe([(R + 0.012, front[-1][1] + 0.01)] + back + front), "blanc")
+    b.add(cyl(0.09, 0.10, 32, bevel=0.008), "gris", Matrix.Translation((0, 0, top - 0.02)))
+    for k in range(8):
+        a = 2 * math.pi * k / 8
+        d = Vector((math.cos(a), math.sin(a), 0))
+        # Nervure en quatre tronçons qui suivent le dos courbe (une corde droite le traverserait).
+        pts = [d * r + Vector((0, 0, top + 0.016 - r * r / (4 * f))) for r in (0.10, 0.21, 0.32, 0.43, R - 0.03)]
+        for p0, p1 in zip(pts, pts[1:]):
+            b.add(box(0.012, 0.024, (p1 - p0).length + 0.01, bevel=0.003), "alu", align(p0, p1))
+    # Source au foyer, tenue par trois bras depuis le bord ; câble le long d'un bras.
+    focus = Vector((0, 0, top - 0.02 - f))
+    b.add(cyl(0.05, 0.10, 24, r2=0.075, bevel=0.004), "gris", Matrix.Translation(focus + Vector((0, 0, 0.0))))
+    b.add(cyl(0.062, 0.006, 24), "joint", Matrix.Translation(focus + Vector((0, 0, -0.053))))
+    rim_z = front[-1][1]
+    for k in range(3):
+        a = 2 * math.pi * k / 3 + math.pi / 2
+        rim = Vector((0.52 * math.cos(a), 0.52 * math.sin(a), rim_z))
+        b.add(cyl(0.011, (focus - rim).length, 12), "alu", align(rim, focus + Vector((0, 0, 0.04))))
+    b.add(tube_along([(0.0, 0.17, -0.30), (0.0, 0.30, -0.42), (0.0, 0.42, -0.60), (0.0, 0.47, rim_z)],
+                     0.010, 10), "cable")
+
+
+
 PANEL_W, PANEL_H, PANEL_D = 0.46, 0.36, 0.10
 DISP_W, DISP_H = 0.32, 0.24
 
@@ -274,7 +349,7 @@ def build_panel_strut(b, panel_matrix_local):
           Matrix.Translation((0, 0, back.z / 2)))
 
 
-def make_object(name, build, *args):
+def make_object(name, build, *args, collection=COLLECTION):
     mats = eva_materials()
     b = Builder(mats)
     build(b, *args)
@@ -288,7 +363,7 @@ def make_object(name, build, *args):
         obj.data = mesh
         if old and old.users == 0:
             bpy.data.meshes.remove(old)
-    col = bpy.data.collections[COLLECTION]
+    col = bpy.data.collections[collection]
     if obj.name not in col.objects:
         for c in list(obj.users_collection):
             c.objects.unlink(obj)
@@ -296,7 +371,7 @@ def make_object(name, build, *args):
     return obj
 
 
-def make_collider(name, parent, size, center):
+def make_collider(name, parent, size, center, collection=COLLECTION):
     """Volume de collision convexe (boîte), enfant de parent : -convcolonly à l'import Godot."""
     cname = name + "-convcolonly"
     obj = bpy.data.objects.get(cname)
@@ -309,7 +384,7 @@ def make_collider(name, parent, size, center):
     bm.free()
     if obj is None:
         obj = bpy.data.objects.new(cname, mesh)
-        bpy.data.collections[COLLECTION].objects.link(obj)
+        bpy.data.collections[collection].objects.link(obj)
     else:
         old = obj.data
         obj.data = mesh
@@ -363,22 +438,26 @@ def apply():
     assert bpy.data.filepath.lower().endswith("nuke_station.blend"), "ouvrir E:\\Blender\\nuke_station.blend"
     screen = screen_material(demo=False)
     done = {}
-    for name, (kind, origin, *facing) in TARGETS.items():
-        facing = facing[0] if facing else FACING_AFT
+    for name, (kind, origin, *extra) in TARGETS.items():
+        facing = (extra[0] if extra else None) or FACING_AFT
+        col = extra[1] if len(extra) > 1 else COLLECTION
         if kind == "camera":
-            obj = make_object(name, build_camera)
-            make_collider(name, obj, (0.76, 0.76, 0.95), (0, 0, -0.48))
+            obj = make_object(name, build_camera, collection=col)
+            make_collider(name, obj, (0.76, 0.76, 0.95), (0, 0, -0.48), col)
         elif kind == "antenne":
-            obj = make_object(name, build_antenna)
-            make_collider(name, obj, (0.30, 0.30, 0.62), (0, 0, -0.31))
+            obj = make_object(name, build_antenna, collection=col)
+            make_collider(name, obj, (0.30, 0.30, 0.62), (0, 0, -0.31), col)
+        elif kind == "radar":
+            obj = make_object(name, build_radar, collection=col)
+            make_collider(name, obj, (1.32, 1.20, 1.06), (0, 0, -0.53), col)
         else:
-            obj = make_object(name, build_panel_with_strut, screen, facing)
+            obj = make_object(name, build_panel_with_strut, screen, facing, collection=col)
             obj["interactif"] = True
             obj["type"] = "panneau_eva"
             obj["materiau_ecran"] = SCREEN_MATERIAL
-            make_collider(name, obj, (0.50, 0.40, 0.55), (0, 0, -0.30))
+            make_collider(name, obj, (0.50, 0.40, 0.55), (0, 0, -0.30), col)
         obj["id"] = name.split("_", 1)[1]
-        if kind in ("camera", "antenne"):
+        if kind in ("camera", "antenne", "radar"):
             obj["equipement"] = kind
         else:
             obj["equipement"] = kind.removeprefix("panneau_")
@@ -477,6 +556,7 @@ def render_views():
         # Éclairage d'appoint (le dessous de la station est dans l'ombre) : lampes de casque d'un astronaute.
         for nm, loc, target, energy in (("_Eva_Cle", (12.0, -3.0, -5.0), (14.7, 0, -2.6), 900),
                                         ("_Eva_Cle2", (6.0, -3.0, -5.0), (8.4, 0, -2.8), 900),
+                                        ("_Eva_Cle3", (-2.0, -3.5, -5.0), (0.5, 0, -2.8), 900),
                                         ("_Eva_Contre", (17.0, 3.0, -4.5), (12.0, 0, -2.6), 400)):
             ld = bpy.data.lights.new(nm, 'AREA')
             ld.energy, ld.size = energy, 2.0
@@ -493,6 +573,9 @@ def render_views():
             "panneau_camera": ((17.6, -0.6, -3.6), (15.65, 0.0, -2.45), 35),
             "antenne_34": ((5.2, -3.2, -3.9), (8.4, 0.0, -2.9), 30),
             "panneau_antenne": ((5.6, -0.9, -3.5), (7.45, 0.0, -2.45), 35),
+            "radar_34": ((-1.6, -3.2, -4.2), (1.0, 0.0, -2.75), 30),
+            "radar_dessous": ((1.4, -1.6, -5.2), (1.0, 0.0, -2.8), 28),
+            "panneau_radar": ((-2.2, -0.9, -3.5), (-0.45, 0.0, -2.45), 35),
         }
         for nm, (loc, target, lens) in shots.items():
             cam.location = loc

@@ -10,6 +10,8 @@ extends Control
 ## - Barre de signal (cohérence × amplitude, en dB).
 ## - En bas : nom des trois boutons du modèle, au-dessus de chacun (KNOB_U : positions des boutons de
 ##   tools/blender/build_radar_console.py rapportées à la largeur de la dalle) ; bande choisie en surbrillance.
+## - Radar extérieur arrêté ou en panne (fault_key, posé par la console) : bruit de fond seulement (NOISE_FLOOR) et
+##   message clignotant au centre de l'oscilloscope.
 ## Textes : clés des fichiers de langue (tr), redessinés à chaque image.
 
 const FONTS: PackedStringArray = ["Consolas", "Cascadia Mono", "Courier New", "monospace"]
@@ -29,11 +31,15 @@ const CYCLES := 3.0
 const KNOB_U: Array[float] = [0.145, 0.5, 0.855]
 ## Vitesse (1/s) à laquelle l'affichage suit la mesure (fusion progressive des courbes).
 const FOLLOW := 6.0
+## Amplitude des courbes, radar extérieur hors service (bruit de fond du récepteur).
+const NOISE_FLOOR := 0.06
 
 var receiver: RadarReceiver
 ## Dernière mesure (RadarReceiver.measure) et point survolé (degrés), posés par la console.
 var measure := {}
 var station_point := Vector2.ZERO
+## Clé du message de panne (RADAR_FAILURE, RADAR_OFF) ; vide si le radar extérieur fonctionne.
+var fault_key := ""
 
 var _font: SystemFont
 var _time := 0.0
@@ -67,10 +73,13 @@ func _draw() -> void:
 	_draw_curves(scope)
 	var position_text := tr("RADAR_POSITION").format({"pos": GeoMath.format_lat_lon(station_point.x, station_point.y, 3)})
 	draw_string(_font, scope.position + Vector2(10, 24), position_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, DIM)
-	var locked := _coherence >= RadarReceiver.LOCK
-	var state := tr("RADAR_LOCKED") if locked else tr("RADAR_SEARCHING")
-	if locked or fmod(_time, 1.2) < 0.8:
-		_right(state, Vector2(scope.end.x - 10, scope.position.y + 24), 18, AMBER if locked else DIM)
+	if fault_key != "":
+		_draw_fault(scope)
+	else:
+		var locked := _coherence >= RadarReceiver.LOCK
+		var state := tr("RADAR_LOCKED") if locked else tr("RADAR_SEARCHING")
+		if locked or fmod(_time, 1.2) < 0.8:
+			_right(state, Vector2(scope.end.x - 10, scope.position.y + 24), 18, AMBER if locked else DIM)
 	_draw_meter(Rect2(w * 0.03, h * 0.765, w * 0.94, h * 0.05))
 	_draw_footer(w, h)
 
@@ -103,7 +112,7 @@ func _draw_curves(scope: Rect2) -> void:
 	var c := clampf(_coherence, 0.0, 1.0)
 	var chaos := 1.0 - c
 	var cy := scope.get_center().y
-	var hh := scope.size.y * 0.5
+	var hh := scope.size.y * 0.5 * (NOISE_FLOOR if fault_key != "" else 1.0)
 	var tuned_amp := hh * 0.88 * (0.10 + 0.90 * clampf(_amplitude, 0.0, 1.0))
 	var points := PackedVector2Array()
 	points.resize(SAMPLES + 1)
@@ -126,6 +135,18 @@ func _draw_curves(scope: Rect2) -> void:
 			draw_polyline(points, glow, 8.0, true)
 		color.a = lerpf(0.7, 0.95, c)
 		draw_polyline(points, color, 2.0, true)
+
+
+## Message de panne, clignotant, dans un cadre au centre de l'oscilloscope.
+func _draw_fault(scope: Rect2) -> void:
+	if fmod(_time, 1.0) >= 0.6:
+		return
+	var text := tr(fault_key)
+	var width := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 44).x + 48.0
+	var box := Rect2(scope.get_center() - Vector2(width * 0.5, 38), Vector2(width, 76))
+	draw_rect(box, BACK)
+	draw_rect(box, AMBER, false, 3.0)
+	_centered(text, box.get_center() + Vector2(0, 15), 44, AMBER)
 
 
 func _draw_meter(rect: Rect2) -> void:

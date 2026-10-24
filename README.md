@@ -805,6 +805,10 @@ une interface diégétique : elle est dessinée en 2D dans un `SubViewport` et a
   radar »). Écran à phosphore vert : bande, **azimut de l'antenne** en grands chiffres en haut, fréquence accordée à
   droite ; oscilloscope au centre, avec la position de la station (pour la triangulation) et l'état « RECHERCHE » ou
   « ACCROCHÉ » ; barre de signal en dB ; en bas, le nom des trois boutons, au-dessus de chacun.
+  - **Radar extérieur** : la console ne reçoit que si le radar de réception sous l'Habitation (équipement
+	`RADAR.EXE`, « Équipements extérieurs réparables ») est allumé et pas en panne. Sinon, plus aucun signal
+	(`RadarConsole.current_measure` sans source, bruit de fond très faible à l'oscilloscope) et « PANNE RADAR » ou
+	« RADAR ARRÊTÉ » clignote au centre ; il se répare dehors, à son panneau de maintenance.
   - **Utilisation** : comme la télévision et la radio (`ScreenSeatConsole`) : clic sur la dalle → la vue se cadre
 	face à la console, agrandie vers le bas pour montrer les boutons ; clic droit → on quitte. Les trois boutons 3D
 	se manipulent en **maintenant le clic et en glissant la souris à gauche ou à droite** (curseur « glisser » au
@@ -1200,15 +1204,19 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	et les normales sont saines.
 - **Équipements extérieurs** (`tools/blender/build_eva_equipment.py`, envoyé au Blender ouvert : `EVA_MODE = "apply"`
   crée ou remplace les objets, `"render"` rend des aperçus en situation dans `E:\Blender\apercus_eva`, `"remove"` les
-  retire) : sous le module Commande, optiques et antenne vers le nadir.
+  retire) : sous le module Commande (le radar sous l'Habitation), optiques, antenne et parabole vers le nadir.
   - `Equipement_Camera` (x 14,7, entre la cupola et l'anneau avant) : tourelle optronique d'environ 1 m (couronne
 	crantée vissée sur la coque, fourche à grilles d'aération, boule noire à grand objectif infrarouge bleuté,
 	objectif visible, petit objectif, télémètre à deux pupilles) ;
   - `Equipement_Antenne` (x 8,4, de l'autre côté de la cupola) : antenne log-périodique (deux tubes, dix brins de
 	longueur décroissante) sous un rotateur d'azimut blanc ;
+  - `Equipement_Radar` (x 1,0, sous l'Habitation, dont le dessous est dégagé) : radar de réception d'environ
+	1,05 m, parabole blanche de 1,1 m tournée vers le nadir (nervures au dos qui suivent sa courbure), monture
+	azimut-élévation (socle blanc, fourche grise), source au foyer sur trois bras ;
   - panneaux de maintenance `Interactif_Panneau_Camera` (derrière la caméra, écran tourné vers le bas et vers l'avant
 	du module : vers le sas, il regardait la caméra et restait inaccessible) et `Interactif_Panneau_Antenne` (côté sas,
 	écran tourné vers le bas et vers le sas) : boîtier blanc durci à poignées EVA jaunes sur une jambe de force,
+	`Interactif_Panneau_Radar` (à 1,45 m du radar côté sas, à l'écart de sa fourche, écran vers le bas et le sas) ;
 	dalle `Ecran_Panneau_EVA` (extras `type` « panneau_eva », `equipement`, `materiau_ecran`) ;
   - volumes de collision `-convcolonly` (boîtes, exclues des rendus Blender).
 - **Import** (`station_spatiale.glb.import`) : échelle 1 (mètres), racine `StationSpatiale`, collisions par
@@ -1385,7 +1393,8 @@ noms de nœuds ; tout réglage côté Godot passe par son `.import`, le script d
 	de `orbit_view.tscn`, classe `StationEquipments` ; état d'un équipement `StationEquipment`,
 	`scripts/station/station_equipment.gd`) : éléments de la station, à l'extérieur, qui peuvent **tomber en panne**
 	et qu'on vient **réparer sur place**, en interagissant avec leur écran. Pour l'instant : la **caméra de
-	photographie** (`CAMERA.EXE`) et l'**antenne radio** (`ANTENNA.EXE`). Architecture commune, prévue pour d'autres
+	photographie** (`CAMERA.EXE`), l'**antenne radio** (`ANTENNA.EXE`) et le **radar de réception** (`RADAR.EXE`,
+	sous l'Habitation : sans lui, la console radar ne capte plus rien, voir « Console radar »). Architecture commune, prévue pour d'autres
 	éléments : une entrée de `StationEquipments.EQUIPMENT` (identifiant, nom, programme, objet du panneau) crée l'état
 	et le panneau ; il reste à brancher l'effet (`StationEquipments.find(tree, id).is_operational()`).
 	- **Règle** : un équipement ne fonctionne que **allumé** (bouton ON / OFF de son panneau) **et pas en panne**.

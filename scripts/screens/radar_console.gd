@@ -13,6 +13,9 @@ extends ScreenSeatConsole
 ## Modèle et règles de jeu (sources, horizon, accord, lobe de l'antenne) : RadarReceiver. Sources : en mode libre,
 ## RadarReceiver.FREE_MODE_SOURCES (Oslo VHF 100 MHz, Los Angeles UHF 800 MHz) ; les missions de la campagne
 ## ajouteront les leurs par add_source.
+## Règle de jeu : la console ne reçoit que si le radar extérieur (StationEquipments.RADAR, sous l'Habitation) est
+## allumé et pas en panne ; sinon plus aucun signal (bruit de fond) et « PANNE RADAR » ou « RADAR ARRÊTÉ » clignote à
+## l'écran. Il se répare dehors, à son panneau de maintenance (EquipmentPanel).
 
 enum Knob { NONE = -1, AZIMUTH, FREQUENCY, BAND }
 
@@ -35,12 +38,15 @@ const BAND_DEG := 40.0
 const BAND_DRAG_PX := 25.0
 ## Agrandissement vers le bas du cadre de la vue assise (part de la hauteur de la dalle) : bande des boutons.
 const SEAT_EXTEND_DOWN := 0.6
+## Mesure sans signal (radar extérieur arrêté ou en panne).
+const NO_SIGNAL := {"coherence": 0.0, "amplitude": 0.0, "id": "", "bearing": 0.0}
 
 @export var orbit_path: NodePath = ^"../Orbit"
 
 var receiver := RadarReceiver.new()
 
 var _orbit: OrbitSimulation
+var _equipment: StationEquipment
 var _display: RadarDisplay
 ## Bouton -> Node3D du modèle, et sa pose de repos (Transform3D locale, position zéro ; sélecteur sur VHF).
 var _knobs := {}
@@ -63,10 +69,19 @@ func remove_source(id: String) -> void:
 	receiver.remove_source(id)
 
 
-## Mesure courante (RadarReceiver.measure) vue de la station.
+## Mesure courante (RadarReceiver.measure) vue de la station ; NO_SIGNAL si le radar extérieur ne fonctionne pas.
 func current_measure() -> Dictionary:
+	if not radar_operational():
+		return NO_SIGNAL.duplicate()
 	var point := _orbit.get_subsatellite_point()
 	return receiver.measure(point.x, point.y, _orbit.altitude_km)
+
+
+## Radar extérieur allumé et pas en panne (vrai sans équipements : bancs d'essai).
+func radar_operational() -> bool:
+	if _equipment == null:
+		_equipment = StationEquipments.find(get_tree(), StationEquipments.RADAR)
+	return _equipment == null or _equipment.is_operational()
 
 
 func _screen_node() -> String:
@@ -119,7 +134,8 @@ func _update_screen(delta: float, near_now: bool) -> void:
 		return
 	var point := _orbit.get_subsatellite_point()
 	_display.station_point = point
-	_display.measure = receiver.measure(point.x, point.y, _orbit.altitude_km)
+	_display.measure = current_measure()
+	_display.fault_key = "" if radar_operational() else ("RADAR_FAILURE" if _equipment.failed else "RADAR_OFF")
 	_update_knobs(delta)
 
 

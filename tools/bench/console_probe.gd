@@ -30,7 +30,7 @@ func _ready() -> void:
 	_check(report.get("_screen") != null and report.get("_viewport") != null, "NukeReport : dalle et viewport")
 	_check(report.is_processing(), "NukeReport actif")
 	var seats := get_tree().get_nodes_in_group(ScreenSeatConsole.GROUP)
-	_check(seats.size() == 6, "6 postes dans le groupe, dont 2 panneaux extérieurs (%d)" % seats.size())
+	_check(seats.size() == 7, "7 postes dans le groupe, dont 3 panneaux extérieurs (%d)" % seats.size())
 	for name in ["PilotConsole", "CommConsole", "TvConsole", "RadarConsole"]:
 		var console := view.get_node(name) as ScreenSeatConsole
 		print("- " + name)
@@ -427,7 +427,7 @@ func _check_equipment(view: Node) -> void:
 	_check(camera != null and antenna != null and camera.is_operational() and antenna.is_operational(),
 			"caméra et antenne en service au départ")
 	var station := view.get_node("Station/StationSpatiale") as Station
-	for panel_name in ["CameraPanel", "AntennaPanel"]:
+	for panel_name in ["CameraPanel", "AntennaPanel", "RadarPanel"]:
 		var panel := equipments.get_node(panel_name) as EquipmentPanel
 		var viewport: SubViewport = panel.get("_viewport") if panel else null
 		_check(panel != null and panel.is_processing() and viewport != null and viewport.get_child_count() == 1,
@@ -486,6 +486,15 @@ func _check_equipment(view: Node) -> void:
 	antenna.set_powered(true)
 	radio.call("_update_link")
 	_check(radio.antenna_ok, "antenne remise en service")
+	# Radar : en panne ou arrêté -> plus de signal à la console radar, message à l'écran.
+	var radar_console := view.get_node("RadarConsole") as RadarConsole
+	var radar := StationEquipments.find(get_tree(), StationEquipments.RADAR)
+	radar.fail()
+	var no_signal := radar_console.current_measure()
+	_check(not radar_console.radar_operational() and float(no_signal.coherence) == 0.0 and String(no_signal.id) == "",
+			"radar en panne : plus de signal")
+	radar.repair()
+	_check(radar_console.radar_operational(), "radar réparé")
 	# Dehors jusqu'au retour par le sas : frôler la coque (coin de la boîte d'un volume qui en dépasse) ne fait pas
 	# « rentrer » dans un module (sinon, plus jamais dehors : panneaux inutilisables).
 	var observer := view.get_node("Observer") as CharacterBody3D
