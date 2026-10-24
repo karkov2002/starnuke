@@ -9,7 +9,7 @@ extends RefCounted
 ##   station à son altitude actuelle, comme RadarReceiver) : le trait s'y arrête. Un dernier clic valide le relevé.
 ##   Glisser déplace toujours la carte ; un nouveau clic sur « Rapporteur » annule.
 ## - Sans outil en cours : un clic sur le centre ou l'extrémité d'un relevé le choisit (trait bleu clair épais et son
-##   cercle de portée) ; « Effacer le relevé » l'efface.
+##   cercle de portée) ; la corbeille l'efface.
 
 enum Mode { OFF, PLACE, AIM }
 

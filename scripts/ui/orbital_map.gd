@@ -14,13 +14,13 @@ extends Control
 ## Cibles au sol (GroundTarget, jusqu'à 5, une couleur chacune) : icône de cible dans sa couleur avec ses
 ## coordonnées, la cible choisie en trait épais. Carte modifiable (targets_editable : celle du poste de pilotage
 ## seulement, règle de jeu) : menu des cibles en haut à gauche — un bouton par cible portant son icône dans sa couleur
-## (pâle tant qu'elle n'est pas posée ; le bouton de la cible choisie en surbrillance), « Effacer » ; les cibles se
+## (pâle tant qu'elle n'est pas posée ; le bouton de la cible choisie en surbrillance), corbeille (effacer) ; les cibles se
 ## placent à la main (pas de saisie de coordonnées) : un clic (sans glisser) sur la carte place la cible choisie au
 ## point cliqué, un clic sur une cible la choisit. Ailleurs (tablette), les cibles sont seulement affichées. Au
 ## survol, les coordonnées du point sous le pointeur le suivent.
 ##
 ## Rapporteur (BearingTool) : relevés de cap pour trianguler une source radar, en traits de grand cercle (BearingLog).
-## Carte modifiable : boutons « Rapporteur » et « Effacer le relevé » en haut à droite, clic pour poser le
+## Carte modifiable : boutons du rapporteur et sa corbeille en haut à droite, clic pour poser le
 ## centre puis pour valider, clic sur un relevé pour le choisir. Toutes les cartes affichent les relevés.
 ##
 ## Navigation, à la manière d'une carte en ligne : molette = zoom centré sur le curseur ; glisser (bouton gauche
@@ -107,7 +107,7 @@ var _overlay: Control
 var _orbit_buttons: Array[Button] = []
 ## Menu des cibles (carte modifiable) : un bouton par cible.
 var _slot_buttons: Array[Button] = []
-## Rapporteur (relevés de cap, BearingTool) et ses boutons (carte modifiable) : « Rapporteur », « Effacer le relevé ».
+## Rapporteur (relevés de cap, BearingTool) et ses boutons (carte modifiable) : rapporteur et corbeille (icônes).
 var _bearing_tool: BearingTool
 var _bearing_button: Button
 var _bearing_erase: Button
@@ -583,7 +583,7 @@ func _build_controls() -> void:
 		_build_bearing_menu(height, font, margin)
 
 
-## Menu des cibles (en haut à gauche) : un bouton par cible (la choisir), « Effacer » (la cible choisie).
+## Menu des cibles (en haut à gauche) : un bouton par cible (la choisir), corbeille (efface la cible choisie).
 func _build_target_menu(height: float, font: int, margin: float) -> void:
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 4)
@@ -604,7 +604,7 @@ func _build_target_menu(height: float, font: int, margin: float) -> void:
 					color if placed else Color(color, 0.35), 2.5 if placed else 2.0))
 		bar.add_child(slot_button)
 		_slot_buttons.append(slot_button)
-	var erase := _make_button("MAP_TARGET_CLEAR", height, font)
+	var erase := _make_icon_button("MAP_TARGET_CLEAR", height, _draw_erase_icon)
 	erase.pressed.connect(func() -> void:
 		var target := _get_target()
 		if target:
@@ -636,7 +636,7 @@ func _draw_orbits_icon(canvas: CanvasItem, center: Vector2, radius: float) -> vo
 
 
 ## Rapporteur (en haut à droite, sur la ligne du menu des cibles) : icône du rapporteur (démarrer ou annuler un relevé,
-## en surbrillance pendant le relevé), « Effacer le relevé » (le relevé choisi ; pâle sans relevé choisi).
+## en surbrillance pendant le relevé), corbeille (efface le relevé choisi ; pâle sans relevé choisi).
 func _build_bearing_menu(height: float, font: int, margin: float) -> void:
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 4)
@@ -650,7 +650,7 @@ func _build_bearing_menu(height: float, font: int, margin: float) -> void:
 				COLOR_PANEL_TEXT, 2.0))
 	_bearing_button.pressed.connect(func() -> void: _bearing_tool.toggle())
 	bar.add_child(_bearing_button)
-	_bearing_erase = _make_button("MAP_BEARING_CLEAR", height, font)
+	_bearing_erase = _make_icon_button("MAP_BEARING_CLEAR", height, _draw_erase_icon)
 	_bearing_erase.pressed.connect(func() -> void:
 		var bearing_log := _bearing_tool.get_log()
 		if bearing_log:
@@ -687,6 +687,31 @@ func _refresh_target_menu() -> void:
 	for slot in _slot_buttons.size():
 		_style_button(_slot_buttons[slot], slot == target.selected)
 		_slot_buttons[slot].queue_redraw()
+
+
+## Bouton carré à icône dessinée (draw_icon(canvas, centre, rayon)), nom de l'action en info-bulle.
+func _make_icon_button(tooltip_key: String, height: float, draw_icon: Callable) -> Button:
+	var button := _make_button("", height, int(height * 0.55))
+	button.tooltip_text = tr(tooltip_key)
+	button.draw.connect(func() -> void: draw_icon.call(button, button.size * 0.5, button.size.y * 0.32))
+	return button
+
+
+## Icône « effacer » : corbeille (couvercle et poignée, cuve évasée rayée).
+func _draw_erase_icon(canvas: CanvasItem, center: Vector2, radius: float) -> void:
+	var color := COLOR_PANEL_TEXT
+	var top := center.y - radius * 0.62
+	canvas.draw_line(Vector2(center.x - radius * 0.85, top), Vector2(center.x + radius * 0.85, top), color, 2.0, true)
+	canvas.draw_polyline(PackedVector2Array([Vector2(center.x - radius * 0.28, top), Vector2(center.x - radius * 0.28,
+			top - radius * 0.3), Vector2(center.x + radius * 0.28, top - radius * 0.3),
+			Vector2(center.x + radius * 0.28, top)]), color, 2.0, true)
+	var bottom := center.y + radius
+	canvas.draw_polyline(PackedVector2Array([Vector2(center.x - radius * 0.65, top + radius * 0.2),
+			Vector2(center.x - radius * 0.5, bottom), Vector2(center.x + radius * 0.5, bottom),
+			Vector2(center.x + radius * 0.65, top + radius * 0.2)]), color, 2.0, true)
+	for k: int in [-1, 0, 1]:
+		var x := center.x + k * radius * 0.25
+		canvas.draw_line(Vector2(x, top + radius * 0.45), Vector2(x, bottom - radius * 0.25), color, 1.5, true)
 
 
 func _make_button(text: String, height: float, font: int) -> Button:
