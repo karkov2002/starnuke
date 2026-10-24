@@ -16,7 +16,7 @@ extends Node
 
 const COLOR := Color(0.3, 1.0, 0.35, 0.8)
 ## Largeur des traits (km, au sol) vus à la verticale, à la distance de l'altitude.
-const LINE_KM := 5.0
+const LINE_KM := 2.5
 ## Incidence minimale prise en compte (sinus) : borne l'élargissement des traits proches de l'horizon.
 const MIN_GRAZING := 0.2
 ## Les bords partent à START_KM du point survolé (sous la station : pas de fouillis au sommet).
@@ -29,7 +29,7 @@ const MAJOR_TICK_LENGTH_KM := 70.0
 ## Axe : points tous les AXIS_DOT_KM (côté AXIS_DOT_SIZE_KM vu à la verticale), barres de AXIS_BAR_LENGTH_KM tous les
 ## AXIS_BAR_KM.
 const AXIS_DOT_KM := 50.0
-const AXIS_DOT_SIZE_KM := 8.0
+const AXIS_DOT_SIZE_KM := 4.0
 const AXIS_BAR_KM := 250.0
 const AXIS_BAR_LENGTH_KM := 50.0
 ## Hauteur au-dessus du sol (km) et finesse de l'arc et des bords.
